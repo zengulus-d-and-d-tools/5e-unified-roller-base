@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v2.1</title>
+    <title>All-In-One Roller - 5e</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -28,7 +28,7 @@
             background: var(--bg); 
             color: var(--text); 
             padding: 0; margin: 0; 
-            padding-top: 85px; /* Increased for taller header */
+            padding-top: 85px; 
             padding-bottom: 50px; 
         }
         .sheet-container { 
@@ -80,7 +80,7 @@
             font-weight: 600; position: absolute; top: 0; left: 0; width: 100%; text-align: center;
         }
 
-        /* --- LOG AREA REDESIGN --- */
+        /* --- LOG AREA --- */
         .log-area { 
             display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
             flex: 1; text-align: right; margin-left: 15px; overflow: hidden;
@@ -91,9 +91,34 @@
         .crit-text { color: var(--crit); text-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
         .fail-text { color: var(--fail); text-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
 
-        /* --- UI ELEMENTS --- */
-        .card { background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); }
-        .section-title { margin: 15px 0 8px 0; color: #888; font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 5px; letter-spacing: 0.05em; font-weight: bold; }
+        /* --- UI ELEMENTS & ACCORDIONS --- */
+        .card { 
+            background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); 
+            display: flex; flex-direction: column;
+        }
+        
+        .section-title { 
+            margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
+            border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;
+            letter-spacing: 0.05em; font-weight: bold; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Accordion specific styles */
+        .accordion-trigger { cursor: pointer; user-select: none; }
+        .accordion-trigger::after {
+            content: '▼'; font-size: 0.7rem; color: #666; transition: transform 0.3s ease;
+        }
+        .accordion-trigger.collapsed { border-bottom-color: transparent; margin-bottom: 0; padding-bottom: 0; }
+        .accordion-trigger.collapsed::after { transform: rotate(-90deg); }
+        
+        .accordion-content {
+            overflow: hidden; transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease;
+            max-height: 2000px; opacity: 1;
+        }
+        .accordion-content.collapsed {
+            max-height: 0; opacity: 0; margin: 0; pointer-events: none;
+        }
 
         .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .field-group { display: flex; flex-direction: column; }
@@ -254,7 +279,6 @@
         .webhook-row { grid-column: span 2; margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
         .discord-active { color: #5865F2; font-weight: bold; }
 
-        /* --- NEW CSS: RESOURCES & COMBAT ROW --- */
         .combat-row {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
             margin-bottom: 10px;
@@ -313,7 +337,7 @@
             </div>
             
             <div class="webhook-row" style="border:none; padding:0; margin:0; grid-column: span 2;">
-                <div class="section-title" style="margin-top:0;">Vitals (HP)</div>
+                <div class="section-title" style="margin-top:0; border-bottom:none;">Vitals (HP)</div>
                 <div class="hp-visual-bar">
                     <div class="hp-fill-curr" id="barCurr"></div>
                     <div class="hp-fill-temp" id="barTemp"></div>
@@ -405,79 +429,93 @@
     </div>
 
     <div class="card">
-        <div class="section-title" style="margin-top:0;">Combat Stats</div>
-        <div class="combat-row">
-            <div class="field-group">
-                <label>Initiative</label>
-                <div style="display:flex; gap:5px;">
-                    <input type="number" id="initBonus" placeholder="+0" oninput="save()">
-                    <button class="btn-sm-roll" style="width:40px;" onclick="rollInitiative()">🎲</button>
+        <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">Combat Stats & Resources</div>
+        <div class="accordion-content" id="body-combat">
+            <div class="combat-row">
+                <div class="field-group">
+                    <label>Initiative</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="initBonus" placeholder="+0" oninput="save()">
+                        <button class="btn-sm-roll" style="width:40px;" onclick="rollInitiative()">🎲</button>
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label>Speed (ft)</label>
+                    <input type="text" id="speedVal" placeholder="30" oninput="save()">
+                </div>
+                <div class="field-group">
+                    <label>Spell DC</label>
+                    <div class="read-only-box" id="globalDC" style="text-align:center; color:var(--slot);">--</div>
                 </div>
             </div>
-            <div class="field-group">
-                <label>Speed (ft)</label>
-                <input type="text" id="speedVal" placeholder="30" oninput="save()">
-            </div>
-            <div class="field-group">
-                <label>Spell DC</label>
-                <div class="read-only-box" id="globalDC" style="text-align:center; color:var(--slot);">--</div>
-            </div>
+
+            <div class="section-title" style="border:none; font-size:0.7rem;">Class Resources / Ammo</div>
+            <div id="resourceList" class="resource-list"></div>
+            <button class="add-btn" style="background: #2c3e50; color: #fff; margin-top:10px;" onclick="addResource()">+ Add Counter</button>
         </div>
-
-        <div class="section-title">Class Resources / Ammo</div>
-        <div id="resourceList" class="resource-list"></div>
-        <button class="add-btn" style="background: #2c3e50; color: #fff; margin-top:10px;" onclick="addResource()">+ Add Counter</button>
-    </div>
-
-    <div>
-        <div class="section-title">Attributes</div>
-        <div class="grid-6" id="statsGrid"></div>
-    </div>
-
-    <div>
-        <div class="section-title">Attacks</div>
-        <div id="attackList"></div>
-        <button class="add-btn" onclick="addAttack()">+ Add Weapon / Spell</button>
     </div>
 
     <div class="card">
-        <div class="section-title" style="margin-top:0;">Spell Slots</div>
-        <div id="spellSlotsList"></div>
-    </div>
-
-    <div>
-        <div class="section-title">Skills</div>
-        <div class="skill-list" id="skillGrid"></div>
+        <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">Attributes</div>
+        <div class="accordion-content" id="body-attr">
+            <div class="grid-6" id="statsGrid"></div>
+        </div>
     </div>
 
     <div class="card">
-        <div class="section-title" style="margin-top:0;">Arbitrary Roller</div>
-        <div class="custom-roll-row" style="margin-bottom:10px;">
-             <input type="text" id="customLabel" placeholder="Optional Label (e.g. Healing Potion)">
-        </div>
-        <div class="dice-grid">
-            <button class="dice-btn" onclick="rollDie(4,0,'d4',false,'check')">d4</button>
-            <button class="dice-btn" onclick="rollDie(6,0,'d6',false,'check')">d6</button>
-            <button class="dice-btn" onclick="rollDie(8,0,'d8',false,'check')">d8</button>
-            <button class="dice-btn" onclick="rollDie(10,0,'d10',false,'check')">d10</button>
-            <button class="dice-btn" onclick="rollDie(12,0,'d12',false,'check')">d12</button>
-            <button class="dice-btn" onclick="rollDie(20,0,'d20',true,'check')">d20</button>
-            <button class="dice-btn" onclick="rollDie(100,0,'d100',false,'check')">d100</button>
-        </div>
-        <div class="custom-roll-row">
-            <input type="text" id="customFormula" placeholder="e.g. 2d6+4">
-            <button class="btn-roll-custom" onclick="rollCustom()">Roll</button>
+        <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">Attacks</div>
+        <div class="accordion-content" id="body-atk">
+            <div id="attackList"></div>
+            <button class="add-btn" onclick="addAttack()">+ Add Weapon / Spell</button>
         </div>
     </div>
 
-    <div class="card io-card" style="margin-top:20px;">
-        <div class="section-title" style="margin-top:0;">Backup Data</div>
-        <textarea id="ioField" rows="2" placeholder="Save string..." style="width:100%; font-family:monospace; color:var(--accent); resize:none;"></textarea>
-        <div style="display:flex; gap:10px; margin-top:10px;">
-            <button style="flex:1; background:#333; color:#ccc;" onclick="exportData()">Copy Save</button>
-            <button style="flex:1; background:var(--accent); color:#000;" onclick="importData()">Load Save</button>
+    <div class="card">
+        <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">Spell Slots</div>
+        <div class="accordion-content" id="body-spells">
+            <div id="spellSlotsList"></div>
         </div>
-        <div id="ioMsg" style="text-align:center; color: var(--accent); font-size:0.8rem; margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+        <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">Skills</div>
+        <div class="accordion-content" id="body-skills">
+            <div class="skill-list" id="skillGrid"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">Arbitrary Roller</div>
+        <div class="accordion-content" id="body-roller">
+            <div class="custom-roll-row" style="margin-bottom:10px;">
+                <input type="text" id="customLabel" placeholder="Optional Label (e.g. Healing Potion)">
+            </div>
+            <div class="dice-grid">
+                <button class="dice-btn" onclick="rollDie(4,0,'d4',false,'check')">d4</button>
+                <button class="dice-btn" onclick="rollDie(6,0,'d6',false,'check')">d6</button>
+                <button class="dice-btn" onclick="rollDie(8,0,'d8',false,'check')">d8</button>
+                <button class="dice-btn" onclick="rollDie(10,0,'d10',false,'check')">d10</button>
+                <button class="dice-btn" onclick="rollDie(12,0,'d12',false,'check')">d12</button>
+                <button class="dice-btn" onclick="rollDie(20,0,'d20',true,'check')">d20</button>
+                <button class="dice-btn" onclick="rollDie(100,0,'d100',false,'check')">d100</button>
+            </div>
+            <div class="custom-roll-row">
+                <input type="text" id="customFormula" placeholder="e.g. 2d6+4">
+                <button class="btn-roll-custom" onclick="rollCustom()">Roll</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card io-card">
+        <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">Backup Data</div>
+        <div class="accordion-content" id="body-io">
+            <textarea id="ioField" rows="2" placeholder="Save string..." style="width:100%; font-family:monospace; color:var(--accent); resize:none;"></textarea>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button style="flex:1; background:#333; color:#ccc;" onclick="exportData()">Copy Save</button>
+                <button style="flex:1; background:var(--accent); color:#000;" onclick="importData()">Load Save</button>
+            </div>
+            <div id="ioMsg" style="text-align:center; color: var(--accent); font-size:0.8rem; margin-top:8px;"></div>
+        </div>
     </div>
 
 </div>
@@ -496,7 +534,8 @@
         meta: { player: '', name: '', level: 1, webhook: '', discordActive: false, init: 0, speed: '' },
         vitals: { curr: '', max: '', temp: '', hitDice: '', inspiration: 0, ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
-        skills: {}, attacks: [], spells: [], resources: [], rollMode: 'norm'
+        skills: {}, attacks: [], spells: [], resources: [], rollMode: 'norm',
+        uiState: {} // Stores closed/open state of accordions
     };
     
     let consumeInspirationOnNextRoll = false;
@@ -510,17 +549,16 @@
         if (saved) {
             const parsed = JSON.parse(saved);
             data = { ...data, ...parsed };
-            // Merge deep objects to avoid overwriting new fields
+            // Merge deep objects
             if(parsed.meta) data.meta = {...data.meta, ...parsed.meta};
             if(parsed.vitals) data.vitals = {...data.vitals, ...parsed.vitals};
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
             if(!data.spells || data.spells.length === 0) data.spells = defaultSpells;
-            
-            // New fields safety
-            if (!data.resources) data.resources = []; 
-            if (data.meta.init === undefined) data.meta.init = 0;
-            if (data.meta.speed === undefined) data.meta.speed = "";
+            if(!data.resources) data.resources = []; 
+            if(data.meta.init === undefined) data.meta.init = 0;
+            if(data.meta.speed === undefined) data.meta.speed = "";
+            if(!data.uiState) data.uiState = {};
         } else {
             Object.keys(skillsMap).forEach(s => data.skills[s] = 0);
             data.spells = defaultSpells;
@@ -532,7 +570,6 @@
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
-        // Load New Inputs
         document.getElementById('initBonus').value = data.meta.init;
         document.getElementById('speedVal').value = data.meta.speed;
         
@@ -552,6 +589,16 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
+        // Restore Accordion States
+        const accKeys = ['combat', 'attr', 'atk', 'spells', 'skills', 'roller', 'io'];
+        accKeys.forEach(key => {
+            const isClosed = data.uiState[key] === false; // Defaults to open if undefined
+            if (isClosed) {
+                document.getElementById('head-'+key).classList.add('collapsed');
+                document.getElementById('body-'+key).classList.add('collapsed');
+            }
+        });
+
         updateHP(); 
         renderStats();
         renderSkills();
@@ -560,6 +607,19 @@
         renderResources();
         updateAll();
         setMode(data.rollMode || 'norm');
+    }
+
+    // --- ACCORDION LOGIC ---
+    function toggleSection(key) {
+        const head = document.getElementById('head-' + key);
+        const body = document.getElementById('body-' + key);
+        head.classList.toggle('collapsed');
+        body.classList.toggle('collapsed');
+        
+        // Save state (true = open, false = closed)
+        const isOpen = !body.classList.contains('collapsed');
+        data.uiState[key] = isOpen;
+        save();
     }
 
     // --- RENDERERS ---
@@ -1012,8 +1072,7 @@
         const bonus = data.meta.init;
         const totalBonus = dexMod + bonus;
         
-        // Auto-calculate tie-breaker (using straight Dex score as decimal)
-        // e.g., A roll of 15 with 14 Dex becomes 15.14
+        // Auto-calculate tie-breaker
         const tieBreaker = data.stats.dex.val / 100; 
 
         // Standard d20 roll logic
@@ -1039,17 +1098,14 @@
         showLog(`Init (Dex ${dexMod>=0?'+':''}${dexMod} + ${bonus})`, finalScore);
         sendToDiscord("Initiative", `Dice: ${formulaStr} + ${totalBonus}`, `**${finalScore}**`, 'check');
         
-        // Consume inspiration if active
         if(data.rollMode !== 'norm') consumeInspiration();
     }
 
     function updateGlobalDC() {
-        // Calculates a generic Spell Save DC assuming the highest casting stat
         const pb = getPB(data.meta.level);
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
         
-        // Find highest mental stat mod
         statsArr.forEach(s => {
             const m = getMod(data.stats[s].val);
             if(m > maxMod) maxMod = m;
@@ -1104,11 +1160,9 @@
         data.vitals.hitDice = document.getElementById('hitDice').value;
         data.vitals.inspiration = parseInt(document.getElementById('inspirationVal').value) || 0;
         
-        // Save New Inputs
         data.meta.init = parseInt(document.getElementById('initBonus').value) || 0;
         data.meta.speed = document.getElementById('speedVal').value;
 
-        // Save DS
         if(document.getElementById('ds-s1')) {
             data.vitals.ds = {
                 s1: document.getElementById('ds-s1').checked,
