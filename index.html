@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v2.4</title>
+    <title>Unified 5e Sheet v2.5 (Optimized)</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -36,6 +36,11 @@
             display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; 
         }
         
+        /* --- UTILITY --- */
+        .span-2 { grid-column: span 2; }
+        .no-border { border: none !important; padding: 0 !important; margin: 0 !important; }
+        .flex-center { display: flex; align-items: center; justify-content: center; }
+
         /* --- STICKY HEADER --- */
         .roller-bar { 
             background: rgba(30, 30, 30, 0.98);
@@ -289,10 +294,10 @@
         button { border: none; border-radius: 6px; font-weight: bold; cursor: pointer; height: 40px; font-size: 0.9rem; }
         .add-btn { background: var(--accent-atk); color: #000; width: 100%; margin-top: 5px; }
 
-        .webhook-row { grid-column: span 2; margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
+        .webhook-row { margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
         .discord-active { color: #5865F2; font-weight: bold; }
 
-        /* NEW COUNTER STYLES */
+        /* COUNTER STYLES */
         .combat-row {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
             margin-bottom: 10px;
@@ -325,7 +330,7 @@
 
         @media (max-width: 600px) {
             .header-grid { grid-template-columns: 1fr; }
-            .webhook-row { grid-column: span 1; }
+            .span-2 { grid-column: span 1; }
             .log-area { max-width: 140px; margin-left: 10px; }
             .log-result { font-size: 1.5rem; }
             .hp-grid { grid-template-columns: 1fr 1fr; } 
@@ -365,8 +370,8 @@
                 <input type="text" id="charName" placeholder="Character Name" oninput="save()">
             </div>
             
-            <div class="webhook-row" style="border:none; padding:0; margin:0; grid-column: span 2;">
-                <div class="section-title" style="margin-top:0; border-bottom:none;">Vitals (HP)</div>
+            <div class="span-2">
+                <div class="section-title">Vitals (HP)</div>
                 
                 <div class="hp-visual-bar">
                     <div class="hp-fill-curr" id="barCurr"></div>
@@ -395,8 +400,8 @@
 
                 <div class="hp-manage-row">
                     <input type="number" id="hpInteractVal" placeholder="Amt">
-                    <button class="btn-dmg" onclick="applyDamage()">Dmg</button>
-                    <button class="btn-heal" onclick="applyHeal()">Heal</button>
+                    <button class="btn-dmg" onclick="modifyHP(true)">Dmg</button>
+                    <button class="btn-heal" onclick="modifyHP(false)">Heal</button>
                 </div>
                 
                 <div class="hd-row">
@@ -433,7 +438,7 @@
 
             </div>
 
-            <div class="webhook-row" style="border-top:none; padding-top:0;">
+            <div class="span-2 no-border">
                 <div class="insp-row">
                     <div class="insp-input-group">
                         <label style="color:#aaa; font-size:0.75rem; text-transform:uppercase;">Inspiration</label>
@@ -452,14 +457,14 @@
                 <div class="read-only-box" id="charPB">+2</div>
             </div>
             
-            <div class="field-group" style="grid-column: span 2;">
+            <div class="field-group span-2">
                 <div class="passive-row">
                     <span style="color:#888; font-weight:bold; font-size:0.9rem;">Passive Perception</span>
                     <span id="passivePerc" style="color:#fff; font-weight:bold; font-size:1.1rem;">10</span>
                 </div>
             </div>
 
-            <div class="webhook-row">
+            <div class="webhook-row span-2">
                 <input type="text" id="webhookUrl" placeholder="Discord Webhook URL..." oninput="save()">
                 <label class="discord-toggle" id="discordLabel" style="display:flex; align-items:center; gap:8px; margin-top:5px; color:#aaa; font-size:0.9rem;">
                     <input type="checkbox" id="sendToDiscord" onchange="toggleDiscord(this.checked)"> 
@@ -586,16 +591,55 @@
     
     let consumeInspirationOnNextRoll = false;
 
+    // --- CORE DICE ENGINE (OPTIMIZED) ---
+    function coreRoll(count, sides, mode = 'norm') {
+        let rolls = [];
+        let total = 0;
+        let isCrit = false;
+        let isFail = false;
+        let formula = "";
+
+        // Special handling for d20 Advantage/Disadvantage
+        if (count === 1 && sides === 20 && mode !== 'norm') {
+            const r1 = Math.floor(Math.random() * sides) + 1;
+            const r2 = Math.floor(Math.random() * sides) + 1;
+            rolls = [r1, r2];
+            
+            if (mode === 'adv') {
+                total = Math.max(r1, r2);
+                formula = `[${r1}, ${r2}] (High)`;
+            } else {
+                total = Math.min(r1, r2);
+                formula = `[${r1}, ${r2}] (Low)`;
+            }
+        } else {
+            // Standard loop
+            for(let i=0; i<count; i++) {
+                let r = Math.floor(Math.random() * sides) + 1;
+                rolls.push(r);
+                total += r;
+            }
+            formula = `[${rolls.join('+')}]`;
+        }
+
+        // Crit checks (only for single d20s generally)
+        if (sides === 20 && count === 1) {
+            if (total === 20) isCrit = true;
+            if (total === 1) isFail = true;
+        }
+
+        return { total, rolls, formula, isCrit, isFail };
+    }
+
+    // --- INITIALIZATION ---
     function init() {
         const saved = localStorage.getItem('unifiedSheetDataV2'); 
-        
         let defaultSpells = [];
         for(let i=1; i<=9; i++) defaultSpells.push({ lvl: i, max: 0, used: 0 });
 
         if (saved) {
             const parsed = JSON.parse(saved);
             data = { ...data, ...parsed };
-            // Merge deep objects
             if(parsed.meta) data.meta = {...data.meta, ...parsed.meta};
             if(parsed.vitals) data.vitals = {...data.vitals, ...parsed.vitals};
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
@@ -606,10 +650,9 @@
             if(data.meta.speed === undefined) data.meta.speed = "";
             if(!data.uiState) data.uiState = {};
 
-            // Ensure HD fields exist if loading from older version
             if (data.vitals.hdCurr === undefined) data.vitals.hdCurr = data.meta.level || 1;
             if (data.vitals.hdMax === undefined) data.vitals.hdMax = data.meta.level || 1;
-            if (data.vitals.hdDie === undefined) data.vitals.hdDie = parsed.vitals.hitDice || 'd8'; // Migrate old value
+            if (data.vitals.hdDie === undefined) data.vitals.hdDie = parsed.vitals.hitDice || 'd8';
 
         } else {
             Object.keys(skillsMap).forEach(s => data.skills[s] = 0);
@@ -632,12 +675,10 @@
         document.getElementById('hpTemp').value = data.vitals.temp || '';
         document.getElementById('inspirationVal').value = data.vitals.inspiration || 0;
         
-        // Populate Hit Dice
         document.getElementById('hdDie').value = data.vitals.hdDie || 'd8';
         document.getElementById('hdCurr').value = data.vitals.hdCurr;
         document.getElementById('hdMax').value = data.vitals.hdMax;
 
-        // Death Saves
         document.getElementById('ds-s1').checked = data.vitals.ds.s1;
         document.getElementById('ds-s2').checked = data.vitals.ds.s2;
         document.getElementById('ds-s3').checked = data.vitals.ds.s3;
@@ -645,7 +686,6 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
-        // Restore Accordion States
         const accKeys = ['combat', 'attr', 'atk', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
@@ -752,10 +792,28 @@
         });
     }
 
-    // --- LOGIC ---
+    function renderResources() {
+        const list = document.getElementById('resourceList');
+        list.innerHTML = data.resources.map((res, i) => {
+            const restLabel = res.rest === 'sr' ? 'SR' : (res.rest === 'lr' ? 'LR' : 'MAN');
+            return `
+            <div class="resource-row">
+                <input type="text" class="res-name" placeholder="Name" value="${res.name}" onchange="updateRes(${i}, 'name', this.value)">
+                
+                <button class="btn-res-cycle" data-rest="${res.rest || 'none'}" onclick="toggleResRest(${i})">${restLabel}</button>
+                <button class="btn-res-minus" onclick="decrementRes(${i})">-</button>
+                
+                <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)">
+                <span class="res-sep">/</span>
+                <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)">
+                <button class="btn-del-res" onclick="delRes(${i})">&times;</button>
+            </div>
+        `}).join('');
+    }
+
+    // --- CALCULATION LOGIC ---
     function getMod(score) { return Math.floor((score - 10) / 2); }
     function getPB(level) { return Math.ceil(level / 4) + 1; }
-
     function updateLevel(val) { data.meta.level = Math.min(20, Math.max(1, parseInt(val))); save(); updateAll(); }
 
     function updateAll() {
@@ -775,16 +833,18 @@
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
         
-        // Passive Perception
         const wisMod = getMod(data.stats.wis.val);
         const percProf = data.skills['perception'] || 0;
         const passPerc = 10 + wisMod + (percProf * pb);
         document.getElementById('passivePerc').innerText = passPerc;
         
-        updateGlobalDC();
+        const statsArr = ['int', 'wis', 'cha'];
+        let maxMod = -5;
+        statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
+        document.getElementById('globalDC').innerText = 8 + pb + maxMod;
     }
 
-    // --- HP BAR & MANAGEMENT LOGIC ---
+    // --- HP LOGIC (OPTIMIZED) ---
     function updateHP() {
         const curr = parseInt(document.getElementById('hpCurr').value) || 0;
         const max = parseInt(document.getElementById('hpMax').value) || 0;
@@ -802,7 +862,6 @@
         document.getElementById('barTemp').style.width = tempPct + "%";
         document.getElementById('barText').innerText = `${curr} / ${max}` + (temp > 0 ? ` (+${temp})` : "");
         
-        // Auto-show Death Saves if 0 HP
         const dsRow = document.getElementById('deathSaveRow');
         if (curr <= 0 && max > 0) dsRow.style.display = 'grid';
         else dsRow.style.display = 'none';
@@ -810,62 +869,54 @@
         save();
     }
 
-    function applyDamage() {
-        let amt = parseInt(document.getElementById('hpInteractVal').value) || 0;
+    function modifyHP(isDamage) {
+        const interactInput = document.getElementById('hpInteractVal');
+        let amt = parseInt(interactInput.value) || 0;
         if (amt <= 0) return;
-        let temp = parseInt(document.getElementById('hpTemp').value) || 0;
-        let curr = parseInt(document.getElementById('hpCurr').value) || 0;
 
-        if (temp > 0) {
-            if (amt >= temp) { amt -= temp; temp = 0; } 
-            else { temp -= amt; amt = 0; }
+        let curr = parseInt(document.getElementById('hpCurr').value) || 0;
+        let max = parseInt(document.getElementById('hpMax').value) || 0;
+        let temp = parseInt(document.getElementById('hpTemp').value) || 0;
+
+        if (isDamage) {
+            if (temp > 0) {
+                if (amt >= temp) { amt -= temp; temp = 0; } 
+                else { temp -= amt; amt = 0; }
+            }
+            curr = Math.max(0, curr - amt);
+        } else {
+            curr += amt;
+            if (max > 0 && curr > max) curr = max;
         }
-        curr -= amt;
-        if (curr < 0) curr = 0;
 
         document.getElementById('hpTemp').value = temp;
         document.getElementById('hpCurr').value = curr;
-        document.getElementById('hpInteractVal').value = ''; 
+        interactInput.value = ''; 
         updateHP();
     }
 
-    function applyHeal() {
-        let amt = parseInt(document.getElementById('hpInteractVal').value) || 0;
-        if (amt <= 0) return;
-        let curr = parseInt(document.getElementById('hpCurr').value) || 0;
-        let max = parseInt(document.getElementById('hpMax').value) || 0;
-        curr += amt;
-        if (max > 0 && curr > max) curr = max;
-        document.getElementById('hpCurr').value = curr;
-        document.getElementById('hpInteractVal').value = ''; 
-        updateHP();
-    }
-    
-    // --- REST SYSTEM & HIT DICE ---
+    // --- REST SYSTEM ---
     function rollHitDie() {
         let currHD = parseInt(document.getElementById('hdCurr').value) || 0;
         const maxHD = parseInt(document.getElementById('hdMax').value) || 0;
         
-        if (currHD <= 0) {
-            alert("No Hit Dice remaining!");
-            return;
-        }
+        if (currHD <= 0) { alert("No Hit Dice remaining!"); return; }
 
         const dieStr = document.getElementById('hdDie').value || "d8";
         const sides = parseInt(dieStr.replace(/\D/g,'')) || 8; 
         const conMod = getMod(data.stats.con.val);
 
-        const roll = Math.floor(Math.random() * sides) + 1;
+        const result = coreRoll(1, sides);
+        const roll = result.rolls[0];
         const total = Math.max(0, roll + conMod); 
 
         let hpCurr = parseInt(document.getElementById('hpCurr').value) || 0;
         const hpMax = parseInt(document.getElementById('hpMax').value) || 0;
-        
         const oldHp = hpCurr;
+        
         hpCurr += total;
         if (hpMax > 0 && hpCurr > hpMax) hpCurr = hpMax;
-        const healedAmt = hpCurr - oldHp;
-
+        
         currHD--;
         document.getElementById('hpCurr').value = hpCurr;
         document.getElementById('hdCurr').value = currHD;
@@ -875,52 +926,31 @@
 
         const formula = `[${roll}] ${conMod>=0?'+':''}${conMod} (Con)`;
         showLog(formula, total);
-        sendToDiscord("Short Rest", `Used 1${dieStr}. Formula: ${formula}`, `**Healed ${healedAmt} HP**`, 'check');
+        sendToDiscord("Short Rest", `Used 1${dieStr}. Formula: ${formula}`, `**Healed ${hpCurr - oldHp} HP**`, 'check');
     }
     
     function shortRest() {
         if(!confirm("SHORT REST\n\n- Reset SR Counters?\n(Hit Dice must be rolled manually)")) return;
-        
-        data.resources.forEach(r => {
-            if(r.rest === 'sr') r.curr = r.max;
-        });
-        
-        save();
-        renderResources();
-        showLog("Short Rest", "Counters Reset");
+        data.resources.forEach(r => { if(r.rest === 'sr') r.curr = r.max; });
+        save(); renderResources(); showLog("Short Rest", "Counters Reset");
     }
 
     function longRest() {
         if(!confirm("LONG REST\n\n- Reset HP to Max\n- Reset Spell Slots\n- Regain ½ Max Hit Dice\n- Reset Death Saves\n- Reset SR/LR Counters")) return;
         
-        // 1. Reset HP
         document.getElementById('hpCurr').value = document.getElementById('hpMax').value;
         document.getElementById('hpTemp').value = 0;
-        
-        // 2. Reset Spells
         data.spells.forEach(s => s.used = 0);
         
-        // 3. Regain Hit Dice
         let hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
         const hdMax = parseInt(document.getElementById('hdMax').value) || 0;
-        
-        const regain = Math.max(1, Math.floor(hdMax / 2));
-        hdCurr += regain;
-        if (hdCurr > hdMax) hdCurr = hdMax;
-        
+        hdCurr = Math.min(hdMax, hdCurr + Math.max(1, Math.floor(hdMax / 2)));
         document.getElementById('hdCurr').value = hdCurr;
 
-        // 4. Reset Death Saves
         data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
-        
-        // 5. Reset Counters (SR and LR)
-        data.resources.forEach(r => {
-            if(r.rest === 'sr' || r.rest === 'lr') r.curr = r.max;
-        });
+        data.resources.forEach(r => { if(r.rest === 'sr' || r.rest === 'lr') r.curr = r.max; });
 
-        save();
-        init(); 
-        showLog("Long Rest", "Completed");
+        save(); init(); showLog("Long Rest", "Completed");
     }
 
     // --- INSPIRATION ---
@@ -945,19 +975,6 @@
         }
     }
 
-    // --- SPELLS ---
-    function updateSpellMax(idx, val) {
-        data.spells[idx].max = parseInt(val) || 0;
-        if(data.spells[idx].used > data.spells[idx].max) data.spells[idx].used = data.spells[idx].max;
-        save(); renderSpells();
-    }
-    function toggleSpellSlot(idx, bubbleIdx) {
-        const currentUsed = data.spells[idx].used;
-        if (bubbleIdx + 1 === currentUsed) { data.spells[idx].used = bubbleIdx; } 
-        else { data.spells[idx].used = bubbleIdx + 1; }
-        save(); renderSpells();
-    }
-
     function setMode(mode) {
         data.rollMode = mode;
         save(); 
@@ -965,7 +982,7 @@
         document.querySelector(`.adv-btn[data-mode="${mode}"]`).classList.add('active');
     }
 
-    // --- ROLLING LOGIC ---
+    // --- ROLLING WRAPPERS ---
     function showLog(formula, result, isCrit = false, isFail = false) {
         const logArea = document.getElementById('logArea');
         let resClass = 'log-result';
@@ -979,50 +996,27 @@
     }
 
     function rollDie(sides, bonus, label, allowAdvantage = true, type = 'check', customDesc = '') {
-        const miscInput = document.getElementById('globalMisc');
-        const misc = parseInt(miscInput.value) || 0;
+        const misc = parseInt(document.getElementById('globalMisc').value) || 0;
         
-        // Inspiration Check
         let effectiveMode = data.rollMode;
         let consumedInsp = false;
         
-        // Only use advantage logic if allowAdvantage is true (d20 stuff)
         if(allowAdvantage && consumeInspirationOnNextRoll) {
             effectiveMode = 'adv';
             consumedInsp = true;
         }
 
-        let r1 = Math.floor(Math.random() * sides) + 1;
-        let r2 = Math.floor(Math.random() * sides) + 1;
-        let roll = r1;
-        let formulaBase = `[${r1}]`;
-        let modeStr = "";
-
-        if (allowAdvantage && sides === 20) {
-            if (effectiveMode === 'adv') {
-                roll = Math.max(r1, r2);
-                formulaBase = `[${r1}, ${r2}] (High)`;
-                modeStr = " (ADV)";
-            } else if (effectiveMode === 'dis') {
-                roll = Math.min(r1, r2);
-                formulaBase = `[${r1}, ${r2}] (Low)`;
-                modeStr = " (DIS)";
-            }
-        }
-
-        const total = roll + bonus + misc;
+        // Use Core Roller
+        const result = coreRoll(1, sides, allowAdvantage ? effectiveMode : 'norm');
+        const total = result.total + bonus + misc;
         
-        let formulaText = `${formulaBase}`;
+        let formulaText = result.formula;
         if(bonus !== 0) formulaText += ` ${bonus>=0?'+':''}${bonus}`;
         if(misc !== 0) formulaText += ` ${misc>=0?'+':''}${misc} (Misc)`;
-        if(modeStr) formulaText += modeStr;
+        if(allowAdvantage && effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
 
-        const isCrit = (sides === 20 && roll === 20);
-        const isFail = (sides === 20 && roll === 1);
-
-        showLog(formulaText, total, isCrit, isFail);
-        
-        sendToDiscord(label + modeStr, `Dice: ${formulaText}`, `**${total}**`, type, customDesc);
+        showLog(formulaText, total, result.isCrit, result.isFail);
+        sendToDiscord(label + (effectiveMode!=='norm' && allowAdvantage ? ` (${effectiveMode.toUpperCase()})` : ''), `Dice: ${formulaText}`, `**${total}**`, type, customDesc);
         
         if(consumedInsp) consumeInspiration();
     }
@@ -1041,23 +1035,19 @@
         const modStr = match[3] ? match[3].replace(/\s/g, '') : "+0";
         const mod = parseInt(modStr);
 
-        let total = 0;
-        let rolls = [];
-        for(let i=0; i<count; i++) {
-            let r = Math.floor(Math.random() * sides) + 1;
-            total += r;
-            rolls.push(r);
-        }
-        total += mod;
+        const result = coreRoll(count, sides);
+        const total = result.total + mod;
 
-        showLog(`[${rolls.join('+')}] ${modStr}`, total);
-        sendToDiscord(label + ": " + formula, `Dice: [${rolls.join('+')}] ${modStr}`, `**${total}**`, 'dmg');
+        const fStr = `${result.formula} ${modStr}`;
+        showLog(fStr, total);
+        sendToDiscord(label + ": " + formula, `Dice: ${fStr}`, `**${total}**`, 'dmg');
     }
 
     function rollDamage(idx) {
         const atk = data.attacks[idx];
         let mod = 0;
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
+        
         const dmgStr = atk.dmg || "1d4"; 
         const regex = /(\d+)d(\d+)/i;
         const match = dmgStr.match(regex);
@@ -1065,67 +1055,81 @@
 
         const count = parseInt(match[1]);
         const sides = parseInt(match[2]);
-        let total = 0;
-        let rolls = [];
-        for (let i = 0; i < count; i++) {
-            let r = Math.floor(Math.random() * sides) + 1;
-            total += r;
-            rolls.push(r);
-        }
-        total += mod;
         
-        const formulaStr = `[${rolls.join('+')}] ${mod>=0?'+':''}${mod}`;
+        const result = coreRoll(count, sides);
+        const total = result.total + mod;
+        
+        const formulaStr = `${result.formula} ${mod>=0?'+':''}${mod}`;
         showLog(formulaStr, total);
         sendToDiscord((atk.name || 'Weapon') + " Damage", `Dice: ${formulaStr}`, `**${total}**`, 'dmg', atk.desc);
     }
 
+    function rollInitiative() {
+        data.meta.init = parseInt(document.getElementById('initBonus').value) || 0;
+        save();
+
+        const dexMod = getMod(data.stats.dex.val);
+        const totalBonus = dexMod + data.meta.init;
+        const tieBreaker = data.stats.dex.val / 100;
+
+        let effectiveMode = data.rollMode;
+        let consumedInsp = false;
+        if(consumeInspirationOnNextRoll) { effectiveMode = 'adv'; consumedInsp = true; }
+
+        const result = coreRoll(1, 20, effectiveMode);
+        const total = result.total + totalBonus;
+        const finalScore = (total + tieBreaker).toFixed(2);
+
+        let formulaText = result.formula;
+        if(effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
+
+        showLog(`Init (Dex ${dexMod>=0?'+':''}${dexMod} + ${data.meta.init})`, finalScore);
+        sendToDiscord("Initiative", `Dice: ${formulaText} + ${totalBonus}`, `**${finalScore}**`, 'check');
+        
+        if(consumedInsp) consumeInspiration();
+    }
+
+    // --- DEATH SAVES (OPTIMIZED) ---
     function rollDeathSave() {
-        const r = Math.floor(Math.random() * 20) + 1;
+        const r = Math.floor(Math.random() * 20) + 1; // Pure d20
         let msg = "Failure";
         let isCrit = false; let isFail = false;
         
         if (r === 20) { 
             msg = "Regain 1 HP!"; isCrit = true; 
-            // Auto heal 1
             document.getElementById('hpCurr').value = 1; 
             updateHP();
         } else if (r === 1) {
             msg = "2 Failures"; isFail = true;
-            addDeathFail(); addDeathFail();
+            updateDS('f'); updateDS('f');
         } else if (r >= 10) {
             msg = "Success"; isCrit = true;
-            addDeathSuccess();
+            updateDS('s');
         } else {
             msg = "Failure"; isFail = true;
-            addDeathFail();
+            updateDS('f');
         }
         
         showLog("Death Save", r, isCrit, isFail);
         sendToDiscord("Death Save", `Rolled: ${r}`, `**${msg}**`, 'save');
     }
     
-    function addDeathSuccess() {
+    function updateDS(type) {
         const d = data.vitals.ds;
-        if(!d.s1) d.s1 = true; else if(!d.s2) d.s2 = true; else if(!d.s3) d.s3 = true;
-        save(); init();
-    }
-    function addDeathFail() {
-        const d = data.vitals.ds;
-        if(!d.f1) d.f1 = true; else if(!d.f2) d.f2 = true; else if(!d.f3) d.f3 = true;
+        for(let i=1; i<=3; i++) {
+            if(!d[type+i]) { d[type+i] = true; break; }
+        }
         save(); init();
     }
 
-    // --- WRAPPERS ---
+    // --- DATA HELPERS ---
     function rollCheck(stat) { rollDie(20, getMod(data.stats[stat].val), stat.toUpperCase() + " Check", true, 'check'); }
-    
     function rollSave(stat) {
         const pb = getPB(data.meta.level);
         const mod = getMod(data.stats[stat].val);
-        const isProf = data.stats[stat].save;
-        const totalBonus = mod + (isProf ? pb : 0);
+        const totalBonus = mod + (data.stats[stat].save ? pb : 0);
         rollDie(20, totalBonus, stat.toUpperCase() + " Save", true, 'save'); 
     }
-
     function rollSkill(skill) {
         const stat = skillsMap[skill];
         const pb = getPB(data.meta.level);
@@ -1140,125 +1144,41 @@
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
         rollDie(20, mod + pb, (atk.name || 'Weapon') + " Atk", true, 'atk', atk.desc);
     }
-
-    // --- NEW LOGIC: RESOURCES & INITIATIVE ---
-    function renderResources() {
-        const list = document.getElementById('resourceList');
-        list.innerHTML = data.resources.map((res, i) => {
-            const restLabel = res.rest === 'sr' ? 'SR' : (res.rest === 'lr' ? 'LR' : 'MAN');
-            return `
-            <div class="resource-row">
-                <input type="text" class="res-name" placeholder="Name" value="${res.name}" onchange="updateRes(${i}, 'name', this.value)">
-                
-                <button class="btn-res-cycle" data-rest="${res.rest || 'none'}" onclick="toggleResRest(${i})">${restLabel}</button>
-                <button class="btn-res-minus" onclick="decrementRes(${i})">-</button>
-                
-                <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)">
-                <span class="res-sep">/</span>
-                <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)">
-                <button class="btn-del-res" onclick="delRes(${i})">&times;</button>
-            </div>
-        `}).join('');
-    }
-
-    function addResource() {
-        data.resources.push({ name: '', curr: 0, max: 0, rest: 'none' });
-        save();
-        renderResources();
-    }
-
-    function updateRes(i, field, val) {
-        if(field !== 'name') val = parseInt(val) || 0;
-        data.resources[i][field] = val;
-        save();
-    }
     
-    function decrementRes(i) {
-        if(data.resources[i].curr > 0) {
-            data.resources[i].curr--;
-            save();
-            renderResources();
-        }
-    }
-
-    function toggleResRest(i) {
-        const modes = ['none', 'sr', 'lr'];
-        const current = data.resources[i].rest || 'none';
-        const next = modes[(modes.indexOf(current) + 1) % 3];
-        data.resources[i].rest = next;
-        save();
-        renderResources();
-    }
-
-    function delRes(i) {
-        data.resources.splice(i, 1);
-        save();
-        renderResources();
-    }
-
-    function rollInitiative() {
-        // Save the bonus input first
-        data.meta.init = parseInt(document.getElementById('initBonus').value) || 0;
-        save();
-
-        const dexMod = getMod(data.stats.dex.val);
-        const bonus = data.meta.init;
-        const totalBonus = dexMod + bonus;
-        
-        // Auto-calculate tie-breaker
-        const tieBreaker = data.stats.dex.val / 100; 
-
-        // Standard d20 roll logic
-        const sides = 20;
-        const r1 = Math.floor(Math.random() * sides) + 1;
-        const r2 = Math.floor(Math.random() * sides) + 1;
-        
-        let roll = r1;
-        let formulaStr = `[${r1}]`;
-
-        // Handle Advantage/Disadvantage on Init
-        if (data.rollMode === 'adv') {
-            roll = Math.max(r1, r2);
-            formulaStr = `[${r1}, ${r2}] (High)`;
-        } else if (data.rollMode === 'dis') {
-            roll = Math.min(r1, r2);
-            formulaStr = `[${r1}, ${r2}] (Low)`;
-        }
-
-        const total = roll + totalBonus;
-        const finalScore = (total + tieBreaker).toFixed(2);
-
-        showLog(`Init (Dex ${dexMod>=0?'+':''}${dexMod} + ${bonus})`, finalScore);
-        sendToDiscord("Initiative", `Dice: ${formulaStr} + ${totalBonus}`, `**${finalScore}**`, 'check');
-        
-        if(data.rollMode !== 'norm') consumeInspiration();
-    }
-
-    function updateGlobalDC() {
-        const pb = getPB(data.meta.level);
-        const statsArr = ['int', 'wis', 'cha'];
-        let maxMod = -5;
-        
-        statsArr.forEach(s => {
-            const m = getMod(data.stats[s].val);
-            if(m > maxMod) maxMod = m;
-        });
-
-        const dc = 8 + pb + maxMod;
-        document.getElementById('globalDC').innerText = dc;
-    }
-
-    // --- DATA & IO ---
     function updateStat(stat, val) { data.stats[stat].val = parseInt(val); save(); updateAll(); }
     function toggleSave(stat, e) { 
         if(e.target.tagName !== 'INPUT') { data.stats[stat].save = !data.stats[stat].save; save(); renderStats(); updateAll(); } 
         else { data.stats[stat].save = e.target.checked; save(); updateAll(); }
     }
     function cycleSkill(skill) { data.skills[skill] = ( (data.skills[skill] || 0) + 1) % 3; save(); renderSkills(); updateAll(); }
+    
+    // --- SPELLS & RESOURCES ---
+    function updateSpellMax(idx, val) {
+        data.spells[idx].max = parseInt(val) || 0;
+        if(data.spells[idx].used > data.spells[idx].max) data.spells[idx].used = data.spells[idx].max;
+        save(); renderSpells();
+    }
+    function toggleSpellSlot(idx, bubbleIdx) {
+        const currentUsed = data.spells[idx].used;
+        if (bubbleIdx + 1 === currentUsed) { data.spells[idx].used = bubbleIdx; } 
+        else { data.spells[idx].used = bubbleIdx + 1; }
+        save(); renderSpells();
+    }
     function addAttack() { data.attacks.push({ name: '', stat: 'str', dmg: '1d8', desc: '' }); save(); renderAttacks(); }
     function updateAttack(idx, field, val) { data.attacks[idx][field] = val; save(); }
     function delAttack(idx) { data.attacks.splice(idx, 1); save(); renderAttacks(); }
     
+    function addResource() { data.resources.push({ name: '', curr: 0, max: 0, rest: 'none' }); save(); renderResources(); }
+    function updateRes(i, field, val) { if(field !== 'name') val = parseInt(val) || 0; data.resources[i][field] = val; save(); }
+    function decrementRes(i) { if(data.resources[i].curr > 0) { data.resources[i].curr--; save(); renderResources(); } }
+    function toggleResRest(i) {
+        const modes = ['none', 'sr', 'lr'];
+        const current = data.resources[i].rest || 'none';
+        data.resources[i].rest = modes[(modes.indexOf(current) + 1) % 3];
+        save(); renderResources();
+    }
+    function delRes(i) { data.resources.splice(i, 1); save(); renderResources(); }
+
     function toggleDiscord(active) {
         data.meta.discordActive = active;
         const label = document.getElementById('discordLabel');
@@ -1297,10 +1217,8 @@
         data.vitals.temp = document.getElementById('hpTemp').value;
         data.vitals.inspiration = parseInt(document.getElementById('inspirationVal').value) || 0;
         
-        data.meta.init = parseInt(document.getElementById('initBonus').value) || 0;
         data.meta.speed = document.getElementById('speedVal').value;
-
-        // Hit Dice Saves
+        
         data.vitals.hdDie = document.getElementById('hdDie').value;
         data.vitals.hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
         data.vitals.hdMax = parseInt(document.getElementById('hdMax').value) || 0;
@@ -1315,8 +1233,6 @@
                 f3: document.getElementById('ds-f3').checked,
             };
         }
-        
-        // Ensure counters rest mode is saved (it's part of data.resources which is stringified entirely below)
         localStorage.setItem('unifiedSheetDataV2', JSON.stringify(data)); 
     }
 
