@@ -543,13 +543,78 @@
         `).join('');
     }
 
+// --- LOOT DATA ---
+    const lootTables = {
+        // Pocket Lint: Categorized to prevent "Rusty Apples"
+        pocket: [
+            { // Metal / Hard
+                adjs: ["Rusty", "Bent", "Scratched", "Dull", "Twisted", "Tarnished"], 
+                nouns: ["Iron Nail", "Copper Coin (Fake)", "Tin Spoon", "Belt Buckle", "Skeleton Key", "Needle", "Brass Button"] 
+            },
+            { // Paper / Cloth
+                adjs: ["Soggy", "Crumpled", "Torn", "Stained", "Moldy", "Greasy", "Faded"], 
+                nouns: ["Grocery List", "Handkerchief", "Playing Card", "Map Scrap", "Love Letter", "Ticket Stub", "Rag"] 
+            },
+            { // Organic / Gross
+                adjs: ["Rotten", "Dried", "Half-eaten", "Withered", "Stinky", "Petrified"], 
+                nouns: ["Apple Core", "Rat Tail", "Flower", "Root", "Crust of Bread", "Fish Bone", "Beetle Shell"] 
+            },
+            { // Cordage / Misc
+                adjs: ["Tangled", "Knotted", "Frayed", "Short", "Braided", "Sticky"], 
+                nouns: ["Ball of String", "Length of Twine", "Copper Wire", "Shoelace", "Ribbon", "Wick", "Lock of Hair"] 
+            }
+        ],
+        // Trinkets: Nouns must be material-agnostic (can be made of wood OR gold)
+        trinket: {
+            nouns: ["Ring", "Animal Figurine", "Bead", "Button", "Comb", "Whistle", "Locket", "Thimble", "Brooch", "Cameo", "Coin", "Pendant", "Earring", "Bangle"],
+            suffixes: ["engraved with a name", "that feels warm", "missing a piece", "stained with ink", "smelling of sulfur", "wrapped in twine", "depicting a skull", "from a foreign land", "with a hidden compartment", "covered in runes"],
+            
+            // Low Value (CP - SP)
+            cheap: {
+                materials: ["Wooden", "Clay", "Pewter", "Bone", "Rusted Iron", "Chipped Ceramic", "Soapstone", "Leather", "Rough Copper", "Tin", "Carved Stone"],
+                values: ["1 cp", "5 cp", "8 cp", "2 sp", "5 sp"]
+            },
+            // High Value (1gp - 5gp)
+            fancy: {
+                materials: ["Silver-inlaid", "Carved Ivory", "Polished Jade", "Gilded", "Crystal", "Obsidian", "Clockwork", "Alabaster", "Ancient Bronze", "Mahogany", "Electrum"],
+                values: ["1 gp", "2 gp", "3 gp", "5 gp"]
+            }
+        }
+    };
+
     function genLoot(type) {
-        const pockets = ["Lint & String", "Half-eaten Apple", "Copper Ring (Worthless)", "Dull Knife", "Love Letter", "Wooden Comb", "Bag of Marbles"];
-        const trinkets = ["Glowing Stone", "Clockwork Goldfish", "Unbreakable Arrow", "Glass Eye", "Book that changes title", "Weird Key"];
-        
-        const src = type === 'pocket' ? pockets : trinkets;
-        const item = src[Math.floor(Math.random() * src.length)];
-        document.getElementById('lootResult').innerText = item;
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        let result = "";
+
+        if (type === 'pocket') {
+            // 1. Pick a category (Metal vs Paper vs Organic)
+            const category = pick(lootTables.pocket);
+            // 2. Pick Adj and Noun from THAT category
+            const adj = pick(category.adjs);
+            const noun = pick(category.nouns);
+            result = `${adj} ${noun} (Worthless)`;
+        } 
+        else if (type === 'trinket') {
+            const noun = pick(lootTables.trinket.nouns);
+            const suffix = Math.random() > 0.5 ? " " + pick(lootTables.trinket.suffixes) : "";
+            
+            // Determine Value Tier (40% chance of being "Nice")
+            const isFancy = Math.random() < 0.4;
+            const tier = isFancy ? lootTables.trinket.fancy : lootTables.trinket.cheap;
+            
+            const material = pick(tier.materials);
+            const value = pick(tier.values);
+
+            result = `${material} ${noun}${suffix} (${value})`;
+        }
+
+        // Animation Effect
+        const el = document.getElementById('lootResult');
+        el.style.opacity = 0;
+        setTimeout(() => {
+            el.innerText = result;
+            el.style.opacity = 1;
+        }, 100);
     }
 
     // --- TABS ---
