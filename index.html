@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v2.8</title>
+    <title>Unified 5e Sheet v2.9</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -318,31 +318,18 @@
         
         .res-name { font-weight: bold; font-size: 0.9rem; color: #fff; flex: 1; }
         
-        /* Res Viz - Default */
-        .res-viz-def { display: flex; align-items: center; gap: 6px; width: 100%; }
+        /* Inputs Row (Always Visible in v2.9) */
+        .res-controls-row { display: flex; align-items: center; gap: 6px; width: 100%; }
         .res-val { width: 60px !important; text-align: center; font-weight: bold; padding: 5px !important; }
         
-        /* Res Viz - Bar (Interactive in v2.8) */
-        .res-bar-wrapper { display: flex; align-items: center; gap: 5px; width: 100%; }
+        /* Visualizations */
         .res-viz-bar { 
-            flex: 1; height: 26px; background: #1a1a1a; cursor: pointer;
-            border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden;
+            width: 100%; height: 18px; background: #1a1a1a; cursor: pointer;
+            border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden; margin-top: 2px;
         }
         .res-bar-fill { height: 100%; background: var(--res-bar); transition: width 0.3s; }
-        .res-bar-text { 
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-            display: flex; align-items: center; justify-content: center;
-            font-size: 0.8rem; font-weight: bold; color: #fff; text-shadow: 0 1px 2px #000;
-        }
-        .btn-bar-mod { 
-            width: 30px; height: 26px; border-radius: 4px; border: 1px solid #444; 
-            display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer;
-        }
-        .btn-bar-minus { background: #333; color: var(--fail); }
-        .btn-bar-plus { background: #333; color: var(--accent); }
         
-        /* Res Viz - Bubbles */
-        .res-viz-bubbles { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; padding: 4px 0; }
+        .res-viz-bubbles { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; padding: 4px 0; margin-top: 2px; }
         .res-bubble-item { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
         .res-bubble-item.filled { background: var(--res-bar); border-color: var(--res-bar); box-shadow: 0 0 5px var(--res-bar); }
 
@@ -355,18 +342,20 @@
         .btn-res-cycle[data-rest="sr"] { background: #e67e22; color: white; border-color: #e67e22; }
         .btn-res-cycle[data-rest="lr"] { background: #9b59b6; color: white; border-color: #9b59b6; }
         
-        .btn-res-minus {
-            background: #333; color: var(--fail); border: 1px solid #444;
+        .btn-res-mod {
+            background: #333; border: 1px solid #444;
             width: 35px; height: 35px; font-size: 1.2rem; font-weight: bold;
             display: flex; align-items: center; justify-content: center;
         }
-        .btn-res-minus:active { background: var(--fail); color: white; }
+        .btn-res-minus { color: var(--fail); }
+        .btn-res-plus { color: var(--accent); }
+        .btn-res-mod:active { background: #444; }
         
         .btn-res-roll {
             background: var(--gold); color: #000; font-weight: bold; font-size: 0.8rem;
             padding: 0 12px; height: 35px; border-radius: 6px;
         }
-        .res-style-select { width: 80px !important; padding: 2px !important; height: 30px; font-size: 0.7rem; }
+        .res-style-select { width: auto !important; padding: 2px 5px !important; height: 30px; font-size: 0.7rem; text-transform: uppercase; font-weight: bold;}
 
         @media (max-width: 600px) {
             .header-grid { grid-template-columns: 1fr; }
@@ -860,7 +849,7 @@
         const list = document.getElementById('resourceList');
         list.innerHTML = data.resources.map((res, i) => {
             const restLabel = res.rest === 'sr' ? 'SR' : (res.rest === 'lr' ? 'LR' : 'MAN');
-            const display = res.display || 'def';
+            const display = res.display || 'none';
             
             // Visualization Generation
             let vizHtml = '';
@@ -868,13 +857,8 @@
                 let pct = 0; if(res.max > 0) pct = (res.curr / res.max) * 100;
                 if(pct>100) pct=100;
                 vizHtml = `
-                    <div class="res-bar-wrapper">
-                        <button class="btn-bar-mod btn-bar-minus" onclick="modifyRes(${i}, -1)">-</button>
-                        <div class="res-viz-bar" onclick="setResValue(${i})">
-                            <div class="res-bar-fill" style="width:${pct}%"></div>
-                            <div class="res-bar-text">${res.curr} / ${res.max}</div>
-                        </div>
-                        <button class="btn-bar-mod btn-bar-plus" onclick="modifyRes(${i}, 1)">+</button>
+                    <div class="res-viz-bar" onclick="setResValue(${i})">
+                        <div class="res-bar-fill" style="width:${pct}%"></div>
                     </div>
                 `;
             } else if (display === 'bubble') {
@@ -884,16 +868,6 @@
                     bubbles += `<div class="res-bubble-item ${filled}" onclick="toggleResBubble(${i}, ${b})"></div>`;
                 }
                 vizHtml = `<div class="res-viz-bubbles">${bubbles}</div>`;
-            } else {
-                // Default input style
-                vizHtml = `
-                    <div class="res-viz-def">
-                        <button class="btn-res-minus" onclick="modifyRes(${i}, -1)">-</button>
-                        <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)">
-                        <span class="res-sep">/</span>
-                        <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)">
-                    </div>
-                `;
             }
 
             return `
@@ -901,13 +875,21 @@
                 <div class="res-top">
                     <input type="text" class="res-name" placeholder="Resource Name" value="${res.name}" onchange="updateRes(${i}, 'name', this.value)">
                     <select class="res-style-select" onchange="updateRes(${i}, 'display', this.value)">
-                        <option value="def" ${display==='def'?'selected':''}>#</option>
-                        <option value="bubble" ${display==='bubble'?'selected':''}>●</option>
-                        <option value="bar" ${display==='bar'?'selected':''}>▬</option>
+                        <option value="none" ${display==='none'?'selected':''}>None</option>
+                        <option value="bubble" ${display==='bubble'?'selected':''}>Bubbles</option>
+                        <option value="bar" ${display==='bar'?'selected':''}>Bar</option>
                     </select>
                     <button class="btn-del-res" onclick="delRes(${i})">&times;</button>
                 </div>
                 
+                <div class="res-controls-row">
+                    <button class="btn-res-mod btn-res-minus" onclick="modifyRes(${i}, -1)">-</button>
+                    <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)">
+                    <span class="res-sep">/</span>
+                    <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)">
+                    <button class="btn-res-mod btn-res-plus" onclick="modifyRes(${i}, 1)">+</button>
+                </div>
+
                 ${vizHtml}
 
                 <div class="res-bottom">
@@ -1296,15 +1278,14 @@
         sendToDiscord(name, desc, "Feature", 'feature');
     }
 
-    // --- RESOURCES V2 ---
-    function addResource() { data.resources.push({ name: '', curr: 0, max: 0, rest: 'none', display: 'def', rCheck: false, rFormula: '1d6' }); save(); renderResources(); }
+    // --- RESOURCES V2.9 ---
+    function addResource() { data.resources.push({ name: '', curr: 0, max: 0, rest: 'none', display: 'none', rCheck: false, rFormula: '1d6' }); save(); renderResources(); }
     function updateRes(i, field, val) { 
         if(field === 'curr' || field === 'max') val = parseInt(val) || 0;
-        if(field === 'rCheck') val = val; // bool passed directly
+        if(field === 'rCheck') val = val; 
         data.resources[i][field] = val; 
         save(); renderResources(); 
     }
-    // Updated in v2.8 for universal +/- 
     function modifyRes(i, delta) {
         const res = data.resources[i];
         const newVal = res.curr + delta;
@@ -1332,9 +1313,6 @@
     
     function toggleResBubble(i, bubbleIdx) {
         const currentUsed = data.resources[i].curr;
-        // Logic: if click filled bubble, empty it. if click empty, fill up to it.
-        // Actually simplest: Click index 0 = 1 used. Click index 2 = 3 used.
-        // If I click the highest currently filled, toggle it off.
         if (bubbleIdx + 1 === currentUsed) { data.resources[i].curr = bubbleIdx; } 
         else { data.resources[i].curr = bubbleIdx + 1; }
         save(); renderResources();
@@ -1384,10 +1362,8 @@
         let descText = "";
         
         if(type === 'feature') {
-            // Features treat formulaStr as the body
             descText = formulaStr;
         } else {
-            // Rolls treat result as the main value
             descText = `**Result:** ${result}\n\n${formulaStr}`;
             if (customDesc) descText = `*${customDesc}*\n\n` + descText;
         }
