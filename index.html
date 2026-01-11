@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v2.9</title>
+    <title>Unified 5e Sheet v3.0</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -159,14 +159,21 @@
         .hp-box input { text-align: center; font-weight: bold; font-size: 1.2rem; }
 
         .hp-manage-row {
-            display: flex; gap: 10px; margin-top: 10px; align-items: center;
+            display: flex; gap: 8px; margin-top: 10px; align-items: center;
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
         }
-        #hpInteractVal { width: 80px !important; text-align: center; flex-shrink: 0; }
+        #hpInteractVal { width: 70px !important; text-align: center; flex-shrink: 0; }
         .btn-heal { background: #27ae60; color: white; flex: 1; font-weight: bold; }
         .btn-dmg { background: #c0392b; color: white; flex: 1; font-weight: bold; }
-        .btn-heal:active, .btn-dmg:active { transform: translateY(1px); opacity: 0.8; }
-
+        /* NEW: HP Quick Buttons */
+        .btn-hp-quick {
+            background: #333; border: 1px solid #444; color: #fff;
+            width: 40px; font-weight: bold; font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 6px; cursor: pointer;
+        }
+        .btn-hp-quick:active { background: #555; }
+        
         /* HIT DIE ROW */
         .hd-row {
             display: flex; align-items: center; gap: 10px;
@@ -187,10 +194,11 @@
             align-items: center; background: #252525; padding: 8px; border-radius: 6px; margin-top: 10px;
             border: 1px solid #333;
         }
-        .ds-group { display: flex; gap: 4px; align-items: center; justify-content: center; }
+        .ds-group { display: flex; gap: 8px; align-items: center; justify-content: center; }
+        /* UPDATED: Larger Tap Targets */
         .ds-check { 
             appearance: none; -webkit-appearance: none;
-            width: 16px; height: 16px; border-radius: 50%; 
+            width: 32px; height: 32px; border-radius: 50%; 
             border: 2px solid #555; cursor: pointer; background: #1a1a1a;
         }
         .ds-check:checked { box-shadow: 0 0 5px currentColor; border-color: transparent; }
@@ -203,7 +211,7 @@
         .btn-rest { flex: 1; background: #2c3e50; color: #ccc; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; border: 1px solid #444; }
         .btn-rest:hover { background: #34495e; color: #fff; }
 
-        /* INSPIRATION & PASSIVE */
+        /* INSPIRATION & AC */
         .insp-row { 
             display: flex; gap: 10px; margin-top: 10px; align-items: flex-end; 
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
@@ -215,6 +223,16 @@
             border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;
         }
         
+        /* NEW: AC SECTION */
+        .ac-wrapper {
+            background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
+            margin-bottom: 10px;
+        }
+        .ac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .ac-val-big { font-size: 1.5rem; font-weight: 900; color: var(--accent); line-height: 1; }
+        .ac-config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; border-top: 1px solid #444; padding-top: 6px; }
+        .ac-label-small { font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
+
         .passive-row {
             display: flex; justify-content: space-between; align-items: center; 
             background: #1a1a1a; padding: 8px; border-radius: 6px; margin-top: 5px; border: 1px solid #333;
@@ -227,9 +245,10 @@
         }
         .spell-lvl { width: 30px; font-weight: bold; color: var(--slot); font-size: 0.9rem; }
         .spell-max { width: 50px !important; text-align: center; padding: 5px; height: 30px; flex-shrink: 0; }
-        .spell-bubbles { display: flex; gap: 5px; flex-wrap: wrap; flex: 1; }
+        .spell-bubbles { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
+        /* UPDATED: Larger Tap Targets */
         .bubble { 
-            width: 20px; height: 20px; border-radius: 50%; border: 2px solid #555; 
+            width: 34px; height: 34px; border-radius: 50%; border: 2px solid #555; 
             cursor: pointer; background: #1a1a1a;
         }
         .bubble.used { background: var(--slot); border-color: var(--slot); box-shadow: 0 0 5px var(--slot); }
@@ -324,24 +343,24 @@
         
         /* Visualizations */
         .res-viz-bar { 
-            width: 100%; height: 18px; background: #1a1a1a; cursor: pointer;
+            width: 100%; height: 22px; background: #1a1a1a; cursor: pointer;
             border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden; margin-top: 2px;
         }
         .res-bar-fill { height: 100%; background: var(--res-bar); transition: width 0.3s; }
         
-        .res-viz-bubbles { display: flex; gap: 4px; flex-wrap: wrap; width: 100%; padding: 4px 0; margin-top: 2px; }
-        .res-bubble-item { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
+        .res-viz-bubbles { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; padding: 4px 0; margin-top: 2px; }
+        /* UPDATED: Larger Tap Targets */
+        .res-bubble-item { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
         .res-bubble-item.filled { background: var(--res-bar); border-color: var(--res-bar); box-shadow: 0 0 5px var(--res-bar); }
 
         /* Controls */
-        .btn-res-cycle { 
-            background: #333; color: #888; border: 1px solid #444; 
-            width: 45px; height: 35px; font-size: 0.7rem; padding: 0;
-            display: flex; align-items: center; justify-content: center;
+        /* UPDATED: Reset Select */
+        .res-reset-select { 
+            background: #333; color: #ccc; border: 1px solid #444; 
+            height: 35px; font-size: 0.75rem; padding: 0 5px;
+            border-radius: 6px; font-weight: bold;
         }
-        .btn-res-cycle[data-rest="sr"] { background: #e67e22; color: white; border-color: #e67e22; }
-        .btn-res-cycle[data-rest="lr"] { background: #9b59b6; color: white; border-color: #9b59b6; }
-        
+
         .btn-res-mod {
             background: #333; border: 1px solid #444;
             width: 35px; height: 35px; font-size: 1.2rem; font-weight: bold;
@@ -428,8 +447,10 @@
                 </div>
 
                 <div class="hp-manage-row">
-                    <input type="number" id="hpInteractVal" placeholder="Amt">
                     <button class="btn-dmg" onclick="modifyHP(true)">Dmg</button>
+                    <button class="btn-hp-quick" onclick="modifyHP(true, 1)">-1</button>
+                    <input type="number" id="hpInteractVal" placeholder="Amt">
+                    <button class="btn-hp-quick" onclick="modifyHP(false, 1)">+1</button>
                     <button class="btn-heal" onclick="modifyHP(false)">Heal</button>
                 </div>
                 
@@ -457,11 +478,10 @@
                         <input type="checkbox" class="ds-check ds-fail" id="ds-f2" onchange="save()">
                         <input type="checkbox" class="ds-check ds-fail" id="ds-f3" onchange="save()">
                     </div>
-                    <div style="font-size:0.7rem; font-weight:bold; color:#888;">DEATH<br>SAVES</div>
                 </div>
 
                 <div class="rest-row">
-                    <button class="btn-rest" onclick="shortRest()">Short Rest (Reset SR Counters)</button>
+                    <button class="btn-rest" onclick="shortRest()">Short Rest (Reset SR)</button>
                     <button class="btn-rest" onclick="longRest()">Long Rest (Reset All)</button>
                 </div>
 
@@ -487,6 +507,46 @@
             </div>
             
             <div class="field-group span-2">
+                <div class="ac-wrapper">
+                    <div class="ac-header">
+                        <span style="font-weight:bold; color:#fff; font-size:0.9rem;">ARMOR CLASS</span>
+                        <span class="ac-val-big" id="acTotalDisplay">10</span>
+                    </div>
+                    
+                    <label style="font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-bottom:5px;">
+                        <input type="checkbox" id="acCustomToggle" onchange="toggleACMode()"> Use Custom Formula
+                    </label>
+
+                    <div id="acStdControls" class="ac-config-row">
+                        <div class="field-group">
+                            <span class="ac-label-small">Dex Cap</span>
+                            <select id="acDexCap" onchange="updateAC()" style="padding:4px; font-size:0.8rem; height:30px;">
+                                <option value="none">No Cap (Light/None)</option>
+                                <option value="2">Max +2 (Medium)</option>
+                                <option value="0">No Bonus (Heavy)</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <span class="ac-label-small">Bonus (Shield/Magic)</span>
+                            <input type="number" id="acBonus" placeholder="+0" value="0" oninput="updateAC()" style="height:30px; padding:4px;">
+                        </div>
+                    </div>
+
+                    <div id="acCustomControls" class="ac-config-row" style="display:none;">
+                        <div class="field-group">
+                            <span class="ac-label-small">Base 10 + Stat 1</span>
+                            <select id="acStat1" onchange="updateAC()" style="padding:4px; font-size:0.8rem; height:30px;"></select>
+                        </div>
+                        <div class="field-group">
+                            <span class="ac-label-small">Stat 2 (Optional)</span>
+                            <select id="acStat2" onchange="updateAC()" style="padding:4px; font-size:0.8rem; height:30px;"></select>
+                        </div>
+                        <div class="field-group span-2">
+                             <span class="ac-label-small">Misc Bonus</span>
+                             <input type="number" id="acCustomBonus" placeholder="+0" value="0" oninput="updateAC()" style="height:30px; padding:4px;">
+                        </div>
+                    </div>
+                </div>
                 <div class="passive-row">
                     <span style="color:#888; font-weight:bold; font-size:0.9rem;">Passive Perception</span>
                     <span id="passivePerc" style="color:#fff; font-weight:bold; font-size:1.1rem;">10</span>
@@ -621,6 +681,8 @@
             inspiration: 0, 
             ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
         },
+        // NEW: AC Data Structure
+        ac: { mode: 'std', dexCap: 'none', bonus: 0, customStat1: 'dex', customStat2: 'none', customBonus: 0 },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
         skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
         uiState: {} 
@@ -674,15 +736,16 @@
         if (saved) {
             const parsed = JSON.parse(saved);
             data = { ...data, ...parsed };
+            // Deep Merge logic for safety
             if(parsed.meta) data.meta = {...data.meta, ...parsed.meta};
             if(parsed.vitals) data.vitals = {...data.vitals, ...parsed.vitals};
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
+            if(parsed.ac) data.ac = {...data.ac, ...parsed.ac}; // Load AC
+            
             if(!data.spells || data.spells.length === 0) data.spells = defaultSpells;
             if(!data.resources) data.resources = []; 
             if(!data.features) data.features = [];
-            if(data.meta.init === undefined) data.meta.init = 0;
-            if(data.meta.speed === undefined) data.meta.speed = "";
             if(!data.uiState) data.uiState = {};
 
             if (data.vitals.hdCurr === undefined) data.vitals.hdCurr = data.meta.level || 1;
@@ -720,6 +783,17 @@
         document.getElementById('ds-f1').checked = data.vitals.ds.f1;
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
+
+        // Init AC inputs
+        document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
+        document.getElementById('acDexCap').value = data.ac.dexCap || 'none';
+        document.getElementById('acBonus').value = data.ac.bonus || 0;
+        document.getElementById('acCustomBonus').value = data.ac.customBonus || 0;
+        
+        populateStatSelects(); // Fill AC stat dropdowns
+        document.getElementById('acStat1').value = data.ac.customStat1 || 'dex';
+        document.getElementById('acStat2').value = data.ac.customStat2 || 'none';
+        toggleACMode(); // Set visibility
 
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
@@ -848,8 +922,8 @@
     function renderResources() {
         const list = document.getElementById('resourceList');
         list.innerHTML = data.resources.map((res, i) => {
-            const restLabel = res.rest === 'sr' ? 'SR' : (res.rest === 'lr' ? 'LR' : 'MAN');
             const display = res.display || 'none';
+            const rest = res.rest || 'none';
             
             // Visualization Generation
             let vizHtml = '';
@@ -893,7 +967,11 @@
                 ${vizHtml}
 
                 <div class="res-bottom">
-                    <button class="btn-res-cycle" data-rest="${res.rest || 'none'}" onclick="toggleResRest(${i})">${restLabel}</button>
+                    <select class="res-reset-select" onchange="updateRes(${i}, 'rest', this.value)">
+                        <option value="none" ${rest==='none'?'selected':''}>Manual Reset</option>
+                        <option value="sr" ${rest==='sr'?'selected':''}>Reset: Short Rest</option>
+                        <option value="lr" ${rest==='lr'?'selected':''}>Reset: Long Rest</option>
+                    </select>
                     
                     <label style="display:flex; align-items:center; gap:4px; margin:0 8px; font-size:1.2rem; cursor:pointer;" title="Enable Dice Recharge">
                         🎲 <input type="checkbox" ${res.rCheck ? 'checked' : ''} onchange="updateRes(${i}, 'rCheck', this.checked)">
@@ -939,6 +1017,67 @@
         let maxMod = -5;
         statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
         document.getElementById('globalDC').innerText = 8 + pb + maxMod;
+
+        updateAC(); // Trigger AC recalc
+    }
+
+    // --- AC LOGIC ---
+    function populateStatSelects() {
+        const s1 = document.getElementById('acStat1');
+        const s2 = document.getElementById('acStat2');
+        const ops = stats.map(s => `<option value="${s}">${s.toUpperCase()}</option>`).join('');
+        const opsNone = `<option value="none">None</option>` + ops;
+        s1.innerHTML = ops;
+        s2.innerHTML = opsNone;
+    }
+
+    function toggleACMode() {
+        const isCustom = document.getElementById('acCustomToggle').checked;
+        data.ac.mode = isCustom ? 'custom' : 'std';
+        
+        document.getElementById('acStdControls').style.display = isCustom ? 'none' : 'grid';
+        document.getElementById('acCustomControls').style.display = isCustom ? 'grid' : 'none';
+        
+        save();
+        updateAC();
+    }
+
+    function updateAC() {
+        // Capture inputs
+        data.ac.dexCap = document.getElementById('acDexCap').value;
+        data.ac.bonus = parseInt(document.getElementById('acBonus').value) || 0;
+        data.ac.customStat1 = document.getElementById('acStat1').value;
+        data.ac.customStat2 = document.getElementById('acStat2').value;
+        data.ac.customBonus = parseInt(document.getElementById('acCustomBonus').value) || 0;
+
+        let total = 10;
+
+        if (data.ac.mode === 'std') {
+            const dexMod = getMod(data.stats.dex.val);
+            let dexContrib = dexMod;
+            
+            if (data.ac.dexCap === '2') {
+                if (dexContrib > 2) dexContrib = 2;
+                // Medium armor keeps negative dex
+            } else if (data.ac.dexCap === '0') {
+                dexContrib = 0; // Heavy armor ignores dex entirely
+            }
+            // Light/None uses full dexContrib
+            
+            total = 10 + dexContrib + data.ac.bonus;
+
+        } else {
+            // Custom Formula
+            const m1 = getMod(data.stats[data.ac.customStat1].val);
+            let m2 = 0;
+            if (data.ac.customStat2 !== 'none') {
+                m2 = getMod(data.stats[data.ac.customStat2].val);
+            }
+            total = 10 + m1 + m2 + data.ac.customBonus;
+        }
+
+        document.getElementById('acTotalDisplay').innerText = total;
+        save();
     }
 
     // --- HP LOGIC ---
@@ -966,9 +1105,16 @@
         save();
     }
 
-    function modifyHP(isDamage) {
+    function modifyHP(isDamage, fixedAmt = null) {
         const interactInput = document.getElementById('hpInteractVal');
-        let amt = parseInt(interactInput.value) || 0;
+        let amt = 0;
+        
+        if (fixedAmt !== null) {
+            amt = fixedAmt;
+        } else {
+            amt = parseInt(interactInput.value) || 0;
+        }
+        
         if (amt <= 0) return;
 
         let curr = parseInt(document.getElementById('hpCurr').value) || 0;
@@ -988,7 +1134,7 @@
 
         document.getElementById('hpTemp').value = temp;
         document.getElementById('hpCurr').value = curr;
-        interactInput.value = ''; 
+        if (fixedAmt === null) interactInput.value = ''; 
         updateHP();
     }
 
@@ -1303,12 +1449,6 @@
             }
         }
     }
-    function toggleResRest(i) {
-        const modes = ['none', 'sr', 'lr'];
-        const current = data.resources[i].rest || 'none';
-        data.resources[i].rest = modes[(modes.indexOf(current) + 1) % 3];
-        save(); renderResources();
-    }
     function delRes(i) { data.resources.splice(i, 1); save(); renderResources(); }
     
     function toggleResBubble(i, bubbleIdx) {
@@ -1441,6 +1581,8 @@
     }
 
     async function importData() {
+        if (!confirm("Are you sure you want to load data? This will overwrite your current character.")) return;
+
         const field = document.getElementById('ioField'); 
         const b64 = field.value.trim();
         if(!b64) return showIoMsg("Empty!");
