@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GM Dashboard v1.1</title>
+    <title>GM Dashboard v1.2</title>
     <style>
         :root {
             --bg: #121212;
@@ -53,11 +53,33 @@
             display: flex; justify-content: space-between; align-items: center;
         }
 
-        input, select, textarea { 
+        /* FIXED: Only style text/numbers/selects as wide boxes */
+        input[type="text"], input[type="number"], select, textarea { 
             background: var(--input-bg); border: 1px solid #444; color: #fff; 
             padding: 10px; border-radius: 6px; font-size: 1rem; width: 100%; box-sizing: border-box; -webkit-appearance: none;
         }
-        input:focus { outline: 2px solid var(--accent); border-color: transparent; }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+        /* FIXED: Specific styling for checkboxes */
+        input[type="checkbox"] {
+            width: 24px; height: 24px;
+            appearance: none; -webkit-appearance: none;
+            border: 2px solid #555; border-radius: 4px;
+            background: #111; cursor: pointer;
+            display: grid; place-content: center;
+            flex-shrink: 0;
+        }
+        input[type="checkbox"]:checked {
+            background: var(--accent); border-color: var(--accent);
+        }
+        input[type="checkbox"]:checked::after {
+            content: '✓'; color: #000; font-weight: bold; font-size: 1.2rem;
+        }
+        
+        /* Range Slider Reset */
+        input[type="range"] {
+            width: 100%; margin: 10px 0; background: transparent; border: none; padding: 0;
+        }
 
         .row { display: flex; gap: 8px; align-items: center; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -243,7 +265,7 @@
     
     <div class="card">
         <div class="section-header">DC Estimator</div>
-        <input type="range" min="5" max="30" value="10" step="5" oninput="updateDC(this.value)" style="width:100%; margin:10px 0;">
+        <input type="range" min="5" max="30" value="10" step="5" oninput="updateDC(this.value)">
         <div style="text-align:center;">
             <div style="font-size:2rem; font-weight:bold; color:var(--accent);" id="dcDisplay">DC 10</div>
             <div style="color:#888; font-size:0.9rem;" id="dcDesc">Medium</div>
@@ -258,7 +280,7 @@
             <button class="btn-sec" onclick="genLoot('pocket')">Pocket Lint</button>
             <button class="btn-sec" onclick="genLoot('trinket')">Trinket</button>
         </div>
-        <div id="lootResult" style="margin-top:10px; font-style:italic; color:var(--accent); min-height:20px; text-align:center;"></div>
+        <div id="lootResult" style="margin-top:10px; font-style:italic; color:var(--accent); min-height:20px; text-align:center; transition: opacity 0.2s ease-in-out;"></div>
     </div>
 
     <div class="card">
@@ -300,6 +322,41 @@
         "Unconscious": "Incapacitated. Drop items. Prone. Auto-fail Str/Dex saves. Attacks against have Adv. Crit if within 5ft."
     };
 
+    // --- LOOT DATA ---
+    const lootTables = {
+        pocket: [
+            { // Metal / Hard
+                adjs: ["Rusty", "Bent", "Scratched", "Dull", "Twisted", "Tarnished"], 
+                nouns: ["Iron Nail", "Copper Coin (Fake)", "Tin Spoon", "Belt Buckle", "Skeleton Key", "Needle", "Brass Button"] 
+            },
+            { // Paper / Cloth
+                adjs: ["Soggy", "Crumpled", "Torn", "Stained", "Moldy", "Greasy", "Faded"], 
+                nouns: ["Grocery List", "Handkerchief", "Playing Card", "Map Scrap", "Love Letter", "Ticket Stub", "Rag"] 
+            },
+            { // Organic / Gross
+                adjs: ["Rotten", "Dried", "Half-eaten", "Withered", "Stinky", "Petrified"], 
+                nouns: ["Apple Core", "Rat Tail", "Flower", "Root", "Crust of Bread", "Fish Bone", "Beetle Shell"] 
+            },
+            { // Cordage / Misc
+                adjs: ["Tangled", "Knotted", "Frayed", "Short", "Braided", "Sticky"], 
+                nouns: ["Ball of String", "Length of Twine", "Copper Wire", "Shoelace", "Ribbon", "Wick", "Lock of Hair"] 
+            }
+        ],
+        trinket: {
+            nouns: ["Ring", "Animal Figurine", "Bead", "Button", "Comb", "Whistle", "Locket", "Thimble", "Brooch", "Cameo", "Coin", "Pendant", "Earring", "Bangle"],
+            suffixes: ["engraved with a name", "that feels warm", "missing a piece", "stained with ink", "smelling of sulfur", "wrapped in twine", "depicting a skull", "from a foreign land", "with a hidden compartment", "covered in runes"],
+            
+            cheap: {
+                materials: ["Wooden", "Clay", "Pewter", "Bone", "Rusted Iron", "Chipped Ceramic", "Soapstone", "Leather", "Rough Copper", "Tin", "Carved Stone"],
+                values: ["1 cp", "5 cp", "8 cp", "2 sp", "5 sp"]
+            },
+            fancy: {
+                materials: ["Silver-inlaid", "Carved Ivory", "Polished Jade", "Gilded", "Crystal", "Obsidian", "Clockwork", "Alabaster", "Ancient Bronze", "Mahogany", "Electrum"],
+                values: ["1 gp", "2 gp", "3 gp", "5 gp"]
+            }
+        }
+    };
+
     // --- INIT & SORTING LOGIC ---
     function init() {
         const saved = localStorage.getItem('gmDashboardData');
@@ -321,7 +378,6 @@
         localStorage.setItem('gmDashboardData', JSON.stringify(gmData));
     }
 
-    // Sort Logic: Total Descending -> Tiebreaker (Score) Descending
     function sortCombat() {
         gmData.combatants.sort((a, b) => {
             if (b.total !== a.total) return b.total - a.total;
@@ -543,53 +599,12 @@
         `).join('');
     }
 
-// --- LOOT DATA ---
-    const lootTables = {
-        // Pocket Lint: Categorized to prevent "Rusty Apples"
-        pocket: [
-            { // Metal / Hard
-                adjs: ["Rusty", "Bent", "Scratched", "Dull", "Twisted", "Tarnished"], 
-                nouns: ["Iron Nail", "Copper Coin (Fake)", "Tin Spoon", "Belt Buckle", "Skeleton Key", "Needle", "Brass Button"] 
-            },
-            { // Paper / Cloth
-                adjs: ["Soggy", "Crumpled", "Torn", "Stained", "Moldy", "Greasy", "Faded"], 
-                nouns: ["Grocery List", "Handkerchief", "Playing Card", "Map Scrap", "Love Letter", "Ticket Stub", "Rag"] 
-            },
-            { // Organic / Gross
-                adjs: ["Rotten", "Dried", "Half-eaten", "Withered", "Stinky", "Petrified"], 
-                nouns: ["Apple Core", "Rat Tail", "Flower", "Root", "Crust of Bread", "Fish Bone", "Beetle Shell"] 
-            },
-            { // Cordage / Misc
-                adjs: ["Tangled", "Knotted", "Frayed", "Short", "Braided", "Sticky"], 
-                nouns: ["Ball of String", "Length of Twine", "Copper Wire", "Shoelace", "Ribbon", "Wick", "Lock of Hair"] 
-            }
-        ],
-        // Trinkets: Nouns must be material-agnostic (can be made of wood OR gold)
-        trinket: {
-            nouns: ["Ring", "Animal Figurine", "Bead", "Button", "Comb", "Whistle", "Locket", "Thimble", "Brooch", "Cameo", "Coin", "Pendant", "Earring", "Bangle"],
-            suffixes: ["engraved with a name", "that feels warm", "missing a piece", "stained with ink", "smelling of sulfur", "wrapped in twine", "depicting a skull", "from a foreign land", "with a hidden compartment", "covered in runes"],
-            
-            // Low Value (CP - SP)
-            cheap: {
-                materials: ["Wooden", "Clay", "Pewter", "Bone", "Rusted Iron", "Chipped Ceramic", "Soapstone", "Leather", "Rough Copper", "Tin", "Carved Stone"],
-                values: ["1 cp", "5 cp", "8 cp", "2 sp", "5 sp"]
-            },
-            // High Value (1gp - 5gp)
-            fancy: {
-                materials: ["Silver-inlaid", "Carved Ivory", "Polished Jade", "Gilded", "Crystal", "Obsidian", "Clockwork", "Alabaster", "Ancient Bronze", "Mahogany", "Electrum"],
-                values: ["1 gp", "2 gp", "3 gp", "5 gp"]
-            }
-        }
-    };
-
     function genLoot(type) {
         const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
         let result = "";
 
         if (type === 'pocket') {
-            // 1. Pick a category (Metal vs Paper vs Organic)
             const category = pick(lootTables.pocket);
-            // 2. Pick Adj and Noun from THAT category
             const adj = pick(category.adjs);
             const noun = pick(category.nouns);
             result = `${adj} ${noun} (Worthless)`;
@@ -598,7 +613,6 @@
             const noun = pick(lootTables.trinket.nouns);
             const suffix = Math.random() > 0.5 ? " " + pick(lootTables.trinket.suffixes) : "";
             
-            // Determine Value Tier (40% chance of being "Nice")
             const isFancy = Math.random() < 0.4;
             const tier = isFancy ? lootTables.trinket.fancy : lootTables.trinket.cheap;
             
@@ -608,7 +622,6 @@
             result = `${material} ${noun}${suffix} (${value})`;
         }
 
-        // Animation Effect
         const el = document.getElementById('lootResult');
         el.style.opacity = 0;
         setTimeout(() => {
