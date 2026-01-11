@@ -1235,29 +1235,94 @@
         }
         localStorage.setItem('unifiedSheetDataV2', JSON.stringify(data)); 
     }
+// --- IO / BACKUP SYSTEM (GZIP COMPRESSION) ---
+    function showIoMsg(txt) { 
+        const msg = document.getElementById('ioMsg');
+        msg.innerText = txt; 
+        setTimeout(() => msg.innerText = "", 3000); 
+    }
 
-    function showIoMsg(txt) { document.getElementById('ioMsg').innerText = txt; setTimeout(() => document.getElementById('ioMsg').innerText = "", 3000); }
-    function exportData() {
+    // Compresses JSON -> Gzip Binary -> Base64 String
+    async function exportData() {
         save();
         try {
             const jsonStr = JSON.stringify(data);
-            const base64 = btoa(encodeURIComponent(jsonStr).replace(/%([0-9A-F]{2})/g, (match, p1) => String.fromCharCode('0x' + p1)));
-            const field = document.getElementById('ioField'); field.value = base64; field.select(); field.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(base64).then(() => showIoMsg("Copied!"));
-        } catch(e) { showIoMsg("Error"); }
+            
+            // 1. Create a stream from the JSON string
+            const stream = new Blob([jsonStr]).stream();
+            
+            // 2. Pipe it through the native GZIP compressor
+            const compressedStream = stream.pipeThrough(new CompressionStream("gzip"));
+            
+            // 3. Read the stream back into a Blob
+            const compressedResponse = new Response(compressedStream);
+            const blob = await compressedResponse.blob();
+
+            // 4. Convert that Blob to Base64 for the text box
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Remove the "data:application/octet-stream;base64," prefix
+                const base64 = e.target.result.split(',')[1];
+                
+                const field = document.getElementById('ioField'); 
+                field.value = base64; 
+                field.select();
+                field.setSelectionRange(0, 99999);
+                
+                navigator.clipboard.writeText(base64).then(() => showIoMsg("Compressed & Copied!"));
+            };
+            reader.readAsDataURL(blob);
+
+        } catch(e) { 
+            console.error(e);
+            showIoMsg("Export Failed"); 
+        }
     }
-    function importData() {
-        const field = document.getElementById('ioField'); const str = field.value.trim();
-        if(!str) return showIoMsg("Empty!");
+
+    // Decompresses Base64 String -> Binary -> JSON
+    async function importData() {
+        const field = document.getElementById('ioField'); 
+        const b64 = field.value.trim();
+        
+        if(!b64) return showIoMsg("Empty!");
+        
         try {
-            const jsonStr = decodeURIComponent(atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-            const parsed = JSON.parse(jsonStr);
-            data = parsed; 
-            save(); init(); field.value = ""; showIoMsg("Loaded!");
-        } catch(e) { showIoMsg("Invalid Code"); console.error(e); }
+            // 1. Convert Base64 back to binary string
+            const binString = atob(b64);
+            
+            // 2. Convert to Uint8Array (Bytes)
+            const bytes = Uint8Array.from(binString, c => c.charCodeAt(0));
+            
+            // 3. Create a stream and pipe through Decompressor
+            const stream = new Blob([bytes]).stream();
+            const decompressedStream = stream.pipeThrough(new DecompressionStream("gzip"));
+            
+            // 4. Read the result as JSON
+            const resp = new Response(decompressedStream);
+            const json = await resp.json(); // .json() handles the parsing automatically
+            
+            data = json; 
+            save(); 
+            init(); 
+            field.value = ""; 
+            showIoMsg("Data Loaded!");
+            
+        } catch(e) { 
+            console.error(e);
+            // Fallback for old uncompressed saves (backwards compatibility)
+            try {
+                 const oldJson = decodeURIComponent(atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+                 data = JSON.parse(oldJson);
+                 save(); init(); field.value = "";
+                 showIoMsg("Restored Old Save");
+            } catch(err2) {
+                showIoMsg("Invalid Data");
+            }
+        }
     }
 
     init();
 </script>
 </body>
 </html>
+
