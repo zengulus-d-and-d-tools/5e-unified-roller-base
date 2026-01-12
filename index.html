@@ -198,8 +198,10 @@
         /* UPDATED: Larger Tap Targets */
         .ds-check { 
             appearance: none; -webkit-appearance: none;
-            width: 32px; height: 32px; border-radius: 50%; 
+            width: 44px; height: 44px; /* Explicit 44px */
+            border-radius: 50%; 
             border: 2px solid #555; cursor: pointer; background: #1a1a1a;
+            margin: 0; display: grid; place-content: center;
         }
         .ds-check:checked { box-shadow: 0 0 5px currentColor; border-color: transparent; }
         .ds-succ:checked { background: #2ecc71; color: #2ecc71; }
@@ -248,8 +250,15 @@
         .spell-bubbles { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
         /* UPDATED: Larger Tap Targets */
         .bubble { 
-            width: 34px; height: 34px; border-radius: 50%; border: 2px solid #555; 
+            width: 38px; height: 38px; /* Visual size */
+            margin: 3px; /* Spacing */
+            border-radius: 50%; border: 2px solid #555; 
             cursor: pointer; background: #1a1a1a;
+            position: relative;
+        }
+        .bubble::after {
+            content: ''; position: absolute; 
+            top: -3px; left: -3px; right: -3px; bottom: -3px; 
         }
         .bubble.used { background: var(--slot); border-color: var(--slot); box-shadow: 0 0 5px var(--slot); }
 
@@ -290,7 +299,10 @@
         .skill-list { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .skill-row { background: var(--card-bg); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); }
         .skill-name { flex: 1; font-size: 0.95rem; font-weight: 500; }
-        .prof-toggle { font-size: 1.2rem; padding: 5px; cursor: pointer; } 
+        .prof-toggle { 
+            font-size: 1.4rem; padding: 10px; /* Increase padding for touch */
+            cursor: pointer; min-width: 44px; text-align: center; 
+        }
         .prof-toggle.prof { color: var(--accent); }
         .prof-toggle.exp { color: var(--gold); }
         .btn-roll-skill {
@@ -316,7 +328,11 @@
         }
         .atk-controls { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
         
-        button { border: none; border-radius: 6px; font-weight: bold; cursor: pointer; height: 40px; font-size: 0.9rem; }
+        button { 
+            min-height: 44px; /* Enforce height */
+            border: none; border-radius: 6px; font-weight: bold; cursor: pointer; 
+            font-size: 0.9rem; 
+        }
         .add-btn { background: var(--accent-atk); color: #000; width: 100%; margin-top: 5px; }
 
         .webhook-row { margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
@@ -1618,3 +1634,4 @@
 </script>
 </body>
 </html>
+
