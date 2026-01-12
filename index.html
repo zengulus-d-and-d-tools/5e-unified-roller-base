@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v3.3</title>
+    <title>Unified 5e Sheet v3.4</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -99,7 +99,6 @@
         .crit-text { color: var(--crit); text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
         .fail-text { color: var(--fail); text-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
 
-
         /* NEW: Toggle Switch Styling */
         .toggle-switch {
             position: relative; width: 40px; height: 22px; flex-shrink: 0;
@@ -136,6 +135,12 @@
             letter-spacing: 0.05em; font-weight: bold; 
             display: flex; justify-content: space-between; align-items: center;
         }
+        /* PIN BUTTON */
+        .pin-btn {
+            background: none; border: none; color: #444; font-size: 1.2rem; 
+            padding: 0 10px; cursor: pointer; transition: color 0.2s;
+        }
+        .pin-btn.pinned { color: var(--accent); text-shadow: 0 0 5px rgba(78, 205, 196, 0.4); }
 
         .accordion-trigger { cursor: pointer; user-select: none; }
         .accordion-trigger::after {
@@ -190,7 +195,7 @@
         #hpInteractVal { width: 70px !important; text-align: center; flex-shrink: 0; }
         .btn-heal { background: #27ae60; color: white; flex: 1; font-weight: bold; }
         .btn-dmg { background: #c0392b; color: white; flex: 1; font-weight: bold; }
-        /* NEW: HP Quick Buttons */
+        
         .btn-hp-quick {
             background: #333; border: 1px solid #444; color: #fff;
             width: 40px; font-weight: bold; font-size: 1.2rem;
@@ -220,7 +225,6 @@
             border: 1px solid #333;
         }
         .ds-group { display: flex; gap: 8px; align-items: center; justify-content: center; }
-        /* UPDATED: Larger Tap Targets */
         .ds-check { 
             appearance: none; -webkit-appearance: none;
             width: 44px; height: 44px; /* Explicit 44px */
@@ -250,7 +254,7 @@
             border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;
         }
         
-        /* NEW: AC SECTION */
+        /* AC SECTION */
         .ac-wrapper {
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
             margin-bottom: 10px;
@@ -273,7 +277,7 @@
         .spell-lvl { width: 30px; font-weight: bold; color: var(--slot); font-size: 0.9rem; }
         .spell-max { width: 50px !important; text-align: center; padding: 5px; height: 30px; flex-shrink: 0; }
         .spell-bubbles { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
-        /* UPDATED: Larger Tap Targets */
+        
         .bubble { 
             width: 38px; height: 38px; /* Visual size */
             margin: 3px; /* Spacing */
@@ -327,7 +331,7 @@
         .prof-toggle { 
             font-size: 1.4rem; padding: 10px; /* Increase padding for touch */
             cursor: pointer; min-width: 44px; text-align: center; 
-        }
+        } 
         .prof-toggle.prof { color: var(--accent); }
         .prof-toggle.exp { color: var(--gold); }
         .btn-roll-skill {
@@ -516,8 +520,12 @@
         <span>Armor Class</span>
         <span class="ac-val-big" id="acTotalDisplay">10</span>
     </div>
+    
+    <label style="font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-bottom:10px;">
+        <input type="checkbox" id="acCustomToggle" onchange="toggleACMode()"> Use Custom Formula (Monk/Barb)
+    </label>
 
-    <div class="grid-6" style="margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
+    <div id="acStdControls" class="grid-6" style="margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
         <div class="field-group span-2">
             <label>Base AC (Armor)</label>
             <input type="number" id="acBase" value="10" placeholder="10" oninput="updateAC()">
@@ -533,6 +541,21 @@
         <div class="field-group span-2">
             <label>Dex Mod</label>
             <div class="read-only-box" id="acDexModDisp" style="text-align:center; color:#888;">+0</div>
+        </div>
+    </div>
+    
+    <div id="acCustomControls" class="grid-6" style="display:none; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
+        <div class="field-group span-2">
+            <label>Base (10)</label>
+            <div class="read-only-box" style="text-align:center;">10</div>
+        </div>
+        <div class="field-group span-2">
+            <label>Stat 1</label>
+            <select id="acStat1" onchange="updateAC()" style="padding:5px;"></select>
+        </div>
+        <div class="field-group span-2">
+            <label>Stat 2 (Opt)</label>
+            <select id="acStat2" onchange="updateAC()" style="padding:5px;"></select>
         </div>
     </div>
 
@@ -557,7 +580,10 @@
 </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">Combat Stats & Resources</div>
+        <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat', event)">
+            <span>Combat Stats & Resources</span>
+            <button class="pin-btn" onclick="togglePin('combat', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-combat">
             <div class="combat-row">
                 <div class="field-group">
@@ -584,14 +610,20 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">Attributes</div>
+        <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr', event)">
+            <span>Attributes</span>
+            <button class="pin-btn" onclick="togglePin('attr', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-attr">
             <div class="grid-6" id="statsGrid"></div>
         </div>
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">Attacks</div>
+        <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk', event)">
+            <span>Attacks</span>
+            <button class="pin-btn" onclick="togglePin('atk', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-atk">
             <div id="attackList"></div>
             <button class="add-btn" onclick="addAttack()">+ Add Weapon / Spell</button>
@@ -599,7 +631,10 @@
     </div>
     
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">Features & Traits</div>
+        <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats', event)">
+            <span>Features & Traits</span>
+            <button class="pin-btn" onclick="togglePin('feats', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-feats">
             <div id="featureList"></div>
             <button class="add-btn" style="background: var(--accent-feat); color: #fff;" onclick="addFeature()">+ Add Feature</button>
@@ -607,21 +642,30 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">Spell Slots</div>
+        <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells', event)">
+            <span>Spell Slots</span>
+            <button class="pin-btn" onclick="togglePin('spells', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-spells">
             <div id="spellSlotsList"></div>
         </div>
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">Skills</div>
+        <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills', event)">
+            <span>Skills</span>
+            <button class="pin-btn" onclick="togglePin('skills', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-skills">
             <div class="skill-list" id="skillGrid"></div>
         </div>
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">Arbitrary Roller</div>
+        <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller', event)">
+            <span>Arbitrary Roller</span>
+            <button class="pin-btn" onclick="togglePin('roller', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-roller">
             <div class="custom-roll-row" style="margin-bottom:10px;">
                 <input type="text" id="customLabel" placeholder="Optional Label (e.g. Healing Potion)">
@@ -643,9 +687,25 @@
     </div>
 
     <div class="card io-card">
-        <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">Backup Data</div>
+        <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io', event)">
+            <span>Backup Data</span>
+            <button class="pin-btn" onclick="togglePin('io', this)" title="Keep Open">📌</button>
+        </div>
         <div class="accordion-content" id="body-io">
-            <textarea id="ioField" rows="2" placeholder="Save string..." style="width:100%; font-family:monospace; color:var(--accent); resize:none;"></textarea>
+            <div class="field-group">
+                <label>Discord Webhook</label>
+                <input type="text" id="webhookUrl" placeholder="https://discord.com/api/webhooks/..." oninput="save()">
+            </div>
+            <label class="discord-toggle" id="discordLabel" style="display:flex; align-items:center; gap:8px; margin:10px 0; color:#aaa; font-size:0.9rem;">
+                <input type="checkbox" id="sendToDiscord" onchange="toggleDiscord(this.checked)"> 
+                <span>Active (Send to Discord)</span>
+            </label>
+            <div class="field-group">
+                <label>Player Name (For Log)</label>
+                <input type="text" id="playerName" placeholder="Your Name" oninput="save()">
+            </div>
+            
+            <textarea id="ioField" rows="2" placeholder="Save string..." style="width:100%; font-family:monospace; color:var(--accent); resize:none; margin-top:10px;"></textarea>
             <div style="display:flex; gap:10px; margin-top:10px;">
                 <button style="flex:1; background:#333; color:#ccc;" onclick="exportData()">Copy Save</button>
                 <button style="flex:1; background:var(--accent); color:#000;" onclick="importData()">Load Save</button>
@@ -675,7 +735,7 @@
             ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
         },
         // NEW: AC Data Structure
-        ac: { mode: 'std', dexCap: 'none', bonus: 0, customStat1: 'dex', customStat2: 'none', customBonus: 0 },
+        ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
         skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
         uiState: {} 
@@ -720,7 +780,8 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
-    // --- INITIALIZATION ---function init() {
+    // --- INITIALIZATION ---
+    function init() {
         const saved = localStorage.getItem('unifiedSheetDataV2'); 
         let defaultSpells = [];
         for(let i=1; i<=9; i++) defaultSpells.push({ lvl: i, max: 0, used: 0 });
@@ -728,21 +789,27 @@
         if (saved) {
             const parsed = JSON.parse(saved);
             data = { ...data, ...parsed };
-            // Deep Merge logic for safety
             if(parsed.meta) data.meta = {...data.meta, ...parsed.meta};
             if(parsed.vitals) data.vitals = {...data.vitals, ...parsed.vitals};
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
             
-            // --- NEW: AC Data Migration (Step A) ---
+            // AC MIGRATION
             if (!data.ac || !data.ac.bonuses) {
-                data.ac = { base: 10, dexCap: 100, bonuses: [] };
-                // Migrate old bonus if it existed
-                if(parsed.ac && parsed.ac.bonus) {
-                    data.ac.bonuses.push({ id: Date.now(), name: "Misc Bonus", val: parsed.ac.bonus, active: true });
-                }
+                // If coming from old version, migrate to new structure
+                const oldAc = data.ac || {};
+                data.ac = { 
+                    mode: oldAc.mode || 'std', 
+                    base: 10, 
+                    dexCap: oldAc.dexCap || '100', 
+                    customStat1: oldAc.customStat1 || 'dex', 
+                    customStat2: oldAc.customStat2 || 'none',
+                    bonuses: [] 
+                };
+                // Capture old generic bonus
+                if(oldAc.bonus) data.ac.bonuses.push({ id: Date.now(), name: "Misc", val: oldAc.bonus, active: true });
+                if(oldAc.customBonus) data.ac.bonuses.push({ id: Date.now()+1, name: "Custom Misc", val: oldAc.customBonus, active: true });
             }
-            // ---------------------------------------
             
             if(!data.spells || data.spells.length === 0) data.spells = defaultSpells;
             if(!data.resources) data.resources = []; 
@@ -756,8 +823,6 @@
         } else {
             Object.keys(skillsMap).forEach(s => data.skills[s] = 0);
             data.spells = defaultSpells;
-            // New Default AC
-            data.ac = { base: 10, dexCap: 100, bonuses: [] };
         }
 
         document.getElementById('playerName').value = data.meta.player || '';
@@ -787,12 +852,19 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
-        // --- NEW: AC UI Setup (Step C) ---
+        // AC SETUP
         document.getElementById('acBase').value = data.ac.base || 10;
         document.getElementById('acDexCap').value = data.ac.dexCap || 100;
-        renderAcList(); 
-        // ---------------------------------
+        document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
+        
+        populateStatSelects();
+        document.getElementById('acStat1').value = data.ac.customStat1 || 'dex';
+        document.getElementById('acStat2').value = data.ac.customStat2 || 'none';
+        
+        toggleACMode(); // This handles visibility and calculation
+        renderAcList();
 
+        // ACCORDIONS
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
@@ -814,15 +886,20 @@
     }
 
     // --- ACCORDION LOGIC ---
-    function toggleSection(key) {
+    function toggleSection(key, event) {
+        if (event && event.target.classList.contains('pin-btn')) return;
         const head = document.getElementById('head-' + key);
         const body = document.getElementById('body-' + key);
         head.classList.toggle('collapsed');
         body.classList.toggle('collapsed');
-        
         const isOpen = !body.classList.contains('collapsed');
         data.uiState[key] = isOpen;
         save();
+    }
+    
+    function togglePin(key, btn) {
+        btn.classList.toggle('pinned');
+        event.stopPropagation();
     }
 
     // --- RENDERERS ---
@@ -991,7 +1068,7 @@
 
     function updateAll() {
         const pb = getPB(data.meta.level);
-        document.getElementById('charPB').innerText = "+" + pb;
+        // document.getElementById('charPB').innerText = "+" + pb; // Removed element in simplified header
         stats.forEach(s => {
             const mod = getMod(data.stats[s].val);
             const saveBonus = mod + (data.stats[s].save ? pb : 0);
@@ -1006,10 +1083,7 @@
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
         
-        const wisMod = getMod(data.stats.wis.val);
-        const percProf = data.skills['perception'] || 0;
-        const passPerc = 10 + wisMod + (percProf * pb);
-        document.getElementById('passivePerc').innerText = passPerc;
+        // Passive Perception removed from header in v3.3 simplification, but calc remains valid
         
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
@@ -1040,74 +1114,80 @@
         updateAC();
     }
 
-    // --- NEW ARMOR CLASS LOGIC ---
-function updateAC() {
-    // 1. Get Base
-    data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
-    data.ac.dexCap = parseInt(document.getElementById('acDexCap').value);
-    
-    // 2. Calculate Dex Contribution
-    const rawDex = getMod(data.stats.dex.val);
-    let effectiveDex = rawDex;
-    if (data.ac.dexCap !== 100) { // 100 acts as "None/Infinity"
-        // If cap is 0 (Heavy), Dex is 0. If cap is 2, Dex cannot exceed 2 (but can be negative)
-        if (data.ac.dexCap === 0) effectiveDex = 0; 
-        else effectiveDex = Math.min(rawDex, data.ac.dexCap);
+    function updateAC() {
+        // Shared inputs
+        data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
+        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value); // 100, 2, or 0
+        data.ac.customStat1 = document.getElementById('acStat1').value;
+        data.ac.customStat2 = document.getElementById('acStat2').value;
+
+        // Sum Bonuses
+        let bonusTotal = 0;
+        data.ac.bonuses.forEach(b => {
+            if (b.active) bonusTotal += (parseInt(b.val) || 0);
+        });
+
+        let total = 0;
+
+        if (data.ac.mode === 'std') {
+            const rawDex = getMod(data.stats.dex.val);
+            let effectiveDex = rawDex;
+            if (data.ac.dexCap !== 100) { 
+                if (data.ac.dexCap === 0) effectiveDex = 0; 
+                else effectiveDex = Math.min(rawDex, data.ac.dexCap);
+            }
+            document.getElementById('acDexModDisp').innerText = (effectiveDex >= 0 ? "+" : "") + effectiveDex;
+            total = data.ac.base + effectiveDex + bonusTotal;
+
+        } else {
+            // Custom: 10 + Stat1 + Stat2 + Bonuses
+            const m1 = getMod(data.stats[data.ac.customStat1].val);
+            let m2 = 0;
+            if (data.ac.customStat2 !== 'none') { m2 = getMod(data.stats[data.ac.customStat2].val); }
+            total = 10 + m1 + m2 + bonusTotal;
+        }
+
+        document.getElementById('acTotalDisplay').innerText = total;
+        save();
     }
-    
-    document.getElementById('acDexModDisp').innerText = (effectiveDex >= 0 ? "+" : "") + effectiveDex;
 
-    // 3. Sum Bonuses
-    let bonusTotal = 0;
-    data.ac.bonuses.forEach(b => {
-        if (b.active) bonusTotal += (parseInt(b.val) || 0);
-    });
+    function renderAcList() {
+        const list = document.getElementById('acBonusList');
+        list.innerHTML = data.ac.bonuses.map((b, i) => `
+            <div class="ac-row ${b.active ? '' : 'inactive'}">
+                <label class="toggle-switch">
+                    <input type="checkbox" ${b.active ? 'checked' : ''} onchange="toggleAcBonus(${i})">
+                    <span class="slider"></span>
+                </label>
+                <input type="text" value="${b.name}" placeholder="Source (Shield)" onchange="updateAcBonus(${i}, 'name', this.value)">
+                <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" onchange="updateAcBonus(${i}, 'val', this.value)">
+                <button class="btn-del" style="margin-left:auto;" onclick="delAcBonus(${i})">&times;</button>
+            </div>
+        `).join('');
+    }
 
-    // 4. Total and Display
-    const total = data.ac.base + effectiveDex + bonusTotal;
-    document.getElementById('acTotalDisplay').innerText = total;
-    
-    save();
-}
+    function addAcBonus() {
+        data.ac.bonuses.push({ id: Date.now(), name: '', val: 1, active: true });
+        renderAcList();
+        updateAC();
+    }
 
-function renderAcList() {
-    const list = document.getElementById('acBonusList');
-    list.innerHTML = data.ac.bonuses.map((b, i) => `
-        <div class="ac-row ${b.active ? '' : 'inactive'}">
-            <label class="toggle-switch">
-                <input type="checkbox" ${b.active ? 'checked' : ''} onchange="toggleAcBonus(${i})">
-                <span class="slider"></span>
-            </label>
-            <input type="text" value="${b.name}" placeholder="Source (Shield)" onchange="updateAcBonus(${i}, 'name', this.value)">
-            <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" onchange="updateAcBonus(${i}, 'val', this.value)">
-            <button class="btn-del" style="margin-left:auto;" onclick="delAcBonus(${i})">&times;</button>
-        </div>
-    `).join('');
-}
+    function toggleAcBonus(i) {
+        data.ac.bonuses[i].active = !data.ac.bonuses[i].active;
+        renderAcList();
+        updateAC();
+    }
 
-function addAcBonus() {
-    data.ac.bonuses.push({ id: Date.now(), name: '', val: 1, active: true });
-    renderAcList();
-    updateAC();
-}
+    function updateAcBonus(i, field, val) {
+        data.ac.bonuses[i][field] = val;
+        updateAC();
+    }
 
-function toggleAcBonus(i) {
-    data.ac.bonuses[i].active = !data.ac.bonuses[i].active;
-    renderAcList();
-    updateAC();
-}
-
-function updateAcBonus(i, field, val) {
-    data.ac.bonuses[i][field] = val;
-    // Don't re-render list on input to avoid losing focus
-    updateAC();
-}
-
-function delAcBonus(i) {
-    data.ac.bonuses.splice(i, 1);
-    renderAcList();
-    updateAC();
-}
+    function delAcBonus(i) {
+        data.ac.bonuses.splice(i, 1);
+        renderAcList();
+        updateAC();
+    }
 
     // --- HP LOGIC ---
     function updateHP() {
@@ -1647,6 +1727,3 @@ function delAcBonus(i) {
 </script>
 </body>
 </html>
-
-
-
