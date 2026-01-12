@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v3.4</title>
+    <title>Unified 5e Sheet v3.5</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -135,13 +135,7 @@
             letter-spacing: 0.05em; font-weight: bold; 
             display: flex; justify-content: space-between; align-items: center;
         }
-        /* PIN BUTTON */
-        .pin-btn {
-            background: none; border: none; color: #444; font-size: 1.2rem; 
-            padding: 0 10px; cursor: pointer; transition: color 0.2s;
-        }
-        .pin-btn.pinned { color: var(--accent); text-shadow: 0 0 5px rgba(78, 205, 196, 0.4); }
-
+        
         .accordion-trigger { cursor: pointer; user-select: none; }
         .accordion-trigger::after {
             content: '▼'; font-size: 0.7rem; color: #666; transition: transform 0.3s ease;
@@ -487,9 +481,10 @@
         </div>
         <div class="field-group hp-box">
             <label style="color:var(--gold);">Insp</label>
-            <div style="position:relative;">
-                 <input type="number" id="inspirationVal" style="color:var(--gold); border-color: #555;" value="0" oninput="save()">
-                 <button onclick="useInspiration()" style="position:absolute; right:0; top:0; bottom:0; width:20px; background:transparent; border:none; cursor:pointer;">⚡</button>
+            <div style="display:flex; height:100%;">
+                 <input type="number" id="inspirationVal" style="color:var(--gold); border-color: #555; border-right:none; border-radius:6px 0 0 6px; flex:1; min-width:0; text-align:center;" value="0" oninput="save()">
+                 
+                 <button onclick="useInspiration()" style="width:50px; background:var(--gold); color:#111; border:1px solid var(--gold); border-radius:0 6px 6px 0; font-size:1.4rem; cursor:pointer; padding:0; display:grid; place-items:center; flex-shrink:0;">⚡</button>
             </div>
         </div>
     </div>
@@ -580,9 +575,8 @@
 </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat', event)">
+        <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">
             <span>Combat Stats & Resources</span>
-            <button class="pin-btn" onclick="togglePin('combat', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-combat">
             <div class="combat-row">
@@ -610,9 +604,8 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr', event)">
+        <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">
             <span>Attributes</span>
-            <button class="pin-btn" onclick="togglePin('attr', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-attr">
             <div class="grid-6" id="statsGrid"></div>
@@ -620,9 +613,8 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk', event)">
+        <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">
             <span>Attacks</span>
-            <button class="pin-btn" onclick="togglePin('atk', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-atk">
             <div id="attackList"></div>
@@ -631,9 +623,8 @@
     </div>
     
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats', event)">
+        <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">
             <span>Features & Traits</span>
-            <button class="pin-btn" onclick="togglePin('feats', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-feats">
             <div id="featureList"></div>
@@ -642,9 +633,8 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells', event)">
+        <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">
             <span>Spell Slots</span>
-            <button class="pin-btn" onclick="togglePin('spells', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-spells">
             <div id="spellSlotsList"></div>
@@ -652,9 +642,8 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills', event)">
+        <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">
             <span>Skills</span>
-            <button class="pin-btn" onclick="togglePin('skills', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-skills">
             <div class="skill-list" id="skillGrid"></div>
@@ -662,9 +651,8 @@
     </div>
 
     <div class="card">
-        <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller', event)">
+        <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">
             <span>Arbitrary Roller</span>
-            <button class="pin-btn" onclick="togglePin('roller', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-roller">
             <div class="custom-roll-row" style="margin-bottom:10px;">
@@ -687,9 +675,8 @@
     </div>
 
     <div class="card io-card">
-        <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io', event)">
+        <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">
             <span>Backup Data</span>
-            <button class="pin-btn" onclick="togglePin('io', this)" title="Keep Open">📌</button>
         </div>
         <div class="accordion-content" id="body-io">
             <div class="field-group">
@@ -886,8 +873,7 @@
     }
 
     // --- ACCORDION LOGIC ---
-    function toggleSection(key, event) {
-        if (event && event.target.classList.contains('pin-btn')) return;
+    function toggleSection(key) {
         const head = document.getElementById('head-' + key);
         const body = document.getElementById('body-' + key);
         head.classList.toggle('collapsed');
@@ -897,11 +883,6 @@
         save();
     }
     
-    function togglePin(key, btn) {
-        btn.classList.toggle('pinned');
-        event.stopPropagation();
-    }
-
     // --- RENDERERS ---
     function renderStats() {
         document.getElementById('statsGrid').innerHTML = stats.map(s => `
@@ -1068,7 +1049,6 @@
 
     function updateAll() {
         const pb = getPB(data.meta.level);
-        // document.getElementById('charPB').innerText = "+" + pb; // Removed element in simplified header
         stats.forEach(s => {
             const mod = getMod(data.stats[s].val);
             const saveBonus = mod + (data.stats[s].save ? pb : 0);
@@ -1082,8 +1062,6 @@
             const bonus = mod + (profLevel * pb);
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
-        
-        // Passive Perception removed from header in v3.3 simplification, but calc remains valid
         
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
@@ -1727,4 +1705,3 @@
 </script>
 </body>
 </html>
-
