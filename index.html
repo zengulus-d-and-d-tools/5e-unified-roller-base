@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v3.5</title>
+    <title>Unified 5e Sheet v3.6</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -448,13 +448,22 @@
     
 <div class="card">
     <div class="header-grid">
-        <div class="field-group">
+        <div class="field-group span-2">
             <label>Character Name</label>
             <input type="text" id="charName" placeholder="Name" oninput="save()">
         </div>
         <div class="field-group">
             <label>Level</label>
             <input type="number" id="charLevel" value="1" oninput="updateLevel(this.value)">
+        </div>
+        <div class="field-group">
+            <label>Caster Type</label>
+            <select id="casterType" onchange="updateCasterType(this.value)" style="padding:10px;">
+                <option value="none">None</option>
+                <option value="full">Full Caster</option>
+                <option value="half">Half Caster</option>
+                <option value="third">Third Caster</option>
+            </select>
         </div>
     </div>
 
@@ -714,7 +723,7 @@
     };
 
     let data = {
-        meta: { player: '', name: '', level: 1, webhook: '', discordActive: false, init: 0, speed: '' },
+        meta: { player: '', name: '', level: 1, casterType: 'none', webhook: '', discordActive: false, init: 0, speed: '' },
         vitals: { 
             curr: '', max: '', temp: '', 
             hdDie: 'd8', hdCurr: 1, hdMax: 1,
@@ -783,7 +792,6 @@
             
             // AC MIGRATION
             if (!data.ac || !data.ac.bonuses) {
-                // If coming from old version, migrate to new structure
                 const oldAc = data.ac || {};
                 data.ac = { 
                     mode: oldAc.mode || 'std', 
@@ -793,7 +801,6 @@
                     customStat2: oldAc.customStat2 || 'none',
                     bonuses: [] 
                 };
-                // Capture old generic bonus
                 if(oldAc.bonus) data.ac.bonuses.push({ id: Date.now(), name: "Misc", val: oldAc.bonus, active: true });
                 if(oldAc.customBonus) data.ac.bonuses.push({ id: Date.now()+1, name: "Custom Misc", val: oldAc.customBonus, active: true });
             }
@@ -815,6 +822,8 @@
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
         document.getElementById('charLevel').value = data.meta.level || 1;
+        document.getElementById('casterType').value = data.meta.casterType || 'none';
+        
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
@@ -848,7 +857,7 @@
         document.getElementById('acStat1').value = data.ac.customStat1 || 'dex';
         document.getElementById('acStat2').value = data.ac.customStat2 || 'none';
         
-        toggleACMode(); // This handles visibility and calculation
+        toggleACMode(); 
         renderAcList();
 
         // ACCORDIONS
@@ -957,7 +966,28 @@
     function renderSpells() {
         const list = document.getElementById('spellSlotsList');
         list.innerHTML = '';
+        
+        const type = data.meta.casterType || 'none';
+        const lvl = parseInt(data.meta.level) || 1;
+        let maxLvl = 0;
+
+        if (type === 'full') maxLvl = Math.min(9, Math.ceil(lvl / 2));
+        else if (type === 'half') {
+            if(lvl >= 17) maxLvl=5; else if(lvl >= 13) maxLvl=4; else if(lvl >= 9) maxLvl=3; else if(lvl >= 5) maxLvl=2; else if(lvl >= 2) maxLvl=1;
+        }
+        else if (type === 'third') {
+            if(lvl >= 19) maxLvl=4; else if(lvl >= 13) maxLvl=3; else if(lvl >= 7) maxLvl=2; else if(lvl >= 3) maxLvl=1;
+        }
+
+        if (type === 'none') {
+            list.innerHTML = '<div style="text-align:center; color:#666; font-style:italic; padding:10px;">No spellcasting configured.</div>';
+            return;
+        }
+
         data.spells.forEach((slot, idx) => {
+            const spellLevel = slot.lvl; 
+            if (spellLevel > maxLvl) return; // Hide unavailable levels
+
             let bubblesHtml = '';
             for(let i=0; i<slot.max; i++) {
                 const isUsed = i < slot.used;
@@ -1045,7 +1075,18 @@
     // --- CALCULATION LOGIC ---
     function getMod(score) { return Math.floor((score - 10) / 2); }
     function getPB(level) { return Math.ceil(level / 4) + 1; }
-    function updateLevel(val) { data.meta.level = Math.min(20, Math.max(1, parseInt(val))); save(); updateAll(); }
+    function updateLevel(val) { 
+        data.meta.level = Math.min(20, Math.max(1, parseInt(val))); 
+        save(); 
+        updateAll(); 
+        renderSpells(); // Re-render spells to check for hidden slots
+    }
+    
+    function updateCasterType(val) {
+        data.meta.casterType = val;
+        save();
+        renderSpells();
+    }
 
     function updateAll() {
         const pb = getPB(data.meta.level);
