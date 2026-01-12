@@ -213,6 +213,10 @@
         </div>
     </div>
 
+    <div style="text-align:center; margin-top:20px; padding-bottom:20px;">
+        <button class="btn-danger btn-sm" onclick="clearCombat()">⚠ Clear Encounter</button>
+    </div>
+
     <div id="combatList" class="combat-list"></div>
 
     <div class="tracker-footer">
@@ -220,10 +224,8 @@
             <span>Round</span>
             <span class="round-val" id="roundVal">1</span>
         </div>
-        <div style="display:flex; gap:10px; flex:1;">
-            <button class="btn-sec" onclick="clearCombat()" style="width:60px;">Clear</button>
-            <button class="btn-main" style="flex:1;" onclick="nextTurn()">Next Turn ▶</button>
-        </div>
+        <button class="btn-sec" onclick="prevTurn()" style="width:50px;">◀</button>
+        <button class="btn-main" style="flex:1;" onclick="nextTurn()">Next Turn ▶</button>
     </div>
 </div>
 
@@ -584,6 +586,17 @@
         const diffs = { 5:"Very Easy", 10:"Easy", 15:"Medium", 20:"Hard", 25:"Very Hard", 30:"Nearly Impossible" };
         document.getElementById('dcDisplay').innerText = "DC " + val;
         document.getElementById('dcDesc').innerText = diffs[val] || "Custom";
+    }
+
+    function prevTurn() {
+        if(gmData.combatants.length === 0) return;
+        gmData.activeIdx--;
+        if(gmData.activeIdx < 0) {
+            gmData.activeIdx = gmData.combatants.length - 1;
+            gmData.round = Math.max(1, gmData.round - 1);
+        }
+        saveGM();
+        renderCombat();
     }
 
     // --- REFERENCE ---
