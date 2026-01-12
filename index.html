@@ -99,6 +99,31 @@
         .crit-text { color: var(--crit); text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
         .fail-text { color: var(--fail); text-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
 
+
+        /* NEW: Toggle Switch Styling */
+        .toggle-switch {
+            position: relative; width: 40px; height: 22px; flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333; transition: .4s; border-radius: 22px; border: 1px solid #555;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); border-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); background-color: black; }
+
+        /* NEW: Armor Row Layout */
+        .ac-row {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+            background: #252525; padding: 8px; border-radius: 8px; border: 1px solid #333;
+        }
+        .ac-row.inactive { opacity: 0.6; }
+        .ac-val-input { width: 50px !important; text-align: center; font-weight: bold; }
+
         /* --- UI ELEMENTS & ACCORDIONS --- */
         .card { 
             background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); 
@@ -423,161 +448,113 @@
 
 <div class="sheet-container">
     
-    <div class="card">
-        <div class="header-grid">
-            <div class="field-group">
-                <label>Player Name</label>
-                <input type="text" id="playerName" placeholder="Your Name" oninput="save()">
-            </div>
-            <div class="field-group">
-                <label>Character Name</label>
-                <input type="text" id="charName" placeholder="Character Name" oninput="save()">
-            </div>
-            
-            <div class="span-2">
-                <div class="section-title">Vitals (HP)</div>
-                
-                <div class="hp-visual-bar">
-                    <div class="hp-fill-curr" id="barCurr"></div>
-                    <div class="hp-fill-temp" id="barTemp"></div>
-                    <div class="hp-text-overlay" id="barText"></div>
-                </div>
+<div class="card">
+    <div class="header-grid">
+        <div class="field-group">
+            <label>Character Name</label>
+            <input type="text" id="charName" placeholder="Name" oninput="save()">
+        </div>
+        <div class="field-group">
+            <label>Level</label>
+            <input type="number" id="charLevel" value="1" oninput="updateLevel(this.value)">
+        </div>
+    </div>
 
-                <div class="hp-grid">
-                    <div class="field-group hp-box">
-                        <label>Current</label>
-                        <input type="number" id="hpCurr" style="color:#ef4444; border-color:#ef4444;" placeholder="0" oninput="updateHP()">
-                    </div>
-                    <div class="field-group hp-box">
-                        <label>Max</label>
-                        <input type="number" id="hpMax" placeholder="0" oninput="updateHP()">
-                    </div>
-                    <div class="field-group hp-box">
-                        <label>Temp</label>
-                        <input type="number" id="hpTemp" style="color:#3498db; border-color:#3498db;" placeholder="0" oninput="updateHP()">
-                    </div>
-                    <div class="field-group hp-box">
-                        <label>Die Size</label>
-                        <input type="text" id="hdDie" placeholder="d8" oninput="save()">
-                    </div>
-                </div>
+    <div class="section-title mt-2">Vitals & Health</div>
+    
+    <div class="hp-visual-bar">
+        <div class="hp-fill-curr" id="barCurr"></div>
+        <div class="hp-fill-temp" id="barTemp"></div>
+        <div class="hp-text-overlay" id="barText"></div>
+    </div>
 
-                <div class="hp-manage-row">
-                    <button class="btn-dmg" onclick="modifyHP(true)">Dmg</button>
-                    <button class="btn-hp-quick" onclick="modifyHP(true, 1)">-1</button>
-                    <input type="number" id="hpInteractVal" placeholder="Amt">
-                    <button class="btn-hp-quick" onclick="modifyHP(false, 1)">+1</button>
-                    <button class="btn-heal" onclick="modifyHP(false)">Heal</button>
-                </div>
-                
-                <div class="hd-row">
-                    <label style="margin:0; white-space:nowrap;">Hit Dice:</label>
-                    <input type="number" id="hdCurr" class="hd-val" placeholder="Curr" oninput="save()">
-                    <span style="color:#666; font-weight:bold;">/</span>
-                    <input type="number" id="hdMax" class="hd-val" placeholder="Max" oninput="save()">
-                    <button class="btn-roll-hd" onclick="rollHitDie()">
-                        <span>🎲</span> Use (Roll)
-                    </button>
-                </div>
-
-                <div class="death-save-row" id="deathSaveRow" style="display:none;">
-                    <button class="btn-ds-roll" onclick="rollDeathSave()">Roll DS</button>
-                    <div class="ds-group">
-                        <span style="font-size:0.6rem; color:#2ecc71;">SUCC</span>
-                        <input type="checkbox" class="ds-check ds-succ" id="ds-s1" onchange="save()">
-                        <input type="checkbox" class="ds-check ds-succ" id="ds-s2" onchange="save()">
-                        <input type="checkbox" class="ds-check ds-succ" id="ds-s3" onchange="save()">
-                    </div>
-                    <div class="ds-group">
-                        <span style="font-size:0.6rem; color:#e74c3c;">FAIL</span>
-                        <input type="checkbox" class="ds-check ds-fail" id="ds-f1" onchange="save()">
-                        <input type="checkbox" class="ds-check ds-fail" id="ds-f2" onchange="save()">
-                        <input type="checkbox" class="ds-check ds-fail" id="ds-f3" onchange="save()">
-                    </div>
-                </div>
-
-                <div class="rest-row">
-                    <button class="btn-rest" onclick="shortRest()">Short Rest (Reset SR)</button>
-                    <button class="btn-rest" onclick="longRest()">Long Rest (Reset All)</button>
-                </div>
-
-            </div>
-
-            <div class="span-2 no-border">
-                <div class="insp-row">
-                    <div class="insp-input-group">
-                        <label style="color:#aaa; font-size:0.75rem; text-transform:uppercase;">Inspiration</label>
-                        <input type="number" id="inspirationVal" class="insp-input" value="0" placeholder="0" oninput="save()">
-                    </div>
-                    <button class="btn-use-insp" onclick="useInspiration()">Use (Next d20)</button>
-                </div>
-            </div>
-
-            <div class="field-group">
-                <label>Level</label>
-                <input type="number" id="charLevel" value="1" min="1" max="20" oninput="updateLevel(this.value)">
-            </div>
-            <div class="field-group">
-                <label>Prof. Bonus</label>
-                <div class="read-only-box" id="charPB">+2</div>
-            </div>
-            
-            <div class="field-group span-2">
-                <div class="ac-wrapper">
-                    <div class="ac-header">
-                        <span style="font-weight:bold; color:#fff; font-size:0.9rem;">ARMOR CLASS</span>
-                        <span class="ac-val-big" id="acTotalDisplay">10</span>
-                    </div>
-                    
-                    <label style="font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-bottom:5px;">
-                        <input type="checkbox" id="acCustomToggle" onchange="toggleACMode()"> Use Custom Formula
-                    </label>
-
-                    <div id="acStdControls" class="ac-config-row">
-                        <div class="field-group">
-                            <span class="ac-label-small">Dex Cap</span>
-                            <select id="acDexCap" onchange="updateAC()" style="padding:4px; font-size:0.8rem; height:30px;">
-                                <option value="none">No Cap (Light/None)</option>
-                                <option value="2">Max +2 (Medium)</option>
-                                <option value="0">No Bonus (Heavy)</option>
-                            </select>
-                        </div>
-                        <div class="field-group">
-                            <span class="ac-label-small">Bonus (Shield/Magic)</span>
-                            <input type="number" id="acBonus" placeholder="+0" value="0" oninput="updateAC()" style="height:30px; padding:4px;">
-                        </div>
-                    </div>
-
-                    <div id="acCustomControls" class="ac-config-row" style="display:none;">
-                        <div class="field-group">
-                            <span class="ac-label-small">Base 10 + Stat 1</span>
-                            <select id="acStat1" onchange="updateAC()" style="padding:4px; font-size:0.8rem; height:30px;"></select>
-                        </div>
-                        <div class="field-group">
-                            <span class="ac-label-small">Stat 2 (Optional)</span>
-                            <select id="acStat2" onchange="updateAC()" style="padding:4px; font-size:0.8rem; height:30px;"></select>
-                        </div>
-                        <div class="field-group span-2">
-                             <span class="ac-label-small">Misc Bonus</span>
-                             <input type="number" id="acCustomBonus" placeholder="+0" value="0" oninput="updateAC()" style="height:30px; padding:4px;">
-                        </div>
-                    </div>
-                </div>
-                <div class="passive-row">
-                    <span style="color:#888; font-weight:bold; font-size:0.9rem;">Passive Perception</span>
-                    <span id="passivePerc" style="color:#fff; font-weight:bold; font-size:1.1rem;">10</span>
-                </div>
-            </div>
-
-            <div class="webhook-row span-2">
-                <input type="text" id="webhookUrl" placeholder="Discord Webhook URL..." oninput="save()">
-                <label class="discord-toggle" id="discordLabel" style="display:flex; align-items:center; gap:8px; margin-top:5px; color:#aaa; font-size:0.9rem;">
-                    <input type="checkbox" id="sendToDiscord" onchange="toggleDiscord(this.checked)"> 
-                    <span>Active (Send to Discord)</span>
-                </label>
+    <div class="hp-grid">
+        <div class="field-group hp-box">
+            <label>Current</label>
+            <input type="number" id="hpCurr" style="color:var(--hp-curr);" placeholder="0" oninput="updateHP()">
+        </div>
+        <div class="field-group hp-box">
+            <label>Max</label>
+            <input type="number" id="hpMax" placeholder="0" oninput="updateHP()">
+        </div>
+        <div class="field-group hp-box">
+            <label>Temp</label>
+            <input type="number" id="hpTemp" style="color:var(--hp-temp);" placeholder="0" oninput="updateHP()">
+        </div>
+        <div class="field-group hp-box">
+            <label style="color:var(--gold);">Insp</label>
+            <div style="position:relative;">
+                 <input type="number" id="inspirationVal" style="color:var(--gold); border-color: #555;" value="0" oninput="save()">
+                 <button onclick="useInspiration()" style="position:absolute; right:0; top:0; bottom:0; width:20px; background:transparent; border:none; cursor:pointer;">⚡</button>
             </div>
         </div>
     </div>
+
+    <div class="hp-manage-row">
+        <button class="btn-dmg" onclick="modifyHP(true)">Dmg</button>
+        <button class="btn-hp-quick" onclick="modifyHP(true, 1)">-1</button>
+        <input type="number" id="hpInteractVal" placeholder="Amt">
+        <button class="btn-hp-quick" onclick="modifyHP(false, 1)">+1</button>
+        <button class="btn-heal" onclick="modifyHP(false)">Heal</button>
+    </div>
+
+    <div class="death-save-row" id="deathSaveRow" style="display:none;">
+        <button class="btn-ds-roll" onclick="rollDeathSave()">Roll DS</button>
+        <div class="ds-group">
+            <span style="font-size:0.6rem; color:#2ecc71;">SUCC</span>
+            <input type="checkbox" class="ds-check ds-succ" id="ds-s1" onchange="save()"><input type="checkbox" class="ds-check ds-succ" id="ds-s2" onchange="save()"><input type="checkbox" class="ds-check ds-succ" id="ds-s3" onchange="save()">
+        </div>
+        <div class="ds-group">
+            <span style="font-size:0.6rem; color:#e74c3c;">FAIL</span>
+            <input type="checkbox" class="ds-check ds-fail" id="ds-f1" onchange="save()"><input type="checkbox" class="ds-check ds-fail" id="ds-f2" onchange="save()"><input type="checkbox" class="ds-check ds-fail" id="ds-f3" onchange="save()">
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="section-title">
+        <span>Armor Class</span>
+        <span class="ac-val-big" id="acTotalDisplay">10</span>
+    </div>
+
+    <div class="grid-6" style="margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px;">
+        <div class="field-group span-2">
+            <label>Base AC (Armor)</label>
+            <input type="number" id="acBase" value="10" placeholder="10" oninput="updateAC()">
+        </div>
+        <div class="field-group span-2">
+            <label>Dex Cap</label>
+            <select id="acDexCap" onchange="updateAC()" style="padding:5px;">
+                <option value="100">None (Light)</option>
+                <option value="2">Max +2 (Med)</option>
+                <option value="0">0 (Heavy)</option>
+            </select>
+        </div>
+        <div class="field-group span-2">
+            <label>Dex Mod</label>
+            <div class="read-only-box" id="acDexModDisp" style="text-align:center; color:#888;">+0</div>
+        </div>
+    </div>
+
+    <div id="acBonusList"></div>
+    <button class="add-btn" style="background:#333; color:#ccc; border:1px solid #444;" onclick="addAcBonus()">+ Add Bonus (Shield, Magic, etc)</button>
+</div>
+
+<div class="card">
+    <div class="section-title">Rest & Hit Dice</div>
+    <div class="hd-row">
+        <label style="margin:0;">Hit Dice:</label>
+        <input type="text" id="hdDie" style="width:40px; text-align:center;" placeholder="d8" oninput="save()">
+        <input type="number" id="hdCurr" class="hd-val" placeholder="C" oninput="save()">
+        <span>/</span>
+        <input type="number" id="hdMax" class="hd-val" placeholder="M" oninput="save()">
+        <button class="btn-roll-hd" onclick="rollHitDie()">🎲 Roll HD</button>
+    </div>
+    <div class="rest-row">
+        <button class="btn-rest" onclick="shortRest()">Short Rest</button>
+        <button class="btn-rest" onclick="longRest()">Long Rest</button>
+    </div>
+</div>
 
     <div class="card">
         <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">Combat Stats & Resources</div>
@@ -743,8 +720,7 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
-    // --- INITIALIZATION ---
-    function init() {
+    // --- INITIALIZATION ---function init() {
         const saved = localStorage.getItem('unifiedSheetDataV2'); 
         let defaultSpells = [];
         for(let i=1; i<=9; i++) defaultSpells.push({ lvl: i, max: 0, used: 0 });
@@ -757,7 +733,16 @@
             if(parsed.vitals) data.vitals = {...data.vitals, ...parsed.vitals};
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
-            if(parsed.ac) data.ac = {...data.ac, ...parsed.ac}; // Load AC
+            
+            // --- NEW: AC Data Migration (Step A) ---
+            if (!data.ac || !data.ac.bonuses) {
+                data.ac = { base: 10, dexCap: 100, bonuses: [] };
+                // Migrate old bonus if it existed
+                if(parsed.ac && parsed.ac.bonus) {
+                    data.ac.bonuses.push({ id: Date.now(), name: "Misc Bonus", val: parsed.ac.bonus, active: true });
+                }
+            }
+            // ---------------------------------------
             
             if(!data.spells || data.spells.length === 0) data.spells = defaultSpells;
             if(!data.resources) data.resources = []; 
@@ -771,6 +756,8 @@
         } else {
             Object.keys(skillsMap).forEach(s => data.skills[s] = 0);
             data.spells = defaultSpells;
+            // New Default AC
+            data.ac = { base: 10, dexCap: 100, bonuses: [] };
         }
 
         document.getElementById('playerName').value = data.meta.player || '';
@@ -800,16 +787,11 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
-        // Init AC inputs
-        document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
-        document.getElementById('acDexCap').value = data.ac.dexCap || 'none';
-        document.getElementById('acBonus').value = data.ac.bonus || 0;
-        document.getElementById('acCustomBonus').value = data.ac.customBonus || 0;
-        
-        populateStatSelects(); // Fill AC stat dropdowns
-        document.getElementById('acStat1').value = data.ac.customStat1 || 'dex';
-        document.getElementById('acStat2').value = data.ac.customStat2 || 'none';
-        toggleACMode(); // Set visibility
+        // --- NEW: AC UI Setup (Step C) ---
+        document.getElementById('acBase').value = data.ac.base || 10;
+        document.getElementById('acDexCap').value = data.ac.dexCap || 100;
+        renderAcList(); 
+        // ---------------------------------
 
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
@@ -1058,43 +1040,74 @@
         updateAC();
     }
 
-    function updateAC() {
-        // Capture inputs
-        data.ac.dexCap = document.getElementById('acDexCap').value;
-        data.ac.bonus = parseInt(document.getElementById('acBonus').value) || 0;
-        data.ac.customStat1 = document.getElementById('acStat1').value;
-        data.ac.customStat2 = document.getElementById('acStat2').value;
-        data.ac.customBonus = parseInt(document.getElementById('acCustomBonus').value) || 0;
-
-        let total = 10;
-
-        if (data.ac.mode === 'std') {
-            const dexMod = getMod(data.stats.dex.val);
-            let dexContrib = dexMod;
-            
-            if (data.ac.dexCap === '2') {
-                if (dexContrib > 2) dexContrib = 2;
-                // Medium armor keeps negative dex
-            } else if (data.ac.dexCap === '0') {
-                dexContrib = 0; // Heavy armor ignores dex entirely
-            }
-            // Light/None uses full dexContrib
-            
-            total = 10 + dexContrib + data.ac.bonus;
-
-        } else {
-            // Custom Formula
-            const m1 = getMod(data.stats[data.ac.customStat1].val);
-            let m2 = 0;
-            if (data.ac.customStat2 !== 'none') {
-                m2 = getMod(data.stats[data.ac.customStat2].val);
-            }
-            total = 10 + m1 + m2 + data.ac.customBonus;
-        }
-
-        document.getElementById('acTotalDisplay').innerText = total;
-        save();
+    // --- NEW ARMOR CLASS LOGIC ---
+function updateAC() {
+    // 1. Get Base
+    data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
+    data.ac.dexCap = parseInt(document.getElementById('acDexCap').value);
+    
+    // 2. Calculate Dex Contribution
+    const rawDex = getMod(data.stats.dex.val);
+    let effectiveDex = rawDex;
+    if (data.ac.dexCap !== 100) { // 100 acts as "None/Infinity"
+        // If cap is 0 (Heavy), Dex is 0. If cap is 2, Dex cannot exceed 2 (but can be negative)
+        if (data.ac.dexCap === 0) effectiveDex = 0; 
+        else effectiveDex = Math.min(rawDex, data.ac.dexCap);
     }
+    
+    document.getElementById('acDexModDisp').innerText = (effectiveDex >= 0 ? "+" : "") + effectiveDex;
+
+    // 3. Sum Bonuses
+    let bonusTotal = 0;
+    data.ac.bonuses.forEach(b => {
+        if (b.active) bonusTotal += (parseInt(b.val) || 0);
+    });
+
+    // 4. Total and Display
+    const total = data.ac.base + effectiveDex + bonusTotal;
+    document.getElementById('acTotalDisplay').innerText = total;
+    
+    save();
+}
+
+function renderAcList() {
+    const list = document.getElementById('acBonusList');
+    list.innerHTML = data.ac.bonuses.map((b, i) => `
+        <div class="ac-row ${b.active ? '' : 'inactive'}">
+            <label class="toggle-switch">
+                <input type="checkbox" ${b.active ? 'checked' : ''} onchange="toggleAcBonus(${i})">
+                <span class="slider"></span>
+            </label>
+            <input type="text" value="${b.name}" placeholder="Source (Shield)" onchange="updateAcBonus(${i}, 'name', this.value)">
+            <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" onchange="updateAcBonus(${i}, 'val', this.value)">
+            <button class="btn-del" style="margin-left:auto;" onclick="delAcBonus(${i})">&times;</button>
+        </div>
+    `).join('');
+}
+
+function addAcBonus() {
+    data.ac.bonuses.push({ id: Date.now(), name: '', val: 1, active: true });
+    renderAcList();
+    updateAC();
+}
+
+function toggleAcBonus(i) {
+    data.ac.bonuses[i].active = !data.ac.bonuses[i].active;
+    renderAcList();
+    updateAC();
+}
+
+function updateAcBonus(i, field, val) {
+    data.ac.bonuses[i][field] = val;
+    // Don't re-render list on input to avoid losing focus
+    updateAC();
+}
+
+function delAcBonus(i) {
+    data.ac.bonuses.splice(i, 1);
+    renderAcList();
+    updateAC();
+}
 
     // --- HP LOGIC ---
     function updateHP() {
@@ -1634,4 +1647,5 @@
 </script>
 </body>
 </html>
+
 
