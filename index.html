@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v3.7</title>
+    <title>Unified 5e Sheet v3.8</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -131,6 +131,8 @@
             display: flex; flex-direction: column;
             position: relative;
             transition: transform 0.2s, box-shadow 0.2s;
+            /* Updated Padding for Side Grip */
+            padding-left: 45px; 
         }
         /* DRAG STATE STYLES */
         .card.dragging {
@@ -139,20 +141,21 @@
             border-color: var(--accent);
             z-index: 999;
         }
-        /* GRIP HANDLE */
+        /* GRIP HANDLE (UPDATED FOR LEFT SIDE) */
         .drag-grip {
-            position: absolute; top: 0; left: 0; right: 0; height: 20px;
+            position: absolute; 
+            top: 0; left: 0; bottom: 0; /* Full Height */
+            width: 30px; 
             display: flex; justify-content: center; align-items: center;
-            color: #444; font-size: 14px; letter-spacing: 2px;
-            cursor: grab; touch-action: none; /* Critical for touch drag */
-            border-radius: 12px 12px 0 0;
+            color: #444; font-size: 18px; letter-spacing: 0;
+            cursor: grab; touch-action: none; 
+            border-radius: 12px 0 0 12px;
+            border-right: 1px solid #252525;
+            background: rgba(0,0,0,0.1);
         }
         .drag-grip:hover { color: var(--accent); background: rgba(255,255,255,0.02); }
         .drag-grip::after { content: '⣿'; }
         
-        /* Shift content down slightly to make room for grip */
-        .card > *:first-child:not(.drag-grip) { margin-top: 10px; }
-
         .section-title { 
             margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
             border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;
@@ -734,6 +737,7 @@
             inspiration: 0, 
             ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
         },
+        // NEW: AC Data Structure
         ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
         skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
@@ -742,7 +746,7 @@
     
     let consumeInspirationOnNextRoll = false;
 
-    // --- CORE DICE ENGINE ---
+    // --- CORE DICE ENGINE (OPTIMIZED) ---
     function coreRoll(count, sides, mode = 'norm') {
         let rolls = [];
         let total = 0;
@@ -779,26 +783,39 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
-    // --- COMPLEX FORMULA PARSER ---
+    // --- COMPLEX FORMULA PARSER (NEW v3.6) ---
+    // Parses strings like "1d4 + 2", "-1d4", "2d6 + 5"
     function parseComplexBonus(str) {
         if (!str) return { total: 0, text: '' };
         let total = 0;
         let parts = [];
+        
+        // 1. Find all Dice (e.g. +1d4, -1d6)
+        // Match: [optional sign] [spaces] [digits] d [digits]
         const diceRegex = /([+-]?)\s*(\d+)d(\d+)/gi;
         let match;
-        let cleanStr = str;
+        
+        // We iterate matches to sum them
+        let cleanStr = str; // We will remove dice to find statics later
         
         while ((match = diceRegex.exec(str)) !== null) {
             const sign = (match[1].trim() === '-') ? -1 : 1;
             const count = parseInt(match[2]);
             const sides = parseInt(match[3]);
+            
             const res = coreRoll(count, sides);
             total += (res.total * sign);
+            
             const signStr = sign === -1 ? '-' : '+';
+            // Output format: +[3] or -[2]
             parts.push(`${signStr}[${res.formula.replace(/[\[\]]/g,'')}]`);
         }
         
+        // Remove dice from string to find leftover statics
         cleanStr = str.replace(diceRegex, '');
+        
+        // 2. Find Statics (integers)
+        // Match: [optional sign] [spaces] [digits]
         const staticRegex = /([+-]?)\s*(\d+)/gi;
         while ((match = staticRegex.exec(cleanStr)) !== null) {
              const sign = (match[1].trim() === '-') ? -1 : 1;
@@ -806,6 +823,7 @@
              total += (val * sign);
              parts.push(`${sign===-1?'-':'+'}${val}`);
         }
+
         return { total, text: parts.join(' ') };
     }
 
@@ -823,6 +841,7 @@
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
             
+            // AC MIGRATION
             if (!data.ac || !data.ac.bonuses) {
                 const oldAc = data.ac || {};
                 data.ac = { 
@@ -841,7 +860,6 @@
             if(!data.resources) data.resources = []; 
             if(!data.features) data.features = [];
             if(!data.uiState) data.uiState = {};
-            if(!data.uiState.cardOrder) data.uiState.cardOrder = [];
 
             if (data.vitals.hdCurr === undefined) data.vitals.hdCurr = data.meta.level || 1;
             if (data.vitals.hdMax === undefined) data.vitals.hdMax = data.meta.level || 1;
@@ -852,31 +870,13 @@
             data.spells = defaultSpells;
         }
 
-        // --- RESTORE CARD ORDER ---
-        if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
-            const container = document.querySelector('.sheet-container');
-            const sortedFrag = document.createDocumentFragment();
-            // Append found IDs in order
-            data.uiState.cardOrder.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) sortedFrag.appendChild(el);
-            });
-            // Append remaining (new) cards
-            Array.from(container.children).forEach(child => {
-                if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
-                    sortedFrag.appendChild(child);
-                }
-            });
-            container.appendChild(sortedFrag);
-        }
-
-        // Initialize Values
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
         document.getElementById('charLevel').value = data.meta.level || 1;
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
+        // Init Bonus now supports text
         document.getElementById('initBonus').value = data.meta.init || "+0";
         document.getElementById('speedVal').value = data.meta.speed;
         
@@ -898,6 +898,7 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
+        // AC SETUP
         document.getElementById('acBase').value = data.ac.base || 10;
         document.getElementById('acDexCap').value = data.ac.dexCap || 100;
         document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
@@ -909,6 +910,25 @@
         toggleACMode(); 
         renderAcList();
 
+        // --- RESTORE CARD ORDER ---
+        if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
+            const container = document.querySelector('.sheet-container');
+            const sortedFrag = document.createDocumentFragment();
+            // Append found IDs in order
+            data.uiState.cardOrder.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) sortedFrag.appendChild(el);
+            });
+            // Append remaining (new) cards
+            Array.from(container.children).forEach(child => {
+                if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
+                    sortedFrag.appendChild(child);
+                }
+            });
+            container.appendChild(sortedFrag);
+        }
+
+        // ACCORDIONS
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
@@ -1259,11 +1279,13 @@
     }
 
     function updateAC() {
+        // Shared inputs
         data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
-        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value);
+        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value); // 100, 2, or 0
         data.ac.customStat1 = document.getElementById('acStat1').value;
         data.ac.customStat2 = document.getElementById('acStat2').value;
 
+        // Sum Bonuses
         let bonusTotal = 0;
         data.ac.bonuses.forEach(b => {
             if (b.active) bonusTotal += (parseInt(b.val) || 0);
@@ -1282,6 +1304,7 @@
             total = data.ac.base + effectiveDex + bonusTotal;
 
         } else {
+            // Custom: 10 + Stat1 + Stat2 + Bonuses
             const m1 = getMod(data.stats[data.ac.customStat1].val);
             let m2 = 0;
             if (data.ac.customStat2 !== 'none') { m2 = getMod(data.stats[data.ac.customStat2].val); }
@@ -1519,12 +1542,21 @@
         const formula = document.getElementById('customFormula').value.trim();
         const label = document.getElementById('customLabel').value.trim() || 'Custom Roll';
         
-        const parsed = parseComplexBonus(formula);
-        
-        if(parsed.text === '') { showLog("Error", "Invalid"); return; }
+        const regex = /^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i;
+        const match = formula.match(regex);
+        if(!match) { showLog("Error", "Invalid"); return; }
 
-        showLog(parsed.text, parsed.total);
-        sendToDiscord(label + ": " + formula, `Dice: ${parsed.text}`, `**${parsed.total}**`, 'dmg');
+        const count = parseInt(match[1]) || 1;
+        const sides = parseInt(match[2]);
+        const modStr = match[3] ? match[3].replace(/\s/g, '') : "+0";
+        const mod = parseInt(modStr);
+
+        const result = coreRoll(count, sides);
+        const total = result.total + mod;
+
+        const fStr = `${result.formula} ${modStr}`;
+        showLog(fStr, total);
+        sendToDiscord(label + ": " + formula, `Dice: ${fStr}`, `**${total}**`, 'dmg');
     }
 
     function rollDamage(idx) {
@@ -1532,9 +1564,7 @@
         let mod = 0;
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
         
-        const miscStr = document.getElementById('globalMisc').value.trim();
-        const dmgStr = (atk.dmg || "") + " " + miscStr;
-        
+        const dmgStr = (atk.dmg || "") + " " + document.getElementById('globalMisc').value.trim();
         const parsed = parseComplexBonus(dmgStr);
         if(parsed.text === '') return;
 
@@ -1711,6 +1741,8 @@
     function rollResRecharge(i) {
         const res = data.resources[i];
         const formula = res.rFormula || '1d6';
+        
+        // Use generic regex to find dice
         const regex = /^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i;
         const match = formula.match(regex);
         if(!match) { showLog("Err", "Formula"); return; }
@@ -1722,8 +1754,10 @@
         
         const result = coreRoll(count, sides);
         const total = result.total + mod;
+        
         const prev = res.curr;
         res.curr = Math.min(res.max, res.curr + total);
+        
         save(); renderResources();
         
         showLog(`Recharge ${formula}`, total);
@@ -1746,6 +1780,7 @@
         if (type === 'feature') color = 3447003; 
         
         let descText = "";
+        
         if(type === 'feature') {
             descText = formulaStr;
         } else {
@@ -1793,6 +1828,7 @@
         localStorage.setItem('unifiedSheetDataV2', JSON.stringify(data)); 
     }
     
+    // --- IO / BACKUP SYSTEM (GZIP COMPRESSION) ---
     function showIoMsg(txt) { 
         const msg = document.getElementById('ioMsg');
         msg.innerText = txt; 
