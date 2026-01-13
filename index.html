@@ -79,9 +79,9 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
         }
         .misc-wrapper input { 
-            width: 50px !important; height: 30px; text-align: center; font-weight: bold; 
+            width: 70px !important; height: 30px; text-align: center; font-weight: bold; 
             color: var(--gold); border: 1px solid #444; background: #222; 
-            border-radius: 6px; font-size: 1rem; padding: 0; margin-top: 14px;
+            border-radius: 6px; font-size: 0.8rem; padding: 0; margin-top: 14px;
         }
         .misc-label { 
             font-size: 0.6rem; color: #aaa; text-transform: uppercase; 
@@ -99,7 +99,7 @@
         .crit-text { color: var(--crit); text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
         .fail-text { color: var(--fail); text-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
 
-        /* NEW: Toggle Switch Styling */
+        /* Toggle Switch */
         .toggle-switch {
             position: relative; width: 40px; height: 22px; flex-shrink: 0;
         }
@@ -115,7 +115,7 @@
         input:checked + .slider { background-color: var(--accent); border-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(18px); background-color: black; }
 
-        /* NEW: Armor Row Layout */
+        /* AC Row */
         .ac-row {
             display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
             background: #252525; padding: 8px; border-radius: 8px; border: 1px solid #333;
@@ -123,7 +123,7 @@
         .ac-row.inactive { opacity: 0.6; }
         .ac-val-input { width: 50px !important; text-align: center; font-weight: bold; }
 
-        /* --- UI ELEMENTS & ACCORDIONS --- */
+        /* --- UI ELEMENTS --- */
         .card { 
             background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); 
             display: flex; flex-direction: column;
@@ -236,18 +236,6 @@
         .btn-rest { flex: 1; background: #2c3e50; color: #ccc; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; border: 1px solid #444; }
         .btn-rest:hover { background: #34495e; color: #fff; }
 
-        /* INSPIRATION & AC */
-        .insp-row { 
-            display: flex; gap: 10px; margin-top: 10px; align-items: flex-end; 
-            background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
-        }
-        .insp-input-group { flex: 1; display:flex; flex-direction:column; }
-        .insp-input { color: var(--gold); border-color: #555; font-weight: bold; text-align: center; font-size: 1.2rem; }
-        .btn-use-insp {
-            background: var(--gold); color: #000; border: none; padding: 10px 15px; height: 42px;
-            border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;
-        }
-        
         /* AC SECTION */
         .ac-wrapper {
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
@@ -258,11 +246,6 @@
         .ac-config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; border-top: 1px solid #444; padding-top: 6px; }
         .ac-label-small { font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
 
-        .passive-row {
-            display: flex; justify-content: space-between; align-items: center; 
-            background: #1a1a1a; padding: 8px; border-radius: 6px; margin-top: 5px; border: 1px solid #333;
-        }
-        
         /* --- SPELLS --- */
         .spell-row { 
             display: flex; align-items: center; gap: 10px; margin-bottom: 8px; 
@@ -335,13 +318,14 @@
         }
         .btn-roll-skill:active { background: var(--accent); color: #000; }
 
-        /* --- ATTACKS & FEATURES --- */
+        /* --- ATTACKS --- */
         .atk-row { 
             display: flex; flex-direction: column; gap: 8px; 
             margin-bottom: 15px; background: #252525; padding: 10px; 
             border-radius: 8px; border: 1px solid #333; 
         }
-        .atk-stats-line { display: grid; grid-template-columns: 1fr 100px; gap: 8px; }
+        /* Expanded for multi-dice */
+        .atk-stats-line { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
         .atk-name-input { font-weight: bold; color: #fff; }
 
         .atk-desc { 
@@ -361,7 +345,7 @@
         .webhook-row { margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
         .discord-active { color: #5865F2; font-weight: bold; }
 
-        /* --- RESOURCES & VISUALIZATION --- */
+        /* --- RESOURCES --- */
         .combat-row {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
             margin-bottom: 10px;
@@ -376,11 +360,9 @@
         
         .res-name { font-weight: bold; font-size: 0.9rem; color: #fff; flex: 1; }
         
-        /* Inputs Row (Always Visible in v2.9) */
         .res-controls-row { display: flex; align-items: center; gap: 6px; width: 100%; }
         .res-val { width: 60px !important; text-align: center; font-weight: bold; padding: 5px !important; }
         
-        /* Visualizations */
         .res-viz-bar { 
             width: 100%; height: 22px; background: #1a1a1a; cursor: pointer;
             border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden; margin-top: 2px;
@@ -388,12 +370,9 @@
         .res-bar-fill { height: 100%; background: var(--res-bar); transition: width 0.3s; }
         
         .res-viz-bubbles { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; padding: 4px 0; margin-top: 2px; }
-        /* UPDATED: Larger Tap Targets */
         .res-bubble-item { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
         .res-bubble-item.filled { background: var(--res-bar); border-color: var(--res-bar); box-shadow: 0 0 5px var(--res-bar); }
 
-        /* Controls */
-        /* UPDATED: Reset Select */
         .res-reset-select { 
             background: #333; color: #ccc; border: 1px solid #444; 
             height: 35px; font-size: 0.75rem; padding: 0 5px;
@@ -435,7 +414,7 @@
         </div>
         <div class="misc-wrapper">
             <span class="misc-label">Misc</span>
-            <input type="number" id="globalMisc" placeholder="0">
+            <input type="text" id="globalMisc" placeholder="+0 or 1d4">
         </div>
     </div>
     <div id="logArea" class="log-area">
@@ -448,22 +427,13 @@
     
 <div class="card">
     <div class="header-grid">
-        <div class="field-group span-2">
+        <div class="field-group">
             <label>Character Name</label>
             <input type="text" id="charName" placeholder="Name" oninput="save()">
         </div>
         <div class="field-group">
             <label>Level</label>
             <input type="number" id="charLevel" value="1" oninput="updateLevel(this.value)">
-        </div>
-        <div class="field-group">
-            <label>Caster Type</label>
-            <select id="casterType" onchange="updateCasterType(this.value)" style="padding:10px;">
-                <option value="none">None</option>
-                <option value="full">Full Caster</option>
-                <option value="half">Half Caster</option>
-                <option value="third">Third Caster</option>
-            </select>
         </div>
     </div>
 
@@ -492,7 +462,6 @@
             <label style="color:var(--gold);">Insp</label>
             <div style="display:flex; height:100%;">
                  <input type="number" id="inspirationVal" style="color:var(--gold); border-color: #555; border-right:none; border-radius:6px 0 0 6px; flex:1; min-width:0; text-align:center;" value="0" oninput="save()">
-                 
                  <button onclick="useInspiration()" style="width:50px; background:var(--gold); color:#111; border:1px solid var(--gold); border-radius:0 6px 6px 0; font-size:1.4rem; cursor:pointer; padding:0; display:grid; place-items:center; flex-shrink:0;">⚡</button>
             </div>
         </div>
@@ -592,7 +561,7 @@
                 <div class="field-group">
                     <label>Initiative</label>
                     <div style="display:flex; gap:5px;">
-                        <input type="number" id="initBonus" placeholder="+0" oninput="save()">
+                        <input type="text" id="initBonus" placeholder="+0" oninput="save()">
                         <button class="btn-sm-roll" style="width:40px;" onclick="rollInitiative()">🎲</button>
                     </div>
                 </div>
@@ -723,7 +692,7 @@
     };
 
     let data = {
-        meta: { player: '', name: '', level: 1, casterType: 'none', webhook: '', discordActive: false, init: 0, speed: '' },
+        meta: { player: '', name: '', level: 1, webhook: '', discordActive: false, init: 0, speed: '' },
         vitals: { 
             curr: '', max: '', temp: '', 
             hdDie: 'd8', hdCurr: 1, hdMax: 1,
@@ -776,6 +745,50 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
+    // --- COMPLEX FORMULA PARSER (NEW v3.6) ---
+    // Parses strings like "1d4 + 2", "-1d4", "2d6 + 5"
+    function parseComplexBonus(str) {
+        if (!str) return { total: 0, text: '' };
+        let total = 0;
+        let parts = [];
+        
+        // 1. Find all Dice (e.g. +1d4, -1d6)
+        // Match: [optional sign] [spaces] [digits] d [digits]
+        const diceRegex = /([+-]?)\s*(\d+)d(\d+)/gi;
+        let match;
+        
+        // We iterate matches to sum them
+        let cleanStr = str; // We will remove dice to find statics later
+        
+        while ((match = diceRegex.exec(str)) !== null) {
+            const sign = (match[1].trim() === '-') ? -1 : 1;
+            const count = parseInt(match[2]);
+            const sides = parseInt(match[3]);
+            
+            const res = coreRoll(count, sides);
+            total += (res.total * sign);
+            
+            const signStr = sign === -1 ? '-' : '+';
+            // Output format: +[3] or -[2]
+            parts.push(`${signStr}[${res.formula.replace(/[\[\]]/g,'')}]`);
+        }
+        
+        // Remove dice from string to find leftover statics
+        cleanStr = str.replace(diceRegex, '');
+        
+        // 2. Find Statics (integers)
+        // Match: [optional sign] [spaces] [digits]
+        const staticRegex = /([+-]?)\s*(\d+)/gi;
+        while ((match = staticRegex.exec(cleanStr)) !== null) {
+             const sign = (match[1].trim() === '-') ? -1 : 1;
+             const val = parseInt(match[2]);
+             total += (val * sign);
+             parts.push(`${sign===-1?'-':'+'}${val}`);
+        }
+
+        return { total, text: parts.join(' ') };
+    }
+
     // --- INITIALIZATION ---
     function init() {
         const saved = localStorage.getItem('unifiedSheetDataV2'); 
@@ -822,12 +835,11 @@
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
         document.getElementById('charLevel').value = data.meta.level || 1;
-        document.getElementById('casterType').value = data.meta.casterType || 'none';
-        
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
-        document.getElementById('initBonus').value = data.meta.init;
+        // Init Bonus now supports text
+        document.getElementById('initBonus').value = data.meta.init || "+0";
         document.getElementById('speedVal').value = data.meta.speed;
         
         toggleDiscord(data.meta.discordActive);
@@ -966,28 +978,7 @@
     function renderSpells() {
         const list = document.getElementById('spellSlotsList');
         list.innerHTML = '';
-        
-        const type = data.meta.casterType || 'none';
-        const lvl = parseInt(data.meta.level) || 1;
-        let maxLvl = 0;
-
-        if (type === 'full') maxLvl = Math.min(9, Math.ceil(lvl / 2));
-        else if (type === 'half') {
-            if(lvl >= 17) maxLvl=5; else if(lvl >= 13) maxLvl=4; else if(lvl >= 9) maxLvl=3; else if(lvl >= 5) maxLvl=2; else if(lvl >= 2) maxLvl=1;
-        }
-        else if (type === 'third') {
-            if(lvl >= 19) maxLvl=4; else if(lvl >= 13) maxLvl=3; else if(lvl >= 7) maxLvl=2; else if(lvl >= 3) maxLvl=1;
-        }
-
-        if (type === 'none') {
-            list.innerHTML = '<div style="text-align:center; color:#666; font-style:italic; padding:10px;">No spellcasting configured.</div>';
-            return;
-        }
-
         data.spells.forEach((slot, idx) => {
-            const spellLevel = slot.lvl; 
-            if (spellLevel > maxLvl) return; // Hide unavailable levels
-
             let bubblesHtml = '';
             for(let i=0; i<slot.max; i++) {
                 const isUsed = i < slot.used;
@@ -1075,18 +1066,7 @@
     // --- CALCULATION LOGIC ---
     function getMod(score) { return Math.floor((score - 10) / 2); }
     function getPB(level) { return Math.ceil(level / 4) + 1; }
-    function updateLevel(val) { 
-        data.meta.level = Math.min(20, Math.max(1, parseInt(val))); 
-        save(); 
-        updateAll(); 
-        renderSpells(); // Re-render spells to check for hidden slots
-    }
-    
-    function updateCasterType(val) {
-        data.meta.casterType = val;
-        save();
-        renderSpells();
-    }
+    function updateLevel(val) { data.meta.level = Math.min(20, Math.max(1, parseInt(val))); save(); updateAll(); }
 
     function updateAll() {
         const pb = getPB(data.meta.level);
@@ -1134,13 +1114,11 @@
     }
 
     function updateAC() {
-        // Shared inputs
         data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
-        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value); // 100, 2, or 0
+        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value);
         data.ac.customStat1 = document.getElementById('acStat1').value;
         data.ac.customStat2 = document.getElementById('acStat2').value;
 
-        // Sum Bonuses
         let bonusTotal = 0;
         data.ac.bonuses.forEach(b => {
             if (b.active) bonusTotal += (parseInt(b.val) || 0);
@@ -1159,7 +1137,6 @@
             total = data.ac.base + effectiveDex + bonusTotal;
 
         } else {
-            // Custom: 10 + Stat1 + Stat2 + Bonuses
             const m1 = getMod(data.stats[data.ac.customStat1].val);
             let m2 = 0;
             if (data.ac.customStat2 !== 'none') { m2 = getMod(data.stats[data.ac.customStat2].val); }
@@ -1367,7 +1344,8 @@
     }
 
     function rollDie(sides, bonus, label, allowAdvantage = true, type = 'check', customDesc = '') {
-        const misc = parseInt(document.getElementById('globalMisc').value) || 0;
+        const miscStr = document.getElementById('globalMisc').value.trim();
+        const parsedMisc = parseComplexBonus(miscStr);
         
         let effectiveMode = data.rollMode;
         let consumedInsp = false;
@@ -1379,11 +1357,11 @@
 
         // Use Core Roller
         const result = coreRoll(1, sides, allowAdvantage ? effectiveMode : 'norm');
-        const total = result.total + bonus + misc;
+        const total = result.total + bonus + parsedMisc.total;
         
         let formulaText = result.formula;
         if(bonus !== 0) formulaText += ` ${bonus>=0?'+':''}${bonus}`;
-        if(misc !== 0) formulaText += ` ${misc>=0?'+':''}${misc} (Misc)`;
+        if(parsedMisc.total !== 0) formulaText += ` ${parsedMisc.text} (Misc)`;
         if(allowAdvantage && effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
 
         showLog(formulaText, total, result.isCrit, result.isFail);
@@ -1395,23 +1373,14 @@
     function rollCustom() {
         const formula = document.getElementById('customFormula').value.trim();
         const label = document.getElementById('customLabel').value.trim() || 'Custom Roll';
-        if(!formula) return;
         
-        const regex = /^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i;
-        const match = formula.match(regex);
-        if(!match) { showLog("Error", "Invalid"); return; }
+        // Uses the parseComplexBonus which handles negatives/dice mixing inherently
+        const parsed = parseComplexBonus(formula);
+        
+        if(parsed.text === '') { showLog("Error", "Invalid"); return; }
 
-        const count = parseInt(match[1]) || 1;
-        const sides = parseInt(match[2]);
-        const modStr = match[3] ? match[3].replace(/\s/g, '') : "+0";
-        const mod = parseInt(modStr);
-
-        const result = coreRoll(count, sides);
-        const total = result.total + mod;
-
-        const fStr = `${result.formula} ${modStr}`;
-        showLog(fStr, total);
-        sendToDiscord(label + ": " + formula, `Dice: ${fStr}`, `**${total}**`, 'dmg');
+        showLog(parsed.text, parsed.total);
+        sendToDiscord(label + ": " + formula, `Dice: ${parsed.text}`, `**${parsed.total}**`, 'dmg');
     }
 
     function rollDamage(idx) {
@@ -1419,28 +1388,37 @@
         let mod = 0;
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
         
-        const dmgStr = atk.dmg || "1d4"; 
-        const regex = /(\d+)d(\d+)/i;
-        const match = dmgStr.match(regex);
-        if (!match) return; 
+        // Combine Weapon Damage string with Global Misc (e.g. +2 rage damage)
+        const miscStr = document.getElementById('globalMisc').value.trim();
+        const dmgStr = (atk.dmg || "") + " " + miscStr;
+        
+        const parsed = parseComplexBonus(dmgStr);
+        if(parsed.text === '') return;
 
-        const count = parseInt(match[1]);
-        const sides = parseInt(match[2]);
+        let total = parsed.total + mod;
+        let formulaText = parsed.text;
         
-        const result = coreRoll(count, sides);
-        const total = result.total + mod;
-        
-        const formulaStr = `${result.formula} ${mod>=0?'+':''}${mod}`;
-        showLog(formulaStr, total);
-        sendToDiscord((atk.name || 'Weapon') + " Damage", `Dice: ${formulaStr}`, `**${total}**`, 'dmg', atk.desc);
+        if (mod !== 0) {
+            formulaText += ` ${mod>=0?'+':''}${mod} (${atk.stat.toUpperCase()})`;
+        }
+
+        showLog(formulaText, total);
+        sendToDiscord((atk.name || 'Weapon') + " Damage", `Dice: ${formulaText}`, `**${total}**`, 'dmg', atk.desc);
     }
 
     function rollInitiative() {
-        data.meta.init = parseInt(document.getElementById('initBonus').value) || 0;
+        // Init Bonus now supports formula
+        const initStr = document.getElementById('initBonus').value.trim();
+        const miscStr = document.getElementById('globalMisc').value.trim();
+        
+        data.meta.init = initStr; // save text
         save();
 
         const dexMod = getMod(data.stats.dex.val);
-        const totalBonus = dexMod + data.meta.init;
+        const parsedInit = parseComplexBonus(initStr);
+        const parsedMisc = parseComplexBonus(miscStr);
+        
+        // Tie breaker is raw dex score / 100
         const tieBreaker = data.stats.dex.val / 100;
 
         let effectiveMode = data.rollMode;
@@ -1448,14 +1426,17 @@
         if(consumeInspirationOnNextRoll) { effectiveMode = 'adv'; consumedInsp = true; }
 
         const result = coreRoll(1, 20, effectiveMode);
-        const total = result.total + totalBonus;
+        const total = result.total + dexMod + parsedInit.total + parsedMisc.total;
         const finalScore = (total + tieBreaker).toFixed(2);
 
-        let formulaText = result.formula;
+        let formulaText = `${result.formula} ${dexMod>=0?'+':''}${dexMod} (Dex)`;
+        if(parsedInit.total !== 0) formulaText += ` ${parsedInit.text} (Init)`;
+        if(parsedMisc.total !== 0) formulaText += ` ${parsedMisc.text} (Misc)`;
+        
         if(effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
 
-        showLog(`Init (Dex ${dexMod>=0?'+':''}${dexMod} + ${data.meta.init})`, finalScore);
-        sendToDiscord("Initiative", `Dice: ${formulaText} + ${totalBonus}`, `**${finalScore}**`, 'check');
+        showLog(`Init`, finalScore);
+        sendToDiscord("Initiative", `Dice: ${formulaText}`, `**${finalScore}**`, 'check');
         
         if(consumedInsp) consumeInspiration();
     }
