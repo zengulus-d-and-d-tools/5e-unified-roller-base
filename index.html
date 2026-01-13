@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v3.6</title>
+    <title>Unified 5e Sheet v3.7</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -32,10 +32,12 @@
             padding: 0; margin: 0; 
             padding-top: 85px; 
             padding-bottom: 50px; 
+            overscroll-behavior-y: none; /* Helps prevent pull-to-refresh while dragging */
         }
         .sheet-container { 
             width: 100%; max-width: 800px; margin: 0 auto; padding: 10px; 
             display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; 
+            position: relative; /* Context for drag */
         }
         
         /* --- UTILITY --- */
@@ -127,8 +129,30 @@
         .card { 
             background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); 
             display: flex; flex-direction: column;
+            position: relative;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
+        /* DRAG STATE STYLES */
+        .card.dragging {
+            opacity: 0.5;
+            background: #111;
+            border-color: var(--accent);
+            z-index: 999;
+        }
+        /* GRIP HANDLE */
+        .drag-grip {
+            position: absolute; top: 0; left: 0; right: 0; height: 20px;
+            display: flex; justify-content: center; align-items: center;
+            color: #444; font-size: 14px; letter-spacing: 2px;
+            cursor: grab; touch-action: none; /* Critical for touch drag */
+            border-radius: 12px 12px 0 0;
+        }
+        .drag-grip:hover { color: var(--accent); background: rgba(255,255,255,0.02); }
+        .drag-grip::after { content: '⣿'; }
         
+        /* Shift content down slightly to make room for grip */
+        .card > *:first-child:not(.drag-grip) { margin-top: 10px; }
+
         .section-title { 
             margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
             border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;
@@ -425,7 +449,8 @@
 
 <div class="sheet-container">
     
-<div class="card">
+<div class="card" id="card-vitals">
+    <div class="drag-grip"></div>
     <div class="header-grid">
         <div class="field-group">
             <label>Character Name</label>
@@ -488,7 +513,8 @@
     </div>
 </div>
 
-<div class="card">
+<div class="card" id="card-ac">
+    <div class="drag-grip"></div>
     <div class="section-title">
         <span>Armor Class</span>
         <span class="ac-val-big" id="acTotalDisplay">10</span>
@@ -536,7 +562,8 @@
     <button class="add-btn" style="background:#333; color:#ccc; border:1px solid #444;" onclick="addAcBonus()">+ Add Bonus (Shield, Magic, etc)</button>
 </div>
 
-<div class="card">
+<div class="card" id="card-rest">
+    <div class="drag-grip"></div>
     <div class="section-title">Rest & Hit Dice</div>
     <div class="hd-row">
         <label style="margin:0;">Hit Dice:</label>
@@ -552,7 +579,8 @@
     </div>
 </div>
 
-    <div class="card">
+    <div class="card" id="card-combat">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">
             <span>Combat Stats & Resources</span>
         </div>
@@ -581,7 +609,8 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="card-attr">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">
             <span>Attributes</span>
         </div>
@@ -590,7 +619,8 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="card-atk">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">
             <span>Attacks</span>
         </div>
@@ -600,7 +630,8 @@
         </div>
     </div>
     
-    <div class="card">
+    <div class="card" id="card-feats">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">
             <span>Features & Traits</span>
         </div>
@@ -610,7 +641,8 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="card-spells">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">
             <span>Spell Slots</span>
         </div>
@@ -619,7 +651,8 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="card-skills">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">
             <span>Skills</span>
         </div>
@@ -628,7 +661,8 @@
         </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="card-roller">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">
             <span>Arbitrary Roller</span>
         </div>
@@ -652,7 +686,8 @@
         </div>
     </div>
 
-    <div class="card io-card">
+    <div class="card io-card" id="card-io">
+        <div class="drag-grip"></div>
         <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">
             <span>Backup Data</span>
         </div>
@@ -699,16 +734,15 @@
             inspiration: 0, 
             ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
         },
-        // NEW: AC Data Structure
         ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
         skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
-        uiState: {} 
+        uiState: { cardOrder: [] } // NEW: Store order
     };
     
     let consumeInspirationOnNextRoll = false;
 
-    // --- CORE DICE ENGINE (OPTIMIZED) ---
+    // --- CORE DICE ENGINE ---
     function coreRoll(count, sides, mode = 'norm') {
         let rolls = [];
         let total = 0;
@@ -745,39 +779,26 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
-    // --- COMPLEX FORMULA PARSER (NEW v3.6) ---
-    // Parses strings like "1d4 + 2", "-1d4", "2d6 + 5"
+    // --- COMPLEX FORMULA PARSER ---
     function parseComplexBonus(str) {
         if (!str) return { total: 0, text: '' };
         let total = 0;
         let parts = [];
-        
-        // 1. Find all Dice (e.g. +1d4, -1d6)
-        // Match: [optional sign] [spaces] [digits] d [digits]
         const diceRegex = /([+-]?)\s*(\d+)d(\d+)/gi;
         let match;
-        
-        // We iterate matches to sum them
-        let cleanStr = str; // We will remove dice to find statics later
+        let cleanStr = str;
         
         while ((match = diceRegex.exec(str)) !== null) {
             const sign = (match[1].trim() === '-') ? -1 : 1;
             const count = parseInt(match[2]);
             const sides = parseInt(match[3]);
-            
             const res = coreRoll(count, sides);
             total += (res.total * sign);
-            
             const signStr = sign === -1 ? '-' : '+';
-            // Output format: +[3] or -[2]
             parts.push(`${signStr}[${res.formula.replace(/[\[\]]/g,'')}]`);
         }
         
-        // Remove dice from string to find leftover statics
         cleanStr = str.replace(diceRegex, '');
-        
-        // 2. Find Statics (integers)
-        // Match: [optional sign] [spaces] [digits]
         const staticRegex = /([+-]?)\s*(\d+)/gi;
         while ((match = staticRegex.exec(cleanStr)) !== null) {
              const sign = (match[1].trim() === '-') ? -1 : 1;
@@ -785,7 +806,6 @@
              total += (val * sign);
              parts.push(`${sign===-1?'-':'+'}${val}`);
         }
-
         return { total, text: parts.join(' ') };
     }
 
@@ -803,7 +823,6 @@
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
             
-            // AC MIGRATION
             if (!data.ac || !data.ac.bonuses) {
                 const oldAc = data.ac || {};
                 data.ac = { 
@@ -822,6 +841,7 @@
             if(!data.resources) data.resources = []; 
             if(!data.features) data.features = [];
             if(!data.uiState) data.uiState = {};
+            if(!data.uiState.cardOrder) data.uiState.cardOrder = [];
 
             if (data.vitals.hdCurr === undefined) data.vitals.hdCurr = data.meta.level || 1;
             if (data.vitals.hdMax === undefined) data.vitals.hdMax = data.meta.level || 1;
@@ -832,13 +852,31 @@
             data.spells = defaultSpells;
         }
 
+        // --- RESTORE CARD ORDER ---
+        if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
+            const container = document.querySelector('.sheet-container');
+            const sortedFrag = document.createDocumentFragment();
+            // Append found IDs in order
+            data.uiState.cardOrder.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) sortedFrag.appendChild(el);
+            });
+            // Append remaining (new) cards
+            Array.from(container.children).forEach(child => {
+                if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
+                    sortedFrag.appendChild(child);
+                }
+            });
+            container.appendChild(sortedFrag);
+        }
+
+        // Initialize Values
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
         document.getElementById('charLevel').value = data.meta.level || 1;
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
-        // Init Bonus now supports text
         document.getElementById('initBonus').value = data.meta.init || "+0";
         document.getElementById('speedVal').value = data.meta.speed;
         
@@ -860,7 +898,6 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
-        // AC SETUP
         document.getElementById('acBase').value = data.ac.base || 10;
         document.getElementById('acDexCap').value = data.ac.dexCap || 100;
         document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
@@ -872,7 +909,6 @@
         toggleACMode(); 
         renderAcList();
 
-        // ACCORDIONS
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
@@ -891,10 +927,119 @@
         renderResources();
         updateAll();
         setMode(data.rollMode || 'norm');
+        
+        setupDragAndDrop();
+    }
+
+    // --- DRAG AND DROP (POINTER EVENTS) ---
+    function setupDragAndDrop() {
+        const grips = document.querySelectorAll('.drag-grip');
+        let draggedCard = null;
+        let initialY = 0;
+        let initialRect = null;
+        let placeholder = null;
+
+        grips.forEach(grip => {
+            grip.addEventListener('pointerdown', (e) => {
+                // Only left click or touch
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                
+                const card = grip.parentElement;
+                draggedCard = card;
+                
+                // Create placeholder to hold space
+                placeholder = document.createElement('div');
+                placeholder.className = 'card placeholder';
+                placeholder.style.height = card.offsetHeight + 'px';
+                placeholder.style.background = 'transparent';
+                placeholder.style.border = '2px dashed #333';
+                
+                // Get geometry
+                initialRect = card.getBoundingClientRect();
+                initialY = e.clientY;
+                
+                // Setup Card Styles for Dragging
+                card.style.width = initialRect.width + 'px'; // Fix width
+                card.classList.add('dragging');
+                card.parentNode.insertBefore(placeholder, card);
+                
+                // Absolute positioning to follow pointer
+                card.style.position = 'fixed';
+                card.style.top = initialRect.top + 'px';
+                card.style.left = initialRect.left + 'px';
+                
+                grip.setPointerCapture(e.pointerId);
+                
+                // Attach Move/Up listeners
+                grip.addEventListener('pointermove', onPointerMove);
+                grip.addEventListener('pointerup', onPointerUp);
+                grip.addEventListener('pointercancel', onPointerUp);
+            });
+
+            function onPointerMove(e) {
+                if (!draggedCard) return;
+                e.preventDefault(); // Prevent scroll
+                
+                const dy = e.clientY - initialY;
+                draggedCard.style.transform = `translateY(${dy}px)`;
+                
+                // Detect overlap for swap
+                const container = document.querySelector('.sheet-container');
+                const siblings = [...container.querySelectorAll('.card:not(.dragging)')];
+                
+                // Find immediate sibling to swap with
+                // Simple logic: If we cross the midpoint of another card, swap placeholder
+                const nextSibling = siblings.find(sibling => {
+                    const rect = sibling.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    return e.clientY < midY;
+                });
+                
+                container.insertBefore(placeholder, nextSibling);
+            }
+
+            function onPointerUp(e) {
+                if (!draggedCard) return;
+                
+                // Cleanup
+                grip.removeEventListener('pointermove', onPointerMove);
+                grip.removeEventListener('pointerup', onPointerUp);
+                grip.removeEventListener('pointercancel', onPointerUp);
+                grip.releasePointerCapture(e.pointerId);
+                
+                // Snap final position
+                draggedCard.classList.remove('dragging');
+                draggedCard.style.position = '';
+                draggedCard.style.top = '';
+                draggedCard.style.left = '';
+                draggedCard.style.width = '';
+                draggedCard.style.transform = '';
+                
+                // Replace placeholder with real card
+                if (placeholder && placeholder.parentNode) {
+                    placeholder.parentNode.insertBefore(draggedCard, placeholder);
+                    placeholder.remove();
+                }
+                
+                draggedCard = null;
+                placeholder = null;
+                
+                saveCardOrder();
+            }
+        });
+    }
+
+    function saveCardOrder() {
+        const container = document.querySelector('.sheet-container');
+        const order = Array.from(container.children)
+            .filter(c => c.id && c.classList.contains('card'))
+            .map(c => c.id);
+        data.uiState.cardOrder = order;
+        save();
     }
 
     // --- ACCORDION LOGIC ---
-    function toggleSection(key) {
+    function toggleSection(key, event) {
         const head = document.getElementById('head-' + key);
         const body = document.getElementById('body-' + key);
         head.classList.toggle('collapsed');
@@ -1374,7 +1519,6 @@
         const formula = document.getElementById('customFormula').value.trim();
         const label = document.getElementById('customLabel').value.trim() || 'Custom Roll';
         
-        // Uses the parseComplexBonus which handles negatives/dice mixing inherently
         const parsed = parseComplexBonus(formula);
         
         if(parsed.text === '') { showLog("Error", "Invalid"); return; }
@@ -1388,7 +1532,6 @@
         let mod = 0;
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
         
-        // Combine Weapon Damage string with Global Misc (e.g. +2 rage damage)
         const miscStr = document.getElementById('globalMisc').value.trim();
         const dmgStr = (atk.dmg || "") + " " + miscStr;
         
@@ -1407,18 +1550,16 @@
     }
 
     function rollInitiative() {
-        // Init Bonus now supports formula
         const initStr = document.getElementById('initBonus').value.trim();
         const miscStr = document.getElementById('globalMisc').value.trim();
         
-        data.meta.init = initStr; // save text
+        data.meta.init = initStr; 
         save();
 
         const dexMod = getMod(data.stats.dex.val);
         const parsedInit = parseComplexBonus(initStr);
         const parsedMisc = parseComplexBonus(miscStr);
         
-        // Tie breaker is raw dex score / 100
         const tieBreaker = data.stats.dex.val / 100;
 
         let effectiveMode = data.rollMode;
@@ -1570,8 +1711,6 @@
     function rollResRecharge(i) {
         const res = data.resources[i];
         const formula = res.rFormula || '1d6';
-        
-        // Use generic regex to find dice
         const regex = /^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i;
         const match = formula.match(regex);
         if(!match) { showLog("Err", "Formula"); return; }
@@ -1583,10 +1722,8 @@
         
         const result = coreRoll(count, sides);
         const total = result.total + mod;
-        
         const prev = res.curr;
         res.curr = Math.min(res.max, res.curr + total);
-        
         save(); renderResources();
         
         showLog(`Recharge ${formula}`, total);
@@ -1609,7 +1746,6 @@
         if (type === 'feature') color = 3447003; 
         
         let descText = "";
-        
         if(type === 'feature') {
             descText = formulaStr;
         } else {
@@ -1657,7 +1793,6 @@
         localStorage.setItem('unifiedSheetDataV2', JSON.stringify(data)); 
     }
     
-    // --- IO / BACKUP SYSTEM (GZIP COMPRESSION) ---
     function showIoMsg(txt) { 
         const msg = document.getElementById('ioMsg');
         msg.innerText = txt; 
