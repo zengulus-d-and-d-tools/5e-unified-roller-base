@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v4.0</title>
+    <title>Unified 5e Sheet v4.1</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -32,10 +32,12 @@
             padding: 0; margin: 0; 
             padding-top: 85px; 
             padding-bottom: 50px; 
+            overscroll-behavior-y: none;
         }
         .sheet-container { 
             width: 100%; max-width: 800px; margin: 0 auto; padding: 10px; 
             display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; 
+            position: relative; 
         }
         
         /* --- UTILITY --- */
@@ -44,7 +46,7 @@
         .full-width { width: 100%; box-sizing: border-box; }
         .mt-2 { margin-top: 8px; }
 
-        /* --- TOP BAR --- */
+        /* --- STICKY HEADER --- */
         .roller-bar { 
             background: rgba(30, 30, 30, 0.98);
             backdrop-filter: blur(8px); 
@@ -75,9 +77,11 @@
         .adv-btn.active[data-mode="dis"] { background: #c0392b; color: #fff; border-color: #c0392b; }
         .adv-btn.active[data-mode="norm"] { background: #2980b9; color: #fff; border-color: #2980b9; }
 
-        .misc-wrapper { display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
+        .misc-wrapper { 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
+        }
         .misc-wrapper input { 
-            width: 60px !important; height: 30px; text-align: center; font-weight: bold; 
+            width: 70px !important; height: 30px; text-align: center; font-weight: bold; 
             color: var(--gold); border: 1px solid #444; background: #222; 
             border-radius: 6px; font-size: 0.8rem; padding: 0; margin-top: 14px;
         }
@@ -86,75 +90,126 @@
             font-weight: 600; position: absolute; top: 0; left: 0; width: 100%; text-align: center;
         }
 
-        /* Layout Toggle Button */
-        .layout-toggle-btn {
-            background: transparent; border: 1px solid #444; color: #666;
-            width: 38px; height: 38px; border-radius: 6px; 
-            display: grid; place-items: center; font-size: 1.2rem; cursor: pointer;
-            margin-left: 10px;
-        }
-        .layout-toggle-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
-
         /* --- LOG AREA --- */
         .log-area { 
             display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
-            flex: 1; text-align: right; margin-left: 15px; overflow: hidden; height: 55px;
+            flex: 1; text-align: right; margin-left: 15px; overflow: hidden;
+            height: 55px;
         }
         .log-formula { font-family: monospace; font-size: 0.8rem; color: #888; white-space: nowrap; margin-bottom: 2px; }
         .log-result { font-family: sans-serif; font-size: 1.8rem; font-weight: 900; line-height: 1; color: var(--accent); }
         .crit-text { color: var(--crit); text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
         .fail-text { color: var(--fail); text-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
 
-        /* --- CARD & LAYOUT --- */
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative; width: 40px; height: 22px; flex-shrink: 0;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333; transition: .4s; border-radius: 22px; border: 1px solid #555;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--accent); border-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(18px); background-color: black; }
+
+        /* AC Row */
+        .ac-row {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+            background: #252525; padding: 8px; border-radius: 8px; border: 1px solid #333;
+        }
+        .ac-row.inactive { opacity: 0.6; }
+        .ac-val-input { width: 50px !important; text-align: center; font-weight: bold; }
+
+        /* --- UI ELEMENTS --- */
         .card { 
             background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border); 
-            display: flex; flex-direction: column; transition: transform 0.2s;
+            display: flex; flex-direction: column;
+            position: relative;
+            transition: all 0.2s ease;
+            /* Padding for Handles */
+            padding-left: 45px; 
+            padding-right: 45px;
+        }
+        /* COMPACT MODE FOR COLLAPSED CARDS */
+        .card.card-collapsed {
+            padding-bottom: 5px; /* Minimal bottom padding */
+            padding-top: 10px;
+            background: #181818; /* Slightly darker to distinguish */
+        }
+        .card.card-collapsed .section-title {
+            border-bottom: none; /* Remove separator line */
+            margin-bottom: 0;
+            padding-bottom: 5px;
+        }
+
+        /* DRAG STATE STYLES */
+        .card.dragging {
+            opacity: 0.5;
+            background: #111;
+            border-color: var(--accent);
+            z-index: 999;
         }
         
-        /* Edit Mode Styles applied to body */
-        body.edit-mode .card {
-            border: 1px dashed #555;
-            background: #151515;
+        /* LEFT GRIP (Drag) */
+        .drag-grip {
+            position: absolute; top: 0; left: 0; bottom: 0; width: 30px; 
+            display: flex; justify-content: center; align-items: center;
+            color: #444; font-size: 18px; letter-spacing: 0;
+            cursor: grab; touch-action: none; 
+            border-radius: 12px 0 0 12px;
+            border-right: 1px solid #252525;
+            background: rgba(0,0,0,0.1);
         }
-        body.edit-mode .section-title {
-            background: #222; padding: 5px; border-radius: 4px;
+        .drag-grip:hover { color: var(--accent); background: rgba(255,255,255,0.02); }
+        .drag-grip::after { content: '⣿'; }
+
+        /* RIGHT GRIP (Shift Buttons) */
+        /* UPDATED: Anchored to TOP-RIGHT to stay aligned with header */
+        .shift-controls {
+            position: absolute; 
+            top: 0; right: 0; 
+            height: 55px; /* Fixed height matching header area */
+            width: 30px;
+            display: flex; flex-direction: column; justify-content: center; gap: 2px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 0 12px 0 12px; /* Rounded only on top right corner */
+            border-left: 1px solid #252525;
+            border-bottom: 1px solid #252525;
         }
-        /* Hide content in edit mode to make moving easier? Optional. Keeping open for now. */
+        .btn-shift {
+            background: none; border: none; color: #555;
+            font-size: 0.7rem; cursor: pointer; padding: 0;
+            flex: 1; text-align: center;
+        }
+        .btn-shift:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
 
         .section-title { 
             margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
             border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;
             letter-spacing: 0.05em; font-weight: bold; 
             display: flex; justify-content: space-between; align-items: center;
-            min-height: 30px;
         }
         
-        /* Layout Controls (Injected via JS) */
-        .layout-controls { display: none; gap: 5px; }
-        body.edit-mode .layout-controls { display: flex; }
-        body.edit-mode .accordion-icon { display: none; } /* Hide expand arrow in edit mode */
-        
-        .btn-move {
-            width: 40px; height: 30px; border-radius: 4px; border: 1px solid #444;
-            background: #333; color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: center;
-        }
-        .btn-move:active { background: var(--accent); color: #000; }
-
         .accordion-trigger { cursor: pointer; user-select: none; }
-        .accordion-icon { font-size: 0.7rem; color: #666; transition: transform 0.3s ease; }
-        .accordion-trigger.collapsed .accordion-icon { transform: rotate(-90deg); }
+        .accordion-trigger::after {
+            content: '▼'; font-size: 0.7rem; color: #666; transition: transform 0.3s ease;
+        }
+        .accordion-trigger.collapsed { border-bottom-color: transparent; margin-bottom: 0; padding-bottom: 0; }
+        .accordion-trigger.collapsed::after { transform: rotate(-90deg); }
         
-        /* Disable accordion click in edit mode */
-        body.edit-mode .accordion-trigger { pointer-events: none; }
-        body.edit-mode .layout-controls { pointer-events: auto; } /* Re-enable buttons */
-
         .accordion-content {
             overflow: hidden; transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease;
             max-height: 3000px; opacity: 1;
         }
-        .accordion-content.collapsed { max-height: 0; opacity: 0; margin: 0; pointer-events: none; }
+        .accordion-content.collapsed {
+            max-height: 0; opacity: 0; margin: 0; pointer-events: none;
+        }
 
-        /* --- FORMS --- */
         .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .field-group { display: flex; flex-direction: column; }
         label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
@@ -193,6 +248,7 @@
         #hpInteractVal { width: 70px !important; text-align: center; flex-shrink: 0; }
         .btn-heal { background: #27ae60; color: white; flex: 1; font-weight: bold; }
         .btn-dmg { background: #c0392b; color: white; flex: 1; font-weight: bold; }
+        
         .btn-hp-quick {
             background: #333; border: 1px solid #444; color: #fff;
             width: 40px; font-weight: bold; font-size: 1.2rem;
@@ -201,75 +257,87 @@
         }
         .btn-hp-quick:active { background: #555; }
         
+        /* HIT DIE ROW */
         .hd-row {
-            display: flex; align-items: center; gap: 10px; background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333; margin-top: 10px;
+            display: flex; align-items: center; gap: 10px;
+            background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
+            margin-top: 10px;
         }
         .hd-val { width: 50px !important; text-align: center; font-weight: bold; color: #fff; }
         .btn-roll-hd { 
-            background: #e67e22; color: #fff; flex: 1; font-weight: bold; font-size: 0.85rem; height: 38px;
+            background: #e67e22; color: #fff; flex: 1; 
+            font-weight: bold; font-size: 0.85rem; height: 38px;
             display: flex; align-items: center; justify-content: center; gap: 6px;
         }
         .btn-roll-hd:disabled { background: #555; color: #888; cursor: not-allowed; }
 
+        /* DEATH SAVES */
         .death-save-row {
             display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 10px; 
-            align-items: center; background: #252525; padding: 8px; border-radius: 6px; margin-top: 10px; border: 1px solid #333;
+            align-items: center; background: #252525; padding: 8px; border-radius: 6px; margin-top: 10px;
+            border: 1px solid #333;
         }
         .ds-group { display: flex; gap: 8px; align-items: center; justify-content: center; }
         .ds-check { 
-            appearance: none; -webkit-appearance: none; width: 32px; height: 32px; border-radius: 50%; 
+            appearance: none; -webkit-appearance: none;
+            width: 44px; height: 44px; /* Explicit 44px */
+            border-radius: 50%; 
             border: 2px solid #555; cursor: pointer; background: #1a1a1a;
+            margin: 0; display: grid; place-content: center;
         }
         .ds-check:checked { box-shadow: 0 0 5px currentColor; border-color: transparent; }
         .ds-succ:checked { background: #2ecc71; color: #2ecc71; }
         .ds-fail:checked { background: #e74c3c; color: #e74c3c; }
         .btn-ds-roll { background: #333; color: #fff; font-size: 0.7rem; font-weight: bold; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 
+        /* REST BUTTONS */
         .rest-row { display: flex; gap: 10px; margin-top: 10px; }
         .btn-rest { flex: 1; background: #2c3e50; color: #ccc; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; border: 1px solid #444; }
         .btn-rest:hover { background: #34495e; color: #fff; }
 
-        /* INSPIRATION & AC */
-        .insp-row { display: flex; gap: 10px; margin-top: 10px; align-items: flex-end; background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333; }
-        .insp-input-group { flex: 1; display:flex; flex-direction:column; }
-        .insp-input { color: var(--gold); border-color: #555; font-weight: bold; text-align: center; font-size: 1.2rem; }
-        .btn-use-insp {
-            background: var(--gold); color: #000; border: none; padding: 10px 15px; height: 42px;
-            border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.85rem; white-space: nowrap;
-        }
-        
         /* AC SECTION */
-        .ac-wrapper { background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333; margin-bottom: 10px; }
+        .ac-wrapper {
+            background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
+            margin-bottom: 10px;
+        }
         .ac-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .ac-val-big { font-size: 1.5rem; font-weight: 900; color: var(--accent); line-height: 1; }
         .ac-config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; border-top: 1px solid #444; padding-top: 6px; }
         .ac-label-small { font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
-        .passive-row { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; padding: 8px; border-radius: 6px; margin-top: 5px; border: 1px solid #333; }
-        
-        /* AC BONUS SWITCHES */
-        .ac-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; background: #252525; padding: 8px; border-radius: 8px; border: 1px solid #333; }
-        .ac-row.inactive { opacity: 0.6; }
-        .ac-val-input { width: 50px !important; text-align: center; font-weight: bold; }
-        .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 22px; border: 1px solid #555; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent); border-color: var(--accent); }
-        input:checked + .slider:before { transform: translateX(18px); background-color: black; }
 
-        /* --- SPELLS, DICE, SKILLS, ATK (Common) --- */
-        .spell-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; background: #252525; padding: 8px; border-radius: 8px; }
+        /* --- SPELLS --- */
+        .spell-row { 
+            display: flex; align-items: center; gap: 10px; margin-bottom: 8px; 
+            background: #252525; padding: 8px; border-radius: 8px;
+        }
         .spell-lvl { width: 30px; font-weight: bold; color: var(--slot); font-size: 0.9rem; }
         .spell-max { width: 50px !important; text-align: center; padding: 5px; height: 30px; flex-shrink: 0; }
         .spell-bubbles { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
-        .bubble { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
+        
+        .bubble { 
+            width: 38px; height: 38px; /* Visual size */
+            margin: 3px; /* Spacing */
+            border-radius: 50%; border: 2px solid #555; 
+            cursor: pointer; background: #1a1a1a;
+            position: relative;
+        }
+        .bubble::after {
+            content: ''; position: absolute; 
+            top: -3px; left: -3px; right: -3px; bottom: -3px; 
+        }
         .bubble.used { background: var(--slot); border-color: var(--slot); box-shadow: 0 0 5px var(--slot); }
 
+        /* --- DICE --- */
         .dice-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 5px; }
-        .dice-btn { background: #333; color: #fff; border: 1px solid #444; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .dice-btn { 
+            background: #333; color: #fff; border: 1px solid #444; padding: 10px; 
+            border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
+        .dice-btn:hover { background: var(--accent); color: #000; }
         .custom-roll-row { display: flex; gap: 10px; margin-top: 10px; }
         .btn-roll-custom { background: var(--accent); color: #000; font-weight: bold; border:none; padding: 0 20px; border-radius: 6px; cursor: pointer;}
         
+        /* --- STATS & SAVES --- */
         .grid-6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .stat-card { background: var(--card-bg); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border); display: flex; flex-direction: column; }
         .stat-card h3 { margin: 0 0 2px 0; font-size: 0.8rem; color: #aaa; }
@@ -277,50 +345,116 @@
         .mod-display { font-size: 0.85rem; color: #888; margin-bottom: 4px; }
         .defense-box { background: #252525; padding: 2px; border-radius: 4px; border-top: 2px solid var(--accent); margin-top: 4px; flex-grow: 1; }
         .defense-val { font-size: 1.1rem; font-weight: bold; color: var(--accent); }
-        .save-prof { font-size: 0.65rem; font-weight: bold; color: #888; display: flex; justify-content: center; align-items: center; gap: 6px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; }
-        .read-only-box { background: transparent; border: 1px solid transparent; color: #fff; font-weight: bold; padding: 10px; font-size: 1rem; }
+        .save-prof { 
+            font-size: 0.65rem; font-weight: bold; color: #888; 
+            display: flex; justify-content: center; align-items: center; gap: 6px; 
+            margin-bottom: 2px; cursor: pointer; white-space: nowrap;
+        }
+        .read-only-box {
+            background: transparent; border: 1px solid transparent; color: #fff; 
+            font-weight: bold; padding: 10px; font-size: 1rem;
+        }
         .stat-btn-row { display: flex; gap: 5px; margin-top: 6px; width: 100%; }
         .btn-sm-roll { flex: 1; background: #333; color: #ccc; border: 1px solid #444; border-radius: 4px; font-size: 0.7rem; font-weight: bold; padding: 6px 0; cursor: pointer; text-transform: uppercase; }
+        .btn-sm-roll:hover { background: #444; color: white; }
         .btn-sm-save { flex: 1; background: #2c3e50; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 0.7rem; font-weight: bold; padding: 6px 0; cursor: pointer; text-transform: uppercase; }
+        .btn-sm-save:hover { background: var(--accent); color: #000; }
 
+        /* --- SKILLS --- */
         .skill-list { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .skill-row { background: var(--card-bg); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); }
         .skill-name { flex: 1; font-size: 0.95rem; font-weight: 500; }
-        .prof-toggle { font-size: 1.4rem; padding: 10px; cursor: pointer; min-width: 44px; text-align: center; } 
+        .prof-toggle { 
+            font-size: 1.4rem; padding: 10px; /* Increase padding for touch */
+            cursor: pointer; min-width: 44px; text-align: center; 
+        } 
         .prof-toggle.prof { color: var(--accent); }
         .prof-toggle.exp { color: var(--gold); }
-        .btn-roll-skill { background: #333; border: 1px solid #444; color: #fff; width: 40px; height: 40px; border-radius: 6px; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-roll-skill {
+            background: #333; border: 1px solid #444; color: #fff;
+            width: 40px; height: 40px; border-radius: 6px; font-size: 1.2rem;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .btn-roll-skill:active { background: var(--accent); color: #000; }
 
-        .atk-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px; background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        /* --- ATTACKS & FEATURES --- */
+        .atk-row { 
+            display: flex; flex-direction: column; gap: 8px; 
+            margin-bottom: 15px; background: #252525; padding: 10px; 
+            border-radius: 8px; border: 1px solid #333; 
+        }
         .atk-stats-line { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
         .atk-name-input { font-weight: bold; color: #fff; }
-        .atk-desc { font-size: 0.85rem; font-style: italic; color: #aaa; border: 1px solid #333; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; min-height: 40px; }
+
+        .atk-desc { 
+            font-size: 0.85rem; font-style: italic; color: #aaa; 
+            border: 1px solid #333; background: rgba(0,0,0,0.2); 
+            padding: 8px; border-radius: 4px; min-height: 40px;
+        }
         .atk-controls { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
-        button { min-height: 44px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.9rem; }
+        
+        button { 
+            min-height: 44px; /* Enforce height */
+            border: none; border-radius: 6px; font-weight: bold; cursor: pointer; 
+            font-size: 0.9rem; 
+        }
         .add-btn { background: var(--accent-atk); color: #000; width: 100%; margin-top: 5px; }
 
         .webhook-row { margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
         .discord-active { color: #5865F2; font-weight: bold; }
 
-        .combat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        /* --- RESOURCES & VISUALIZATION --- */
+        .combat-row {
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+            margin-bottom: 10px;
+        }
         .resource-list { display: flex; flex-direction: column; gap: 12px; }
-        .resource-row { display: flex; flex-direction: column; gap: 8px; background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+        .resource-row {
+            display: flex; flex-direction: column; gap: 8px;
+            background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
+        }
         .res-top { display: flex; width: 100%; gap: 8px; align-items: center; }
         .res-bottom { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        
         .res-name { font-weight: bold; font-size: 0.9rem; color: #fff; flex: 1; }
+        
+        /* Inputs Row (Always Visible in v2.9) */
         .res-controls-row { display: flex; align-items: center; gap: 6px; width: 100%; }
         .res-val { width: 60px !important; text-align: center; font-weight: bold; padding: 5px !important; }
-        .res-viz-bar { width: 100%; height: 22px; background: #1a1a1a; cursor: pointer; border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden; margin-top: 2px; }
+        
+        /* Visualizations */
+        .res-viz-bar { 
+            width: 100%; height: 22px; background: #1a1a1a; cursor: pointer;
+            border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden; margin-top: 2px;
+        }
         .res-bar-fill { height: 100%; background: var(--res-bar); transition: width 0.3s; }
+        
         .res-viz-bubbles { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; padding: 4px 0; margin-top: 2px; }
+        /* UPDATED: Larger Tap Targets */
         .res-bubble-item { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
         .res-bubble-item.filled { background: var(--res-bar); border-color: var(--res-bar); box-shadow: 0 0 5px var(--res-bar); }
-        .res-reset-select { background: #333; color: #ccc; border: 1px solid #444; height: 35px; font-size: 0.75rem; padding: 0 5px; border-radius: 6px; font-weight: bold; }
-        .btn-res-mod { background: #333; border: 1px solid #444; width: 35px; height: 35px; font-size: 1.2rem; font-weight: bold; display: flex; align-items: center; justify-content: center; }
+
+        /* Controls */
+        /* UPDATED: Reset Select */
+        .res-reset-select { 
+            background: #333; color: #ccc; border: 1px solid #444; 
+            height: 35px; font-size: 0.75rem; padding: 0 5px;
+            border-radius: 6px; font-weight: bold;
+        }
+
+        .btn-res-mod {
+            background: #333; border: 1px solid #444;
+            width: 35px; height: 35px; font-size: 1.2rem; font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+        }
         .btn-res-minus { color: var(--fail); }
         .btn-res-plus { color: var(--accent); }
         .btn-res-mod:active { background: #444; }
-        .btn-res-roll { background: var(--gold); color: #000; font-weight: bold; font-size: 0.8rem; padding: 0 12px; height: 35px; border-radius: 6px; }
+        
+        .btn-res-roll {
+            background: var(--gold); color: #000; font-weight: bold; font-size: 0.8rem;
+            padding: 0 12px; height: 35px; border-radius: 6px;
+        }
         .res-style-select { width: auto !important; padding: 2px 5px !important; height: 30px; font-size: 0.7rem; text-transform: uppercase; font-weight: bold;}
 
         @media (max-width: 600px) {
@@ -341,11 +475,10 @@
             <button class="adv-btn active" onclick="setMode('norm')" data-mode="norm"> - </button>
             <button class="adv-btn" onclick="setMode('adv')" data-mode="adv">ADV</button>
         </div>
-        <button class="layout-toggle-btn" onclick="toggleLayoutMode()" title="Toggle Layout Edit Mode">⚙️</button>
-    </div>
-    <div class="misc-wrapper" style="position: absolute; left: 50%; transform: translateX(-50%);">
-        <span class="misc-label">Misc</span>
-        <input type="text" id="globalMisc" placeholder="+0">
+        <div class="misc-wrapper">
+            <span class="misc-label">Misc</span>
+            <input type="text" id="globalMisc" placeholder="+0 or 1d4">
+        </div>
     </div>
     <div id="logArea" class="log-area">
         <div class="log-formula">Ready...</div>
@@ -356,6 +489,11 @@
 <div class="sheet-container">
     
 <div class="card" id="card-vitals">
+    <div class="drag-grip"></div>
+    <div class="shift-controls">
+        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+    </div>
     <div class="header-grid">
         <div class="field-group">
             <label>Character Name</label>
@@ -419,6 +557,11 @@
 </div>
 
 <div class="card" id="card-ac">
+    <div class="drag-grip"></div>
+    <div class="shift-controls">
+        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+    </div>
     <div class="section-title">
         <span>Armor Class</span>
         <span class="ac-val-big" id="acTotalDisplay">10</span>
@@ -467,6 +610,11 @@
 </div>
 
 <div class="card" id="card-rest">
+    <div class="drag-grip"></div>
+    <div class="shift-controls">
+        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+    </div>
     <div class="section-title">Rest & Hit Dice</div>
     <div class="hd-row">
         <label style="margin:0;">Hit Dice:</label>
@@ -483,9 +631,13 @@
 </div>
 
     <div class="card" id="card-combat">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">
             <span>Combat Stats & Resources</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-combat">
             <div class="combat-row">
@@ -513,9 +665,13 @@
     </div>
 
     <div class="card" id="card-attr">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">
             <span>Attributes</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-attr">
             <div class="grid-6" id="statsGrid"></div>
@@ -523,9 +679,13 @@
     </div>
 
     <div class="card" id="card-atk">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">
             <span>Attacks</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-atk">
             <div id="attackList"></div>
@@ -534,9 +694,13 @@
     </div>
     
     <div class="card" id="card-feats">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">
             <span>Features & Traits</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-feats">
             <div id="featureList"></div>
@@ -545,9 +709,13 @@
     </div>
 
     <div class="card" id="card-spells">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">
             <span>Spell Slots</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-spells">
             <div id="spellSlotsList"></div>
@@ -555,9 +723,13 @@
     </div>
 
     <div class="card" id="card-skills">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">
             <span>Skills</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-skills">
             <div class="skill-list" id="skillGrid"></div>
@@ -565,9 +737,13 @@
     </div>
 
     <div class="card" id="card-roller">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">
             <span>Arbitrary Roller</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-roller">
             <div class="custom-roll-row" style="margin-bottom:10px;">
@@ -590,9 +766,13 @@
     </div>
 
     <div class="card io-card" id="card-io">
+        <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">
             <span>Backup Data</span>
-            <span class="accordion-icon">▼</span>
         </div>
         <div class="accordion-content" id="body-io">
             <div class="field-group">
@@ -637,15 +817,16 @@
             inspiration: 0, 
             ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
         },
+        // NEW: AC Data Structure
         ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
         skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
-        uiState: { cardOrder: [] } 
+        uiState: { cardOrder: [] } // NEW: Store order
     };
     
     let consumeInspirationOnNextRoll = false;
 
-    // --- CORE DICE ENGINE ---
+    // --- CORE DICE ENGINE (OPTIMIZED) ---
     function coreRoll(count, sides, mode = 'norm') {
         let rolls = [];
         let total = 0;
@@ -682,26 +863,39 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
-    // --- COMPLEX FORMULA PARSER ---
+    // --- COMPLEX FORMULA PARSER (NEW v3.6) ---
+    // Parses strings like "1d4 + 2", "-1d4", "2d6 + 5"
     function parseComplexBonus(str) {
         if (!str) return { total: 0, text: '' };
         let total = 0;
         let parts = [];
+        
+        // 1. Find all Dice (e.g. +1d4, -1d6)
+        // Match: [optional sign] [spaces] [digits] d [digits]
         const diceRegex = /([+-]?)\s*(\d+)d(\d+)/gi;
         let match;
-        let cleanStr = str;
+        
+        // We iterate matches to sum them
+        let cleanStr = str; // We will remove dice to find statics later
         
         while ((match = diceRegex.exec(str)) !== null) {
             const sign = (match[1].trim() === '-') ? -1 : 1;
             const count = parseInt(match[2]);
             const sides = parseInt(match[3]);
+            
             const res = coreRoll(count, sides);
             total += (res.total * sign);
+            
             const signStr = sign === -1 ? '-' : '+';
+            // Output format: +[3] or -[2]
             parts.push(`${signStr}[${res.formula.replace(/[\[\]]/g,'')}]`);
         }
         
+        // Remove dice from string to find leftover statics
         cleanStr = str.replace(diceRegex, '');
+        
+        // 2. Find Statics (integers)
+        // Match: [optional sign] [spaces] [digits]
         const staticRegex = /([+-]?)\s*(\d+)/gi;
         while ((match = staticRegex.exec(cleanStr)) !== null) {
              const sign = (match[1].trim() === '-') ? -1 : 1;
@@ -709,6 +903,7 @@
              total += (val * sign);
              parts.push(`${sign===-1?'-':'+'}${val}`);
         }
+
         return { total, text: parts.join(' ') };
     }
 
@@ -726,11 +921,16 @@
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
             
+            // AC MIGRATION
             if (!data.ac || !data.ac.bonuses) {
                 const oldAc = data.ac || {};
                 data.ac = { 
-                    mode: oldAc.mode || 'std', base: 10, dexCap: oldAc.dexCap || '100', 
-                    customStat1: oldAc.customStat1 || 'dex', customStat2: oldAc.customStat2 || 'none', bonuses: [] 
+                    mode: oldAc.mode || 'std', 
+                    base: 10, 
+                    dexCap: oldAc.dexCap || '100', 
+                    customStat1: oldAc.customStat1 || 'dex', 
+                    customStat2: oldAc.customStat2 || 'none',
+                    bonuses: [] 
                 };
                 if(oldAc.bonus) data.ac.bonuses.push({ id: Date.now(), name: "Misc", val: oldAc.bonus, active: true });
                 if(oldAc.customBonus) data.ac.bonuses.push({ id: Date.now()+1, name: "Custom Misc", val: oldAc.customBonus, active: true });
@@ -756,6 +956,7 @@
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
+        // Init Bonus now supports text
         document.getElementById('initBonus').value = data.meta.init || "+0";
         document.getElementById('speedVal').value = data.meta.speed;
         
@@ -777,6 +978,7 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
+        // AC SETUP
         document.getElementById('acBase').value = data.ac.base || 10;
         document.getElementById('acDexCap').value = data.ac.dexCap || 100;
         document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
@@ -792,10 +994,12 @@
         if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
             const container = document.querySelector('.sheet-container');
             const sortedFrag = document.createDocumentFragment();
+            // Append found IDs in order
             data.uiState.cardOrder.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) sortedFrag.appendChild(el);
             });
+            // Append remaining (new) cards
             Array.from(container.children).forEach(child => {
                 if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
                     sortedFrag.appendChild(child);
@@ -804,25 +1008,18 @@
             container.appendChild(sortedFrag);
         }
 
+        // ACCORDIONS - Now handles initial collapsed state classes
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
+            const card = document.getElementById('card-' + key);
             if (isClosed) {
                 document.getElementById('head-'+key).classList.add('collapsed');
                 document.getElementById('body-'+key).classList.add('collapsed');
+                if (card) card.classList.add('card-collapsed');
+            } else {
+                if (card) card.classList.remove('card-collapsed');
             }
-        });
-        
-        // --- INJECT EDIT CONTROLS ---
-        document.querySelectorAll('.section-title').forEach(header => {
-            const controls = document.createElement('div');
-            controls.className = 'layout-controls';
-            controls.innerHTML = `
-                <button class="btn-move" onclick="moveCard(this, -1)">▲</button>
-                <button class="btn-move" onclick="moveCard(this, 1)">▼</button>
-            `;
-            // Insert before the accordion icon (last child)
-            header.insertBefore(controls, header.lastElementChild);
         });
 
         updateHP(); 
@@ -834,15 +1031,11 @@
         renderResources();
         updateAll();
         setMode(data.rollMode || 'norm');
+        
+        setupDragAndDrop();
     }
 
-    // --- LAYOUT MODE ---
-    function toggleLayoutMode() {
-        document.body.classList.toggle('edit-mode');
-        const btn = document.querySelector('.layout-toggle-btn');
-        btn.classList.toggle('active');
-    }
-
+    // --- CARD MOVEMENT ---
     function moveCard(btn, dir) {
         const card = btn.closest('.card');
         const container = card.parentElement;
@@ -855,8 +1048,109 @@
             const nextNext = siblings[idx + 2] || null;
             container.insertBefore(card, nextNext);
         }
-        
-        // Save order
+        saveCardOrder();
+    }
+
+    // --- DRAG AND DROP (POINTER EVENTS) ---
+    function setupDragAndDrop() {
+        const grips = document.querySelectorAll('.drag-grip');
+        let draggedCard = null;
+        let initialY = 0;
+        let initialRect = null;
+        let placeholder = null;
+
+        grips.forEach(grip => {
+            grip.addEventListener('pointerdown', (e) => {
+                // Only left click or touch
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                
+                const card = grip.parentElement;
+                draggedCard = card;
+                
+                // Create placeholder to hold space
+                placeholder = document.createElement('div');
+                placeholder.className = 'card placeholder';
+                placeholder.style.height = card.offsetHeight + 'px';
+                placeholder.style.background = 'transparent';
+                placeholder.style.border = '2px dashed #333';
+                
+                // Get geometry
+                initialRect = card.getBoundingClientRect();
+                initialY = e.clientY;
+                
+                // Setup Card Styles for Dragging
+                card.style.width = initialRect.width + 'px'; // Fix width
+                card.classList.add('dragging');
+                card.parentNode.insertBefore(placeholder, card);
+                
+                // Absolute positioning to follow pointer
+                card.style.position = 'fixed';
+                card.style.top = initialRect.top + 'px';
+                card.style.left = initialRect.left + 'px';
+                
+                grip.setPointerCapture(e.pointerId);
+                
+                // Attach Move/Up listeners
+                grip.addEventListener('pointermove', onPointerMove);
+                grip.addEventListener('pointerup', onPointerUp);
+                grip.addEventListener('pointercancel', onPointerUp);
+            });
+
+            function onPointerMove(e) {
+                if (!draggedCard) return;
+                e.preventDefault(); // Prevent scroll
+                
+                const dy = e.clientY - initialY;
+                draggedCard.style.transform = `translateY(${dy}px)`;
+                
+                // Detect overlap for swap
+                const container = document.querySelector('.sheet-container');
+                const siblings = [...container.querySelectorAll('.card:not(.dragging)')];
+                
+                // Find immediate sibling to swap with
+                // Simple logic: If we cross the midpoint of another card, swap placeholder
+                const nextSibling = siblings.find(sibling => {
+                    const rect = sibling.getBoundingClientRect();
+                    const midY = rect.top + rect.height / 2;
+                    return e.clientY < midY;
+                });
+                
+                container.insertBefore(placeholder, nextSibling);
+            }
+
+            function onPointerUp(e) {
+                if (!draggedCard) return;
+                
+                // Cleanup
+                grip.removeEventListener('pointermove', onPointerMove);
+                grip.removeEventListener('pointerup', onPointerUp);
+                grip.removeEventListener('pointercancel', onPointerUp);
+                grip.releasePointerCapture(e.pointerId);
+                
+                // Snap final position
+                draggedCard.classList.remove('dragging');
+                draggedCard.style.position = '';
+                draggedCard.style.top = '';
+                draggedCard.style.left = '';
+                draggedCard.style.width = '';
+                draggedCard.style.transform = '';
+                
+                // Replace placeholder with real card
+                if (placeholder && placeholder.parentNode) {
+                    placeholder.parentNode.insertBefore(draggedCard, placeholder);
+                    placeholder.remove();
+                }
+                
+                draggedCard = null;
+                placeholder = null;
+                
+                saveCardOrder();
+            }
+        });
+    }
+
+    function saveCardOrder() {
+        const container = document.querySelector('.sheet-container');
         const order = Array.from(container.children)
             .filter(c => c.id && c.classList.contains('card'))
             .map(c => c.id);
@@ -866,14 +1160,21 @@
 
     // --- ACCORDION LOGIC ---
     function toggleSection(key, event) {
-        // Prevent toggle if in edit mode
-        if(document.body.classList.contains('edit-mode')) return;
-        
         const head = document.getElementById('head-' + key);
         const body = document.getElementById('body-' + key);
+        const card = document.getElementById('card-' + key);
+        
         head.classList.toggle('collapsed');
         body.classList.toggle('collapsed');
+        
         const isOpen = !body.classList.contains('collapsed');
+        
+        if (isOpen) {
+            if(card) card.classList.remove('card-collapsed');
+        } else {
+            if(card) card.classList.add('card-collapsed');
+        }
+        
         data.uiState[key] = isOpen;
         save();
     }
@@ -1088,11 +1389,13 @@
     }
 
     function updateAC() {
+        // Shared inputs
         data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
-        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value);
+        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value); // 100, 2, or 0
         data.ac.customStat1 = document.getElementById('acStat1').value;
         data.ac.customStat2 = document.getElementById('acStat2').value;
 
+        // Sum Bonuses
         let bonusTotal = 0;
         data.ac.bonuses.forEach(b => {
             if (b.active) bonusTotal += (parseInt(b.val) || 0);
@@ -1111,6 +1414,7 @@
             total = data.ac.base + effectiveDex + bonusTotal;
 
         } else {
+            // Custom: 10 + Stat1 + Stat2 + Bonuses
             const m1 = getMod(data.stats[data.ac.customStat1].val);
             let m2 = 0;
             if (data.ac.customStat2 !== 'none') { m2 = getMod(data.stats[data.ac.customStat2].val); }
