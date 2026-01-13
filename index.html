@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v3.8</title>
+    <title>Unified 5e Sheet v3.9</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -32,12 +32,12 @@
             padding: 0; margin: 0; 
             padding-top: 85px; 
             padding-bottom: 50px; 
-            overscroll-behavior-y: none; /* Helps prevent pull-to-refresh while dragging */
+            overscroll-behavior-y: none;
         }
         .sheet-container { 
             width: 100%; max-width: 800px; margin: 0 auto; padding: 10px; 
             display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; 
-            position: relative; /* Context for drag */
+            position: relative; 
         }
         
         /* --- UTILITY --- */
@@ -131,8 +131,9 @@
             display: flex; flex-direction: column;
             position: relative;
             transition: transform 0.2s, box-shadow 0.2s;
-            /* Updated Padding for Side Grip */
+            /* Padding for Handles */
             padding-left: 45px; 
+            padding-right: 45px;
         }
         /* DRAG STATE STYLES */
         .card.dragging {
@@ -141,11 +142,10 @@
             border-color: var(--accent);
             z-index: 999;
         }
-        /* GRIP HANDLE (UPDATED FOR LEFT SIDE) */
+        
+        /* LEFT GRIP (Drag) */
         .drag-grip {
-            position: absolute; 
-            top: 0; left: 0; bottom: 0; /* Full Height */
-            width: 30px; 
+            position: absolute; top: 0; left: 0; bottom: 0; width: 30px; 
             display: flex; justify-content: center; align-items: center;
             color: #444; font-size: 18px; letter-spacing: 0;
             cursor: grab; touch-action: none; 
@@ -155,6 +155,22 @@
         }
         .drag-grip:hover { color: var(--accent); background: rgba(255,255,255,0.02); }
         .drag-grip::after { content: '⣿'; }
+
+        /* RIGHT GRIP (Shift Buttons) */
+        .shift-controls {
+            position: absolute; top: 0; right: 0; bottom: 0; width: 30px;
+            display: flex; flex-direction: column; justify-content: center; gap: 5px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 0 12px 12px 0;
+            border-left: 1px solid #252525;
+        }
+        .btn-shift {
+            background: none; border: none; color: #555;
+            font-size: 0.8rem; cursor: pointer; padding: 10px 0;
+            width: 100%; text-align: center;
+        }
+        .btn-shift:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
+
         
         .section-title { 
             margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
@@ -454,6 +470,10 @@
     
 <div class="card" id="card-vitals">
     <div class="drag-grip"></div>
+    <div class="shift-controls">
+        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+    </div>
     <div class="header-grid">
         <div class="field-group">
             <label>Character Name</label>
@@ -518,6 +538,10 @@
 
 <div class="card" id="card-ac">
     <div class="drag-grip"></div>
+    <div class="shift-controls">
+        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+    </div>
     <div class="section-title">
         <span>Armor Class</span>
         <span class="ac-val-big" id="acTotalDisplay">10</span>
@@ -567,6 +591,10 @@
 
 <div class="card" id="card-rest">
     <div class="drag-grip"></div>
+    <div class="shift-controls">
+        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+    </div>
     <div class="section-title">Rest & Hit Dice</div>
     <div class="hd-row">
         <label style="margin:0;">Hit Dice:</label>
@@ -584,6 +612,10 @@
 
     <div class="card" id="card-combat">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">
             <span>Combat Stats & Resources</span>
         </div>
@@ -614,6 +646,10 @@
 
     <div class="card" id="card-attr">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">
             <span>Attributes</span>
         </div>
@@ -624,6 +660,10 @@
 
     <div class="card" id="card-atk">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">
             <span>Attacks</span>
         </div>
@@ -635,6 +675,10 @@
     
     <div class="card" id="card-feats">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">
             <span>Features & Traits</span>
         </div>
@@ -646,6 +690,10 @@
 
     <div class="card" id="card-spells">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">
             <span>Spell Slots</span>
         </div>
@@ -656,6 +704,10 @@
 
     <div class="card" id="card-skills">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">
             <span>Skills</span>
         </div>
@@ -666,6 +718,10 @@
 
     <div class="card" id="card-roller">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">
             <span>Arbitrary Roller</span>
         </div>
@@ -691,6 +747,10 @@
 
     <div class="card io-card" id="card-io">
         <div class="drag-grip"></div>
+        <div class="shift-controls">
+            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
+            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
+        </div>
         <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">
             <span>Backup Data</span>
         </div>
@@ -949,6 +1009,22 @@
         setMode(data.rollMode || 'norm');
         
         setupDragAndDrop();
+    }
+
+    // --- CARD MOVEMENT ---
+    function moveCard(btn, dir) {
+        const card = btn.closest('.card');
+        const container = card.parentElement;
+        const siblings = Array.from(container.children).filter(c => c.classList.contains('card'));
+        const idx = siblings.indexOf(card);
+        
+        if (dir === -1 && idx > 0) {
+            container.insertBefore(card, siblings[idx - 1]);
+        } else if (dir === 1 && idx < siblings.length - 1) {
+            const nextNext = siblings[idx + 2] || null;
+            container.insertBefore(card, nextNext);
+        }
+        saveCardOrder();
     }
 
     // --- DRAG AND DROP (POINTER EVENTS) ---
