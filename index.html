@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v4.1</title>
+    <title>Unified 5e Sheet v4.2</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -24,6 +24,7 @@
             --crit: #ffd700; 
             --fail: #e74c3c; 
             --res-bar: #27ae60;
+            --swap-mode: #e67e22; /* Orange for swap mode */
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
@@ -133,7 +134,6 @@
             transition: all 0.2s ease;
             /* Padding for Handles */
             padding-left: 45px; 
-            padding-right: 45px;
         }
         /* COMPACT MODE FOR COLLAPSED CARDS */
         .card.card-collapsed {
@@ -154,10 +154,16 @@
             border-color: var(--accent);
             z-index: 999;
         }
+
+        /* SWAP MODE STYLES */
+        .card.swap-active {
+            border: 2px solid var(--swap-mode) !important;
+            box-shadow: 0 0 15px rgba(230, 126, 34, 0.3);
+        }
         
         /* LEFT GRIP (Drag) */
         .drag-grip {
-            position: absolute; top: 0; left: 0; bottom: 0; width: 30px; 
+            position: absolute; top: 0; left: 0; bottom: 0; width: 35px; 
             display: flex; justify-content: center; align-items: center;
             color: #444; font-size: 18px; letter-spacing: 0;
             cursor: grab; touch-action: none; 
@@ -168,25 +174,11 @@
         .drag-grip:hover { color: var(--accent); background: rgba(255,255,255,0.02); }
         .drag-grip::after { content: '⣿'; }
 
-        /* RIGHT GRIP (Shift Buttons) */
-        /* UPDATED: Anchored to TOP-RIGHT to stay aligned with header */
-        .shift-controls {
-            position: absolute; 
-            top: 0; right: 0; 
-            height: 55px; /* Fixed height matching header area */
-            width: 30px;
-            display: flex; flex-direction: column; justify-content: center; gap: 2px;
-            background: rgba(0,0,0,0.1);
-            border-radius: 0 12px 0 12px; /* Rounded only on top right corner */
-            border-left: 1px solid #252525;
-            border-bottom: 1px solid #252525;
+        /* ACTIVE GRIP IN SWAP MODE */
+        .card.swap-active .drag-grip {
+            background: rgba(230, 126, 34, 0.2);
+            color: var(--swap-mode);
         }
-        .btn-shift {
-            background: none; border: none; color: #555;
-            font-size: 0.7rem; cursor: pointer; padding: 0;
-            flex: 1; text-align: center;
-        }
-        .btn-shift:hover { color: var(--accent); background: rgba(255,255,255,0.05); }
 
         .section-title { 
             margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
@@ -490,10 +482,6 @@
     
 <div class="card" id="card-vitals">
     <div class="drag-grip"></div>
-    <div class="shift-controls">
-        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-    </div>
     <div class="header-grid">
         <div class="field-group">
             <label>Character Name</label>
@@ -558,10 +546,6 @@
 
 <div class="card" id="card-ac">
     <div class="drag-grip"></div>
-    <div class="shift-controls">
-        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-    </div>
     <div class="section-title">
         <span>Armor Class</span>
         <span class="ac-val-big" id="acTotalDisplay">10</span>
@@ -611,10 +595,6 @@
 
 <div class="card" id="card-rest">
     <div class="drag-grip"></div>
-    <div class="shift-controls">
-        <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-        <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-    </div>
     <div class="section-title">Rest & Hit Dice</div>
     <div class="hd-row">
         <label style="margin:0;">Hit Dice:</label>
@@ -632,10 +612,6 @@
 
     <div class="card" id="card-combat">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">
             <span>Combat Stats & Resources</span>
         </div>
@@ -666,10 +642,6 @@
 
     <div class="card" id="card-attr">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">
             <span>Attributes</span>
         </div>
@@ -680,10 +652,6 @@
 
     <div class="card" id="card-atk">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">
             <span>Attacks</span>
         </div>
@@ -695,10 +663,6 @@
     
     <div class="card" id="card-feats">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">
             <span>Features & Traits</span>
         </div>
@@ -710,10 +674,6 @@
 
     <div class="card" id="card-spells">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">
             <span>Spell Slots</span>
         </div>
@@ -724,10 +684,6 @@
 
     <div class="card" id="card-skills">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">
             <span>Skills</span>
         </div>
@@ -738,10 +694,6 @@
 
     <div class="card" id="card-roller">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">
             <span>Arbitrary Roller</span>
         </div>
@@ -767,10 +719,6 @@
 
     <div class="card io-card" id="card-io">
         <div class="drag-grip"></div>
-        <div class="shift-controls">
-            <button class="btn-shift" onclick="moveCard(this, -1)">▲</button>
-            <button class="btn-shift" onclick="moveCard(this, 1)">▼</button>
-        </div>
         <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">
             <span>Backup Data</span>
         </div>
@@ -817,16 +765,15 @@
             inspiration: 0, 
             ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
         },
-        // NEW: AC Data Structure
         ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
         stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
         skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
-        uiState: { cardOrder: [] } // NEW: Store order
+        uiState: { cardOrder: [] }
     };
     
     let consumeInspirationOnNextRoll = false;
 
-    // --- CORE DICE ENGINE (OPTIMIZED) ---
+    // --- CORE DICE ENGINE ---
     function coreRoll(count, sides, mode = 'norm') {
         let rolls = [];
         let total = 0;
@@ -863,20 +810,14 @@
         return { total, rolls, formula, isCrit, isFail };
     }
 
-    // --- COMPLEX FORMULA PARSER (NEW v3.6) ---
-    // Parses strings like "1d4 + 2", "-1d4", "2d6 + 5"
+    // --- COMPLEX FORMULA PARSER ---
     function parseComplexBonus(str) {
         if (!str) return { total: 0, text: '' };
         let total = 0;
         let parts = [];
-        
-        // 1. Find all Dice (e.g. +1d4, -1d6)
-        // Match: [optional sign] [spaces] [digits] d [digits]
         const diceRegex = /([+-]?)\s*(\d+)d(\d+)/gi;
         let match;
-        
-        // We iterate matches to sum them
-        let cleanStr = str; // We will remove dice to find statics later
+        let cleanStr = str; 
         
         while ((match = diceRegex.exec(str)) !== null) {
             const sign = (match[1].trim() === '-') ? -1 : 1;
@@ -887,15 +828,11 @@
             total += (res.total * sign);
             
             const signStr = sign === -1 ? '-' : '+';
-            // Output format: +[3] or -[2]
             parts.push(`${signStr}[${res.formula.replace(/[\[\]]/g,'')}]`);
         }
         
-        // Remove dice from string to find leftover statics
         cleanStr = str.replace(diceRegex, '');
         
-        // 2. Find Statics (integers)
-        // Match: [optional sign] [spaces] [digits]
         const staticRegex = /([+-]?)\s*(\d+)/gi;
         while ((match = staticRegex.exec(cleanStr)) !== null) {
              const sign = (match[1].trim() === '-') ? -1 : 1;
@@ -921,7 +858,6 @@
             if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
             if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
             
-            // AC MIGRATION
             if (!data.ac || !data.ac.bonuses) {
                 const oldAc = data.ac || {};
                 data.ac = { 
@@ -956,7 +892,6 @@
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
-        // Init Bonus now supports text
         document.getElementById('initBonus').value = data.meta.init || "+0";
         document.getElementById('speedVal').value = data.meta.speed;
         
@@ -978,7 +913,6 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
-        // AC SETUP
         document.getElementById('acBase').value = data.ac.base || 10;
         document.getElementById('acDexCap').value = data.ac.dexCap || 100;
         document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
@@ -994,12 +928,10 @@
         if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
             const container = document.querySelector('.sheet-container');
             const sortedFrag = document.createDocumentFragment();
-            // Append found IDs in order
             data.uiState.cardOrder.forEach(id => {
                 const el = document.getElementById(id);
                 if (el) sortedFrag.appendChild(el);
             });
-            // Append remaining (new) cards
             Array.from(container.children).forEach(child => {
                 if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
                     sortedFrag.appendChild(child);
@@ -1008,7 +940,7 @@
             container.appendChild(sortedFrag);
         }
 
-        // ACCORDIONS - Now handles initial collapsed state classes
+        // ACCORDIONS
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
@@ -1035,23 +967,9 @@
         setupDragAndDrop();
     }
 
-    // --- CARD MOVEMENT ---
-    function moveCard(btn, dir) {
-        const card = btn.closest('.card');
-        const container = card.parentElement;
-        const siblings = Array.from(container.children).filter(c => c.classList.contains('card'));
-        const idx = siblings.indexOf(card);
-        
-        if (dir === -1 && idx > 0) {
-            container.insertBefore(card, siblings[idx - 1]);
-        } else if (dir === 1 && idx < siblings.length - 1) {
-            const nextNext = siblings[idx + 2] || null;
-            container.insertBefore(card, nextNext);
-        }
-        saveCardOrder();
-    }
+    // --- DRAG AND DROP & SWAP LOGIC ---
+    let swapSourceCard = null;
 
-    // --- DRAG AND DROP (POINTER EVENTS) ---
     function setupDragAndDrop() {
         const grips = document.querySelectorAll('.drag-grip');
         let draggedCard = null;
@@ -1060,37 +978,39 @@
         let placeholder = null;
 
         grips.forEach(grip => {
+            // DOUBLE CLICK / TAP TO SWAP
+            grip.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSwapInteraction(grip.closest('.card'));
+            });
+
+            // POINTER DOWN FOR DRAG
             grip.addEventListener('pointerdown', (e) => {
-                // Only left click or touch
                 if (e.button !== 0 && e.pointerType === 'mouse') return;
                 
                 const card = grip.parentElement;
                 draggedCard = card;
                 
-                // Create placeholder to hold space
                 placeholder = document.createElement('div');
                 placeholder.className = 'card placeholder';
                 placeholder.style.height = card.offsetHeight + 'px';
                 placeholder.style.background = 'transparent';
                 placeholder.style.border = '2px dashed #333';
                 
-                // Get geometry
                 initialRect = card.getBoundingClientRect();
                 initialY = e.clientY;
                 
-                // Setup Card Styles for Dragging
-                card.style.width = initialRect.width + 'px'; // Fix width
+                card.style.width = initialRect.width + 'px';
                 card.classList.add('dragging');
                 card.parentNode.insertBefore(placeholder, card);
                 
-                // Absolute positioning to follow pointer
                 card.style.position = 'fixed';
                 card.style.top = initialRect.top + 'px';
                 card.style.left = initialRect.left + 'px';
                 
                 grip.setPointerCapture(e.pointerId);
                 
-                // Attach Move/Up listeners
                 grip.addEventListener('pointermove', onPointerMove);
                 grip.addEventListener('pointerup', onPointerUp);
                 grip.addEventListener('pointercancel', onPointerUp);
@@ -1098,36 +1018,27 @@
 
             function onPointerMove(e) {
                 if (!draggedCard) return;
-                e.preventDefault(); // Prevent scroll
-                
+                e.preventDefault();
                 const dy = e.clientY - initialY;
                 draggedCard.style.transform = `translateY(${dy}px)`;
                 
-                // Detect overlap for swap
                 const container = document.querySelector('.sheet-container');
                 const siblings = [...container.querySelectorAll('.card:not(.dragging)')];
-                
-                // Find immediate sibling to swap with
-                // Simple logic: If we cross the midpoint of another card, swap placeholder
                 const nextSibling = siblings.find(sibling => {
                     const rect = sibling.getBoundingClientRect();
                     const midY = rect.top + rect.height / 2;
                     return e.clientY < midY;
                 });
-                
                 container.insertBefore(placeholder, nextSibling);
             }
 
             function onPointerUp(e) {
                 if (!draggedCard) return;
-                
-                // Cleanup
                 grip.removeEventListener('pointermove', onPointerMove);
                 grip.removeEventListener('pointerup', onPointerUp);
                 grip.removeEventListener('pointercancel', onPointerUp);
                 grip.releasePointerCapture(e.pointerId);
                 
-                // Snap final position
                 draggedCard.classList.remove('dragging');
                 draggedCard.style.position = '';
                 draggedCard.style.top = '';
@@ -1135,7 +1046,6 @@
                 draggedCard.style.width = '';
                 draggedCard.style.transform = '';
                 
-                // Replace placeholder with real card
                 if (placeholder && placeholder.parentNode) {
                     placeholder.parentNode.insertBefore(draggedCard, placeholder);
                     placeholder.remove();
@@ -1143,10 +1053,45 @@
                 
                 draggedCard = null;
                 placeholder = null;
-                
                 saveCardOrder();
             }
         });
+    }
+
+    function handleSwapInteraction(card) {
+        if (swapSourceCard === null) {
+            // First select
+            swapSourceCard = card;
+            card.classList.add('swap-active');
+            showLog("Swap Mode", "Select Another");
+        } else if (swapSourceCard === card) {
+            // Cancel
+            swapSourceCard.classList.remove('swap-active');
+            swapSourceCard = null;
+            showLog("Swap Mode", "Cancelled");
+        } else {
+            // EXECUTE SWAP
+            const container = document.querySelector('.sheet-container');
+            const placeholderA = document.createElement('div');
+            const placeholderB = document.createElement('div');
+
+            // Insert placeholders
+            container.insertBefore(placeholderA, swapSourceCard);
+            container.insertBefore(placeholderB, card);
+
+            // Move elements
+            container.insertBefore(swapSourceCard, placeholderB);
+            container.insertBefore(card, placeholderA);
+
+            // Cleanup
+            placeholderA.remove();
+            placeholderB.remove();
+
+            swapSourceCard.classList.remove('swap-active');
+            swapSourceCard = null;
+            saveCardOrder();
+            showLog("Layout", "Swapped");
+        }
     }
 
     function saveCardOrder() {
@@ -1277,7 +1222,6 @@
             const display = res.display || 'none';
             const rest = res.rest || 'none';
             
-            // Visualization Generation
             let vizHtml = '';
             if (display === 'bar') {
                 let pct = 0; if(res.max > 0) pct = (res.curr / res.max) * 100;
@@ -1364,7 +1308,7 @@
         statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
         document.getElementById('globalDC').innerText = 8 + pb + maxMod;
 
-        updateAC(); // Trigger AC recalc
+        updateAC();
     }
 
     // --- AC LOGIC ---
@@ -1389,13 +1333,11 @@
     }
 
     function updateAC() {
-        // Shared inputs
         data.ac.base = parseInt(document.getElementById('acBase').value) || 10;
-        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value); // 100, 2, or 0
+        data.ac.dexCap = parseInt(document.getElementById('acDexCap').value);
         data.ac.customStat1 = document.getElementById('acStat1').value;
         data.ac.customStat2 = document.getElementById('acStat2').value;
 
-        // Sum Bonuses
         let bonusTotal = 0;
         data.ac.bonuses.forEach(b => {
             if (b.active) bonusTotal += (parseInt(b.val) || 0);
@@ -1414,7 +1356,6 @@
             total = data.ac.base + effectiveDex + bonusTotal;
 
         } else {
-            // Custom: 10 + Stat1 + Stat2 + Bonuses
             const m1 = getMod(data.stats[data.ac.customStat1].val);
             let m2 = 0;
             if (data.ac.customStat2 !== 'none') { m2 = getMod(data.stats[data.ac.customStat2].val); }
@@ -1440,28 +1381,10 @@
         `).join('');
     }
 
-    function addAcBonus() {
-        data.ac.bonuses.push({ id: Date.now(), name: '', val: 1, active: true });
-        renderAcList();
-        updateAC();
-    }
-
-    function toggleAcBonus(i) {
-        data.ac.bonuses[i].active = !data.ac.bonuses[i].active;
-        renderAcList();
-        updateAC();
-    }
-
-    function updateAcBonus(i, field, val) {
-        data.ac.bonuses[i][field] = val;
-        updateAC();
-    }
-
-    function delAcBonus(i) {
-        data.ac.bonuses.splice(i, 1);
-        renderAcList();
-        updateAC();
-    }
+    function addAcBonus() { data.ac.bonuses.push({ id: Date.now(), name: '', val: 1, active: true }); renderAcList(); updateAC(); }
+    function toggleAcBonus(i) { data.ac.bonuses[i].active = !data.ac.bonuses[i].active; renderAcList(); updateAC(); }
+    function updateAcBonus(i, field, val) { data.ac.bonuses[i][field] = val; updateAC(); }
+    function delAcBonus(i) { data.ac.bonuses.splice(i, 1); renderAcList(); updateAC(); }
 
     // --- HP LOGIC ---
     function updateHP() {
@@ -1652,7 +1575,6 @@
         const formula = document.getElementById('customFormula').value.trim();
         const label = document.getElementById('customLabel').value.trim() || 'Custom Roll';
         
-        // Uses the parseComplexBonus which handles negatives/dice mixing inherently
         const parsed = parseComplexBonus(formula);
         
         if(parsed.text === '') { showLog("Error", "Invalid"); return; }
@@ -1666,7 +1588,6 @@
         let mod = 0;
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
         
-        // Combine Weapon Damage string with Global Misc (e.g. +2 rage damage)
         const miscStr = document.getElementById('globalMisc').value.trim();
         const dmgStr = (atk.dmg || "") + " " + miscStr;
         
@@ -1685,18 +1606,16 @@
     }
 
     function rollInitiative() {
-        // Init Bonus now supports formula
         const initStr = document.getElementById('initBonus').value.trim();
         const miscStr = document.getElementById('globalMisc').value.trim();
         
-        data.meta.init = initStr; // save text
+        data.meta.init = initStr;
         save();
 
         const dexMod = getMod(data.stats.dex.val);
         const parsedInit = parseComplexBonus(initStr);
         const parsedMisc = parseComplexBonus(miscStr);
         
-        // Tie breaker is raw dex score / 100
         const tieBreaker = data.stats.dex.val / 100;
 
         let effectiveMode = data.rollMode;
@@ -1719,9 +1638,9 @@
         if(consumedInsp) consumeInspiration();
     }
 
-    // --- DEATH SAVES (OPTIMIZED) ---
+    // --- DEATH SAVES ---
     function rollDeathSave() {
-        const r = Math.floor(Math.random() * 20) + 1; // Pure d20
+        const r = Math.floor(Math.random() * 20) + 1;
         let msg = "Failure";
         let isCrit = false; let isFail = false;
         
@@ -1849,7 +1768,6 @@
         const res = data.resources[i];
         const formula = res.rFormula || '1d6';
         
-        // Use generic regex to find dice
         const regex = /^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i;
         const match = formula.match(regex);
         if(!match) { showLog("Err", "Formula"); return; }
@@ -1935,7 +1853,7 @@
         localStorage.setItem('unifiedSheetDataV2', JSON.stringify(data)); 
     }
     
-    // --- IO / BACKUP SYSTEM (GZIP COMPRESSION) ---
+    // --- IO / BACKUP SYSTEM ---
     function showIoMsg(txt) { 
         const msg = document.getElementById('ioMsg');
         msg.innerText = txt; 
