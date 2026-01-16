@@ -16,7 +16,7 @@
             --danger: #ff6b6b;
             
             /* Status Colors */
-            --st-grey: #333;
+            --st-grey: #444;
             --st-orange: #e67e22;
             --st-green: #27ae60;
         }
@@ -30,7 +30,7 @@
         }
 
         h1 { margin: 0 0 5px 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
-        p.sub { margin: 0 0 20px 0; font-size: 0.8rem; color: var(--text-dim); }
+        p.sub { margin: 0 0 20px 0; font-size: 0.8rem; color: var(--text-dim); text-align: center; max-width: 500px; }
 
         /* GUILD GRID */
         .guild-grid {
@@ -43,21 +43,37 @@
             border-radius: 8px; padding: 10px 5px;
             cursor: pointer; user-select: none;
             display: flex; flex-direction: column; align-items: center; gap: 4px;
-            transition: all 0.2s;
+            transition: all 0.2s; position: relative;
         }
-        .guild-btn:hover { border-color: #555; }
+        .guild-btn:hover { border-color: #777; }
         
         /* STATES */
-        .guild-btn.st-0 { border-color: var(--st-grey); opacity: 0.6; } /* Not Involved */
-        .guild-btn.st-1 { border-color: var(--st-orange); background: rgba(230, 126, 34, 0.1); opacity: 1; } /* Red Herring */
-        .guild-btn.st-2 { border-color: var(--st-green); background: rgba(39, 174, 96, 0.1); opacity: 1; box-shadow: 0 0 8px rgba(39, 174, 96, 0.3); } /* Involved */
-
-        .g-icon { font-size: 1.2rem; }
-        .g-name { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
-        .st-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--st-grey); margin-top: 2px; }
+        .guild-btn.st-0 { border-color: var(--st-grey); opacity: 0.5; filter: grayscale(100%); } /* Not Involved */
         
-        .st-1 .st-dot { background: var(--st-orange); }
-        .st-2 .st-dot { background: var(--st-green); }
+        .guild-btn.st-1 { /* Red Herring */
+            border-color: var(--st-orange); 
+            background: rgba(230, 126, 34, 0.15); 
+            opacity: 1; 
+        } 
+        
+        .guild-btn.st-2 { /* Involved */
+            border-color: var(--st-green); 
+            background: rgba(39, 174, 96, 0.15); 
+            opacity: 1; 
+            box-shadow: 0 0 10px rgba(39, 174, 96, 0.2); 
+        }
+
+        .status-badge {
+            position: absolute; top: -5px; right: -5px;
+            font-size: 0.6rem; font-weight: bold;
+            padding: 2px 5px; border-radius: 4px;
+            color: #000; display: none;
+        }
+        .st-1 .status-badge { display: block; background: var(--st-orange); content: "H"; }
+        .st-2 .status-badge { display: block; background: var(--st-green); content: "INV"; }
+
+        .g-icon { font-size: 1.4rem; }
+        .g-name { font-size: 0.65rem; font-weight: bold; text-transform: uppercase; }
 
         /* CONTROLS */
         .controls { display: flex; gap: 10px; margin-bottom: 20px; width: 100%; max-width: 600px; }
@@ -79,20 +95,30 @@
             overflow: hidden; display: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             animation: slideUp 0.3s ease-out;
+            position: relative;
         }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .res-header {
-            padding: 15px; background: rgba(0,0,0,0.3);
+            padding: 10px 15px; background: rgba(0,0,0,0.3);
             display: flex; justify-content: space-between; align-items: center;
             border-bottom: 1px solid var(--border);
         }
-        .res-type { font-size: 0.75rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
-        .res-guild { font-size: 0.85rem; font-weight: bold; color: var(--gold); background: rgba(241, 196, 15, 0.1); padding: 2px 8px; border-radius: 4px; }
-
+        .res-type { font-size: 0.7rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
+        
         .res-body { padding: 20px; }
-        .res-main { font-size: 1.2rem; font-weight: 700; color: #fff; margin-bottom: 10px; line-height: 1.3; }
-        .res-flavor { font-size: 0.95rem; color: #ccc; font-style: italic; margin-bottom: 20px; padding-left: 10px; border-left: 3px solid var(--accent); }
+        
+        /* THE ALGORITHM DISPLAY */
+        .clue-sentence { font-size: 1.1rem; line-height: 1.6; color: #ccc; }
+        .hl-base { color: #fff; font-weight: bold; border-bottom: 1px dashed #555; }
+        .hl-core { color: var(--st-green); font-weight: bold; background: rgba(39, 174, 96, 0.1); padding: 0 4px; border-radius: 4px; }
+        .hl-surf { color: var(--st-orange); font-weight: bold; background: rgba(230, 126, 34, 0.1); padding: 0 4px; border-radius: 4px; }
+
+        .logic-explainer {
+            margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;
+            font-size: 0.75rem; color: #666; font-family: monospace;
+            display: flex; gap: 10px; justify-content: center;
+        }
 
         .res-footer {
             background: rgba(0,0,0,0.2); padding: 15px;
@@ -102,124 +128,156 @@
         .res-stat { display: flex; flex-direction: column; gap: 4px; }
         .res-label { font-size: 0.7rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; }
         .res-val { font-weight: bold; }
-        .res-val.bad { color: var(--danger); }
-        .res-val.warn { color: var(--gold); }
-
-        /* DEBUG/LOG */
-        .log-area { margin-top: 20px; font-family: monospace; font-size: 0.7rem; color: #555; width: 100%; max-width: 600px; text-align: center; }
 
     </style>
 </head>
 <body>
 
-    <h1>Evidence Triangulator</h1>
-    <p class="sub">Tap guilds to set status: Grey (None) &to; Orange (Herring) &to; Green (Involved)</p>
+    <h1>Intersection Generator</h1>
+    <p class="sub">
+        <strong>Signal vs. Noise:</strong><br>
+        <span style="color:var(--st-green)">Green (Involved)</span> generates the <em>Core Object</em>.<br>
+        <span style="color:var(--st-orange)">Orange (Herring)</span> generates the <em>Surface Context</em>.
+    </p>
 
-    <div class="guild-grid" id="guildGrid">
-        </div>
+    <div class="guild-grid" id="guildGrid"></div>
 
     <div class="controls">
         <select id="modeSel" class="mode-select">
-            <option value="any">Any Mode</option>
             <option value="phys">Physical</option>
             <option value="soc">Social</option>
             <option value="arc">Arcane</option>
         </select>
-        <button class="gen-btn" onclick="generateClue()">Generate Lead</button>
+        <button class="gen-btn" onclick="generateClue()">Triangulate Clue</button>
     </div>
 
     <div class="result-card" id="resultCard">
         <div class="res-header">
-            <span class="res-type" id="outType">Physical Clue</span>
-            <span class="res-guild" id="outGuild">Dimir</span>
+            <span class="res-type" id="outType">Physical Evidence</span>
         </div>
         <div class="res-body">
-            <div class="res-main" id="outMain">A discarded ledger</div>
-            <div class="res-flavor" id="outFlavor">"The pages are damp and smell of sewer rot..."</div>
+            <div class="clue-sentence" id="outText">
+                </div>
+            <div class="logic-explainer">
+                <span>SIGNAL: <span id="logSignal">DIMIR</span></span>
+                <span>//</span>
+                <span>NOISE: <span id="logNoise">GOLGARI</span></span>
+            </div>
         </div>
         <div class="res-footer">
             <div class="res-stat">
-                <span class="res-label">The Friction</span>
-                <span class="res-val warn" id="outFric">Water-Damaged</span>
+                <span class="res-label">Environmental Friction</span>
+                <span class="res-val" style="color:var(--gold)" id="outFric">Water-Damaged</span>
             </div>
             <div class="res-stat">
                 <span class="res-label">Fail-Forward Cost</span>
-                <span class="res-val bad" id="outCost">Clock +1</span>
+                <span class="res-val" style="color:var(--danger)" id="outCost">Clock +1</span>
             </div>
         </div>
     </div>
 
-    <div class="log-area" id="debugLog">Ready.</div>
-
 <script>
-    // --- CONFIGURATION ---
+    // --- DATASETS ---
+    // Core = The Object/Identity (Involved)
+    // Surf = The Coating/Context (Red Herring)
+
     const GUILDS = [
-        { id: 'azorius', name: 'Azorius', icon: '⚖️', sig: { phys: "Stamped with rigid geometric seals and written in blue ink.", soc: "Detailed in a precise, condescending, legalistic tone.", arc: "Radiating a cold, orderly Law-magic aura." } },
-        { id: 'boros', name: 'Boros', icon: '⚔️', sig: { phys: "Scorched, dented, or marked by military-grade heavy boots.", soc: "Delivered with aggressive, duty-bound brevity.", arc: "Flickering with radiant heat and righteous zeal." } },
-        { id: 'dimir', name: 'Dimir', icon: '👁️', sig: { phys: "Found among paper shreds and damp, unexplained soot.", soc: "Vague, shifting details that imply memory tampering.", arc: "Trailing wisps of shadow and psychic chill." } },
-        { id: 'golgari', name: 'Golgari', icon: '🍄', sig: { phys: "Covered in moss, pungent rot, or slime residue.", soc: "Spoken with a fatalistic, laconic worldview.", arc: "Buzzing with necrotic energy and spore-clouds." } },
-        { id: 'gruul', name: 'Gruul', icon: '🔥', sig: { phys: "Shattered, claw-marked, or smeared with war-paint.", soc: "Guttural, primal, and openly hostile to 'civilization'.", arc: "Crackling with wild, chaotic red/green static." } },
-        { id: 'izzet', name: 'Izzet', icon: '⚡', sig: { phys: "Smelling of ozone and littered with copper wire shavings.", soc: "Rapid-fire, distracted, and obsessed with technicals.", arc: "Unstable, smelling of ozone and buzzing with electricity." } },
-        { id: 'orzhov', name: 'Orzhov', icon: '🪙', sig: { phys: "Adorned with gold leaf or smelling of expensive incense.", soc: "Formal, transactional, and laden with guilt-trips.", arc: "Feeling heavy, like a spiritual debt or spectral chain." } },
-        { id: 'rakdos', name: 'Rakdos', icon: '🎭', sig: { phys: "Splattered with dried wine (or blood) and jagged metal.", soc: "Mocking, nihilistic, and darkly humorous.", arc: "Smelling of sulfur and sparking with crimson malice." } },
-        { id: 'selesnya', name: 'Selesnya', icon: '🌳', sig: { phys: "Woven with living vines or dusted with golden pollen.", soc: "Calming, using plural pronouns ('We') constantly.", arc: "Humming with a harmonious, connective green light." } },
-        { id: 'simic', name: 'Simic', icon: '🧬', sig: { phys: "Coated in translucent bio-fluid or fish scales.", soc: "Clinical, detached, and scientifically curious.", arc: "Fluorescent, shifting, and biomorphic in shape." } }
+        { 
+            id: 'azorius', name: 'Azorius', icon: '⚖️', 
+            phys: { core: "a rigid legal writ", surf: "stamped with blue wax seals" },
+            soc: { core: "a precise, condescending lawmage", surf: "citing obscure statutes" },
+            arc: { core: "a geometric stasis-glyph", surf: "humming with Law-magic" }
+        },
+        { 
+            id: 'boros', name: 'Boros', icon: '⚔️', 
+            phys: { core: "a dented military-grade gauntlet", surf: "scorched by radiant heat" },
+            soc: { core: "an aggressive legionnaire", surf: "demanding immediate compliance" },
+            arc: { core: "a flickering radiant aura", surf: "smelling of forge-smoke" }
+        },
+        { 
+            id: 'dimir', name: 'Dimir', icon: '👁️', 
+            phys: { core: "a strip of black cipher-paper", surf: "damp with sewer fog" },
+            soc: { core: "a vague, forgettable informant", surf: "hiding in the shadows" },
+            arc: { core: "a psychic memory-thread", surf: "chilled by necrotic cold" }
+        },
+        { 
+            id: 'golgari', name: 'Golgari', icon: '🍄', 
+            phys: { core: "a petrified insect husk", surf: "covered in vibrant moss" },
+            soc: { core: "a fatalistic rot-farmer", surf: "surrounded by a insect swarm" },
+            arc: { core: "a necrotic spore-cloud", surf: "reeking of pungent rot" }
+        },
+        { 
+            id: 'gruul', name: 'Gruul', icon: '🔥', 
+            phys: { core: "a smashed stone totem", surf: "smeared with war-paint" },
+            soc: { core: "a hostile wasteland scout", surf: "shouting primal threats" },
+            arc: { core: "a chaotic elemental spark", surf: "crackling with red and green static" }
+        },
+        { 
+            id: 'izzet', name: 'Izzet', icon: '⚡', 
+            phys: { core: "a twisted copper coil", surf: "smelling of sharp ozone" },
+            soc: { core: "a manic, twitchy researcher", surf: "covered in soot and oil" },
+            arc: { core: "an unstable mana-flux", surf: "vibrating with electric current" }
+        },
+        { 
+            id: 'orzhov', name: 'Orzhov', icon: '🪙', 
+            phys: { core: "a gilded debt-contract", surf: "dusted with funeral ash" },
+            soc: { core: "a guilt-tripping pontiff", surf: "demanding a tithe" },
+            arc: { core: "a spectral spirit-chain", surf: "weighing heavy on the soul" }
+        },
+        { 
+            id: 'rakdos', name: 'Rakdos', icon: '🎭', 
+            phys: { core: "a jagged, spiked chain", surf: "splattered with dried blood" },
+            soc: { core: "a mocking performance artist", surf: "laughing inappropriately" },
+            arc: { core: "a burning hell-rune", surf: "smelling of sulfur" }
+        },
+        { 
+            id: 'selesnya', name: 'Selesnya', icon: '🌳', 
+            phys: { core: "a woven living-wood token", surf: "dusted with golden pollen" },
+            soc: { core: "a serene evangelist", surf: "speaking in the plural 'We'" },
+            arc: { core: "a harmonious light-beam", surf: "connecting to nearby life" }
+        },
+        { 
+            id: 'simic', name: 'Simic', icon: '🧬', 
+            phys: { core: "a glass vial of bio-fluid", surf: "coated in translucent slime" },
+            soc: { core: "a clinical biomancer", surf: "examining you like a specimen" },
+            arc: { core: "a spiral-shaped energy pattern", surf: "shifting and evolving color" }
+        }
     ];
 
-    // Status: 0 = None, 1 = Herring (x3), 2 = Involved (x10)
-    let guildStatus = new Array(10).fill(0);
-
-    // --- DATASETS (The "Deck") ---
-    // Tags indicate which guilds are MOST likely to produce this clue.
-    const CLUES = [
-        // PHYSICAL
-        { type: 'phys', text: "A discarded ledger or manifest", tags: ['azorius', 'orzhov', 'dimir', 'boros'] },
-        { type: 'phys', text: "A shattered specialized tool", tags: ['izzet', 'simic', 'golgari'] },
-        { type: 'phys', text: "A torn scrap of uniform/fabric", tags: ['boros', 'rakdos', 'gruul', 'selesnya'] },
-        { type: 'phys', text: "A hidden cache of contraband", tags: ['dimir', 'golgari', 'orzhov', 'rakdos'] },
-        { type: 'phys', text: "A forced lock or broken seal", tags: ['gruul', 'rakdos', 'dimir'] },
-        { type: 'phys', text: "A biological sample/residue", tags: ['simic', 'golgari', 'selesnya'] },
-        { type: 'phys', text: "A cryptic map or diagram", tags: ['izzet', 'dimir', 'azorius'] },
-        { type: 'phys', text: "A heavy, unique weapon part", tags: ['boros', 'gruul', 'rakdos'] },
-        { type: 'phys', text: "A pile of ash or burn marks", tags: ['rakdos', 'izzet', 'boros'] },
-        { type: 'phys', text: "A lost piece of jewelry/signet", tags: ['orzhov', 'azorius', 'selesnya'] },
-        
-        // SOCIAL
-        { type: 'soc', text: "A nervous low-level clerk", tags: ['azorius', 'orzhov', 'simic'] },
-        { type: 'soc', text: "A boastful tavern patron", tags: ['boros', 'rakdos', 'gruul'] },
-        { type: 'soc', text: "A silent, observant beggar", tags: ['dimir', 'golgari', 'guildless'] },
-        { type: 'soc', text: "A disgruntled former employee", tags: ['izzet', 'simic', 'orzhov'] },
-        { type: 'soc', text: "A gossiping socialite", tags: ['selesnya', 'orzhov', 'azorius'] },
-        { type: 'soc', text: "A traumatized witness", tags: ['rakdos', 'gruul', 'dimir'] },
-        { type: 'soc', text: "A professional informant", tags: ['dimir', 'azorius', 'orzhov'] },
-        { type: 'soc', text: "A street-side merchant", tags: ['selesnya', 'golgari', 'boros'] },
-        { type: 'soc', text: "A prisoner in transit", tags: ['boros', 'azorius', 'rakdos'] },
-        { type: 'soc', text: "An anonymous message", tags: ['dimir', 'izzet', 'selesnya'] },
-
-        // ARCANE
-        { type: 'arc', text: "A lingering magical aura", tags: ['azorius', 'selesnya', 'orzhov'] },
-        { type: 'arc', text: "A volatile mana-scorch mark", tags: ['izzet', 'rakdos', 'gruul'] },
-        { type: 'arc', text: "A psychic memory-echo", tags: ['dimir', 'azorius', 'simic'] },
-        { type: 'arc', text: "A necrotic or rotting stain", tags: ['golgari', 'orzhov', 'rakdos'] },
-        { type: 'arc', text: "A mutated flora/fauna growth", tags: ['simic', 'golgari', 'selesnya'] },
-        { type: 'arc', text: "A disrupted ley-line knot", tags: ['izzet', 'gruul', 'simic'] },
-        { type: 'arc', text: "A spectral surveillance eye", tags: ['dimir', 'azorius', 'orzhov'] },
-        { type: 'arc', text: "A summoned elemental residue", tags: ['izzet', 'gruul', 'boros'] },
-        { type: 'arc', text: "A broken warding glyph", tags: ['azorius', 'dimir', 'selesnya'] },
-        { type: 'arc', text: "A soul-contract wisp", tags: ['orzhov', 'rakdos', 'golgari'] }
-    ];
+    const BASE_CLUES = {
+        phys: [
+            "You find [CORE], which is [SURF].",
+            "Hidden underneath is [CORE], surprisingly [SURF].",
+            "Discarded in the corner is [CORE], [SURF].",
+            "Lodged in the wall is [CORE], [SURF]."
+        ],
+        soc: [
+            "You interview [CORE], who is [SURF].",
+            "A witness describes [CORE], [SURF].",
+            "You corner [CORE], [SURF].",
+            "An informant points you to [CORE], [SURF]."
+        ],
+        arc: [
+            "You detect [CORE], [SURF].",
+            "Your spell reveals [CORE], [SURF].",
+            "The air is thick with [CORE], [SURF].",
+            "A residue remains of [CORE], [SURF]."
+        ]
+    };
 
     const FRICTIONS = [
-        "Water-Damaged / Blurred", "Booby-Trapped", "Locked / Encrypted", "Contaminated", 
-        "Missing Pieces", "Heavily Guarded", "Culturally Taboo", "Physically Stuck",
-        "Magically Warded", "Currently Burning", "Moving Target", "Buried in Trash"
+        "Water-Damaged", "Booby-Trapped", "Locked / Encrypted", "Contaminated", 
+        "Heavily Guarded", "Culturally Taboo", "Physically Stuck", "Magically Warded", 
+        "Currently Burning", "Moving Target", "Buried in Trash", "Incomplete"
     ];
 
     const COSTS = [
-        "Clock +1 (Time Sink)", "Heat +1 (Public Scene)", "Resource Cost (Gold/Item)", 
-        "Reputation -1 (Favors)", "Minor Injury (Damage)", "Exhaustion (Mental)", 
-        "Information Leak", "Set-Piece Trigger", "Disadvantage Next Roll", "Spell Slot Drain"
+        "Clock +1", "Heat +1", "Resource Cost", "Reputation -1", "Minor Injury", 
+        "Exhaustion", "Info Leak", "Set-Piece Trigger", "Disadvantage", "Spell Slot Drain"
     ];
+
+    // Status: 0 = Grey, 1 = Herring (Orange), 2 = Involved (Green)
+    let guildStatus = new Array(10).fill(0);
 
     // --- INITIALIZATION ---
     function init() {
@@ -228,9 +286,9 @@
             const btn = document.createElement('div');
             btn.className = 'guild-btn st-0';
             btn.innerHTML = `
+                <span class="status-badge"></span>
                 <span class="g-icon">${g.icon}</span>
                 <span class="g-name">${g.name}</span>
-                <div class="st-dot"></div>
             `;
             btn.onclick = () => toggleStatus(idx, btn);
             grid.appendChild(btn);
@@ -238,95 +296,70 @@
     }
 
     function toggleStatus(idx, btn) {
-        // Cycle 0 -> 1 -> 2 -> 0
         guildStatus[idx] = (guildStatus[idx] + 1) % 3;
-        
-        // Update Class
         btn.className = `guild-btn st-${guildStatus[idx]}`;
+        const badge = btn.querySelector('.status-badge');
+        if(guildStatus[idx] === 1) badge.innerText = "NOISE";
+        if(guildStatus[idx] === 2) badge.innerText = "SIGNAL";
     }
 
     // --- GENERATOR LOGIC ---
     function generateClue() {
         const mode = document.getElementById('modeSel').value;
-        
-        // 1. Filter Clues by Mode
-        let pool = CLUES.filter(c => mode === 'any' || c.type === mode);
-        
-        // 2. Build Weighted Lottery
-        // We create an array of "Tickets". Each ticket is { clueObj, triggeringGuildId }
-        let tickets = [];
+        const involvedIndices = guildStatus.map((s, i) => s === 2 ? i : -1).filter(i => i !== -1);
+        const herringIndices = guildStatus.map((s, i) => s === 1 ? i : -1).filter(i => i !== -1);
 
-        pool.forEach(clue => {
-            let matched = false;
-
-            // Check against Guild Status
-            clue.tags.forEach(tag => {
-                const guildIdx = GUILDS.findIndex(g => g.id === tag);
-                if (guildIdx === -1) return; // Should not happen
-                
-                const status = guildStatus[guildIdx];
-                
-                if (status === 2) { // INVOLVED (Green)
-                    // Add 10 tickets
-                    for(let i=0; i<10; i++) tickets.push({ clue: clue, trigger: tag });
-                    matched = true;
-                } else if (status === 1) { // RED HERRING (Orange)
-                    // Add 3 tickets
-                    for(let i=0; i<3; i++) tickets.push({ clue: clue, trigger: tag });
-                    matched = true;
-                }
-            });
-
-            // If this clue matches NO active guilds, add 1 ticket (Generic/Worldbuilding)
-            // The trigger is 'random' from its tags to give it flavor
-            if (!matched) {
-                const rndTag = clue.tags[Math.floor(Math.random() * clue.tags.length)];
-                tickets.push({ clue: clue, trigger: rndTag });
-            }
-        });
-
-        // 3. Draw Winner
-        if (tickets.length === 0) {
-            alert("No clues found? (Logic Error)"); 
+        if (involvedIndices.length === 0) {
+            alert("Please select at least one INVOLVED (Green) guild.");
             return;
         }
 
-        const winner = tickets[Math.floor(Math.random() * tickets.length)];
-        
-        // 4. Resolve Flavor
-        const gData = GUILDS.find(g => g.id === winner.trigger) || GUILDS[0];
-        const flavorText = gData.sig[winner.clue.type];
-        
-        // 5. Resolve Friction & Cost
+        // 1. Pick the Signal (Involved Guild)
+        const signalIdx = involvedIndices[Math.floor(Math.random() * involvedIndices.length)];
+        const signalGuild = GUILDS[signalIdx];
+
+        // 2. Pick the Noise (Herring Guild)
+        // If no herrings selected, pick a random non-involved guild as "Ambient Noise"
+        let noiseIdx = -1;
+        if (herringIndices.length > 0) {
+            noiseIdx = herringIndices[Math.floor(Math.random() * herringIndices.length)];
+        } else {
+            const available = GUILDS.map((_, i) => i).filter(i => i !== signalIdx);
+            noiseIdx = available[Math.floor(Math.random() * available.length)];
+        }
+        const noiseGuild = GUILDS[noiseIdx];
+
+        // 3. Construct the Sentence
+        const template = BASE_CLUES[mode][Math.floor(Math.random() * BASE_CLUES[mode].length)];
+        const coreText = signalGuild[mode].core;
+        const surfText = noiseGuild[mode].surf;
+
+        let finalHtml = template
+            .replace("[CORE]", `<span class="hl-core">${coreText}</span>`)
+            .replace("[SURF]", `<span class="hl-surf">${surfText}</span>`);
+
+        // 4. Extras
         const friction = FRICTIONS[Math.floor(Math.random() * FRICTIONS.length)];
         const cost = COSTS[Math.floor(Math.random() * COSTS.length)];
 
-        // 6. Render
-        renderResult(winner.clue, gData, flavorText, friction, cost);
+        renderResult(mode, finalHtml, friction, cost, signalGuild.name, noiseGuild.name);
     }
 
-    function renderResult(clue, guild, flavor, friction, cost) {
+    function renderResult(mode, html, friction, cost, sigName, noiseName) {
         const card = document.getElementById('resultCard');
-        
-        // Reset animation
         card.style.display = 'none';
-        card.offsetHeight; // trigger reflow
+        card.offsetHeight; 
         card.style.display = 'block';
 
-        document.getElementById('outType').innerText = clue.type.toUpperCase() + " CLUE";
-        document.getElementById('outGuild').innerText = guild.name.toUpperCase();
-        document.getElementById('outMain').innerText = clue.text;
-        document.getElementById('outFlavor').innerText = `"${flavor}"`;
+        document.getElementById('outType').innerText = mode.toUpperCase() + " LEAD";
+        document.getElementById('outText').innerHTML = html;
         document.getElementById('outFric').innerText = friction;
         document.getElementById('outCost').innerText = cost;
-
-        // Debug Log
-        const involvedCount = guildStatus.filter(s => s === 2).length;
-        const herringCount = guildStatus.filter(s => s === 1).length;
-        document.getElementById('debugLog').innerText = `Deck Weighting: ${involvedCount} Involved (10x), ${herringCount} Herring (3x), Others (1x). Trigger: ${guild.name}`;
+        
+        document.getElementById('logSignal').innerText = sigName;
+        document.getElementById('logNoise').innerText = noiseName;
     }
 
-    // Run
     init();
 
 </script>
