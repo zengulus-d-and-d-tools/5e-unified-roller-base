@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Force Hub v3</title>
+    <title>Task Force Hub v3.1</title>
     <style>
         :root {
             --bg: #121212; --card: #1e1e1e; --accent: #4ecdc4; --danger: #ff6b6b; --gold: #f1c40f; --text: #e0e0e0; --border: #333;
         }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 20px; display: flex; flex-direction: column; align-items: center; }
         .container { width: 100%; max-width: 950px; display: flex; flex-direction: column; gap: 20px; }
         .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); position: relative; }
-        .grid-5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+        .grid-5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
         
         /* Player Section */
         .player-row { border-bottom: 1px solid #333; padding: 20px 0; display: grid; grid-template-columns: 180px 1fr 1fr auto; gap: 20px; align-items: start; }
-        .player-name { font-weight: bold; color: var(--accent); font-size: 1.1rem; }
         .dp-counter { background: #000; padding: 8px; border-radius: 4px; border: 1px solid var(--gold); color: var(--gold); font-weight: bold; text-align: center; }
         
         /* Clock Visuals */
@@ -24,11 +23,13 @@
         .clock-seg.filled { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 5px var(--accent); }
 
         /* UI Elements */
-        .btn { background: #333; color: white; border: 1px solid #444; padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; }
-        .btn:hover { border-color: var(--accent); }
+        .btn { background: #333; color: white; border: 1px solid #444; padding: 8px 12px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; transition: 0.2s; }
+        .btn:hover { border-color: var(--accent); background: #444; }
         .btn-dp { background: var(--gold); color: #000; font-weight: bold; border: none; }
+        .btn-danger { color: var(--danger); border-color: #552222; }
+        
         h2 { margin: 0 0 15px 0; color: var(--accent); text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
-        input[type="text"], select { background: #111; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; }
+        input[type="text"], select { background: #111; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 0.9rem; }
         .mini-label { font-size: 0.65rem; text-transform: uppercase; color: #888; font-weight: bold; display: block; margin-bottom: 4px; }
     </style>
 </head>
@@ -41,25 +42,30 @@
         <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #333;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span class="mini-label">Task Force Heat (0-6)</span>
-                <span id="heatVal" style="font-weight: 900; color: var(--danger); font-size: 1.2rem;">0</span>
+                <div>
+                    <button class="btn" onclick="modHeat(-1)">-</button>
+                    <span id="heatVal" style="font-weight: 900; color: var(--danger); font-size: 1.2rem; margin: 0 10px;">0</span>
+                    <button class="btn" onclick="modHeat(1)">+</button>
+                </div>
             </div>
             <div id="heatMeter" style="height: 12px; background: #333; border-radius: 6px; overflow: hidden; display: flex;">
                 <div id="heatFill" style="height: 100%; background: var(--danger); transition: 0.4s;"></div>
             </div>
-            <p id="heatWarning" style="font-size: 0.75rem; color: var(--danger); margin-top: 8px; font-weight: bold;"></p>
+            <p id="heatWarning" style="font-size: 0.75rem; color: var(--danger); margin-top: 8px; font-weight: bold; min-height: 1rem;"></p>
         </div>
     </div>
 
     <div class="card">
         <h2>Player Roster <button class="btn" onclick="addPlayer()">+ Add Player</button></h2>
         <div id="rosterList"></div>
-        <div style="margin-top: 20px; text-align: center;">
+        <div style="margin-top: 20px; text-align: center; display: flex; gap: 10px; justify-content: center;">
             <button class="btn-dp" onclick="grantWeeklyDP()" style="padding: 12px 24px; border-radius: 8px;">End Case: Grant +2 DP to All</button>
+            <button class="btn btn-danger" onclick="resetAll()">⚠ Clear & Reset Hub</button>
         </div>
     </div>
 
     <div class="card" style="font-size: 0.8rem; color: #aaa; background: #161616; border-style: dashed;">
-        [cite_start]<span class="mini-label">Downtime Spending [cite: 5]</span>
+        <span class="mini-label">Downtime Spending</span>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
             <div>• <b>Lay Low (1):</b> -1 Heat</div>
             <div>• <b>Repair Optics (2):</b> -1 Heat, +1 Rep</div>
@@ -75,15 +81,33 @@
     const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
     const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Nonmagical Perk (Access/Support/Cover)"];
 
-    let state = JSON.parse(localStorage.getItem('ravnicaHubV3')) || {
+    let state = {
         rep: { Azorius: 0, Boros: 0, Dimir: 0, Golgari: 0, Gruul: 0, Izzet: 0, Orzhov: 0, Rakdos: 0, Selesnya: 0, Simic: 0 },
         heat: 0,
         players: []
     };
 
+    function loadState() {
+        const saved = localStorage.getItem('ravnicaHubV3');
+        if (saved) {
+            try {
+                state = JSON.parse(saved);
+            } catch (e) {
+                console.error("Failed to parse state", e);
+            }
+        }
+    }
+
     function save() {
         localStorage.setItem('ravnicaHubV3', JSON.stringify(state));
         render();
+    }
+
+    function resetAll() {
+        if(confirm("This will delete all players and reset Heat/Reputation. Are you sure?")) {
+            localStorage.removeItem('ravnicaHubV3');
+            location.reload();
+        }
     }
 
     function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, state.rep[g] + amt)); save(); }
@@ -112,74 +136,91 @@
     }
 
     function modClock(idx, type, amt) {
-        if(type === 'dev') state.players[idx].devProgress = (state.players[idx].devProgress + amt) % 3;
+        if(type === 'dev') state.players[idx].devProgress = Math.max(0, Math.min(2, state.players[idx].devProgress + amt));
         if(type === 'proj') state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt));
         save();
     }
 
-    function updatePlayer(idx, field, val) { state.players[idx][field] = val; save(); }
+    function updatePlayer(idx, field, val) { 
+        state.players[idx][field] = val; 
+        save(); 
+    }
 
     function render() {
         // Shared Reputation Grid
-        document.getElementById('repGrid').innerHTML = guilds.map(g => `
-            <div style="text-align:center; padding:8px; border:1px solid #333; border-radius:6px; background:#111;">
-                <div class="mini-label" style="font-size:0.6rem;">${g}</div>
-                <div style="font-size:1.2rem; font-weight:900; color:${state.rep[g]>0?'#2ecc71':state.rep[g]<0?'#ff6b6b':'#444'}">${state.rep[g]>0?'+':''}${state.rep[g]}</div>
-                <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
-                    <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
-                    <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
+        const repGrid = document.getElementById('repGrid');
+        if (repGrid) {
+            repGrid.innerHTML = guilds.map(g => `
+                <div style="text-align:center; padding:8px; border:1px solid #333; border-radius:6px; background:#111;">
+                    <div class="mini-label" style="font-size:0.6rem;">${g}</div>
+                    <div style="font-size:1.2rem; font-weight:900; color:${state.rep[g]>0?'#2ecc71':state.rep[g]<0?'#ff6b6b':'#444'}">${state.rep[g]>0?'+':''}${state.rep[g]}</div>
+                    <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
+                        <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
+                        <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `).join('');
+        }
 
-        [cite_start]// Heat Logic [cite: 3]
-        document.getElementById('heatVal').innerText = state.heat;
-        document.getElementById('heatFill').style.width = (state.heat / 6 * 100) + '%';
-        let warn = "";
-        if(state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated for next case (Escorts/Curfews).";
-        else if(state.heat >= 3) warn = "WARNING: Complication Scene triggered (Audits/Press).";
-        document.getElementById('heatWarning').innerText = warn;
+        // Heat Logic
+        const heatValEl = document.getElementById('heatVal');
+        const heatFillEl = document.getElementById('heatFill');
+        if (heatValEl) heatValEl.innerText = state.heat;
+        if (heatFillEl) heatFillEl.style.width = (state.heat / 6 * 100) + '%';
+        
+        const heatWarnEl = document.getElementById('heatWarning');
+        if (heatWarnEl) {
+            let warn = "";
+            if(state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated for next case (Escorts/Curfews).";
+            else if(state.heat >= 3) warn = "WARNING: Complication Scene triggered (Audits/Press).";
+            heatWarnEl.innerText = warn;
+        }
 
         // Player List
-        document.getElementById('rosterList').innerHTML = state.players.map((p, i) => `
-            <div class="player-row">
-                <div>
-                    <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
-                    <div class="dp-counter" style="margin-top:12px;">${p.dp} DP</div>
-                    <div style="display:flex; justify-content:center; gap:5px; margin-top:8px;">
-                        <button class="btn" onclick="modDP(${i},-1)">Spend</button>
-                        <button class="btn" onclick="modDP(${i},1)">Add</button>
+        const rosterEl = document.getElementById('rosterList');
+        if (rosterEl) {
+            rosterEl.innerHTML = state.players.map((p, i) => `
+                <div class="player-row">
+                    <div>
+                        <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
+                        <div class="dp-counter" style="margin-top:12px;">${p.dp} DP</div>
+                        <div style="display:flex; justify-content:center; gap:5px; margin-top:8px;">
+                            <button class="btn" onclick="modDP(${i},-1)">Spend</button>
+                            <button class="btn" onclick="modDP(${i},1)">Add</button>
+                        </div>
                     </div>
-                </div>
-                <div>
-                    [cite_start]<span class="mini-label">Personal Project [cite: 5]</span>
-                    <input type="text" placeholder="Project Name..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
-                    <select onchange="updatePlayer(${i}, 'projectReward', this.value)">
-                        ${projectRewards.map(r => `<option value="${r}" ${p.projectReward===r?'selected':''}>${r}</option>`).join('')}
-                    </select>
-                    <div class="clock-container" style="margin-top:10px;">
-                        ${[1,2,3,4].map(s => `<div class="clock-seg ${p.projectClock>=s?'filled':''}"></div>`).join('')}
-                        <button class="btn" onclick="modClock(${i},'proj',1)" style="margin-left:8px;">Advance</button>
-                        <button class="btn" onclick="modClock(${i},'proj',-1)">-</button>
+                    <div>
+                        <span class="mini-label">Personal Project</span>
+                        <input type="text" placeholder="Project Name..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
+                        <select onchange="updatePlayer(${i}, 'projectReward', this.value)">
+                            ${projectRewards.map(r => `<option value="${r}" ${p.projectReward===r?'selected':''}>${r}</option>`).join('')}
+                        </select>
+                        <div class="clock-container" style="margin-top:10px;">
+                            ${[1,2,3,4].map(s => `<div class="clock-seg ${p.projectClock>=s?'filled':''}"></div>`).join('')}
+                            <button class="btn" onclick="modClock(${i},'proj',1)" style="margin-left:8px;">Advance</button>
+                            <button class="btn" onclick="modClock(${i},'proj',-1)">-</button>
+                        </div>
                     </div>
-                </div>
-                <div>
-                    <span class="mini-label">Proficiency/Language Development</span>
-                    <div class="clock-container">
-                        <div class="clock-seg ${p.devProgress>=1?'filled':''}"></div>
-                        <div class="clock-seg ${p.devProgress>=2?'filled':''}"></div>
-                        <button class="btn" onclick="modClock(${i},'dev',1)" style="margin-left:8px;">Advance (Max 2)</button>
+                    <div>
+                        <span class="mini-label">Proficiency/Language Development</span>
+                        <div class="clock-container">
+                            <div class="clock-seg ${p.devProgress>=1?'filled':''}"></div>
+                            <div class="clock-seg ${p.devProgress>=2?'filled':''}"></div>
+                            <button class="btn" onclick="modClock(${i},'dev',1)" style="margin-left:8px;">Advance</button>
+                            <button class="btn" onclick="modClock(${i},'dev',-1)">-</button>
+                        </div>
+                        <p style="font-size:0.7rem; color:#666; margin-top:15px; border-left:2px solid #333; padding-left:10px;">
+                            Bank Limit: 4 DP.<br>
+                            Recovery is automatic.
+                        </p>
                     </div>
-                    <p style="font-size:0.7rem; color:#666; margin-top:15px; border-left:2px solid #333; padding-left:10px;">
-                        DP limit: 4 banked max.<br>
-                        [cite_start]Gaps: 2 weeks (2 DP) default[cite: 5].
-                    </p>
+                    <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Remove player?')) {state.players.splice(${i},1); save();}">&times;</button>
                 </div>
-                <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Remove player?')) {state.players.splice(${i},1); save();}">&times;</button>
-            </div>
-        `).join('');
+            `).join('');
+        }
     }
 
+    loadState();
     render();
 </script>
 </body>
