@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Force Hub v3.1</title>
+    <title>Task Force Hub v3.2</title>
     <style>
         :root {
             --bg: #121212; --card: #1e1e1e; --accent: #4ecdc4; --danger: #ff6b6b; --gold: #f1c40f; --text: #e0e0e0; --border: #333;
@@ -13,29 +13,47 @@
         .card { background: var(--card); padding: 20px; border-radius: 12px; border: 1px solid var(--border); position: relative; }
         .grid-5 { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
         
-        /* Player Section */
+        /* Layout */
         .player-row { border-bottom: 1px solid #333; padding: 20px 0; display: grid; grid-template-columns: 180px 1fr 1fr auto; gap: 20px; align-items: start; }
         .dp-counter { background: #000; padding: 8px; border-radius: 4px; border: 1px solid var(--gold); color: var(--gold); font-weight: bold; text-align: center; }
         
-        /* Clock Visuals */
+        /* Clocks */
         .clock-container { display: flex; gap: 6px; margin-top: 5px; align-items: center; }
         .clock-seg { width: 18px; height: 18px; border: 1px solid #555; border-radius: 3px; }
         .clock-seg.filled { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 5px var(--accent); }
 
-        /* UI Elements */
+        /* Case Prep Layout */
+        .case-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; }
+        .case-field { display: flex; flex-direction: column; gap: 5px; }
+
+        /* UI */
         .btn { background: #333; color: white; border: 1px solid #444; padding: 8px 12px; cursor: pointer; border-radius: 4px; font-size: 0.8rem; transition: 0.2s; }
         .btn:hover { border-color: var(--accent); background: #444; }
         .btn-dp { background: var(--gold); color: #000; font-weight: bold; border: none; }
         .btn-danger { color: var(--danger); border-color: #552222; }
         
         h2 { margin: 0 0 15px 0; color: var(--accent); text-transform: uppercase; font-size: 1rem; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; }
-        input[type="text"], select { background: #111; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 0.9rem; }
+        input[type="text"], select, textarea { background: #111; border: 1px solid #444; color: #fff; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; font-size: 0.9rem; font-family: inherit; }
         .mini-label { font-size: 0.65rem; text-transform: uppercase; color: #888; font-weight: bold; display: block; margin-bottom: 4px; }
     </style>
 </head>
 <body>
 
 <div class="container">
+    <div class="card">
+        <h2>Case Prep: One-Page Template</h2>
+        <div class="case-grid">
+            <div class="case-field"><span class="mini-label">Title / Logline</span><input type="text" id="caseTitle" onchange="saveCase()"></div>
+            <div class="case-field"><span class="mini-label">Guilds in Conflict</span><input type="text" id="caseGuilds" onchange="saveCase()"></div>
+            <div class="case-field"><span class="mini-label">Antagonist Objective</span><textarea id="caseGoal" rows="2" onchange="saveCase()"></textarea></div>
+            <div class="case-field"><span class="mini-label">Clock (0-6 Events)</span><textarea id="caseClock" rows="2" placeholder="At 2/4/6..." onchange="saveCase()"></textarea></div>
+        </div>
+        <div class="case-grid">
+             <div class="case-field"><span class="mini-label">Obstacles (Legal & Physical)</span><textarea id="caseObstacles" onchange="saveCase()"></textarea></div>
+             <div class="case-field"><span class="mini-label">Set Piece (Terrain + Timer)</span><textarea id="caseSetPiece" onchange="saveCase()"></textarea></div>
+        </div>
+    </div>
+
     <div class="card">
         <h2>Global Status</h2>
         <div class="grid-5" id="repGrid"></div>
@@ -59,169 +77,118 @@
         <h2>Player Roster <button class="btn" onclick="addPlayer()">+ Add Player</button></h2>
         <div id="rosterList"></div>
         <div style="margin-top: 20px; text-align: center; display: flex; gap: 10px; justify-content: center;">
-            <button class="btn-dp" onclick="grantWeeklyDP()" style="padding: 12px 24px; border-radius: 8px;">End Case: Grant +2 DP to All</button>
-            <button class="btn btn-danger" onclick="resetAll()">⚠ Clear & Reset Hub</button>
-        </div>
-    </div>
-
-    <div class="card" style="font-size: 0.8rem; color: #aaa; background: #161616; border-style: dashed;">
-        <span class="mini-label">Downtime Spending</span>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-            <div>• <b>Lay Low (1):</b> -1 Heat</div>
-            <div>• <b>Repair Optics (2):</b> -1 Heat, +1 Rep</div>
-            <div>• <b>Secure Favor (1):</b> Access/Support/Cover</div>
-            <div>• <b>Contact (1):</b> Create/Deepen Contact</div>
-            <div>• <b>Research (1):</b> Extra Clue/Fact</div>
-            <div>• <b>Development (1):</b> Tool/Language Progress</div>
+            <button class="btn-dp" onclick="grantWeeklyDP()" style="padding: 12px 24px; border-radius: 8px;">End Case: Grant +2 DP</button>
+            <button class="btn btn-danger" onclick="resetAll()">⚠ Reset Hub</button>
         </div>
     </div>
 </div>
 
 <script>
     const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
-    const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Nonmagical Perk (Access/Support/Cover)"];
+    const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
 
     let state = {
         rep: { Azorius: 0, Boros: 0, Dimir: 0, Golgari: 0, Gruul: 0, Izzet: 0, Orzhov: 0, Rakdos: 0, Selesnya: 0, Simic: 0 },
         heat: 0,
-        players: []
+        players: [],
+        case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
     };
 
     function loadState() {
-        const saved = localStorage.getItem('ravnicaHubV3');
-        if (saved) {
-            try {
-                state = JSON.parse(saved);
-            } catch (e) {
-                console.error("Failed to parse state", e);
-            }
-        }
+        const saved = localStorage.getItem('ravnicaHubV3_2');
+        if (saved) state = JSON.parse(saved);
     }
 
     function save() {
-        localStorage.setItem('ravnicaHubV3', JSON.stringify(state));
+        localStorage.setItem('ravnicaHubV3_2', JSON.stringify(state));
         render();
     }
 
-    function resetAll() {
-        if(confirm("This will delete all players and reset Heat/Reputation. Are you sure?")) {
-            localStorage.removeItem('ravnicaHubV3');
-            location.reload();
-        }
+    function saveCase() {
+        state.case.title = document.getElementById('caseTitle').value;
+        state.case.guilds = document.getElementById('caseGuilds').value;
+        state.case.goal = document.getElementById('caseGoal').value;
+        state.case.clock = document.getElementById('caseClock').value;
+        state.case.obstacles = document.getElementById('caseObstacles').value;
+        state.case.setPiece = document.getElementById('caseSetPiece').value;
+        save();
     }
 
+    function resetAll() { if(confirm("Reset everything?")) { localStorage.removeItem('ravnicaHubV3_2'); location.reload(); } }
     function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, state.rep[g] + amt)); save(); }
     function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
 
     function addPlayer() {
-        state.players.push({
-            name: "New Recruit",
-            dp: 2,
-            devProgress: 0,
-            projectClock: 0,
-            projectName: "",
-            projectReward: projectRewards[0]
-        });
+        state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: projectRewards[0] });
         save();
     }
 
-    function modDP(idx, amt) {
-        state.players[idx].dp = Math.max(0, Math.min(4, state.players[idx].dp + amt));
-        save();
-    }
+    function modDP(idx, amt) { state.players[idx].dp = Math.max(0, Math.min(4, state.players[idx].dp + amt)); save(); }
+    function grantWeeklyDP() { state.players.forEach(p => p.dp = Math.min(4, p.dp + 2)); save(); }
+    function modClock(idx, amt) { state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt)); save(); }
 
-    function grantWeeklyDP() {
-        state.players.forEach(p => p.dp = Math.min(4, p.dp + 2));
-        save();
-    }
-
-    function modClock(idx, type, amt) {
-        if(type === 'dev') state.players[idx].devProgress = Math.max(0, Math.min(2, state.players[idx].devProgress + amt));
-        if(type === 'proj') state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt));
-        save();
-    }
-
-    function updatePlayer(idx, field, val) { 
-        state.players[idx][field] = val; 
-        save(); 
-    }
+    function updatePlayer(idx, field, val) { state.players[idx][field] = val; save(); }
 
     function render() {
-        // Shared Reputation Grid
-        const repGrid = document.getElementById('repGrid');
-        if (repGrid) {
-            repGrid.innerHTML = guilds.map(g => `
-                <div style="text-align:center; padding:8px; border:1px solid #333; border-radius:6px; background:#111;">
-                    <div class="mini-label" style="font-size:0.6rem;">${g}</div>
-                    <div style="font-size:1.2rem; font-weight:900; color:${state.rep[g]>0?'#2ecc71':state.rep[g]<0?'#ff6b6b':'#444'}">${state.rep[g]>0?'+':''}${state.rep[g]}</div>
-                    <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
-                        <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
-                        <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
-                    </div>
-                </div>
-            `).join('');
-        }
+        // Render Case Info
+        document.getElementById('caseTitle').value = state.case.title || "";
+        document.getElementById('caseGuilds').value = state.case.guilds || "";
+        document.getElementById('caseGoal').value = state.case.goal || "";
+        document.getElementById('caseClock').value = state.case.clock || "";
+        document.getElementById('caseObstacles').value = state.case.obstacles || "";
+        document.getElementById('caseSetPiece').value = state.case.setPiece || "";
 
-        // Heat Logic
-        const heatValEl = document.getElementById('heatVal');
-        const heatFillEl = document.getElementById('heatFill');
-        if (heatValEl) heatValEl.innerText = state.heat;
-        if (heatFillEl) heatFillEl.style.width = (state.heat / 6 * 100) + '%';
+        // Shared Status
+        document.getElementById('repGrid').innerHTML = guilds.map(g => `
+            <div style="text-align:center; padding:8px; border:1px solid #333; border-radius:6px; background:#111;">
+                <div class="mini-label" style="font-size:0.6rem;">${g}</div>
+                <div style="font-size:1.2rem; font-weight:900; color:${state.rep[g]>0?'#2ecc71':state.rep[g]<0?'#ff6b6b':'#444'}">${state.rep[g]>0?'+':''}${state.rep[g]}</div>
+                <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
+                    <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
+                    <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
+                </div>
+            </div>
+        `).join('');
+
+        document.getElementById('heatVal').innerText = state.heat;
+        document.getElementById('heatFill').style.width = (state.heat / 6 * 100) + '%';
         
-        const heatWarnEl = document.getElementById('heatWarning');
-        if (heatWarnEl) {
-            let warn = "";
-            if(state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated for next case (Escorts/Curfews).";
-            else if(state.heat >= 3) warn = "WARNING: Complication Scene triggered (Audits/Press).";
-            heatWarnEl.innerText = warn;
-        }
+        let warn = "";
+        if(state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated.";
+        else if(state.heat >= 3) warn = "WARNING: Complication Scene triggered.";
+        document.getElementById('heatWarning').innerText = warn;
 
         // Player List
-        const rosterEl = document.getElementById('rosterList');
-        if (rosterEl) {
-            rosterEl.innerHTML = state.players.map((p, i) => `
-                <div class="player-row">
-                    <div>
-                        <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
-                        <div class="dp-counter" style="margin-top:12px;">${p.dp} DP</div>
-                        <div style="display:flex; justify-content:center; gap:5px; margin-top:8px;">
-                            <button class="btn" onclick="modDP(${i},-1)">Spend</button>
-                            <button class="btn" onclick="modDP(${i},1)">Add</button>
-                        </div>
+        document.getElementById('rosterList').innerHTML = state.players.map((p, i) => `
+            <div class="player-row">
+                <div>
+                    <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
+                    <div class="dp-counter" style="margin-top:12px;">${p.dp} DP</div>
+                    <div style="display:flex; justify-content:center; gap:5px; margin-top:8px;">
+                        <button class="btn" onclick="modDP(${i},-1)">Spend</button>
+                        <button class="btn" onclick="modDP(${i},1)">Add</button>
                     </div>
-                    <div>
-                        <span class="mini-label">Personal Project</span>
-                        <input type="text" placeholder="Project Name..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
-                        <select onchange="updatePlayer(${i}, 'projectReward', this.value)">
-                            ${projectRewards.map(r => `<option value="${r}" ${p.projectReward===r?'selected':''}>${r}</option>`).join('')}
-                        </select>
-                        <div class="clock-container" style="margin-top:10px;">
-                            ${[1,2,3,4].map(s => `<div class="clock-seg ${p.projectClock>=s?'filled':''}"></div>`).join('')}
-                            <button class="btn" onclick="modClock(${i},'proj',1)" style="margin-left:8px;">Advance</button>
-                            <button class="btn" onclick="modClock(${i},'proj',-1)">-</button>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="mini-label">Proficiency/Language Development</span>
-                        <div class="clock-container">
-                            <div class="clock-seg ${p.devProgress>=1?'filled':''}"></div>
-                            <div class="clock-seg ${p.devProgress>=2?'filled':''}"></div>
-                            <button class="btn" onclick="modClock(${i},'dev',1)" style="margin-left:8px;">Advance</button>
-                            <button class="btn" onclick="modClock(${i},'dev',-1)">-</button>
-                        </div>
-                        <p style="font-size:0.7rem; color:#666; margin-top:15px; border-left:2px solid #333; padding-left:10px;">
-                            Bank Limit: 4 DP.<br>
-                            Recovery is automatic.
-                        </p>
-                    </div>
-                    <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Remove player?')) {state.players.splice(${i},1); save();}">&times;</button>
                 </div>
-            `).join('');
-        }
+                <div style="grid-column: span 2;">
+                    <span class="mini-label">Active Project Clock (4 Segments)</span>
+                    <input type="text" placeholder="Project Name (e.g., Learn Draconic)..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
+                    <div style="display:flex; gap:10px;">
+                        <select onchange="updatePlayer(${i}, 'projectReward', this.value)" style="flex:2;">
+                            ${projectRewards.map(r => `<option value="${r}" ${p.projectReward===r?'selected':''}>Goal: ${r}</option>`).join('')}
+                        </select>
+                        <div class="clock-container" style="flex:1; justify-content:flex-end;">
+                            ${[1,2,3,4].map(s => `<div class="clock-seg ${p.projectClock>=s?'filled':''}"></div>`).join('')}
+                            <button class="btn" onclick="modClock(${i},1)" style="margin-left:8px;">+</button>
+                            <button class="btn" onclick="modClock(${i},-1)">-</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Delete?')){state.players.splice(${i},1); save();}">&times;</button>
+            </div>
+        `).join('');
     }
 
-    loadState();
-    render();
+    loadState(); render();
 </script>
 </body>
 </html>
