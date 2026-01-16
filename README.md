@@ -7,36 +7,31 @@ While the default data is tailored to the Ravnica setting, the code is designed 
 ## Tools Included
 
 ### Player Tool
-* **index.html (Unified 5e Sheet)**: A comprehensive, single-page character sheet.
-    * **Features**: Auto-calculating modifiers, drag-and-drop interface layout, spell slot tracking, and complex dice macros.
-    * **Persistence**: Character state is saved automatically to the browser's Local Storage.
-    * **Export**: Includes a compression-based export/import system to move character data between devices.
+* **index.html (Unified 5e Sheet)**: A comprehensive, single-page character sheet featuring auto-calculating modifiers, spell slot tracking, and complex dice macros. Character state is saved automatically to the browser's Local Storage.
 
-### GM Tools
-* **dm-screen.html (Narrative Engine)**: A procedural generation tool for improvising urban sessions.
-    * **Features**: Generates "moment-to-moment" street scenes, sensory details (texture/infrastructure), NPC motivations, and environmental hazards.
-    * **Logic**: Uses a combinatoric system to prevent repetitive descriptions.
+### GM & Campaign Tools
+* **hub.html (The Precinct Hub)**: A campaign-level dashboard for managing the political and mechanical state of the Task Force.
+    * **Reputation & Heat**: Tracks unit standing with all ten guilds (-2 to +2) and overall Heat (0-6). [cite_start]Includes automatic warnings for Complication Scenes and Hard Constraints[cite: 3].
+    * **Downtime Management**: Tracks individual player Downtime Points (DP). [cite_start]Standard gaps provide 2 DP, with a maximum bank of 4[cite: 5].
+    * [cite_start]**Project Clocks**: Handles 4-segment Personal Projects and 2-segment Professional Development for new languages or tool proficiencies[cite: 5].
 
-* **gm.html (Session Tracker)**: A dashboard for managing combat and session flow.
-    * **Features**: Initiative tracker with mob generation, HP management, condition reference, and loot tables.
-    * **Integration**: Can send roll results to a Discord channel via Webhooks.
+* [cite_start]**dm-screen.html (Narrative Engine)**: A procedural generation tool for improvising urban sessions, including street incidents, sensory textures, and environmental hazards.
 
-* **clue.html (Investigation Generator)**: A logic tool for mystery scenarios.
-    * **Features**: Generates clues by separating the "Signal" (the core evidence) from the "Noise" (contextual details) based on selected factions.
+* **gm.html (Session Tracker)**: A dashboard for managing combat and session flow, featuring an initiative tracker with mob generation and Discord integration.
 
-## Usage
+* [cite_start]**clue.html (Intersection Gen)**: A logic tool for mystery scenarios that generates clues by separating core "Signal" from contextual "Noise" based on guild involvement[cite: 4].
 
-These files are static HTML. You can use them in two ways:
+## Core Systems Implementation
 
-1.  **Online**: Host this repository on GitHub Pages. The `index.html` will serve as the entry point for players.
-2.  **Offline**: Download the `.html` files to your device and open them directly in any modern web browser (Chrome, Firefox, Safari, Edge).
+The suite is designed around specific Ravnica-themed mechanics:
+* [cite_start]**Heat System**: High Heat triggers scrutiny (Audits, rival teams, or internal affairs)[cite: 3].
+* **Downtime**: 1 week = 1 DP. [cite_start]Actions include "Laying Low" to reduce Heat or "Repairing Optics" for joint Heat reduction and Reputation gain[cite: 5].
+* [cite_start]**Set Pieces**: Tools support structured incidents like Rooftop Chases, Lab Meltdowns, and Courtroom skill challenges[cite: 1].
 
-## Customization
+## Usage & Customization
 
-These tools are built to be "hackable." To adapt them to your own setting (e.g., changing Guilds to Factions, or altering loot tables), simply open the HTML file in a text editor.
-
-Look for the `<script>` tag near the bottom of the file. You will find data arrays clearly labeled, such as `const guilds` or `const lootTables`. Editing these text values will immediately update the tool.
+These are static HTML files. Open them in any modern browser. To customize data (such as Guild names or loot tables), open the HTML file in a text editor and modify the labeled constants in the `<script>` section.
 
 ## License
 
-This project is released under The Unlicense. The code is dedicated to the public domain. You are free to fork, modify, distribute, host, or sell this software without permission or attribution.
+This project is released under The Unlicense. The code is dedicated to the public domain.
