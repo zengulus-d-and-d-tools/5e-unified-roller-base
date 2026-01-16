@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ravnica Task Force: GM Screen</title>
+    <title>Ravnica Task Force: GM Screen v2</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -14,11 +14,10 @@
             --accent-dim: rgba(78, 205, 196, 0.1);
             --gold: #f1c40f; 
             --danger: #ff6b6b; 
-            --boros: #e74c3c;
-            --azorius: #3498db;
             --text: #e0e0e0;
             --text-muted: #888;
             --border: #333;
+            --panel-bg: #161616;
         }
 
         body { 
@@ -61,6 +60,8 @@
             margin: 0; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; 
             border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 5px;
             letter-spacing: 0.05em; font-weight: bold; 
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer;
         }
 
         /* --- BUTTONS --- */
@@ -75,43 +76,63 @@
         .btn-gen:active { transform: scale(0.98); background: #fff; }
 
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 
         .btn-small {
             background: #333; color: #ccc; 
-            padding: 8px; border-radius: 6px; font-weight: 600; font-size: 0.8rem;
-            border: 1px solid #444;
+            padding: 10px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;
+            border: 1px solid #444; width: 100%;
         }
         .btn-small:hover { border-color: var(--accent); color: #fff; }
 
         /* --- OUTPUT BOXES --- */
         .output-box {
-            background: #111; border-radius: 6px; padding: 12px;
-            border-left: 4px solid #333;
-            min-height: 40px; display: flex; flex-direction: column; justify-content: center;
+            background: var(--panel-bg); border-radius: 6px; padding: 0;
+            border: 1px solid #333;
+            min-height: 40px; display: none; overflow: hidden;
         }
-        .output-box.active { border-left-color: var(--accent); background: #161616; }
+        .output-box.active { display: block; }
         
+        /* New Standardized Incident Layout */
+        .dispatch-grid {
+            display: grid; grid-template-columns: 100px 1fr; 
+            font-size: 0.9rem;
+        }
+        .dispatch-row {
+            display: contents;
+        }
+        .dispatch-label {
+            background: #222; color: #888; 
+            padding: 8px 12px; font-size: 0.75rem; font-weight: bold; text-transform: uppercase;
+            border-bottom: 1px solid #333; border-right: 1px solid #333;
+            display: flex; align-items: center;
+        }
+        .dispatch-val {
+            padding: 8px 12px; color: #fff; border-bottom: 1px solid #333;
+            display: flex; align-items: center;
+        }
+        .dispatch-val.highlight { color: var(--accent); font-weight: bold; }
+        .dispatch-val.alert { color: var(--danger); }
+        .dispatch-row:last-child .dispatch-label, 
+        .dispatch-row:last-child .dispatch-val { border-bottom: none; }
+
+        /* Generic Output Text */
+        .text-output { padding: 12px; }
         .out-main { font-size: 1rem; font-weight: bold; color: #fff; margin-bottom: 4px; line-height: 1.4; }
         .out-sub { font-size: 0.85rem; color: #aaa; font-style: italic; }
-        .out-meta { font-size: 0.75rem; color: var(--gold); margin-top: 6px; font-weight: bold; text-transform: uppercase; }
         .out-heat { color: var(--danger); }
         .out-good { color: var(--accent); }
 
-        /* --- GUILD TAGS --- */
-        .tag { 
-            display: inline-block; padding: 2px 6px; border-radius: 4px; 
-            font-size: 0.7rem; font-weight: bold; margin-right: 5px; background: #333; color: #fff;
-        }
-        
-        /* --- ACCORDION --- */
-        .accordion-content { display: none; margin-top: 10px; }
+        /* --- ACCORDION & REFERENCE TABLES --- */
+        .accordion-content { display: none; margin-top: 5px; background: var(--panel-bg); border-radius: 6px; border: 1px solid #333; }
         .accordion-content.open { display: block; }
-        .ref-row { 
-            display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #333; font-size: 0.85rem; 
-        }
-        .ref-row:last-child { border-bottom: none; }
-        .ref-lbl { color: var(--accent); font-weight: bold; }
+        
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .ref-table th { text-align: left; color: #888; border-bottom: 1px solid #444; padding: 8px; font-size: 0.7rem; text-transform: uppercase; }
+        .ref-table td { padding: 8px; border-bottom: 1px solid #333; color: #ccc; vertical-align: top; }
+        .ref-table tr:last-child td { border-bottom: none; }
+        .ref-hl { color: var(--accent); font-weight: bold; }
+
+        .clue-type { font-weight: bold; color: #666; display: block; font-size: 0.65rem; margin-bottom: 2px; }
 
     </style>
 </head>
@@ -128,50 +149,67 @@
 <div class="container">
 
     <div class="card">
-        <div class="section-title">The Street (Moment-to-Moment)</div>
+        <div class="section-title" style="cursor: default;">The Street (Moment-to-Moment)</div>
         <button class="btn-gen" onclick="genStreetScene()">Generate Incident</button>
         <div class="output-box" id="out-street">
-            <div class="out-sub">Ready to generate city life...</div>
+            <div class="dispatch-grid" id="dispatch-content">
+                </div>
         </div>
     </div>
 
     <div class="card">
-        <div class="section-title">Investigation & NPCs</div>
-        <div class="grid-2">
-            <button class="btn-small" onclick="genClue()">🔍 Clue Signature</button>
-            <button class="btn-small" onclick="genNPC()">👤 NPC Want/Leverage</button>
-        </div>
-        <div class="output-box" id="out-invest">
-            <div class="out-sub">Clues and Witnesses appear here...</div>
+        <div class="section-title" style="cursor: default;">NPC Improvisation</div>
+        <button class="btn-small" onclick="genNPC()">👤 Generate NPC Want/Leverage</button>
+        <div class="output-box" id="out-npc">
+            <div class="text-output" id="npc-content"></div>
         </div>
     </div>
 
     <div class="card">
-        <div class="section-title">Friction & Hazards</div>
-        <div class="grid-2">
-            <button class="btn-small" style="color:var(--danger); border-color: #552222;" onclick="genHazard()">⚠️ Urban Hazard (2d6)</button>
-            <button class="btn-small" style="color:var(--gold); border-color: #554411;" onclick="genSnag()">🚧 Jurisdiction Snag (2d20)</button>
-        </div>
-        <div class="output-box" id="out-hazard">
-            <div class="out-sub">Obstacles appear here...</div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title">Debrief Phase</div>
-        <button class="btn-small" onclick="genBroadsheet()">📰 Generate Broadsheet Headline</button>
-        <div class="output-box" id="out-paper">
-            <div class="out-sub">Morning headlines...</div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="section-title" onclick="toggleRef()" style="cursor: pointer; display: flex; justify-content: space-between;">
-            <span>Guild Quick Ref</span>
+        <div class="section-title" onclick="toggleRef('clue-ref')">
+            <span>🔍 Clue Signatures (Quick Ref)</span>
             <span>▼</span>
         </div>
-        <div class="accordion-content" id="ref-content">
-            </div>
+        <div class="accordion-content" id="clue-ref">
+            <table class="ref-table">
+                <thead><tr><th>Guild</th><th>Signatures (Phys / Soc / Arc)</th></tr></thead>
+                <tbody id="clue-table-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title" style="cursor: default;">Friction & Hazards</div>
+        <div class="grid-2">
+            <button class="btn-small" style="color:var(--danger); border-color: #552222;" onclick="genHazard()">⚠️ Hazard (2d6)</button>
+            <button class="btn-small" style="color:var(--gold); border-color: #554411;" onclick="genSnag()">🚧 Snag (2d20)</button>
+        </div>
+        <div class="output-box" id="out-hazard">
+            <div class="text-output" id="hazard-content"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title" style="cursor: default;">Debrief Phase</div>
+        <button class="btn-small" onclick="genBroadsheet()">📰 Generate Broadsheet Headline</button>
+        <div class="output-box" id="out-paper">
+            <div class="text-output" id="paper-content"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="section-title" onclick="toggleRef('guild-ref')">
+            <span>🏦 Guild Jurisdictions</span>
+            <span>▼</span>
+        </div>
+        <div class="accordion-content" id="guild-ref">
+            <table class="ref-table">
+                <thead><tr><th>Guild</th><th>Jurisdiction</th><th>Liaison Perk</th></tr></thead>
+                <tbody id="guild-table-body">
+                    </tbody>
+            </table>
+        </div>
     </div>
 
 </div>
@@ -209,7 +247,7 @@
     ];
 
     const clueSigs = [
-        { g: "Azorius", p: "Stamped wax seals, blue ink", s: "Precise, condescending tone", a: "Geometric, rigid ley-lines" },
+        { g: "Azorius", p: "Stamped wax seals, blue ink", s: "Precise, condescending", a: "Geometric, rigid ley-lines" },
         { g: "Boros", p: "Scorch marks, heavy boots", s: "Aggressive, duty-bound", a: "Radiant, flickering heat" },
         { g: "Dimir", p: "Paper-shreds, damp soot", s: "Vague, shifting details", a: "Chilled air, memory-gaps" },
         { g: "Golgari", p: "Moss, pungent rot, slime", s: "Laconic, fatalistic", a: "Necrotic residue, spores" },
@@ -318,14 +356,11 @@
     function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
     function d(n) { return Math.floor(Math.random() * n) + 1; }
 
-    function setOut(id, title, sub, meta = "", colorClass = "") {
+    function setText(id, html) {
         const box = document.getElementById(id);
+        const content = box.querySelector('.text-output');
+        content.innerHTML = html;
         box.classList.add('active');
-        box.innerHTML = `
-            <div class="out-main ${colorClass}">${title}</div>
-            <div class="out-sub">${sub}</div>
-            ${meta ? `<div class="out-meta">${meta}</div>` : ''}
-        `;
     }
 
     function genStreetScene() {
@@ -347,80 +382,102 @@
         const action = rand(actionList);
         const compl = rand(whatsHappening);
         
-        // Determine source of complication
         const rollSource = d(12);
         let sourceName = rollSource <= 10 ? guilds[rollSource-1] : (rollSource === 11 ? "Hazard" : "Gang");
-        
-        setOut('out-street', 
-            `<span class="tag">${actorName}</span> ${action}`, 
-            `...but ${compl}`,
-            `Caused by: ${sourceName}`
-        );
-    }
 
-    function genClue() {
-        const g = rand(clueSigs);
-        const type = Math.random() < 0.33 ? "Social" : (Math.random() < 0.5 ? "Physical" : "Arcane");
-        let txt = "";
-        if (type === "Social") txt = g.s;
-        else if (type === "Physical") txt = g.p;
-        else txt = g.a;
-
-        setOut('out-invest', 
-            `<span class="tag">${g.g}</span> ${type} Clue`, 
-            txt
-        );
+        const box = document.getElementById('out-street');
+        box.classList.add('active');
+        const content = document.getElementById('dispatch-content');
+        content.innerHTML = `
+            <div class="dispatch-row">
+                <div class="dispatch-label">Actor</div>
+                <div class="dispatch-val highlight">${actorName}</div>
+            </div>
+            <div class="dispatch-row">
+                <div class="dispatch-label">Activity</div>
+                <div class="dispatch-val">${action}</div>
+            </div>
+            <div class="dispatch-row">
+                <div class="dispatch-label">Conflict</div>
+                <div class="dispatch-val alert">${compl}</div>
+            </div>
+            <div class="dispatch-row">
+                <div class="dispatch-label">Source</div>
+                <div class="dispatch-val">${sourceName}</div>
+            </div>
+        `;
     }
 
     function genNPC() {
-        const roll = d(6) + d(6) - 2; // Index 0-10
+        const roll = d(6) + d(6) - 2; 
         const res = npcs[roll];
         const g = rand(guilds);
-        setOut('out-invest', 
-            `<span class="tag">${g}</span> NPC`, 
-            `Wants: ${res.w}`,
-            `Leverage: ${res.l}`
-        );
+        setText('out-npc', `
+            <div class="out-main"><span style="color:var(--accent)">${g}</span> NPC</div>
+            <div style="margin-top:5px; font-size:0.9rem;"><strong>Wants:</strong> ${res.w}</div>
+            <div style="margin-top:2px; font-size:0.9rem;"><strong>Leverage:</strong> ${res.l}</div>
+        `);
     }
 
     function genHazard() {
         const roll = d(6) + d(6);
         const h = hazards.find(x => x.roll === roll);
-        setOut('out-hazard', h.name, h.eff, `Roll: ${roll}`, 'out-heat');
+        setText('out-hazard', `
+            <div class="out-main out-heat">${h.name}</div>
+            <div class="out-sub">${h.eff}</div>
+        `);
     }
 
     function genSnag() {
         const roll = d(20) + d(20);
-        // Find closest logic if gaps existed, but our table is 2-40 complete
-        // Since object keys are strings, simple lookup
-        let s = snags[roll];
-        if(!s) s = snags[21]; // Fallback
-        setOut('out-hazard', s.n, s.e, `Roll: ${roll} (2d20)`, 'out-heat');
+        let s = snags[roll] || snags[21]; 
+        setText('out-hazard', `
+            <div class="out-main out-heat">${s.n}</div>
+            <div class="out-sub">${s.e}</div>
+            <div class="out-sub" style="margin-top:4px;">Roll: ${roll}</div>
+        `);
     }
 
     function genBroadsheet() {
         const roll = d(6) - 1;
         const p = papers[roll];
-        setOut('out-paper', p.n, `Tone: ${p.t}`, p.e, p.e.includes("Heat +") ? "out-heat" : "out-good");
+        const cls = p.e.includes("Heat +") ? "out-heat" : "out-good";
+        setText('out-paper', `
+            <div class="out-main">${p.n}</div>
+            <div class="out-sub">Tone: ${p.t}</div>
+            <div class="${cls}" style="font-weight:bold; font-size:0.8rem; margin-top:5px;">${p.e}</div>
+        `);
     }
 
-    function toggleRef() {
-        const el = document.getElementById('ref-content');
-        if(el.classList.contains('open')) {
-            el.classList.remove('open');
-        } else {
-            // Render on first open
-            if(el.innerHTML.trim() === "") {
-                el.innerHTML = guildRefs.map(g => `
-                    <div class="ref-row">
-                        <div style="flex:1"><span class="ref-lbl">${g.n}</span></div>
-                        <div style="flex:1">${g.j}</div>
-                        <div style="flex:1; text-align:right; color:#fff;">${g.b}</div>
-                    </div>
+    function toggleRef(id) {
+        const el = document.getElementById(id);
+        const body = el.querySelector('tbody');
+        
+        if (body.innerHTML.trim() === "") {
+            // Populate on first open
+            if (id === 'clue-ref') {
+                body.innerHTML = clueSigs.map(c => `
+                    <tr>
+                        <td class="ref-hl">${c.g}</td>
+                        <td>
+                            <span class="clue-type">PHYSICAL:</span> ${c.p}<br>
+                            <span class="clue-type" style="margin-top:4px;">SOCIAL:</span> ${c.s}<br>
+                            <span class="clue-type" style="margin-top:4px; color:var(--accent-dim); text-shadow:0 0 1px var(--accent);">ARCANE:</span> ${c.a}
+                        </td>
+                    </tr>
+                `).join('');
+            } else if (id === 'guild-ref') {
+                body.innerHTML = guildRefs.map(g => `
+                    <tr>
+                        <td class="ref-hl">${g.n}</td>
+                        <td>${g.j}</td>
+                        <td style="color:#fff;">${g.b}</td>
+                    </tr>
                 `).join('');
             }
-            el.classList.add('open');
         }
+        
+        el.classList.toggle('open');
     }
 
 </script>
