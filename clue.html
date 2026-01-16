@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ravnica Intersection Gen v3</title>
+    <title>Ravnica smart clue generator (Raw)</title>
     <style>
         :root {
             --bg: #121212;
@@ -15,7 +15,6 @@
             --gold: #f1c40f;
             --danger: #ff6b6b;
             
-            /* Status Colors */
             --st-grey: #444;
             --st-orange: #e67e22;
             --st-green: #27ae60;
@@ -47,7 +46,6 @@
         }
         .guild-btn:hover { border-color: #777; }
         
-        /* STATES */
         .guild-btn.st-0 { border-color: var(--st-grey); opacity: 0.5; filter: grayscale(100%); } 
         .guild-btn.st-1 { border-color: var(--st-orange); background: rgba(230, 126, 34, 0.15); opacity: 1; } 
         .guild-btn.st-2 { border-color: var(--st-green); background: rgba(39, 174, 96, 0.15); opacity: 1; box-shadow: 0 0 10px rgba(39, 174, 96, 0.2); }
@@ -84,7 +82,6 @@
             overflow: hidden; display: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             animation: slideUp 0.3s ease-out;
-            position: relative;
         }
         @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -95,37 +92,44 @@
         }
         .res-type { font-size: 0.7rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; }
         
-        .res-body { padding: 20px; }
-        
-        /* THE ALGORITHM DISPLAY */
-        .clue-sentence { font-size: 1.1rem; line-height: 1.6; color: #ccc; }
-        .hl-core { color: var(--st-green); font-weight: bold; background: rgba(39, 174, 96, 0.1); padding: 0 4px; border-radius: 4px; }
-        .hl-surf { color: var(--st-orange); font-weight: bold; background: rgba(230, 126, 34, 0.1); padding: 0 4px; border-radius: 4px; }
+        .res-body { padding: 15px; display: flex; flex-direction: column; gap: 15px; }
 
-        .logic-explainer {
-            margin-top: 15px; padding-top: 15px; border-top: 1px solid #333;
-            font-size: 0.75rem; color: #666; font-family: monospace;
-            display: flex; gap: 10px; justify-content: center;
+        /* DATA BLOCKS */
+        .data-block {
+            padding: 15px; border-radius: 8px; position: relative;
+            border-left: 4px solid #555; background: rgba(255,255,255,0.03);
+        }
+        .data-block.signal { border-color: var(--st-green); background: rgba(39, 174, 96, 0.05); }
+        .data-block.noise { border-color: var(--st-orange); background: rgba(230, 126, 34, 0.05); }
+
+        .lbl { 
+            font-size: 0.65rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.05em; 
+            margin-bottom: 4px; display: block; opacity: 0.8;
+        }
+        .val { font-size: 1.1rem; font-weight: 600; color: #fff; line-height: 1.3; }
+        .g-tag {
+            position: absolute; top: 10px; right: 10px;
+            font-size: 0.65rem; font-weight: bold; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.3); color: #ccc;
         }
 
         .res-footer {
             background: rgba(0,0,0,0.2); padding: 15px;
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            font-size: 0.85rem;
+            font-size: 0.85rem; border-top: 1px solid var(--border);
         }
         .res-stat { display: flex; flex-direction: column; gap: 4px; }
-        .res-label { font-size: 0.7rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; }
-        .res-val { font-weight: bold; }
+        .res-stat label { font-size: 0.65rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; }
+        .res-stat span { font-weight: bold; }
 
     </style>
 </head>
 <body>
 
-    <h1>Intersection Gen v3</h1>
+    <h1>Intersection Gen v4</h1>
     <p class="sub">
-        <strong>Signal vs. Noise:</strong><br>
-        <span style="color:var(--st-green)">Green (Signal)</span> defines the Object.<br>
-        <span style="color:var(--st-orange)">Orange (Noise)</span> defines the Context.
+        <strong>Signal (Green)</strong> = The Clue Object<br>
+        <strong>Noise (Orange)</strong> = The Context / Coating
     </p>
 
     <div class="guild-grid" id="guildGrid"></div>
@@ -136,36 +140,43 @@
             <option value="soc">Social</option>
             <option value="arc">Arcane</option>
         </select>
-        <button class="gen-btn" onclick="generateClue()">Triangulate Clue</button>
+        <button class="gen-btn" onclick="generateClue()">Generate Data</button>
     </div>
 
     <div class="result-card" id="resultCard">
         <div class="res-header">
             <span class="res-type" id="outType">Physical Evidence</span>
         </div>
+        
         <div class="res-body">
-            <div class="clue-sentence" id="outText">
-                </div>
-            <div class="logic-explainer">
-                <span>SIGNAL: <span id="logSignal">DIMIR</span></span>
-                <span>//</span>
-                <span>NOISE: <span id="logNoise">GOLGARI</span></span>
+            <div class="data-block signal">
+                <span class="lbl" style="color:var(--st-green)">The Signal (Object)</span>
+                <span class="g-tag" id="sigGuild">Guild</span>
+                <div class="val" id="sigVal">A rigid legal writ</div>
+            </div>
+
+            <div class="data-block noise">
+                <span class="lbl" style="color:var(--st-orange)">The Noise (Context)</span>
+                <span class="g-tag" id="noiseGuild">Guild</span>
+                <div class="val" id="noiseVal">Covered in vibrant moss</div>
             </div>
         </div>
+
         <div class="res-footer">
             <div class="res-stat">
-                <span class="res-label">Environmental Friction</span>
-                <span class="res-val" style="color:var(--gold)" id="outFric">Water-Damaged</span>
+                <label>Friction</label>
+                <span style="color:var(--gold)" id="outFric">Locked</span>
             </div>
             <div class="res-stat">
-                <span class="res-label">Fail-Forward Cost</span>
-                <span class="res-val" style="color:var(--danger)" id="outCost">Clock +1</span>
+                <label>Fail Cost</label>
+                <span style="color:var(--danger)" id="outCost">Heat +1</span>
             </div>
         </div>
     </div>
 
 <script>
     // --- MASSIVE DATASETS (300 Items) ---
+    // Note: 'core' is the Object, 'surf' is the Context.
 
     const GUILDS = [
         { 
@@ -560,72 +571,15 @@
         }
     ];
 
-    const BASE_CLUES = {
-        phys: [
-            "You find [CORE], which is [SURF].",
-            "Hidden underneath is [CORE], surprisingly [SURF].",
-            "Discarded in the corner is [CORE], [SURF].",
-            "Lodged in the wall is [CORE], [SURF].",
-            "Buried in the debris is [CORE], [SURF].",
-            "Locked inside a container is [CORE], [SURF].",
-            "The object appears to be [CORE], [SURF].",
-            "You recover [CORE], currently [SURF]."
-        ],
-        soc: [
-            "You interview [CORE], who is [SURF].",
-            "A witness describes [CORE], [SURF].",
-            "You corner [CORE], [SURF].",
-            "An informant points you to [CORE], [SURF].",
-            "You overhear [CORE], [SURF].",
-            "A contact introduces you to [CORE], [SURF].",
-            "You interrogate [CORE], [SURF].",
-            "The person of interest is [CORE], [SURF]."
-        ],
-        arc: [
-            "You detect [CORE], [SURF].",
-            "Your spell reveals [CORE], [SURF].",
-            "The air is thick with [CORE], [SURF].",
-            "A residue remains of [CORE], [SURF].",
-            "Arcane sight shows [CORE], [SURF].",
-            "You feel the vibration of [CORE], [SURF].",
-            "A magical echo manifests as [CORE], [SURF].",
-            "The ley-lines are twisted by [CORE], [SURF]."
-        ]
-    };
-    
-    // Inverted templates where Surface leads
-    const INVERTED_CLUES = {
-        phys: [
-            "Amidst [SURF], you find [CORE].",
-            "Covered in [SURF], you discover [CORE].",
-            "Though [SURF], it is clearly [CORE].",
-            "Beneath a layer of [SURF], there is [CORE]."
-        ],
-        soc: [
-            "While [SURF], [CORE] approaches you.",
-            "Despite [SURF], [CORE] agrees to talk.",
-            "Found [SURF], [CORE] has the answers.",
-            "Clearly [SURF], [CORE] is your best lead."
-        ],
-        arc: [
-            "Masked by [SURF], you sense [CORE].",
-            "Initially [SURF], the magic resolves into [CORE].",
-            "Through the haze of [SURF], you identify [CORE].",
-            "Pulsing with [SURF], the source is [CORE]."
-        ]
-    };
-
     const FRICTIONS = [
         "Water-Damaged", "Booby-Trapped", "Locked / Encrypted", "Contaminated", 
         "Heavily Guarded", "Culturally Taboo", "Physically Stuck", "Magically Warded", 
-        "Currently Burning", "Moving Target", "Buried in Trash", "Incomplete",
-        "Fragmented", "Volatile", "Misfiled", "Overwritten", "Time-Decayed"
+        "Currently Burning", "Moving Target", "Buried in Trash", "Incomplete"
     ];
 
     const COSTS = [
-        "Clock +1 (Time)", "Heat +1 (Publicity)", "Resource Cost (Gold)", "Reputation -1", "Minor Injury", 
-        "Exhaustion", "Info Leak", "Set-Piece Trigger", "Disadvantage", "Spell Slot Drain", 
-        "Favor Owed", "Legal Snag", "Collateral Damage", "Witness Clams Up"
+        "Clock +1", "Heat +1", "Resource Cost", "Reputation -1", "Minor Injury", 
+        "Exhaustion", "Info Leak", "Set-Piece Trigger", "Disadvantage", "Spell Slot Drain"
     ];
 
     // Status: 0 = Grey, 1 = Herring (Orange), 2 = Involved (Green)
@@ -671,7 +625,6 @@
         const signalGuild = GUILDS[signalIdx];
 
         // 2. Pick the Noise (Herring Guild)
-        // If no herrings selected, pick a random non-involved guild as "Ambient Noise"
         let noiseIdx = -1;
         if (herringIndices.length > 0) {
             noiseIdx = herringIndices[Math.floor(Math.random() * herringIndices.length)];
@@ -681,52 +634,33 @@
         }
         const noiseGuild = GUILDS[noiseIdx];
 
-        // 3. Select Random Items from Arrays (NEW in v3)
+        // 3. Select Items
         const coreItem = signalGuild[mode][Math.floor(Math.random() * signalGuild[mode].length)];
         const surfItem = noiseGuild[mode][Math.floor(Math.random() * noiseGuild[mode].length)];
 
-        // 4. Construct the Sentence (50/50 Flip)
-        // Flip a coin to see if we use Standard (Core first) or Inverted (Surface first)
-        const coinFlip = Math.random() < 0.5;
-        
-        let template = "";
-        let finalHtml = "";
-        
-        if (coinFlip) {
-            // Standard: Core First
-            template = BASE_CLUES[mode][Math.floor(Math.random() * BASE_CLUES[mode].length)];
-            finalHtml = template
-                .replace("[CORE]", `<span class="hl-core">${coreItem.core}</span>`)
-                .replace("[SURF]", `<span class="hl-surf">${surfItem.surf}</span>`);
-        } else {
-            // Inverted: Surface First
-            template = INVERTED_CLUES[mode][Math.floor(Math.random() * INVERTED_CLUES[mode].length)];
-            // Note: Inverted templates use [SURF] first naturally, but we just do simple replace
-            finalHtml = template
-                .replace("[SURF]", `<span class="hl-surf">${surfItem.surf}</span>`)
-                .replace("[CORE]", `<span class="hl-core">${coreItem.core}</span>`);
-        }
-
-        // 5. Extras
+        // 4. Extras
         const friction = FRICTIONS[Math.floor(Math.random() * FRICTIONS.length)];
         const cost = COSTS[Math.floor(Math.random() * COSTS.length)];
 
-        renderResult(mode, finalHtml, friction, cost, signalGuild.name, noiseGuild.name);
+        renderResult(mode, coreItem.core, surfItem.surf, friction, cost, signalGuild.name, noiseGuild.name);
     }
 
-    function renderResult(mode, html, friction, cost, sigName, noiseName) {
+    function renderResult(mode, coreText, surfText, friction, cost, sigName, noiseName) {
         const card = document.getElementById('resultCard');
         card.style.display = 'none';
         card.offsetHeight; 
         card.style.display = 'block';
 
-        document.getElementById('outType').innerText = mode.toUpperCase() + " LEAD";
-        document.getElementById('outText').innerHTML = html;
+        document.getElementById('outType').innerText = mode.toUpperCase() + " EVIDENCE";
+        
+        document.getElementById('sigGuild').innerText = sigName;
+        document.getElementById('sigVal').innerText = coreText.charAt(0).toUpperCase() + coreText.slice(1);
+        
+        document.getElementById('noiseGuild').innerText = noiseName;
+        document.getElementById('noiseVal').innerText = surfText.charAt(0).toUpperCase() + surfText.slice(1);
+
         document.getElementById('outFric').innerText = friction;
         document.getElementById('outCost').innerText = cost;
-        
-        document.getElementById('logSignal').innerText = sigName;
-        document.getElementById('logNoise').innerText = noiseName;
     }
 
     init();
