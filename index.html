@@ -411,6 +411,24 @@
             border-color: var(--accent); 
             box-shadow: 0 0 5px var(--accent);
         }
+        /* NEW: Skill Misc Input */
+        .skill-misc {
+            width: 35px !important;
+            height: 30px;
+            padding: 0 !important;
+            text-align: center;
+            font-size: 0.75rem;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: var(--gold);
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .skill-misc:focus {
+            border-color: var(--gold);
+            outline: none;
+        }
 
         .prof-toggle { 
             font-size: 1.4rem; padding: 10px; 
@@ -884,7 +902,8 @@
             ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
             stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
             skills: {}, 
-            skillOverrides: {}, // NEW: Store skill attr overrides
+            skillOverrides: {}, 
+            skillMisc: {}, // NEW: Store manual skill bonuses
             attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
             uiState: { cardOrder: [] }
         };
@@ -969,6 +988,7 @@
         if (!data.meta) data.meta = {};
         if (!data.vitals) data.vitals = {};
         if (!data.uiState) data.uiState = {};
+        if (!data.skillMisc) data.skillMisc = {};
         if (!data.skillOverrides) data.skillOverrides = {}; // Ensure initialization
 
         document.getElementById('playerName').value = data.meta.player || '';
@@ -1223,7 +1243,6 @@
     function updateAll() {
         const pb = getPB(data.meta.level);
     
-        // Update Stat Modifiers
         stats.forEach(s => {
             const mod = getMod(data.stats[s].val);
             const saveBonus = mod + (data.stats[s].save ? pb : 0);
@@ -1231,19 +1250,20 @@
             document.getElementById(`def-${s}`).innerText = 11 + saveBonus;
         });
     
-        // Update Skill Bonuses (With Attribute Override check)
         Object.keys(skillsMap).forEach(s => {
             const defaultStat = skillsMap[s];
-            // Use override if exists, else default
             const activeStat = (data.skillOverrides && data.skillOverrides[s]) ? data.skillOverrides[s] : defaultStat;
         
             const mod = getMod(data.stats[activeStat].val);
             const profLevel = data.skills[s] || 0;
-            const bonus = mod + (profLevel * pb);
+        
+            // NEW: Add Misc Bonus
+            const misc = getSkillMiscBonus(s);
+        
+            const bonus = mod + (profLevel * pb) + misc;
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
     
-        // Global DC
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
         statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
@@ -1563,22 +1583,47 @@
             const state = data.skills[s] || 0; 
             const icon = state === 2 ? '◈' : (state === 1 ? '◆' : '◇');
             const cls = state === 2 ? 'exp' : (state === 1 ? 'prof' : '');
-            
-            // Logic to determine which stat is active
+        
             const defaultStat = skillsMap[s];
-            // Check if we have an override, otherwise use default
             const activeStat = (data.skillOverrides && data.skillOverrides[s]) ? data.skillOverrides[s] : defaultStat;
             const isOverridden = (activeStat !== defaultStat);
-    
+        
+            // NEW: Get saved misc value
+            const miscVal = (data.skillMisc && data.skillMisc[s]) ? data.skillMisc[s] : "";
+
             return `
             <div class="skill-row">
                 <span class="prof-toggle ${cls}" onclick="cycleSkill('${s}')">${icon}</span>
                 <span class="skill-attr ${isOverridden ? 'overridden' : ''}" onclick="cycleSkillAttr('${s}')" title="Click to change Attribute">${activeStat.toUpperCase().substr(0,3)}</span>
                 <span class="skill-name">${s.charAt(0).toUpperCase() + s.slice(1)}</span>
+            
                 <span style="font-weight:bold; color:#ddd;" id="skill-bonus-${s}">+0</span>
+            
+                <input type="text" class="skill-misc" placeholder="+0" value="${miscVal}" onchange="updateSkillMisc('${s}', this.value)" title="Enter flat bonus (2) or stat name (cha)">
+            
                 <button class="btn-roll-skill" onclick="rollSkill('${s}')">🎲</button>
             </div>`;
         }).join('');
+    }
+
+    function updateSkillMisc(skill, val) {
+        if(!data.skillMisc) data.skillMisc = {};
+        data.skillMisc[skill] = val.toLowerCase().trim();
+        save();
+        updateAll();
+    }
+
+    function getSkillMiscBonus(skill) {
+    if (!data.skillMisc || !data.skillMisc[skill]) return 0;
+        const val = data.skillMisc[skill];
+    
+        // Check if it's a stat name (e.g. "cha", "int")
+        if (stats.includes(val)) {
+            return getMod(data.stats[val].val);
+        }
+        
+        // Otherwise parse as number
+        return parseInt(val) || 0;
     }
 
     function renderAttacks() {
@@ -1751,15 +1796,23 @@
     function rollSkill(skill) {
         const defaultStat = skillsMap[skill];
         const activeStat = (data.skillOverrides && data.skillOverrides[skill]) ? data.skillOverrides[skill] : defaultStat;
-    
+        
         const pb = getPB(data.meta.level);
         const mod = getMod(data.stats[activeStat].val);
         const profLevel = data.skills[skill] || 0;
     
-        // Add label to show which stat was used
-        const label = `${skill.charAt(0).toUpperCase() + skill.slice(1)} (${activeStat.toUpperCase()})`;
+        // NEW: Add Misc Bonus
+        const misc = getSkillMiscBonus(skill);
+        const miscRaw = (data.skillMisc && data.skillMisc[skill]) ? data.skillMisc[skill] : "";
     
-        rollDie(20, mod + (profLevel * pb), label, true, 'check');
+        let label = `${skill.charAt(0).toUpperCase() + skill.slice(1)} (${activeStat.toUpperCase()})`;
+        if (misc !== 0) {
+            // If it's a stat name, add that to label
+            if(stats.includes(miscRaw)) label += ` + ${miscRaw.toUpperCase()}`;
+            else label += ` + Bonus`;
+        }
+    
+        rollDie(20, mod + (profLevel * pb) + misc, label, true, 'check');
     }
     
     function rollAttack(idx) {
@@ -2020,4 +2073,5 @@
 </script>
 </body>
 </html>
+
 
