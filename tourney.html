@@ -3,251 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified Bracket v3.0 (Polished)</title>
+    <title>Unified Bracket v4.0 (Split Layout)</title>
     <meta name="theme-color" content="#121212">
     
     <style>
         :root {
-            /* Core Palette */
-            --bg: #0f0f0f;           /* Darker, flatter background */
-            --card-bg: #1a1a1a;      /* Slightly lighter than BG */
-            --node-bg: #222;         /* Match Node Background */
-            --node-hover: #2a2a2a;   /* Hover State */
-            
-            --border: #333;
-            --border-light: #444;
-
-            /* Accents */
-            --accent: #4ecdc4;       /* Teal */
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --node-bg: #262626;
+            --node-hover: #333;
+            --accent: #4ecdc4;
             --accent-dim: rgba(78, 205, 196, 0.1);
-            --gold: #ffd700;         /* Gold */
-            --fail: #ff5f56;         /* Red */
+            --gold: #f1c40f;
+            --fail: #e74c3c;
+            --border: #444;
             --text-main: #eee;
             --text-muted: #888;
+            --win-bg: rgba(78, 205, 196, 0.15);
+            --connector: #555;
         }
 
         body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
             background: var(--bg); 
             color: var(--text-main); 
-            padding: 40px 20px; 
-            margin: 0; 
+            margin: 0; padding: 20px;
             min-height: 100vh;
+            overflow-x: hidden;
         }
 
         .container { 
-            width: 100%; max-width: 1400px; margin: 0 auto; 
+            width: 98%; max-width: 1800px; margin: 0 auto; 
             display: flex; flex-direction: column; gap: 30px; 
         }
 
-        /* --- UI UTILS --- */
+        /* --- CARDS --- */
         .card { 
             background: var(--card-bg); 
             padding: 20px; 
-            border-radius: 16px; 
-            border: 1px solid var(--border); 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            display: flex; flex-direction: column; 
-            position: relative;
-            overflow: hidden; /* Contains internal glows */
+            border-radius: 12px; 
+            border: 1px solid #333; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
         }
 
         .section-header { 
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 15px; margin-bottom: 20px;
+            border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px;
         }
-
-        .section-title { 
-            font-size: 1.1rem; letter-spacing: 0.05em; font-weight: 700; 
-            color: var(--text-muted); text-transform: uppercase;
-            display: flex; align-items: center; gap: 10px;
-        }
-        .section-title::before {
-            content: ''; display: block; width: 4px; height: 16px; 
-            background: var(--accent); border-radius: 2px;
-        }
+        .section-title { font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
 
         /* --- BUTTONS & INPUTS --- */
-        button { 
-            cursor: pointer; border: none; outline: none; 
-            font-family: inherit; font-weight: 600; border-radius: 6px;
-            transition: all 0.2s ease;
-        }
-
-        .btn-action { 
-            background: var(--accent); color: #000; 
-            height: 44px; width: 100%; margin-top: 15px; 
-            font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;
-            box-shadow: 0 4px 12px rgba(78, 205, 196, 0.3);
-        }
-        .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(78, 205, 196, 0.4); }
-        .btn-action:active { transform: translateY(0); }
-
-        .btn-ghost {
-            background: transparent; color: var(--text-muted); 
-            border: 1px solid var(--border); padding: 6px 14px; font-size: 0.8rem;
-        }
-        .btn-ghost:hover { border-color: var(--fail); color: var(--fail); background: rgba(255, 95, 86, 0.1); }
+        button { cursor: pointer; border: none; border-radius: 4px; font-weight: 600; transition: 0.2s; }
+        .btn-action { background: var(--accent); color: #000; width: 100%; height: 40px; margin-top: 10px; }
+        .btn-ghost { background: transparent; border: 1px solid #555; color: #aaa; padding: 5px 15px; font-size: 0.8rem; }
+        .btn-ghost:hover { border-color: var(--fail); color: var(--fail); }
 
         textarea { 
-            background: #151515; border: 1px solid var(--border); 
-            color: var(--text-main); padding: 15px; border-radius: 8px; 
-            font-size: 0.95rem; width: 100%; box-sizing: border-box; 
-            font-family: 'Consolas', monospace; resize: vertical; min-height: 120px;
-            line-height: 1.5;
+            width: 100%; background: #151515; border: 1px solid #333; color: #fff; 
+            padding: 10px; border-radius: 6px; min-height: 100px; box-sizing: border-box;
+            font-family: monospace; margin-bottom: 10px;
         }
-        textarea:focus { border-color: var(--accent); outline: none; }
 
-        /* --- BRACKET SCROLL AREA --- */
-        .bracket-scroll-area {
-            overflow-x: auto; 
-            padding: 20px 0 40px 0; /* Extra bottom padding for shadows */
-            scrollbar-width: thin; scrollbar-color: var(--border-light) transparent;
+        /* --- SPLIT LAYOUT SYSTEM --- */
+        .split-bracket-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            gap: 40px;
+            padding: 20px 0;
+            overflow-x: auto;
         }
-        
-        .bracket-flex { 
-            display: flex; gap: 60px; /* Wider gap for cleaner lines */
-            min-width: max-content; 
-            align-items: flex-start; 
-            padding: 0 20px;
+
+        /* The Left and Right Trees */
+        .bracket-tree {
+            display: flex;
+            gap: 60px;
         }
-        
+        .bracket-tree.right-tree {
+            flex-direction: row-reverse; /* Mirrors the columns for the right side */
+        }
+
         .round-col {
-            display: flex; flex-direction: column; 
-            justify-content: space-around; 
-            min-width: 240px; 
+            display: flex; 
+            flex-direction: column; 
+            min-width: 220px; 
             position: relative;
         }
 
-        .round-badge {
-            position: absolute; top: -35px; left: 50%; transform: translateX(-50%);
-            background: var(--border); color: var(--text-muted);
-            font-size: 0.65rem; font-weight: 800; text-transform: uppercase;
-            padding: 4px 10px; border-radius: 12px;
-            white-space: nowrap; z-index: 5;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        /* FIX FOR HEADER OVERLAP: Flex layout inside column */
+        .col-header {
+            text-align: center; color: var(--gold); font-size: 0.75rem; 
+            font-weight: bold; text-transform: uppercase; margin-bottom: 15px;
+            height: 20px; /* Fixed height for header */
+        }
+        .col-matches {
+            flex: 1;
+            display: flex; flex-direction: column; justify-content: space-around;
+            gap: 20px; /* Fallback gap */
         }
 
-        /* --- MATCH NODES (THE PRETTY PART) --- */
+        /* --- MATCH NODES --- */
         .match-node {
-            background: var(--node-bg); 
-            border: 1px solid var(--border); 
-            border-radius: 10px;
-            padding: 8px 12px; 
-            display: flex; flex-direction: column; gap: 6px;
-            position: relative; 
-            height: 72px; /* Fixed height consistency */
-            justify-content: center;
-            transition: all 0.2s ease;
-            cursor: pointer;
+            background: var(--node-bg); border: 1px solid #333; border-radius: 6px;
+            padding: 8px; height: 64px; display: flex; flex-direction: column; justify-content: center;
+            position: relative; cursor: pointer; transition: transform 0.2s, background 0.2s;
+            z-index: 2;
         }
-
-        .match-node:hover {
-            background: var(--node-hover);
-            border-color: var(--border-light);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
-            z-index: 10;
-        }
-
-        /* Connector Lines */
-        .round-col:not(:last-child) .match-node::after {
-            content: ''; position: absolute; 
-            right: -61px; top: 50%; width: 60px; height: 2px;
-            background: var(--border); z-index: 0;
-            pointer-events: none;
-        }
-        /* Connector Dot (Circuit Style) */
-        .round-col:not(:last-child) .match-node::before {
-            content: ''; position: absolute;
-            right: -5px; top: 50%; transform: translateY(-50%);
-            width: 8px; height: 8px; background: var(--border-light);
-            border-radius: 50%; z-index: 1;
-            box-shadow: 0 0 0 2px var(--node-bg); /* Cutout effect */
-        }
+        .match-node:hover { background: var(--node-hover); transform: scale(1.02); border-color: #555; }
 
         .match-id {
-            position: absolute; top: -9px; right: 10px;
-            font-size: 0.6rem; font-weight: bold; color: var(--text-muted);
-            background: var(--node-bg); padding: 0 6px;
-            border: 1px solid var(--border); border-radius: 4px;
+            position: absolute; top: -8px; right: 5px; font-size: 0.6rem; 
+            color: #666; background: var(--node-bg); padding: 0 4px; border: 1px solid #333;
         }
 
-        /* Competitor Rows */
-        .competitor-row {
-            display: flex; align-items: center; gap: 10px;
-            padding: 4px 6px; border-radius: 6px; 
-            transition: background 0.2s;
+        /* CONNECTORS - LEFT SIDE (Standard) */
+        .left-tree .round-col:not(:last-child) .match-node::after {
+            content: ''; position: absolute; right: -61px; top: 50%; width: 60px; height: 2px; background: var(--connector); z-index: -1;
+        }
+        .left-tree .round-col:not(:last-child) .match-node::before {
+            content: ''; position: absolute; right: -4px; top: 50%; transform: translateY(-50%); 
+            width: 6px; height: 6px; background: #777; border-radius: 50%;
         }
 
-        .name-display { 
-            flex: 1; font-size: 0.9rem; font-weight: 500; 
-            overflow: hidden; text-overflow: ellipsis; white-space: nowrap; 
-            color: var(--text-muted); transition: color 0.2s;
+        /* CONNECTORS - RIGHT SIDE (Mirrored) */
+        /* Note: Since we use flex-direction: row-reverse, "last-child" is physically the one closest to center */
+        .right-tree .round-col:not(:last-child) .match-node::after {
+            content: ''; position: absolute; left: -61px; top: 50%; width: 60px; height: 2px; background: var(--connector); z-index: -1;
+        }
+        .right-tree .round-col:not(:last-child) .match-node::before {
+            content: ''; position: absolute; left: -4px; top: 50%; transform: translateY(-50%); 
+            width: 6px; height: 6px; background: #777; border-radius: 50%;
         }
 
-        .score-pill { 
-            width: 24px; height: 24px; 
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 700; font-size: 0.85rem;
-            background: rgba(255,255,255,0.05); color: var(--text-muted);
-            border-radius: 6px; transition: all 0.2s;
+        /* CENTER CONVERGENCE (WB FINALS) */
+        .wb-center-col {
+            display: flex; flex-direction: column; justify-content: center;
+            min-width: 240px; position: relative;
+        }
+        .wb-center-col .match-node { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-dim); }
+        /* Connectors for center node receiving from both sides */
+        .wb-center-col .match-node::before {
+            content: ''; position: absolute; left: -30px; top: 50%; width: 30px; height: 2px; background: var(--connector);
+        }
+        .wb-center-col .match-node::after {
+            content: ''; position: absolute; right: -30px; top: 50%; width: 30px; height: 2px; background: var(--connector);
         }
 
-        /* --- STATES: Winner/Loser --- */
-        .competitor-row.winner .name-display { color: var(--accent); text-shadow: 0 0 10px rgba(78, 205, 196, 0.4); }
-        .competitor-row.winner .score-pill { background: var(--accent); color: #000; box-shadow: 0 0 8px var(--accent-dim); }
+        /* COMPETITOR ROWS */
+        .comp-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 0.9rem; }
+        .comp-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ccc; }
+        .comp-score { 
+            width: 22px; text-align: center; background: #111; color: var(--gold); 
+            border-radius: 3px; font-weight: bold; font-size: 0.85rem; 
+        }
+        .comp-row.winner .comp-name { color: var(--accent); font-weight: bold; }
+        .comp-row.winner .comp-score { background: var(--accent); color: #000; }
+        .comp-row.loser { opacity: 0.4; text-decoration: line-through; }
+
+        /* MODAL */
+        .modal-bg {
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            display: none; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-bg.active { display: flex; }
+        .modal-box { 
+            background: #222; border: 1px solid var(--accent); padding: 25px; 
+            border-radius: 12px; width: 90%; max-width: 400px; 
+        }
+        .score-ctrl { display: flex; justify-content: space-between; align-items: center; background: #151515; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
+        .btn-score { width: 35px; height: 35px; background: #333; color: #fff; font-size: 1.2rem; }
+        .score-display-big { font-size: 1.8rem; font-weight: bold; color: var(--gold); width: 50px; text-align: center; background: transparent; border: none; }
+
+        /* LOSERS BRACKET SCROLL */
+        .lb-scroll-wrapper {
+            overflow-x: auto; padding-bottom: 20px;
+        }
+        .lb-flex { display: flex; gap: 50px; min-width: max-content; }
         
-        .competitor-row.loser .name-display { text-decoration: line-through; opacity: 0.5; }
-        .competitor-row.loser .score-pill { opacity: 0.3; }
-
-        /* --- MODAL --- */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
-            z-index: 9999; display: none; align-items: center; justify-content: center;
-            opacity: 0; transition: opacity 0.3s;
-        }
-        .modal-overlay.active { display: flex; opacity: 1; }
-        
-        .modal-card { 
-            width: 100%; max-width: 420px; 
-            background: var(--card-bg); 
-            border: 1px solid var(--border-light); 
-            padding: 30px; border-radius: 16px; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.7); 
-            transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .modal-overlay.active .modal-card { transform: scale(1); }
-
-        .modal-title { 
-            margin: 0 0 20px 0; color: var(--accent); text-align: center; 
-            font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; 
-        }
-
-        .score-control-row {
-            display: flex; justify-content: space-between; align-items: center;
-            background: #111; padding: 15px; margin-bottom: 12px; border-radius: 10px;
-            border: 1px solid var(--border);
-        }
-        .score-btn { 
-            width: 40px; height: 40px; border-radius: 8px; 
-            background: var(--border); color: #fff; font-size: 1.2rem;
-        }
-        .score-btn:hover { background: var(--border-light); }
-        
-        .score-val-big { 
-            font-size: 2rem; font-weight: 800; width: 60px; text-align: center; 
-            background: transparent; border: none; color: var(--gold); 
-        }
-
-        .modal-actions { display: flex; gap: 15px; margin-top: 25px; }
-        .btn-cancel { flex: 1; background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 12px; }
-        .btn-cancel:hover { border-color: #fff; color: #fff; }
-        .btn-confirm { flex: 1; background: var(--accent); color: #000; padding: 12px; }
-        .btn-confirm:hover { background: #3dbdb4; }
-
+        .toggle-switch { display: flex; align-items: center; gap: 10px; margin-top: 10px; cursor: pointer; }
+        .toggle-box { width: 20px; height: 20px; border: 1px solid #555; background: #111; display: grid; place-items: center; }
+        .toggle-box.checked { background: var(--accent); border-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -256,383 +192,484 @@
 
     <div class="card" id="card-setup">
         <div class="section-header">
-            <div class="section-title">New Tournament</div>
-            <button class="btn-ghost" onclick="resetTournament()">Reset Data</button>
+            <div class="section-title">Tournament Setup</div>
+            <button class="btn-ghost" onclick="resetData()">Reset</button>
         </div>
-        
-        <div style="display:grid; grid-template-columns: 1fr; gap: 20px;">
-            <div>
-                <label style="font-size:0.8rem; font-weight:bold; color:var(--text-muted); text-transform:uppercase; display:block; margin-bottom:8px;">Player Roster</label>
-                <textarea id="playerInput" placeholder="Enter one name per line...&#10;Alice&#10;Bob&#10;Charlie&#10;David"></textarea>
-            </div>
-            
-            <div style="background:var(--bg); padding:15px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                <div style="font-size:0.9rem; color:#ccc;">
-                    <strong>Randomize Seeds</strong><br>
-                    <span style="font-size:0.8rem; color:#666;">Shuffle players before generating</span>
-                </div>
-                <label style="cursor:pointer; position:relative; width:50px; height:26px; display:block;">
-                    <input type="checkbox" id="chkRandomize" checked style="opacity:0; width:0; height:0;">
-                    <span style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#333; transition:.4s; border-radius:26px;" id="toggleSpan"></span>
-                    <span style="position:absolute; content:''; height:20px; width:20px; left:3px; bottom:3px; background-color:white; transition:.4s; border-radius:50%;" id="toggleKnob"></span>
-                </label>
-            </div>
+        <textarea id="playerList" placeholder="Enter names (one per line)..."></textarea>
+        <div class="toggle-switch" onclick="toggleRandom()">
+            <div class="toggle-box checked" id="chkRandomBox">✓</div>
+            <span style="color:#aaa; font-size:0.9rem;">Randomize Seeds</span>
         </div>
-
-        <button class="btn-action" onclick="generateBracket()">Start Tournament</button>
+        <button class="btn-action" onclick="generateBracket()">Create Bracket</button>
     </div>
 
     <div class="card" id="card-wb" style="display:none;">
         <div class="section-header">
             <div class="section-title">Winners Bracket</div>
-            <button class="btn-ghost" onclick="resetTournament()">Clear Tourney</button>
+            <button class="btn-ghost" onclick="resetData()">Clear Tourney</button>
         </div>
-        <div class="bracket-scroll-area">
-            <div class="bracket-flex" id="wb-container"></div>
+        
+        <div class="split-bracket-wrapper">
+            <div class="bracket-tree left-tree" id="wb-left-tree"></div>
+            
+            <div class="wb-center-col" id="wb-center-node"></div>
+            
+            <div class="bracket-tree right-tree" id="wb-right-tree"></div>
         </div>
+    </div>
+
+    <div class="card" id="card-gf" style="display:none; align-items: center;">
+        <div class="section-title" style="margin-bottom: 20px; color: var(--gold);">Grand Finals</div>
+        <div id="gf-container"></div>
     </div>
 
     <div class="card" id="card-lb" style="display:none;">
         <div class="section-header">
-            <div class="section-title" style="color:#888;">Losers Bracket</div>
+            <div class="section-title" style="color:#777;">Losers Bracket</div>
         </div>
-        <div class="bracket-scroll-area">
-            <div class="bracket-flex" id="lb-container"></div>
+        <div class="lb-scroll-wrapper">
+            <div class="lb-flex" id="lb-container"></div>
         </div>
-    </div>
-    
-    <div class="card" id="card-finals" style="display:none; align-items:center;">
-        <div class="section-title" style="margin-bottom:20px; color:var(--gold);">Grand Finals</div>
-        <div class="bracket-flex" style="justify-content: center; padding:0;" id="finals-container"></div>
     </div>
 
 </div>
 
-<div class="modal-overlay" id="scoreModal">
-    <div class="modal-card">
-        <h3 class="modal-title">Match Results</h3>
-        
-        <div class="score-control-row">
-            <span id="mP1Name" style="font-weight:bold; font-size:1.1rem; color:#fff; width:120px; overflow:hidden; text-overflow:ellipsis;">Player 1</span>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <button class="score-btn" onclick="adjScore(1, -1)">-</button>
-                <input type="number" id="mP1Score" class="score-val-big" readonly value="0">
-                <button class="score-btn" onclick="adjScore(1, 1)">+</button>
-            </div>
+<div class="modal-bg" id="scoreModal">
+    <div class="modal-box">
+        <h3 style="color:var(--accent); text-align:center; margin-top:0;">Match Result</h3>
+        <div class="score-ctrl">
+            <span id="mP1" style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; width:120px;">P1</span>
+            <button class="btn-score" onclick="modScore(1, -1)">-</button>
+            <input id="sP1" class="score-display-big" readonly value="0">
+            <button class="btn-score" onclick="modScore(1, 1)">+</button>
         </div>
-
-        <div class="score-control-row">
-            <span id="mP2Name" style="font-weight:bold; font-size:1.1rem; color:#fff; width:120px; overflow:hidden; text-overflow:ellipsis;">Player 2</span>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <button class="score-btn" onclick="adjScore(2, -1)">-</button>
-                <input type="number" id="mP2Score" class="score-val-big" readonly value="0">
-                <button class="score-btn" onclick="adjScore(2, 1)">+</button>
-            </div>
+        <div class="score-ctrl">
+            <span id="mP2" style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; width:120px;">P2</span>
+            <button class="btn-score" onclick="modScore(2, -1)">-</button>
+            <input id="sP2" class="score-display-big" readonly value="0">
+            <button class="btn-score" onclick="modScore(2, 1)">+</button>
         </div>
-
-        <div class="modal-actions">
-            <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-            <button class="btn-confirm" onclick="confirmMatch()">Confirm Winner</button>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="btn-ghost" style="flex:1;" onclick="closeModal()">Cancel</button>
+            <button class="btn-action" style="flex:1; margin:0;" onclick="saveMatch()">Confirm</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- JS LOGIC (SAME AS v2.2, just visual tweaks) ---
-    
-    // Toggle Switch Visual Logic
-    const chk = document.getElementById('chkRandomize');
-    const span = document.getElementById('toggleSpan');
-    const knob = document.getElementById('toggleKnob');
-    
-    chk.addEventListener('change', () => {
-        if(chk.checked) {
-            span.style.backgroundColor = 'var(--accent)';
-            knob.style.transform = 'translateX(24px)';
-        } else {
-            span.style.backgroundColor = '#333';
-            knob.style.transform = 'translateX(0)';
-        }
-    });
-    // Init state
-    if(chk.checked) { span.style.backgroundColor = 'var(--accent)'; knob.style.transform = 'translateX(24px)'; }
-
-
-    let tournamentData = { active: false, matches: [], size: 0 };
-    let currentMatchId = null;
+    let data = { active: false, matches: [], size: 0 };
+    let curMatch = null;
+    let isRandom = true;
 
     function init() {
-        const saved = localStorage.getItem('unifiedBracketDataV3');
-        if (saved) {
-            tournamentData = JSON.parse(saved);
-            if (tournamentData.active) {
+        const s = localStorage.getItem('unifiedv4');
+        if(s) {
+            data = JSON.parse(s);
+            if(data.active) {
                 document.getElementById('card-setup').style.display = 'none';
-                renderBrackets();
+                render();
             }
         }
     }
 
-    function resetTournament() {
-        if(!confirm("⚠️ Irreversible Action\n\nAre you sure you want to clear the entire tournament and start over?")) return;
-        tournamentData = { active: false, matches: [], size: 0 };
-        localStorage.removeItem('unifiedBracketDataV3');
-        location.reload();
-    }
-
-    function nextPowerOf2(n) {
-        if (n <= 2) return 2;
-        return Math.pow(2, Math.ceil(Math.log(n) / Math.log(2)));
-    }
-
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+    function resetData() {
+        if(confirm("Clear current tournament?")) {
+            localStorage.removeItem('unifiedv4');
+            location.reload();
         }
-        return array;
     }
 
+    function toggleRandom() {
+        isRandom = !isRandom;
+        document.getElementById('chkRandomBox').innerHTML = isRandom ? '✓' : '';
+        document.getElementById('chkRandomBox').classList.toggle('checked');
+    }
+
+    // --- GENERATOR ---
     function generateBracket() {
-        const raw = document.getElementById('playerInput').value.trim();
-        let names = raw.split('\n').map(x => x.trim()).filter(x => x !== "");
+        const txt = document.getElementById('playerList').value.trim();
+        let names = txt.split('\n').map(n => n.trim()).filter(n => n);
         
-        if (names.length < 3) { alert("Please enter at least 3 players."); return; }
-        if (names.length > 32) { alert("Max limit is 32 players."); return; }
+        if(names.length < 3) return alert("Need 3+ players");
+        if(names.length > 32) return alert("Max 32 players");
 
-        if(document.getElementById('chkRandomize').checked) names = shuffle(names);
+        if(isRandom) names = names.sort(() => Math.random() - 0.5);
 
-        const size = nextPowerOf2(names.length);
+        // Pad to power of 2
+        const size = Math.pow(2, Math.ceil(Math.log2(names.length)));
         let seeds = [];
-        for(let i=0; i<size; i++) {
-            if (i < names.length) seeds.push(names[i]); else seeds.push("BYE");
-        }
+        for(let i=0; i<size; i++) seeds.push(i < names.length ? names[i] : "BYE");
 
         let matches = [];
+        
+        // --- WINNERS BRACKET ---
+        // We need to tag matches as 'left' or 'right' side for the split view
+        // 16 seeds: 0-3 (Left), 4-7 (Right) are the quarters?
+        // Actually, simple logic:
+        // Size 16. 8 R1 matches. 0-3 Left, 4-7 Right.
+        
         const wbRounds = Math.log2(size);
-        let wbLayer = []; 
+        let wbLayer = [];
 
-        let currentRoundMatches = [];
-        for(let i=0; i < size/2; i++) {
-            const mid = `wb1_${i+1}`;
-            matches.push(createMatch(mid, `Round 1`, 'wb', seeds[i], seeds[size - 1 - i], null, null, 1));
-            currentRoundMatches.push(mid);
-        }
-        wbLayer.push(currentRoundMatches);
-
-        for(let r=2; r <= wbRounds; r++) {
-            let nextRoundMatches = [];
-            const matchCount = size / Math.pow(2, r);
-            const prevLayer = wbLayer[r-2];
-
-            for(let i=0; i < matchCount; i++) {
-                const mid = `wb${r}_${i+1}`;
-                const name = r === wbRounds ? "Finals" : (r === wbRounds -1 ? "Semis" : `Round ${r}`);
-                matches.push(createMatch(mid, name, 'wb', null, null, null, null, 1));
-                nextRoundMatches.push(mid);
-                linkNext(matches, prevLayer[2*i], mid, 1);
-                linkNext(matches, prevLayer[2*i + 1], mid, 2);
-            }
-            wbLayer.push(nextRoundMatches);
-        }
-
-        const lbTotalRounds = (wbRounds - 1) * 2;
-        let lbLayer = []; 
-        let lbR1Matches = [];
-        for(let i=0; i < (size/4); i++) {
-            const mid = `lb1_${i+1}`;
-            matches.push(createMatch(mid, `L-Round 1`, 'lb', null, null, null, null, 1));
-            lbR1Matches.push(mid);
-            linkLose(matches, wbLayer[0][2*i], mid, 1);
-            linkLose(matches, wbLayer[0][2*i+1], mid, 2);
-        }
-        lbLayer.push(lbR1Matches);
-
-        for(let r=2; r <= lbTotalRounds; r++) {
-            const isDropRound = (r % 2 === 0); 
-            const prevLayer = lbLayer[r-2];
-            let currentRoundIds = [];
-            let count = isDropRound ? prevLayer.length : prevLayer.length / 2;
+        // WB Round 1
+        let r1Ids = [];
+        for(let i=0; i<size/2; i++) {
+            const id = `wb1_${i}`;
+            // Determine Side: First half of matches Left, Second half Right
+            const side = (i < (size/4)) ? 'left' : 'right';
             
-            for(let i=0; i < count; i++) {
-                const mid = `lb${r}_${i+1}`;
-                let rName = `L-Round ${r}`;
-                if (r === lbTotalRounds) rName = "L-Finals";
-                if (r === lbTotalRounds - 1) rName = "L-Semis";
+            matches.push({
+                id: id, type: 'wb', round: 1, name: 'Round 1', side: side,
+                p1: seeds[i], p2: seeds[size-1-i],
+                s1:0, s2:0, winner:null, nextWin: null, nextLose: null, slot: 0
+            });
+            r1Ids.push(id);
+        }
+        wbLayer.push(r1Ids);
 
-                matches.push(createMatch(mid, rName, 'lb', null, null, null, null, 1));
-                currentRoundIds.push(mid);
+        // WB Next Rounds
+        for(let r=2; r<=wbRounds; r++) {
+            let rIds = [];
+            const count = size / Math.pow(2, r);
+            const prev = wbLayer[r-2];
 
-                if (isDropRound) {
-                    linkNext(matches, prevLayer[i], mid, 1);
-                    linkLose(matches, wbLayer[(r/2)][i], mid, 2);
+            for(let i=0; i<count; i++) {
+                const id = `wb${r}_${i}`;
+                let name = `Round ${r}`;
+                if(r === wbRounds) name = "WB Final";
+                else if(r === wbRounds-1) name = "WB Semis";
+                
+                // Side logic: if it's the Final, it's 'center'.
+                // Otherwise, inherit from children.
+                let side = (i < (count/2)) ? 'left' : 'right';
+                if(r === wbRounds) side = 'center';
+
+                matches.push({
+                    id: id, type: 'wb', round: r, name: name, side: side,
+                    p1: null, p2: null, s1:0, s2:0, winner:null, nextWin:null, nextLose:null
+                });
+                rIds.push(id);
+
+                // Link Prev
+                link(matches, prev[i*2], id, 1);
+                link(matches, prev[i*2+1], id, 2);
+            }
+            wbLayer.push(rIds);
+        }
+
+        // --- LOSERS BRACKET (Linear) ---
+        // Simplified mapping for visual clarity
+        const lbTotalRounds = (wbRounds - 1) * 2;
+        let lbLayer = [];
+
+        // LB R1
+        let lbR1Ids = [];
+        for(let i=0; i<size/4; i++) {
+            const id = `lb1_${i}`;
+            matches.push({
+                id: id, type: 'lb', round: 1, name: 'L-Round 1',
+                p1: null, p2: null, s1:0, s2:0, winner:null
+            });
+            lbR1Ids.push(id);
+            
+            // Drop losers from WB R1
+            linkLose(matches, wbLayer[0][i*2], id, 1);
+            linkLose(matches, wbLayer[0][i*2+1], id, 2);
+        }
+        lbLayer.push(lbR1Ids);
+
+        // LB Rest
+        for(let r=2; r<=lbTotalRounds; r++) {
+            let rIds = [];
+            const isDrop = (r%2 === 0);
+            const prev = lbLayer[r-2];
+            const count = isDrop ? prev.length : prev.length/2;
+
+            for(let i=0; i<count; i++) {
+                const id = `lb${r}_${i}`;
+                let name = `L-Round ${r}`;
+                if(r === lbTotalRounds) name = "L-Finals";
+
+                matches.push({
+                    id: id, type: 'lb', round: r, name: name,
+                    p1: null, p2: null, s1:0, s2:0, winner:null
+                });
+                rIds.push(id);
+
+                if(isDrop) {
+                    link(matches, prev[i], id, 1);
+                    // Drop from WB
+                    // WB Round index = r/2
+                    const wbSrc = wbLayer[(r/2)][i];
+                    linkLose(matches, wbSrc, id, 2);
                 } else {
-                    linkNext(matches, prevLayer[2*i], mid, 1);
-                    linkNext(matches, prevLayer[2*i+1], mid, 2);
+                    link(matches, prev[i*2], id, 1);
+                    link(matches, prev[i*2+1], id, 2);
                 }
             }
-            lbLayer.push(currentRoundIds);
+            lbLayer.push(rIds);
         }
 
-        const midGF = `gf_1`;
-        matches.push(createMatch(midGF, `Grand Finals`, 'gf', null, null, null, null, 0));
-        linkNext(matches, wbLayer[wbLayer.length-1][0], midGF, 1);
-        linkNext(matches, lbLayer[lbLayer.length-1][0], midGF, 2);
+        // --- GRAND FINALS ---
+        const gfId = 'gf';
+        matches.push({
+            id: gfId, type: 'gf', round: 99, name: 'Grand Finals',
+            p1: null, p2: null, s1:0, s2:0, winner:null
+        });
 
-        tournamentData.matches = matches;
-        tournamentData.size = size;
-        tournamentData.active = true;
+        // WB Winner -> GF P1
+        link(matches, wbLayer[wbLayer.length-1][0], gfId, 1);
+        // LB Winner -> GF P2
+        link(matches, lbLayer[lbLayer.length-1][0], gfId, 2);
+
+        data.matches = matches;
+        data.active = true;
         save();
+        render();
+        advanceByes();
         
         document.getElementById('card-setup').style.display = 'none';
-        renderBrackets();
-        autoAdvanceByes();
     }
 
-    function createMatch(id, name, type, p1, p2, nextWin, nextLose, nextSlot) {
-        return { id, name, type, p1, p2, s1:0, s2:0, winner:null, nextWin, nextLose, nextWinSlot:nextSlot, nextLoseSlot:0 };
+    function link(arr, srcId, destId, slot) {
+        const m = arr.find(x => x.id === srcId);
+        if(m) { m.nextWin = destId; m.nextWinSlot = slot; }
     }
-    function linkNext(arr, srcId, destId, slot) { const m = arr.find(x => x.id === srcId); if(m) { m.nextWin = destId; m.nextWinSlot = slot; } }
-    function linkLose(arr, srcId, destId, slot) { const m = arr.find(x => x.id === srcId); if(m) { m.nextLose = destId; m.nextLoseSlot = slot; } }
-
-    function renderBrackets() {
-        document.getElementById('card-wb').style.display = 'flex';
-        document.getElementById('card-lb').style.display = 'flex';
-        document.getElementById('card-finals').style.display = 'flex';
-
-        const allWb = tournamentData.matches.filter(m => m.type === 'wb');
-        const wbRoundNames = [...new Set(allWb.map(m => m.name))];
-        
-        const wbR1Count = tournamentData.matches.filter(m => m.name === 'Round 1').length;
-        const wbTotalHeight = Math.max(500, (wbR1Count * 110)); // Adjusted for larger cards
-
-        renderSection('wb-container', wbRoundNames, 'wb', wbTotalHeight);
-        
-        const allLb = tournamentData.matches.filter(m => m.type === 'lb');
-        const lbRoundNames = [...new Set(allLb.map(m => m.name))];
-        const lbR1Count = tournamentData.matches.filter(m => m.name === 'L-Round 1').length;
-        const lbTotalHeight = Math.max(500, (lbR1Count * 110)); 
-
-        renderSection('lb-container', lbRoundNames, 'lb', lbTotalHeight);
-        
-        const finalsContainer = document.getElementById('finals-container');
-        finalsContainer.innerHTML = '';
-        const gfMatch = tournamentData.matches.find(m => m.type === 'gf');
-        if(gfMatch) finalsContainer.appendChild(createMatchNode(gfMatch));
+    function linkLose(arr, srcId, destId, slot) {
+        const m = arr.find(x => x.id === srcId);
+        if(m) { m.nextLose = destId; m.nextLoseSlot = slot; }
     }
 
-    function renderSection(containerId, roundNames, type, forcedHeight) {
-        const container = document.getElementById(containerId);
-        container.innerHTML = '';
-        roundNames.forEach(rName => {
-            const col = document.createElement('div');
-            col.className = 'round-col';
-            col.style.height = forcedHeight + 'px';
+    // --- RENDERER ---
+    function render() {
+        document.getElementById('card-wb').style.display = 'block';
+        document.getElementById('card-lb').style.display = 'block';
+        document.getElementById('card-gf').style.display = 'flex';
 
-            const badge = document.createElement('div');
-            badge.className = 'round-badge';
-            badge.innerText = rName;
-            col.appendChild(badge);
-
-            const matches = tournamentData.matches.filter(m => m.name === rName && m.type === type);
-            matches.forEach(m => col.appendChild(createMatchNode(m)));
-            container.appendChild(col);
+        // 1. Separate Winners Bracket into Columns
+        const wb = data.matches.filter(m => m.type === 'wb');
+        // Group by Round
+        const rounds = {};
+        wb.forEach(m => {
+            if(!rounds[m.round]) rounds[m.round] = [];
+            rounds[m.round].push(m);
         });
+
+        // Determine Containers
+        const leftTree = document.getElementById('wb-left-tree');
+        const rightTree = document.getElementById('wb-right-tree');
+        const centerNode = document.getElementById('wb-center-node');
+        
+        leftTree.innerHTML = '';
+        rightTree.innerHTML = '';
+        centerNode.innerHTML = '';
+
+        // Determine max matches in a column to calculate fixed height
+        // The first round has the most matches.
+        const r1Count = wb.filter(m => m.round === 1).length;
+        // Height per match (approx 80px + gaps)
+        // If R1 has 8 matches (4 left, 4 right), height is based on 4.
+        const colHeight = Math.max(400, (r1Count/2) * 110);
+
+        // Iterate Rounds
+        Object.keys(rounds).sort((a,b)=>a-b).forEach(rKey => {
+            const matches = rounds[rKey];
+            
+            // Center Node (Finals)
+            const centerM = matches.find(m => m.side === 'center');
+            if(centerM) {
+                centerNode.appendChild(createMatchEl(centerM));
+                return;
+            }
+
+            // Left Col
+            const leftMatches = matches.filter(m => m.side === 'left');
+            if(leftMatches.length > 0) {
+                const col = createCol(leftMatches, matches[0].name, colHeight);
+                leftTree.appendChild(col);
+            }
+
+            // Right Col
+            const rightMatches = matches.filter(m => m.side === 'right');
+            if(rightMatches.length > 0) {
+                const col = createCol(rightMatches, matches[0].name, colHeight);
+                rightTree.appendChild(col); // Flex-reverse handles order
+                // Note: Right tree logic puts Round 1 on far right, Round 2 closer to center.
+                // Since flex-direction is row-reverse, appending R1 then R2 works perfectly?
+                // No, standard appending order: Left Tree: R1 -> R2 -> Center.
+                // Right Tree: R1 -> R2 -> Center.
+                // If I append R1 then R2 to Right Tree container, Row Reverse puts R1 on Far Right, R2 on Left of it. Correct.
+            }
+        });
+
+        // 2. Render Losers
+        const lb = data.matches.filter(m => m.type === 'lb');
+        const lbContainer = document.getElementById('lb-container');
+        lbContainer.innerHTML = '';
+        
+        // Group LB by Round
+        const lbRounds = {};
+        lb.forEach(m => {
+            if(!lbRounds[m.round]) lbRounds[m.round] = [];
+            lbRounds[m.round].push(m);
+        });
+        
+        // LB Height
+        const lbR1Count = lb.filter(m => m.round === 1).length;
+        const lbHeight = Math.max(300, lbR1Count * 110);
+
+        Object.keys(lbRounds).sort((a,b)=>a-b).forEach(rKey => {
+            const col = createCol(lbRounds[rKey], lbRounds[rKey][0].name, lbHeight);
+            lbContainer.appendChild(col);
+        });
+
+        // 3. Grand Finals
+        const gf = data.matches.find(m => m.type === 'gf');
+        const gfContainer = document.getElementById('gf-container');
+        gfContainer.innerHTML = '';
+        if(gf) gfContainer.appendChild(createMatchEl(gf));
     }
 
-    function createMatchNode(m) {
-        const div = document.createElement('div');
-        div.className = 'match-node';
-        div.onclick = () => openScoreModal(m.id);
-        
-        const p1Win = m.winner === 1; const p2Win = m.winner === 2;
-        
-        div.innerHTML = `
-            <div class="match-id">${m.id.split('_')[1]}</div>
-            <div class="competitor-row ${p1Win ? 'winner' : (p2Win ? 'loser' : '')}">
-                <div class="name-display">${m.p1 || 'TBD'}</div>
-                <div class="score-pill">${m.s1}</div>
+    function createCol(matches, title, height) {
+        const col = document.createElement('div');
+        col.className = 'round-col';
+        col.style.height = height + 'px'; // Enforce alignment
+
+        const head = document.createElement('div');
+        head.className = 'col-header';
+        head.innerText = title;
+        col.appendChild(head);
+
+        const track = document.createElement('div');
+        track.className = 'col-matches';
+        matches.forEach(m => track.appendChild(createMatchEl(m)));
+        col.appendChild(track);
+
+        return col;
+    }
+
+    function createMatchEl(m) {
+        const el = document.createElement('div');
+        el.className = 'match-node';
+        el.onclick = () => openModal(m.id);
+
+        // ID Label
+        const idTag = document.createElement('div');
+        idTag.className = 'match-id';
+        // Cleanup ID for display (wb1_0 -> 1.1)
+        const parts = m.id.split('_');
+        idTag.innerText = parts[0].toUpperCase() + (parts[1] ? '.' + (parseInt(parts[1])+1) : '');
+        el.appendChild(idTag);
+
+        // P1
+        el.innerHTML += `
+            <div class="comp-row ${m.winner===1?'winner':(m.winner===2?'loser':'')}">
+                <div class="comp-name">${m.p1||'-'}</div>
+                <div class="comp-score">${m.s1}</div>
             </div>
-            <div class="competitor-row ${p2Win ? 'winner' : (p1Win ? 'loser' : '')}">
-                <div class="name-display">${m.p2 || 'TBD'}</div>
-                <div class="score-pill">${m.s2}</div>
+            <div class="comp-row ${m.winner===2?'winner':(m.winner===1?'loser':'')}">
+                <div class="comp-name">${m.p2||'-'}</div>
+                <div class="comp-score">${m.s2}</div>
             </div>
         `;
-        return div;
+        return el;
     }
 
-    function openScoreModal(mid) {
-        const m = tournamentData.matches.find(x => x.id === mid);
-        if(!m.p1 || !m.p2) return; 
-        currentMatchId = mid;
-        document.getElementById('mP1Name').innerText = m.p1;
-        document.getElementById('mP2Name').innerText = m.p2;
-        document.getElementById('mP1Score').value = m.s1;
-        document.getElementById('mP2Score').value = m.s2;
+    // --- SCORING ---
+    function openModal(id) {
+        const m = data.matches.find(x => x.id === id);
+        if(!m.p1 || !m.p2) return;
+        curMatch = m;
+        document.getElementById('mP1').innerText = m.p1;
+        document.getElementById('mP2').innerText = m.p2;
+        document.getElementById('sP1').value = m.s1;
+        document.getElementById('sP2').value = m.s2;
         document.getElementById('scoreModal').classList.add('active');
     }
 
-    function closeModal() { document.getElementById('scoreModal').classList.remove('active'); currentMatchId = null; }
-    function adjScore(p, delta) {
-        const el = document.getElementById(p === 1 ? 'mP1Score' : 'mP2Score');
-        let val = parseInt(el.value) || 0;
-        el.value = Math.max(0, val + delta);
+    function closeModal() {
+        document.getElementById('scoreModal').classList.remove('active');
+        curMatch = null;
     }
 
-    function confirmMatch() {
-        if (!currentMatchId) return;
-        const m = tournamentData.matches.find(x => x.id === currentMatchId);
-        const s1 = parseInt(document.getElementById('mP1Score').value);
-        const s2 = parseInt(document.getElementById('mP2Score').value);
-        if (s1 === s2) { alert("Draws not allowed"); return; }
-
-        m.s1 = s1; m.s2 = s2;
-        m.winner = s1 > s2 ? 1 : 2;
-        const wName = m.winner === 1 ? m.p1 : m.p2;
-        const lName = m.winner === 1 ? m.p2 : m.p1;
-
-        if (m.nextWin) {
-            const nextM = tournamentData.matches.find(x => x.id === m.nextWin);
-            if (nextM) {
-                if (m.nextWinSlot === 1) nextM.p1 = wName; else nextM.p2 = wName;
-                if(nextM.p1 && nextM.p2 && nextM.winner) { nextM.winner = null; nextM.s1=0; nextM.s2=0; }
-            }
-        }
-        if (m.nextLose) {
-            const nextL = tournamentData.matches.find(x => x.id === m.nextLose);
-            if (nextL) {
-                if (m.nextLoseSlot === 1) nextL.p1 = lName; else nextL.p2 = lName;
-                if(nextL.p1 && nextL.p2 && nextL.winner) { nextL.winner = null; nextL.s1=0; nextL.s2=0; }
-            }
-        }
-        save(); renderBrackets(); closeModal(); autoAdvanceByes();
+    function modScore(p, d) {
+        const id = p===1 ? 'sP1' : 'sP2';
+        const el = document.getElementById(id);
+        el.value = Math.max(0, parseInt(el.value)+d);
     }
 
-    function autoAdvanceByes() {
-        let changed = false;
-        tournamentData.matches.forEach(m => {
-            if (!m.winner && m.p1 && m.p2) {
-                if (m.p1 === 'BYE' || m.p2 === 'BYE') {
-                    m.s1 = m.p2 === 'BYE' ? 1 : 0; m.s2 = m.p1 === 'BYE' ? 1 : 0;
+    function saveMatch() {
+        if(!curMatch) return;
+        const s1 = parseInt(document.getElementById('sP1').value);
+        const s2 = parseInt(document.getElementById('sP2').value);
+        if(s1 === s2) return alert("No draws allowed");
+
+        curMatch.s1 = s1;
+        curMatch.s2 = s2;
+        curMatch.winner = s1 > s2 ? 1 : 2;
+
+        const wName = curMatch.winner === 1 ? curMatch.p1 : curMatch.p2;
+        const lName = curMatch.winner === 1 ? curMatch.p2 : curMatch.p1;
+
+        // Push Winner
+        if(curMatch.nextWin) {
+            const next = data.matches.find(m => m.id === curMatch.nextWin);
+            if(next) {
+                if(curMatch.nextWinSlot === 1) next.p1 = wName; else next.p2 = wName;
+                // Reset next match if it was already played
+                next.winner = null; next.s1 = 0; next.s2 = 0;
+            }
+        }
+
+        // Push Loser
+        if(curMatch.nextLose) {
+            const next = data.matches.find(m => m.id === curMatch.nextLose);
+            if(next) {
+                if(curMatch.nextLoseSlot === 1) next.p1 = lName; else next.p2 = lName;
+                next.winner = null; next.s1 = 0; next.s2 = 0;
+            }
+        }
+
+        save(); render(); closeModal(); advanceByes();
+    }
+
+    function advanceByes() {
+        let change = false;
+        data.matches.forEach(m => {
+            if(!m.winner && m.p1 && m.p2) {
+                if(m.p1 === 'BYE' || m.p2 === 'BYE') {
+                    m.s1 = m.p2 === 'BYE' ? 1 : 0;
+                    m.s2 = m.p1 === 'BYE' ? 1 : 0;
                     m.winner = m.p2 === 'BYE' ? 1 : 2;
+                    
                     const wName = m.winner === 1 ? m.p1 : m.p2;
                     const lName = "BYE";
-                    if (m.nextWin) {
-                        const nextM = tournamentData.matches.find(x => x.id === m.nextWin);
-                        if (nextM) { if (m.nextWinSlot === 1) nextM.p1 = wName; else nextM.p2 = wName; }
+
+                    if(m.nextWin) {
+                        const next = data.matches.find(x => x.id === m.nextWin);
+                        if(next) {
+                            if(m.nextWinSlot === 1) next.p1 = wName; else next.p2 = wName;
+                        }
                     }
-                    if (m.nextLose) {
-                        const nextL = tournamentData.matches.find(x => x.id === m.nextLose);
-                        if (nextL) { if (m.nextLoseSlot === 1) nextL.p1 = lName; else nextL.p2 = lName; }
+                    if(m.nextLose) {
+                        const next = data.matches.find(x => x.id === m.nextLose);
+                        if(next) {
+                            if(m.nextLoseSlot === 1) next.p1 = lName; else next.p2 = lName;
+                        }
                     }
-                    changed = true;
+                    change = true;
                 }
             }
         });
-        if(changed) { save(); renderBrackets(); autoAdvanceByes(); }
+        if(change) { save(); render(); advanceByes(); }
     }
 
-    function save() { localStorage.setItem('unifiedBracketDataV3', JSON.stringify(tournamentData)); }
+    function save() {
+        localStorage.setItem('unifiedv4', JSON.stringify(data));
+    }
+
     init();
+
 </script>
 </body>
 </html>
