@@ -797,7 +797,7 @@
         characters: {}
     };
     
-    // "data" will point to the CURRENTLY ACTIVE character object
+    // "data" points to the active character object
     let data = {}; 
 
     let consumeInspirationOnNextRoll = false;
@@ -837,23 +837,17 @@
     }
 
     function switchCharacter(id) {
-        // Save current first
         allData.characters[allData.activeId] = data; 
         saveGlobal();
-        
-        // Switch
         allData.activeId = id;
         loadActiveChar();
     }
 
     function createNewCharacter() {
-        // Save current
         allData.characters[allData.activeId] = data;
-        
         const newId = 'char_' + Date.now();
         allData.characters[newId] = getDefaultChar();
         allData.activeId = newId;
-        
         saveGlobal();
         loadActiveChar();
     }
@@ -865,9 +859,7 @@
             return;
         }
         if (!confirm("Delete this character permanently?")) return;
-        
         delete allData.characters[allData.activeId];
-        // Switch to the first available
         allData.activeId = Object.keys(allData.characters)[0];
         saveGlobal();
         loadActiveChar();
@@ -876,42 +868,34 @@
     function loadActiveChar() {
         data = allData.characters[allData.activeId];
         refreshCharSelect();
-        // Trigger full UI refresh based on `data`
         populateUI(); 
     }
 
     // --- INITIALIZATION ---
     function init() {
         const v3 = localStorage.getItem('unifiedSheetDataV3');
-        
         if (v3) {
             allData = JSON.parse(v3);
         } else {
-            // Migration Logic
             const v2 = localStorage.getItem('unifiedSheetDataV2');
             if (v2) {
                 const oldChar = JSON.parse(v2);
                 const id = 'char_imported';
                 allData = { activeId: id, characters: {} };
                 allData.characters[id] = oldChar;
-                // Ensure structure integrity for old data
                 if (!allData.characters[id].uiState) allData.characters[id].uiState = {};
             } else {
-                // Brand new user
                 const id = 'char_default';
                 allData = { activeId: id, characters: {} };
                 allData.characters[id] = getDefaultChar();
             }
             saveGlobal();
         }
-        
         loadActiveChar();
         setupDragAndDrop();
     }
 
-    // Populates UI from `data` (The current character)
     function populateUI() {
-        // Safe defaults if data is missing properties
         if (!data.meta) data.meta = {};
         if (!data.vitals) data.vitals = {};
         if (!data.uiState) data.uiState = {};
@@ -936,7 +920,6 @@
         document.getElementById('hdCurr').value = data.vitals.hdCurr;
         document.getElementById('hdMax').value = data.vitals.hdMax;
 
-        // Death Saves
         if (!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
         document.getElementById('ds-s1').checked = data.vitals.ds.s1;
         document.getElementById('ds-s2').checked = data.vitals.ds.s2;
@@ -945,7 +928,6 @@
         document.getElementById('ds-f2').checked = data.vitals.ds.f2;
         document.getElementById('ds-f3').checked = data.vitals.ds.f3;
 
-        // AC
         document.getElementById('acBase').value = data.ac.base || 10;
         document.getElementById('acDexCap').value = data.ac.dexCap || 100;
         document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
@@ -957,7 +939,6 @@
         toggleACMode(); 
         renderAcList();
 
-        // Card Order
         if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
             const container = document.querySelector('.sheet-container');
             const sortedFrag = document.createDocumentFragment();
@@ -973,7 +954,6 @@
             container.appendChild(sortedFrag);
         }
 
-        // Accordions
         const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
         accKeys.forEach(key => {
             const isClosed = data.uiState[key] === false; 
@@ -1004,9 +984,7 @@
         localStorage.setItem('unifiedSheetDataV3', JSON.stringify(allData));
     }
 
-    // Override generic save to update the active character in allData
     function save() {
-        // Sync DOM to Data
         data.meta.player = document.getElementById('playerName').value;
         data.meta.name = document.getElementById('charName').value;
         data.meta.webhook = document.getElementById('webhookUrl').value;
@@ -1030,19 +1008,17 @@
             };
         }
 
-        // Check if name changed to update select box
         const sel = document.getElementById('charSelect');
         const activeOpt = sel.querySelector(`option[value="${allData.activeId}"]`);
         if(activeOpt && activeOpt.text !== data.meta.name) {
             activeOpt.text = data.meta.name || "Unnamed";
         }
 
-        // Persist
         allData.characters[allData.activeId] = data;
         saveGlobal();
     }
 
-    // --- DICE & LOGIC (V4.5 Included) ---
+    // --- DICE & LOGIC ---
     function toggleSecret() {
         secretMode = !secretMode;
         const btn = document.getElementById('btnSecret');
@@ -1476,6 +1452,149 @@
         save(); init();
     }
 
+    // --- RENDERERS ---
+    function renderStats() {
+        document.getElementById('statsGrid').innerHTML = stats.map(s => `
+            <div class="stat-card">
+                <h3>${s.toUpperCase()}</h3>
+                <input type="number" class="score-input" value="${data.stats[s].val}" onchange="updateStat('${s}', this.value)">
+                <div class="mod-display" id="mod-${s}">+0</div>
+                <div class="save-prof" onclick="toggleSave('${s}', event)"><input type="checkbox" ${data.stats[s].save ? 'checked' : ''}> Def Prof</div>
+                <div class="defense-box"><div class="defense-val" id="def-${s}">11</div></div>
+                
+                <div class="stat-btn-row">
+                    <button class="btn-sm-roll" onclick="rollCheck('${s}')">Check</button>
+                    <button class="btn-sm-save" onclick="rollSave('${s}')">Save</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderSkills() {
+        document.getElementById('skillGrid').innerHTML = Object.keys(skillsMap).map(s => {
+            const state = data.skills[s] || 0; 
+            const icon = state === 2 ? '◈' : (state === 1 ? '◆' : '◇');
+            const cls = state === 2 ? 'exp' : (state === 1 ? 'prof' : '');
+            return `
+            <div class="skill-row">
+                <span class="prof-toggle ${cls}" onclick="cycleSkill('${s}')">${icon}</span>
+                <span class="skill-name">${s.charAt(0).toUpperCase() + s.slice(1)}</span>
+                <span style="font-weight:bold; color:#ddd;" id="skill-bonus-${s}">+0</span>
+                <button class="btn-roll-skill" onclick="rollSkill('${s}')">🎲</button>
+            </div>`;
+        }).join('');
+    }
+
+    function renderAttacks() {
+        document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => `
+            <div class="atk-row">
+                <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${atk.name}" onchange="updateAttack(${i}, 'name', this.value)">
+                <div class="atk-stats-line">
+                    <input type="text" placeholder="1d8" value="${atk.dmg}" onchange="updateAttack(${i}, 'dmg', this.value)">
+                    <select onchange="updateAttack(${i}, 'stat', this.value)">
+                        <option value="none" ${atk.stat === 'none' ? 'selected' : ''}>NONE</option>
+                        ${stats.map(s => `<option value="${s}" ${atk.stat === s ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}
+                    </select>
+                </div>
+                <textarea class="atk-desc" placeholder="Attack description / effect..." onchange="updateAttack(${i}, 'desc', this.value)">${atk.desc || ''}</textarea>
+                <div class="atk-controls">
+                    <button style="background:var(--accent); color:#000;" onclick="rollAttack(${i})">Atk</button>
+                    <button style="background:#333; color:#ccc; border:1px solid #444;" onclick="rollDamage(${i})">Dmg</button>
+                    <button style="background:transparent; color:#666; font-size:1.5rem;" onclick="delAttack(${i})">&times;</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    function renderFeatures() {
+        document.getElementById('featureList').innerHTML = data.features.map((feat, i) => `
+            <div class="atk-row">
+                <input class="atk-name-input" type="text" placeholder="Feature Name" value="${feat.name}" onchange="updateFeature(${i}, 'name', this.value)">
+                <textarea class="atk-desc" style="min-height:60px;" placeholder="Feature description..." onchange="updateFeature(${i}, 'desc', this.value)">${feat.desc || ''}</textarea>
+                <div class="atk-controls" style="grid-template-columns: 1fr auto;">
+                    <button style="background:var(--accent-feat); color:#fff;" onclick="postFeature(${i})">📢 Post to Chat</button>
+                    <button style="background:transparent; color:#666; font-size:1.5rem;" onclick="delFeature(${i})">&times;</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderSpells() {
+        const list = document.getElementById('spellSlotsList');
+        list.innerHTML = '';
+        data.spells.forEach((slot, idx) => {
+            let bubblesHtml = '';
+            for(let i=0; i<slot.max; i++) {
+                const isUsed = i < slot.used;
+                bubblesHtml += `<div class="bubble ${isUsed ? 'used' : ''}" onclick="toggleSpellSlot(${idx}, ${i})"></div>`;
+            }
+            const div = document.createElement('div');
+            div.className = 'spell-row';
+            div.innerHTML = `
+                <div class="spell-lvl">Lvl ${slot.lvl}</div>
+                <input type="number" class="spell-max" value="${slot.max}" placeholder="0" onchange="updateSpellMax(${idx}, this.value)">
+                <div class="spell-bubbles">${bubblesHtml}</div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    function renderResources() {
+        const list = document.getElementById('resourceList');
+        list.innerHTML = data.resources.map((res, i) => {
+            const display = res.display || 'none';
+            const rest = res.rest || 'none';
+            let vizHtml = '';
+            if (display === 'bar') {
+                let pct = 0; if(res.max > 0) pct = (res.curr / res.max) * 100;
+                if(pct>100) pct=100;
+                vizHtml = `<div class="res-viz-bar" onclick="setResValue(${i})"><div class="res-bar-fill" style="width:${pct}%"></div></div>`;
+            } else if (display === 'bubble') {
+                let bubbles = '';
+                for(let b=0; b<res.max; b++) {
+                    const filled = b < res.curr ? 'filled' : '';
+                    bubbles += `<div class="res-bubble-item ${filled}" onclick="toggleResBubble(${i}, ${b})"></div>`;
+                }
+                vizHtml = `<div class="res-viz-bubbles">${bubbles}</div>`;
+            }
+
+            return `
+            <div class="resource-row">
+                <div class="res-top">
+                    <input type="text" class="res-name" placeholder="Resource Name" value="${res.name}" onchange="updateRes(${i}, 'name', this.value)">
+                    <select class="res-style-select" onchange="updateRes(${i}, 'display', this.value)">
+                        <option value="none" ${display==='none'?'selected':''}>None</option>
+                        <option value="bubble" ${display==='bubble'?'selected':''}>Bubbles</option>
+                        <option value="bar" ${display==='bar'?'selected':''}>Bar</option>
+                    </select>
+                    <button class="btn-del-res" onclick="delRes(${i})">&times;</button>
+                </div>
+                <div class="res-controls-row">
+                    <button class="btn-res-mod btn-res-minus" onclick="modifyRes(${i}, -1)">-</button>
+                    <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)">
+                    <span class="res-sep">/</span>
+                    <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)">
+                    <button class="btn-res-mod btn-res-plus" onclick="modifyRes(${i}, 1)">+</button>
+                </div>
+                ${vizHtml}
+                <div class="res-bottom">
+                    <select class="res-reset-select" onchange="updateRes(${i}, 'rest', this.value)">
+                        <option value="none" ${rest==='none'?'selected':''}>Manual Reset</option>
+                        <option value="sr" ${rest==='sr'?'selected':''}>Reset: Short Rest</option>
+                        <option value="lr" ${rest==='lr'?'selected':''}>Reset: Long Rest</option>
+                    </select>
+                    <label style="display:flex; align-items:center; gap:4px; margin:0 8px; font-size:1.2rem; cursor:pointer;" title="Enable Dice Recharge">
+                        🎲 <input type="checkbox" ${res.rCheck ? 'checked' : ''} onchange="updateRes(${i}, 'rCheck', this.checked)">
+                    </label>
+                    ${res.rCheck ? `
+                        <input type="text" style="width:60px !important; height:35px; text-align:center;" placeholder="1d6" value="${res.rFormula||'1d6'}" onchange="updateRes(${i}, 'rFormula', this.value)">
+                        <button class="btn-res-roll" onclick="rollResRecharge(${i})">Recharge</button>
+                    ` : ''}
+                </div>
+            </div>
+        `}).join('');
+    }
+
     // --- DATA HELPERS ---
     function rollCheck(stat) { rollDie(20, getMod(data.stats[stat].val), stat.toUpperCase() + " Check", true, 'check'); }
     function rollSave(stat) {
@@ -1532,7 +1651,6 @@
         sendToDiscord(name, desc, "Feature", 'feature');
     }
 
-    // --- RESOURCES ---
     function addResource() { data.resources.push({ name: '', curr: 0, max: 0, rest: 'none', display: 'none', rCheck: false, rFormula: '1d6' }); save(); renderResources(); }
     function updateRes(i, field, val) { 
         if(field === 'curr' || field === 'max') val = parseInt(val) || 0;
@@ -1593,7 +1711,6 @@
         fetch(data.meta.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(err => console.error(err));
     }
     
-    // --- IO / BACKUP SYSTEM ---
     function showIoMsg(txt) { 
         const msg = document.getElementById('ioMsg'); msg.innerText = txt; setTimeout(() => msg.innerText = "", 3000); 
     }
@@ -1601,7 +1718,6 @@
     async function exportData() {
         save();
         try {
-            // Export the FULL multi-char structure
             const jsonStr = JSON.stringify(allData);
             const stream = new Blob([jsonStr]).stream();
             const compressedStream = stream.pipeThrough(new CompressionStream("gzip"));
@@ -1632,11 +1748,9 @@
             const resp = new Response(decompressedStream);
             const json = await resp.json(); 
             
-            // Check if imported data is legacy V2 (single char) or V3 (multi)
             if (json.activeId && json.characters) {
                 allData = json;
             } else {
-                // It's a legacy V2 or V1 export
                 const id = 'char_imported_' + Date.now();
                 allData = { activeId: id, characters: {} };
                 allData.characters[id] = json;
@@ -1652,8 +1766,6 @@
             try {
                  const oldJson = decodeURIComponent(atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
                  const parsed = JSON.parse(oldJson);
-                 
-                 // Same legacy check
                  if (parsed.activeId && parsed.characters) {
                      allData = parsed;
                  } else {
@@ -1661,7 +1773,6 @@
                      allData = { activeId: id, characters: {} };
                      allData.characters[id] = parsed;
                  }
-                 
                  saveGlobal(); loadActiveChar(); field.value = "";
                  showIoMsg("Restored Old Save");
             } catch(err2) {
@@ -1670,7 +1781,7 @@
         }
     }
 
-    // --- DRAG AND DROP & SWAP LOGIC ---
+    // --- DRAG AND DROP ---
     let swapSourceCard = null;
     function setupDragAndDrop() {
         const grips = document.querySelectorAll('.drag-grip');
@@ -1732,3 +1843,4 @@
 </script>
 </body>
 </html>
+
