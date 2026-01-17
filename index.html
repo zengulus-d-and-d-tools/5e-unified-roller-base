@@ -803,6 +803,27 @@
     let consumeInspirationOnNextRoll = false;
     let secretMode = false;
 
+    // --- ACCORDION LOGIC ---
+    function toggleSection(key) {
+        const head = document.getElementById('head-' + key);
+        const body = document.getElementById('body-' + key);
+        const card = document.getElementById('card-' + key);
+        
+        head.classList.toggle('collapsed');
+        body.classList.toggle('collapsed');
+        
+        const isOpen = !body.classList.contains('collapsed');
+        
+        if (isOpen) {
+            if(card) card.classList.remove('card-collapsed');
+        } else {
+            if(card) card.classList.add('card-collapsed');
+        }
+        
+        data.uiState[key] = isOpen;
+        save();
+    }
+
     // --- CHARACTER SWITCHING LOGIC ---
     function getDefaultChar() {
         let char = {
@@ -1843,4 +1864,5 @@
 </script>
 </body>
 </html>
+
 
