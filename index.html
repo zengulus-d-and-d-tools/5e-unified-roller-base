@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v4.5</title>
+    <title>Unified 5e Sheet v4.6</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -225,6 +225,19 @@
         }
         textarea { resize: vertical; font-family: inherit; }
         input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+        /* --- CHARACTER SWITCHER --- */
+        .char-switcher-row {
+            display: flex; gap: 8px; margin-bottom: 12px;
+            padding-bottom: 12px; border-bottom: 1px solid #333;
+        }
+        #charSelect { flex: 1; font-weight: bold; color: var(--accent); }
+        .btn-char-control { 
+            width: 44px; display: flex; align-items: center; justify-content: center;
+            background: #333; border: 1px solid #444; color: #ccc; border-radius: 6px; cursor: pointer;
+        }
+        .btn-char-add { color: #2ecc71; }
+        .btn-char-del { color: #e74c3c; }
 
         /* --- HP & VITALS --- */
         .hp-visual-bar {
@@ -497,6 +510,13 @@
     
 <div class="card" id="card-vitals">
     <div class="drag-grip"></div>
+    
+    <div class="char-switcher-row">
+        <select id="charSelect" onchange="switchCharacter(this.value)"></select>
+        <button class="btn-char-control btn-char-add" onclick="createNewCharacter()">+</button>
+        <button class="btn-char-control btn-char-del" onclick="deleteCharacter()">🗑️</button>
+    </div>
+
     <div class="header-grid">
         <div class="field-group">
             <label>Character Name</label>
@@ -772,23 +792,257 @@
         'stealth': 'dex', 'survival': 'wis'
     };
 
-    let data = {
-        meta: { player: '', name: '', level: 1, webhook: '', discordActive: false, init: 0, speed: '' },
-        vitals: { 
-            curr: '', max: '', temp: '', 
-            hdDie: 'd8', hdCurr: 1, hdMax: 1,
-            inspiration: 0, 
-            ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
-        },
-        ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
-        stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
-        skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
-        uiState: { cardOrder: [] }
+    let allData = { 
+        activeId: 'char_default',
+        characters: {}
     };
     
+    // "data" will point to the CURRENTLY ACTIVE character object
+    let data = {}; 
+
     let consumeInspirationOnNextRoll = false;
     let secretMode = false;
 
+    // --- CHARACTER SWITCHING LOGIC ---
+    function getDefaultChar() {
+        let char = {
+            meta: { player: '', name: 'New Character', level: 1, webhook: '', discordActive: false, init: 0, speed: '' },
+            vitals: { 
+                curr: '', max: '', temp: '', 
+                hdDie: 'd8', hdCurr: 1, hdMax: 1,
+                inspiration: 0, 
+                ds: {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false} 
+            },
+            ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
+            stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
+            skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
+            uiState: { cardOrder: [] }
+        };
+        Object.keys(skillsMap).forEach(s => char.skills[s] = 0);
+        for(let i=1; i<=9; i++) char.spells.push({ lvl: i, max: 0, used: 0 });
+        return char;
+    }
+
+    function refreshCharSelect() {
+        const sel = document.getElementById('charSelect');
+        sel.innerHTML = '';
+        Object.keys(allData.characters).forEach(key => {
+            const char = allData.characters[key];
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.text = (char.meta && char.meta.name) ? char.meta.name : "Unnamed";
+            if (key === allData.activeId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+    }
+
+    function switchCharacter(id) {
+        // Save current first
+        allData.characters[allData.activeId] = data; 
+        saveGlobal();
+        
+        // Switch
+        allData.activeId = id;
+        loadActiveChar();
+    }
+
+    function createNewCharacter() {
+        // Save current
+        allData.characters[allData.activeId] = data;
+        
+        const newId = 'char_' + Date.now();
+        allData.characters[newId] = getDefaultChar();
+        allData.activeId = newId;
+        
+        saveGlobal();
+        loadActiveChar();
+    }
+
+    function deleteCharacter() {
+        const ids = Object.keys(allData.characters);
+        if (ids.length <= 1) {
+            alert("Cannot delete the last character.");
+            return;
+        }
+        if (!confirm("Delete this character permanently?")) return;
+        
+        delete allData.characters[allData.activeId];
+        // Switch to the first available
+        allData.activeId = Object.keys(allData.characters)[0];
+        saveGlobal();
+        loadActiveChar();
+    }
+
+    function loadActiveChar() {
+        data = allData.characters[allData.activeId];
+        refreshCharSelect();
+        // Trigger full UI refresh based on `data`
+        populateUI(); 
+    }
+
+    // --- INITIALIZATION ---
+    function init() {
+        const v3 = localStorage.getItem('unifiedSheetDataV3');
+        
+        if (v3) {
+            allData = JSON.parse(v3);
+        } else {
+            // Migration Logic
+            const v2 = localStorage.getItem('unifiedSheetDataV2');
+            if (v2) {
+                const oldChar = JSON.parse(v2);
+                const id = 'char_imported';
+                allData = { activeId: id, characters: {} };
+                allData.characters[id] = oldChar;
+                // Ensure structure integrity for old data
+                if (!allData.characters[id].uiState) allData.characters[id].uiState = {};
+            } else {
+                // Brand new user
+                const id = 'char_default';
+                allData = { activeId: id, characters: {} };
+                allData.characters[id] = getDefaultChar();
+            }
+            saveGlobal();
+        }
+        
+        loadActiveChar();
+        setupDragAndDrop();
+    }
+
+    // Populates UI from `data` (The current character)
+    function populateUI() {
+        // Safe defaults if data is missing properties
+        if (!data.meta) data.meta = {};
+        if (!data.vitals) data.vitals = {};
+        if (!data.uiState) data.uiState = {};
+
+        document.getElementById('playerName').value = data.meta.player || '';
+        document.getElementById('charName').value = data.meta.name || '';
+        document.getElementById('charLevel').value = data.meta.level || 1;
+        document.getElementById('webhookUrl').value = data.meta.webhook || '';
+        document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
+        
+        document.getElementById('initBonus').value = data.meta.init || "+0";
+        document.getElementById('speedVal').value = data.meta.speed || '';
+        
+        toggleDiscord(data.meta.discordActive);
+
+        document.getElementById('hpCurr').value = data.vitals.curr || '';
+        document.getElementById('hpMax').value = data.vitals.max || '';
+        document.getElementById('hpTemp').value = data.vitals.temp || '';
+        document.getElementById('inspirationVal').value = data.vitals.inspiration || 0;
+        
+        document.getElementById('hdDie').value = data.vitals.hdDie || 'd8';
+        document.getElementById('hdCurr').value = data.vitals.hdCurr;
+        document.getElementById('hdMax').value = data.vitals.hdMax;
+
+        // Death Saves
+        if (!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
+        document.getElementById('ds-s1').checked = data.vitals.ds.s1;
+        document.getElementById('ds-s2').checked = data.vitals.ds.s2;
+        document.getElementById('ds-s3').checked = data.vitals.ds.s3;
+        document.getElementById('ds-f1').checked = data.vitals.ds.f1;
+        document.getElementById('ds-f2').checked = data.vitals.ds.f2;
+        document.getElementById('ds-f3').checked = data.vitals.ds.f3;
+
+        // AC
+        document.getElementById('acBase').value = data.ac.base || 10;
+        document.getElementById('acDexCap').value = data.ac.dexCap || 100;
+        document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
+        
+        populateStatSelects();
+        document.getElementById('acStat1').value = data.ac.customStat1 || 'dex';
+        document.getElementById('acStat2').value = data.ac.customStat2 || 'none';
+        
+        toggleACMode(); 
+        renderAcList();
+
+        // Card Order
+        if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
+            const container = document.querySelector('.sheet-container');
+            const sortedFrag = document.createDocumentFragment();
+            data.uiState.cardOrder.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) sortedFrag.appendChild(el);
+            });
+            Array.from(container.children).forEach(child => {
+                if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
+                    sortedFrag.appendChild(child);
+                }
+            });
+            container.appendChild(sortedFrag);
+        }
+
+        // Accordions
+        const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
+        accKeys.forEach(key => {
+            const isClosed = data.uiState[key] === false; 
+            const card = document.getElementById('card-' + key);
+            if (isClosed) {
+                document.getElementById('head-'+key).classList.add('collapsed');
+                document.getElementById('body-'+key).classList.add('collapsed');
+                if (card) card.classList.add('card-collapsed');
+            } else {
+                if (card) card.classList.remove('card-collapsed');
+                document.getElementById('head-'+key).classList.remove('collapsed');
+                document.getElementById('body-'+key).classList.remove('collapsed');
+            }
+        });
+
+        updateHP(); 
+        renderStats();
+        renderSkills();
+        renderAttacks();
+        renderFeatures();
+        renderSpells();
+        renderResources();
+        updateAll();
+        setMode(data.rollMode || 'norm');
+    }
+
+    function saveGlobal() {
+        localStorage.setItem('unifiedSheetDataV3', JSON.stringify(allData));
+    }
+
+    // Override generic save to update the active character in allData
+    function save() {
+        // Sync DOM to Data
+        data.meta.player = document.getElementById('playerName').value;
+        data.meta.name = document.getElementById('charName').value;
+        data.meta.webhook = document.getElementById('webhookUrl').value;
+        data.vitals.curr = document.getElementById('hpCurr').value;
+        data.vitals.max = document.getElementById('hpMax').value;
+        data.vitals.temp = document.getElementById('hpTemp').value;
+        data.vitals.inspiration = parseInt(document.getElementById('inspirationVal').value) || 0;
+        data.meta.speed = document.getElementById('speedVal').value;
+        data.vitals.hdDie = document.getElementById('hdDie').value;
+        data.vitals.hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
+        data.vitals.hdMax = parseInt(document.getElementById('hdMax').value) || 0;
+
+        if(document.getElementById('ds-s1')) {
+            data.vitals.ds = {
+                s1: document.getElementById('ds-s1').checked,
+                s2: document.getElementById('ds-s2').checked,
+                s3: document.getElementById('ds-s3').checked,
+                f1: document.getElementById('ds-f1').checked,
+                f2: document.getElementById('ds-f2').checked,
+                f3: document.getElementById('ds-f3').checked,
+            };
+        }
+
+        // Check if name changed to update select box
+        const sel = document.getElementById('charSelect');
+        const activeOpt = sel.querySelector(`option[value="${allData.activeId}"]`);
+        if(activeOpt && activeOpt.text !== data.meta.name) {
+            activeOpt.text = data.meta.name || "Unnamed";
+        }
+
+        // Persist
+        allData.characters[allData.activeId] = data;
+        saveGlobal();
+    }
+
+    // --- DICE & LOGIC (V4.5 Included) ---
     function toggleSecret() {
         secretMode = !secretMode;
         const btn = document.getElementById('btnSecret');
@@ -801,24 +1055,15 @@
         }
     }
 
-    // --- CORE DICE ENGINE (UPDATED v4.5) ---
     function parseRollModifiers(str) {
         let mods = { r: 0, dl: 0, kh: 0 };
         if (!str) return mods;
-        
-        // Reroll: r1, r2, etc.
         const rMatch = str.match(/r(\d+)/);
         if (rMatch) mods.r = parseInt(rMatch[1]);
-        
-        // Drop Lowest: dl1 OR d1
-        // regex matches 'd' followed optionally by 'l', then digits
         const dlMatch = str.match(/d[l]?(\d+)/); 
         if (dlMatch) mods.dl = parseInt(dlMatch[1]);
-        
-        // Keep Highest: kh3 OR k3
         const khMatch = str.match(/k[h]?(\d+)/);
         if (khMatch) mods.kh = parseInt(khMatch[1]);
-        
         return mods;
     }
 
@@ -847,8 +1092,6 @@
             let rollObjs = [];
             for(let i=0; i<count; i++) {
                 let r = Math.floor(Math.random() * sides) + 1;
-                
-                // Reroll Logic (Recursive)
                 if (mods.r > 0) {
                     let safety = 0;
                     while (r <= mods.r && safety < 50) {
@@ -859,16 +1102,13 @@
                 rollObjs.push({ val: r, dropped: false, originalIdx: i });
             }
 
-            // Drop/Keep Logic
             if (mods.dl > 0 || mods.kh > 0) {
                 let sorted = [...rollObjs].sort((a,b) => a.val - b.val);
-                
                 let dropCount = mods.dl;
                 if (mods.kh > 0) {
                     let calculatedDrop = count - mods.kh;
                     if (calculatedDrop > dropCount) dropCount = calculatedDrop;
                 }
-                
                 for(let i=0; i<dropCount; i++) {
                     if (sorted[i]) sorted[i].dropped = true;
                 }
@@ -889,42 +1129,32 @@
         return { total, rolls: rolls, formula, isCrit, isFail };
     }
 
-    // --- COMPLEX FORMULA PARSER (UPDATED v4.5) ---
     function parseComplexBonus(str) {
         if (!str) return { total: 0, text: '' };
         let total = 0;
         let parts = [];
-        
-        // v4.5 Regex: Allows optional space before modifiers, captures loose modifiers
         const diceRegex = /([+-]?)\s*(\d+)d(\d+)\s*([a-z0-9]*)/gi;
-        
         let match;
-        // Iterate matches manually to handle multiple dice expressions
         let diceMatches = [];
-        while ((match = diceRegex.exec(str)) !== null) {
-            diceMatches.push(match);
-        }
+        while ((match = diceRegex.exec(str)) !== null) { diceMatches.push(match); }
 
         diceMatches.forEach(m => {
              const sign = (m[1].trim() === '-') ? -1 : 1;
              const count = parseInt(m[2]);
              const sides = parseInt(m[3]);
-             const modStr = m[4] || ""; // e.g., "r1d1"
+             const modStr = m[4] || ""; 
              
              const mods = parseRollModifiers(modStr);
              const res = coreRoll(count, sides, 'norm', mods);
              
              total += (res.total * sign);
              const signStr = sign === -1 ? '-' : '+';
-             
              let form = res.formula; 
-             if (modStr) form += `${modStr}`; // Show mods in log
+             if (modStr) form += `${modStr}`; 
              parts.push(`${signStr}${form}`);
         });
 
-        // Remove dice from string to find remaining static bonuses
         let cleanStr = str.replace(diceRegex, '');
-        
         const staticRegex = /([+-]?)\s*(\d+)/gi;
         while ((match = staticRegex.exec(cleanStr)) !== null) {
              const sign = (match[1].trim() === '-') ? -1 : 1;
@@ -934,436 +1164,6 @@
         }
 
         return { total, text: parts.join(' ') };
-    }
-
-    // --- INITIALIZATION ---
-    function init() {
-        const saved = localStorage.getItem('unifiedSheetDataV2'); 
-        let defaultSpells = [];
-        for(let i=1; i<=9; i++) defaultSpells.push({ lvl: i, max: 0, used: 0 });
-
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            data = { ...data, ...parsed };
-            if(parsed.meta) data.meta = {...data.meta, ...parsed.meta};
-            if(parsed.vitals) data.vitals = {...data.vitals, ...parsed.vitals};
-            if(!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
-            if(parsed.stats) data.stats = {...data.stats, ...parsed.stats};
-            
-            if (!data.ac || !data.ac.bonuses) {
-                const oldAc = data.ac || {};
-                data.ac = { 
-                    mode: oldAc.mode || 'std', 
-                    base: 10, 
-                    dexCap: oldAc.dexCap || '100', 
-                    customStat1: oldAc.customStat1 || 'dex', 
-                    customStat2: oldAc.customStat2 || 'none',
-                    bonuses: [] 
-                };
-                if(oldAc.bonus) data.ac.bonuses.push({ id: Date.now(), name: "Misc", val: oldAc.bonus, active: true });
-                if(oldAc.customBonus) data.ac.bonuses.push({ id: Date.now()+1, name: "Custom Misc", val: oldAc.customBonus, active: true });
-            }
-            
-            if(!data.spells || data.spells.length === 0) data.spells = defaultSpells;
-            if(!data.resources) data.resources = []; 
-            if(!data.features) data.features = [];
-            if(!data.uiState) data.uiState = {};
-
-            if (data.vitals.hdCurr === undefined) data.vitals.hdCurr = data.meta.level || 1;
-            if (data.vitals.hdMax === undefined) data.vitals.hdMax = data.meta.level || 1;
-            if (data.vitals.hdDie === undefined) data.vitals.hdDie = parsed.vitals.hitDice || 'd8';
-
-        } else {
-            Object.keys(skillsMap).forEach(s => data.skills[s] = 0);
-            data.spells = defaultSpells;
-        }
-
-        document.getElementById('playerName').value = data.meta.player || '';
-        document.getElementById('charName').value = data.meta.name || '';
-        document.getElementById('charLevel').value = data.meta.level || 1;
-        document.getElementById('webhookUrl').value = data.meta.webhook || '';
-        document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
-        
-        document.getElementById('initBonus').value = data.meta.init || "+0";
-        document.getElementById('speedVal').value = data.meta.speed;
-        
-        toggleDiscord(data.meta.discordActive);
-
-        document.getElementById('hpCurr').value = data.vitals.curr || '';
-        document.getElementById('hpMax').value = data.vitals.max || '';
-        document.getElementById('hpTemp').value = data.vitals.temp || '';
-        document.getElementById('inspirationVal').value = data.vitals.inspiration || 0;
-        
-        document.getElementById('hdDie').value = data.vitals.hdDie || 'd8';
-        document.getElementById('hdCurr').value = data.vitals.hdCurr;
-        document.getElementById('hdMax').value = data.vitals.hdMax;
-
-        document.getElementById('ds-s1').checked = data.vitals.ds.s1;
-        document.getElementById('ds-s2').checked = data.vitals.ds.s2;
-        document.getElementById('ds-s3').checked = data.vitals.ds.s3;
-        document.getElementById('ds-f1').checked = data.vitals.ds.f1;
-        document.getElementById('ds-f2').checked = data.vitals.ds.f2;
-        document.getElementById('ds-f3').checked = data.vitals.ds.f3;
-
-        document.getElementById('acBase').value = data.ac.base || 10;
-        document.getElementById('acDexCap').value = data.ac.dexCap || 100;
-        document.getElementById('acCustomToggle').checked = (data.ac.mode === 'custom');
-        
-        populateStatSelects();
-        document.getElementById('acStat1').value = data.ac.customStat1 || 'dex';
-        document.getElementById('acStat2').value = data.ac.customStat2 || 'none';
-        
-        toggleACMode(); 
-        renderAcList();
-
-        // --- RESTORE CARD ORDER ---
-        if (data.uiState.cardOrder && data.uiState.cardOrder.length > 0) {
-            const container = document.querySelector('.sheet-container');
-            const sortedFrag = document.createDocumentFragment();
-            data.uiState.cardOrder.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) sortedFrag.appendChild(el);
-            });
-            Array.from(container.children).forEach(child => {
-                if (child.classList.contains('card') && !data.uiState.cardOrder.includes(child.id)) {
-                    sortedFrag.appendChild(child);
-                }
-            });
-            container.appendChild(sortedFrag);
-        }
-
-        // ACCORDIONS
-        const accKeys = ['combat', 'attr', 'atk', 'feats', 'spells', 'skills', 'roller', 'io'];
-        accKeys.forEach(key => {
-            const isClosed = data.uiState[key] === false; 
-            const card = document.getElementById('card-' + key);
-            if (isClosed) {
-                document.getElementById('head-'+key).classList.add('collapsed');
-                document.getElementById('body-'+key).classList.add('collapsed');
-                if (card) card.classList.add('card-collapsed');
-            } else {
-                if (card) card.classList.remove('card-collapsed');
-            }
-        });
-
-        updateHP(); 
-        renderStats();
-        renderSkills();
-        renderAttacks();
-        renderFeatures();
-        renderSpells();
-        renderResources();
-        updateAll();
-        setMode(data.rollMode || 'norm');
-        
-        setupDragAndDrop();
-    }
-
-    // --- DRAG AND DROP & SWAP LOGIC ---
-    let swapSourceCard = null;
-
-    function setupDragAndDrop() {
-        const grips = document.querySelectorAll('.drag-grip');
-        let draggedCard = null;
-        let initialY = 0;
-        let initialRect = null;
-        let placeholder = null;
-
-        grips.forEach(grip => {
-            grip.addEventListener('dblclick', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSwapInteraction(grip.closest('.card'));
-            });
-
-            grip.addEventListener('pointerdown', (e) => {
-                if (e.button !== 0 && e.pointerType === 'mouse') return;
-                
-                const card = grip.parentElement;
-                draggedCard = card;
-                
-                placeholder = document.createElement('div');
-                placeholder.className = 'card placeholder';
-                placeholder.style.height = card.offsetHeight + 'px';
-                placeholder.style.background = 'transparent';
-                placeholder.style.border = '2px dashed #333';
-                
-                initialRect = card.getBoundingClientRect();
-                initialY = e.clientY;
-                
-                card.style.width = initialRect.width + 'px';
-                card.classList.add('dragging');
-                card.parentNode.insertBefore(placeholder, card);
-                
-                card.style.position = 'fixed';
-                card.style.top = initialRect.top + 'px';
-                card.style.left = initialRect.left + 'px';
-                
-                grip.setPointerCapture(e.pointerId);
-                
-                grip.addEventListener('pointermove', onPointerMove);
-                grip.addEventListener('pointerup', onPointerUp);
-                grip.addEventListener('pointercancel', onPointerUp);
-            });
-
-            function onPointerMove(e) {
-                if (!draggedCard) return;
-                e.preventDefault();
-                const dy = e.clientY - initialY;
-                draggedCard.style.transform = `translateY(${dy}px)`;
-                
-                const container = document.querySelector('.sheet-container');
-                const siblings = [...container.querySelectorAll('.card:not(.dragging)')];
-                const nextSibling = siblings.find(sibling => {
-                    const rect = sibling.getBoundingClientRect();
-                    const midY = rect.top + rect.height / 2;
-                    return e.clientY < midY;
-                });
-                container.insertBefore(placeholder, nextSibling);
-            }
-
-            function onPointerUp(e) {
-                if (!draggedCard) return;
-                grip.removeEventListener('pointermove', onPointerMove);
-                grip.removeEventListener('pointerup', onPointerUp);
-                grip.removeEventListener('pointercancel', onPointerUp);
-                grip.releasePointerCapture(e.pointerId);
-                
-                draggedCard.classList.remove('dragging');
-                draggedCard.style.position = '';
-                draggedCard.style.top = '';
-                draggedCard.style.left = '';
-                draggedCard.style.width = '';
-                draggedCard.style.transform = '';
-                
-                if (placeholder && placeholder.parentNode) {
-                    placeholder.parentNode.insertBefore(draggedCard, placeholder);
-                    placeholder.remove();
-                }
-                
-                draggedCard = null;
-                placeholder = null;
-                saveCardOrder();
-            }
-        });
-    }
-
-    function handleSwapInteraction(card) {
-        if (swapSourceCard === null) {
-            swapSourceCard = card;
-            card.classList.add('swap-active');
-            showLog("Swap Mode", "Select Another");
-        } else if (swapSourceCard === card) {
-            swapSourceCard.classList.remove('swap-active');
-            swapSourceCard = null;
-            showLog("Swap Mode", "Cancelled");
-        } else {
-            const container = document.querySelector('.sheet-container');
-            const placeholderA = document.createElement('div');
-            const placeholderB = document.createElement('div');
-
-            container.insertBefore(placeholderA, swapSourceCard);
-            container.insertBefore(placeholderB, card);
-
-            container.insertBefore(swapSourceCard, placeholderB);
-            container.insertBefore(card, placeholderA);
-
-            placeholderA.remove();
-            placeholderB.remove();
-
-            swapSourceCard.classList.remove('swap-active');
-            swapSourceCard = null;
-            saveCardOrder();
-            showLog("Layout", "Swapped");
-        }
-    }
-
-    function saveCardOrder() {
-        const container = document.querySelector('.sheet-container');
-        const order = Array.from(container.children)
-            .filter(c => c.id && c.classList.contains('card'))
-            .map(c => c.id);
-        data.uiState.cardOrder = order;
-        save();
-    }
-
-    // --- ACCORDION LOGIC ---
-    function toggleSection(key, event) {
-        const head = document.getElementById('head-' + key);
-        const body = document.getElementById('body-' + key);
-        const card = document.getElementById('card-' + key);
-        
-        head.classList.toggle('collapsed');
-        body.classList.toggle('collapsed');
-        
-        const isOpen = !body.classList.contains('collapsed');
-        
-        if (isOpen) {
-            if(card) card.classList.remove('card-collapsed');
-        } else {
-            if(card) card.classList.add('card-collapsed');
-        }
-        
-        data.uiState[key] = isOpen;
-        save();
-    }
-    
-    // --- RENDERERS ---
-    function renderStats() {
-        document.getElementById('statsGrid').innerHTML = stats.map(s => `
-            <div class="stat-card">
-                <h3>${s.toUpperCase()}</h3>
-                <input type="number" class="score-input" value="${data.stats[s].val}" onchange="updateStat('${s}', this.value)">
-                <div class="mod-display" id="mod-${s}">+0</div>
-                <div class="save-prof" onclick="toggleSave('${s}', event)"><input type="checkbox" ${data.stats[s].save ? 'checked' : ''}> Def Prof</div>
-                <div class="defense-box"><div class="defense-val" id="def-${s}">11</div></div>
-                
-                <div class="stat-btn-row">
-                    <button class="btn-sm-roll" onclick="rollCheck('${s}')">Check</button>
-                    <button class="btn-sm-save" onclick="rollSave('${s}')">Save</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function renderSkills() {
-        document.getElementById('skillGrid').innerHTML = Object.keys(skillsMap).map(s => {
-            const state = data.skills[s] || 0; 
-            const icon = state === 2 ? '◈' : (state === 1 ? '◆' : '◇');
-            const cls = state === 2 ? 'exp' : (state === 1 ? 'prof' : '');
-            return `
-            <div class="skill-row">
-                <span class="prof-toggle ${cls}" onclick="cycleSkill('${s}')">${icon}</span>
-                <span class="skill-name">${s.charAt(0).toUpperCase() + s.slice(1)}</span>
-                <span style="font-weight:bold; color:#ddd;" id="skill-bonus-${s}">+0</span>
-                <button class="btn-roll-skill" onclick="rollSkill('${s}')">🎲</button>
-            </div>`;
-        }).join('');
-    }
-
-    function renderAttacks() {
-        document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => `
-            <div class="atk-row">
-                <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${atk.name}" onchange="updateAttack(${i}, 'name', this.value)">
-                
-                <div class="atk-stats-line">
-                    <input type="text" placeholder="1d8" value="${atk.dmg}" onchange="updateAttack(${i}, 'dmg', this.value)">
-                    <select onchange="updateAttack(${i}, 'stat', this.value)">
-                        <option value="none" ${atk.stat === 'none' ? 'selected' : ''}>NONE</option>
-                        ${stats.map(s => `<option value="${s}" ${atk.stat === s ? 'selected' : ''}>${s.toUpperCase()}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <textarea class="atk-desc" placeholder="Attack description / effect..." onchange="updateAttack(${i}, 'desc', this.value)">${atk.desc || ''}</textarea>
-                
-                <div class="atk-controls">
-                    <button style="background:var(--accent); color:#000;" onclick="rollAttack(${i})">Atk</button>
-                    <button style="background:#333; color:#ccc; border:1px solid #444;" onclick="rollDamage(${i})">Dmg</button>
-                    <button style="background:transparent; color:#666; font-size:1.5rem;" onclick="delAttack(${i})">&times;</button>
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    function renderFeatures() {
-        document.getElementById('featureList').innerHTML = data.features.map((feat, i) => `
-            <div class="atk-row">
-                <input class="atk-name-input" type="text" placeholder="Feature Name" value="${feat.name}" onchange="updateFeature(${i}, 'name', this.value)">
-                <textarea class="atk-desc" style="min-height:60px;" placeholder="Feature description..." onchange="updateFeature(${i}, 'desc', this.value)">${feat.desc || ''}</textarea>
-                
-                <div class="atk-controls" style="grid-template-columns: 1fr auto;">
-                    <button style="background:var(--accent-feat); color:#fff;" onclick="postFeature(${i})">📢 Post to Chat</button>
-                    <button style="background:transparent; color:#666; font-size:1.5rem;" onclick="delFeature(${i})">&times;</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    function renderSpells() {
-        const list = document.getElementById('spellSlotsList');
-        list.innerHTML = '';
-        data.spells.forEach((slot, idx) => {
-            let bubblesHtml = '';
-            for(let i=0; i<slot.max; i++) {
-                const isUsed = i < slot.used;
-                bubblesHtml += `<div class="bubble ${isUsed ? 'used' : ''}" onclick="toggleSpellSlot(${idx}, ${i})"></div>`;
-            }
-            
-            const div = document.createElement('div');
-            div.className = 'spell-row';
-            div.innerHTML = `
-                <div class="spell-lvl">Lvl ${slot.lvl}</div>
-                <input type="number" class="spell-max" value="${slot.max}" placeholder="0" onchange="updateSpellMax(${idx}, this.value)">
-                <div class="spell-bubbles">${bubblesHtml}</div>
-            `;
-            list.appendChild(div);
-        });
-    }
-
-    function renderResources() {
-        const list = document.getElementById('resourceList');
-        list.innerHTML = data.resources.map((res, i) => {
-            const display = res.display || 'none';
-            const rest = res.rest || 'none';
-            
-            let vizHtml = '';
-            if (display === 'bar') {
-                let pct = 0; if(res.max > 0) pct = (res.curr / res.max) * 100;
-                if(pct>100) pct=100;
-                vizHtml = `
-                    <div class="res-viz-bar" onclick="setResValue(${i})">
-                        <div class="res-bar-fill" style="width:${pct}%"></div>
-                    </div>
-                `;
-            } else if (display === 'bubble') {
-                let bubbles = '';
-                for(let b=0; b<res.max; b++) {
-                    const filled = b < res.curr ? 'filled' : '';
-                    bubbles += `<div class="res-bubble-item ${filled}" onclick="toggleResBubble(${i}, ${b})"></div>`;
-                }
-                vizHtml = `<div class="res-viz-bubbles">${bubbles}</div>`;
-            }
-
-            return `
-            <div class="resource-row">
-                <div class="res-top">
-                    <input type="text" class="res-name" placeholder="Resource Name" value="${res.name}" onchange="updateRes(${i}, 'name', this.value)">
-                    <select class="res-style-select" onchange="updateRes(${i}, 'display', this.value)">
-                        <option value="none" ${display==='none'?'selected':''}>None</option>
-                        <option value="bubble" ${display==='bubble'?'selected':''}>Bubbles</option>
-                        <option value="bar" ${display==='bar'?'selected':''}>Bar</option>
-                    </select>
-                    <button class="btn-del-res" onclick="delRes(${i})">&times;</button>
-                </div>
-                
-                <div class="res-controls-row">
-                    <button class="btn-res-mod btn-res-minus" onclick="modifyRes(${i}, -1)">-</button>
-                    <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)">
-                    <span class="res-sep">/</span>
-                    <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)">
-                    <button class="btn-res-mod btn-res-plus" onclick="modifyRes(${i}, 1)">+</button>
-                </div>
-
-                ${vizHtml}
-
-                <div class="res-bottom">
-                    <select class="res-reset-select" onchange="updateRes(${i}, 'rest', this.value)">
-                        <option value="none" ${rest==='none'?'selected':''}>Manual Reset</option>
-                        <option value="sr" ${rest==='sr'?'selected':''}>Reset: Short Rest</option>
-                        <option value="lr" ${rest==='lr'?'selected':''}>Reset: Long Rest</option>
-                    </select>
-                    
-                    <label style="display:flex; align-items:center; gap:4px; margin:0 8px; font-size:1.2rem; cursor:pointer;" title="Enable Dice Recharge">
-                        🎲 <input type="checkbox" ${res.rCheck ? 'checked' : ''} onchange="updateRes(${i}, 'rCheck', this.checked)">
-                    </label>
-
-                    ${res.rCheck ? `
-                        <input type="text" style="width:60px !important; height:35px; text-align:center;" placeholder="1d6" value="${res.rFormula||'1d6'}" onchange="updateRes(${i}, 'rFormula', this.value)">
-                        <button class="btn-res-roll" onclick="rollResRecharge(${i})">Recharge</button>
-                    ` : ''}
-                </div>
-            </div>
-        `}).join('');
     }
 
     // --- CALCULATION LOGIC ---
@@ -1386,12 +1186,10 @@
             const bonus = mod + (profLevel * pb);
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
-        
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
         statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
         document.getElementById('globalDC').innerText = 8 + pb + maxMod;
-
         updateAC();
     }
 
@@ -1408,12 +1206,9 @@
     function toggleACMode() {
         const isCustom = document.getElementById('acCustomToggle').checked;
         data.ac.mode = isCustom ? 'custom' : 'std';
-        
         document.getElementById('acStdControls').style.display = isCustom ? 'none' : 'grid';
         document.getElementById('acCustomControls').style.display = isCustom ? 'grid' : 'none';
-        
-        save();
-        updateAC();
+        save(); updateAC();
     }
 
     function updateAC() {
@@ -1423,12 +1218,9 @@
         data.ac.customStat2 = document.getElementById('acStat2').value;
 
         let bonusTotal = 0;
-        data.ac.bonuses.forEach(b => {
-            if (b.active) bonusTotal += (parseInt(b.val) || 0);
-        });
+        data.ac.bonuses.forEach(b => { if (b.active) bonusTotal += (parseInt(b.val) || 0); });
 
         let total = 0;
-
         if (data.ac.mode === 'std') {
             const rawDex = getMod(data.stats.dex.val);
             let effectiveDex = rawDex;
@@ -1438,14 +1230,12 @@
             }
             document.getElementById('acDexModDisp').innerText = (effectiveDex >= 0 ? "+" : "") + effectiveDex;
             total = data.ac.base + effectiveDex + bonusTotal;
-
         } else {
             const m1 = getMod(data.stats[data.ac.customStat1].val);
             let m2 = 0;
             if (data.ac.customStat2 !== 'none') { m2 = getMod(data.stats[data.ac.customStat2].val); }
             total = 10 + m1 + m2 + bonusTotal;
         }
-
         document.getElementById('acTotalDisplay').innerText = total;
         save();
     }
@@ -1454,17 +1244,13 @@
         const list = document.getElementById('acBonusList');
         list.innerHTML = data.ac.bonuses.map((b, i) => `
             <div class="ac-row ${b.active ? '' : 'inactive'}">
-                <label class="toggle-switch">
-                    <input type="checkbox" ${b.active ? 'checked' : ''} onchange="toggleAcBonus(${i})">
-                    <span class="slider"></span>
-                </label>
+                <label class="toggle-switch"><input type="checkbox" ${b.active ? 'checked' : ''} onchange="toggleAcBonus(${i})"><span class="slider"></span></label>
                 <input type="text" value="${b.name}" placeholder="Source (Shield)" onchange="updateAcBonus(${i}, 'name', this.value)">
                 <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" onchange="updateAcBonus(${i}, 'val', this.value)">
                 <button class="btn-del" style="margin-left:auto;" onclick="delAcBonus(${i})">&times;</button>
             </div>
         `).join('');
     }
-
     function addAcBonus() { data.ac.bonuses.push({ id: Date.now(), name: '', val: 1, active: true }); renderAcList(); updateAC(); }
     function toggleAcBonus(i) { data.ac.bonuses[i].active = !data.ac.bonuses[i].active; renderAcList(); updateAC(); }
     function updateAcBonus(i, field, val) { data.ac.bonuses[i][field] = val; updateAC(); }
@@ -1476,12 +1262,9 @@
         const max = parseInt(document.getElementById('hpMax').value) || 0;
         const temp = parseInt(document.getElementById('hpTemp').value) || 0;
         
-        let currPct = 0;
-        if(max > 0) currPct = (curr / max) * 100;
+        let currPct = 0; if(max > 0) currPct = (curr / max) * 100;
         if(currPct > 100) currPct = 100; if(currPct < 0) currPct = 0;
-        
-        let tempPct = 0;
-        if(max > 0) tempPct = (temp / max) * 100;
+        let tempPct = 0; if(max > 0) tempPct = (temp / max) * 100;
         if(tempPct > 100) tempPct = 100;
         
         document.getElementById('barCurr').style.width = currPct + "%";
@@ -1489,22 +1272,14 @@
         document.getElementById('barText').innerText = `${curr} / ${max}` + (temp > 0 ? ` (+${temp})` : "");
         
         const dsRow = document.getElementById('deathSaveRow');
-        if (curr <= 0 && max > 0) dsRow.style.display = 'grid';
-        else dsRow.style.display = 'none';
-
+        if (curr <= 0 && max > 0) dsRow.style.display = 'grid'; else dsRow.style.display = 'none';
         save();
     }
 
     function modifyHP(isDamage, fixedAmt = null) {
         const interactInput = document.getElementById('hpInteractVal');
         let amt = 0;
-        
-        if (fixedAmt !== null) {
-            amt = fixedAmt;
-        } else {
-            amt = parseInt(interactInput.value) || 0;
-        }
-        
+        if (fixedAmt !== null) amt = fixedAmt; else amt = parseInt(interactInput.value) || 0;
         if (amt <= 0) return;
 
         let curr = parseInt(document.getElementById('hpCurr').value) || 0;
@@ -1513,26 +1288,23 @@
 
         if (isDamage) {
             if (temp > 0) {
-                if (amt >= temp) { amt -= temp; temp = 0; } 
-                else { temp -= amt; amt = 0; }
+                if (amt >= temp) { amt -= temp; temp = 0; } else { temp -= amt; amt = 0; }
             }
             curr = Math.max(0, curr - amt);
         } else {
             curr += amt;
             if (max > 0 && curr > max) curr = max;
         }
-
         document.getElementById('hpTemp').value = temp;
         document.getElementById('hpCurr').value = curr;
         if (fixedAmt === null) interactInput.value = ''; 
         updateHP();
     }
 
-    // --- REST SYSTEM ---
+    // --- ROLLING / INSPIRATION / REST ---
     function rollHitDie() {
         let currHD = parseInt(document.getElementById('hdCurr').value) || 0;
         const maxHD = parseInt(document.getElementById('hdMax').value) || 0;
-        
         if (currHD <= 0) { alert("No Hit Dice remaining!"); return; }
 
         const dieStr = document.getElementById('hdDie').value || "d8";
@@ -1554,9 +1326,7 @@
         document.getElementById('hpCurr').value = hpCurr;
         document.getElementById('hdCurr').value = currHD;
         
-        updateHP(); 
-        save();
-
+        updateHP(); save();
         const formula = `[${rollVal}] ${conMod>=0?'+':''}${conMod} (Con)`;
         showLog(formula, total);
         sendToDiscord("Short Rest", `Used 1${dieStr}. Formula: ${formula}`, `**Healed ${hpCurr - oldHp} HP**`, 'check');
@@ -1570,23 +1340,18 @@
 
     function longRest() {
         if(!confirm("LONG REST\n\n- Reset HP to Max\n- Reset Spell Slots\n- Regain ½ Max Hit Dice\n- Reset Death Saves\n- Reset SR/LR Counters")) return;
-        
         document.getElementById('hpCurr').value = document.getElementById('hpMax').value;
         document.getElementById('hpTemp').value = 0;
         data.spells.forEach(s => s.used = 0);
-        
         let hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
         const hdMax = parseInt(document.getElementById('hdMax').value) || 0;
         hdCurr = Math.min(hdMax, hdCurr + Math.max(1, Math.floor(hdMax / 2)));
         document.getElementById('hdCurr').value = hdCurr;
-
         data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
         data.resources.forEach(r => { if(r.rest === 'sr' || r.rest === 'lr') r.curr = r.max; });
-
         save(); init(); showLog("Long Rest", "Completed");
     }
 
-    // --- INSPIRATION ---
     function useInspiration() {
         let val = parseInt(document.getElementById('inspirationVal').value) || 0;
         if(val <= 0) { showLog("No Insp!", "0"); return; }
@@ -1599,7 +1364,6 @@
         document.getElementById('rollerBar').classList.add('insp-active');
         showLog("Inspiration!", "Active");
     }
-    
     function consumeInspiration() {
         if(consumeInspirationOnNextRoll) { 
             consumeInspirationOnNextRoll = false; 
@@ -1607,7 +1371,6 @@
             document.getElementById('rollerBar').classList.remove('insp-active');
         }
     }
-
     function setMode(mode) {
         data.rollMode = mode;
         save(); 
@@ -1615,32 +1378,21 @@
         document.querySelector(`.adv-btn[data-mode="${mode}"]`).classList.add('active');
     }
 
-    // --- ROLLING WRAPPERS ---
     function showLog(formula, result, isCrit = false, isFail = false) {
         const logArea = document.getElementById('logArea');
         let resClass = 'log-result';
         if(isCrit) resClass += ' crit-text';
         if(isFail) resClass += ' fail-text';
-        
-        logArea.innerHTML = `
-            <div class="log-formula">${formula}</div>
-            <div class="${resClass}">${result}</div>
-        `;
+        logArea.innerHTML = `<div class="log-formula">${formula}</div><div class="${resClass}">${result}</div>`;
     }
 
     function rollDie(sides, bonus, label, allowAdvantage = true, type = 'check', customDesc = '') {
         const miscStr = document.getElementById('globalMisc').value.trim();
         const parsedMisc = parseComplexBonus(miscStr);
-        
         let effectiveMode = data.rollMode;
         let consumedInsp = false;
         
-        if(allowAdvantage && consumeInspirationOnNextRoll) {
-            effectiveMode = 'adv';
-            consumedInsp = true;
-        }
-
-        // Use Core Roller
+        if(allowAdvantage && consumeInspirationOnNextRoll) { effectiveMode = 'adv'; consumedInsp = true; }
         const result = coreRoll(1, sides, allowAdvantage ? effectiveMode : 'norm');
         const total = result.total + bonus + parsedMisc.total;
         
@@ -1651,18 +1403,14 @@
 
         showLog(formulaText, total, result.isCrit, result.isFail);
         sendToDiscord(label + (effectiveMode!=='norm' && allowAdvantage ? ` (${effectiveMode.toUpperCase()})` : ''), `Dice: ${formulaText}`, `**${total}**`, type, customDesc);
-        
         if(consumedInsp) consumeInspiration();
     }
 
     function rollCustom() {
         const formula = document.getElementById('customFormula').value.trim();
         const label = document.getElementById('customLabel').value.trim() || 'Custom Roll';
-        
         const parsed = parseComplexBonus(formula);
-        
         if(parsed.text === '') { showLog("Error", "Invalid"); return; }
-
         showLog(parsed.text, parsed.total);
         sendToDiscord(label + ": " + formula, `Dice: ${parsed.text}`, `**${parsed.total}**`, 'dmg');
     }
@@ -1671,20 +1419,13 @@
         const atk = data.attacks[idx];
         let mod = 0;
         if (atk.stat !== 'none') { mod = getMod(data.stats[atk.stat].val); }
-        
         const miscStr = document.getElementById('globalMisc').value.trim();
         const dmgStr = (atk.dmg || "") + " " + miscStr;
-        
         const parsed = parseComplexBonus(dmgStr);
         if(parsed.text === '') return;
-
         let total = parsed.total + mod;
         let formulaText = parsed.text;
-        
-        if (mod !== 0) {
-            formulaText += ` ${mod>=0?'+':''}${mod} (${atk.stat.toUpperCase()})`;
-        }
-
+        if (mod !== 0) { formulaText += ` ${mod>=0?'+':''}${mod} (${atk.stat.toUpperCase()})`; }
         showLog(formulaText, total);
         sendToDiscord((atk.name || 'Weapon') + " Damage", `Dice: ${formulaText}`, `**${total}**`, 'dmg', atk.desc);
     }
@@ -1692,14 +1433,11 @@
     function rollInitiative() {
         const initStr = document.getElementById('initBonus').value.trim();
         const miscStr = document.getElementById('globalMisc').value.trim();
-        
-        data.meta.init = initStr;
-        save();
+        data.meta.init = initStr; save();
 
         const dexMod = getMod(data.stats.dex.val);
         const parsedInit = parseComplexBonus(initStr);
         const parsedMisc = parseComplexBonus(miscStr);
-        
         const tieBreaker = data.stats.dex.val / 100;
 
         let effectiveMode = data.rollMode;
@@ -1713,45 +1451,28 @@
         let formulaText = `${result.formula} ${dexMod>=0?'+':''}${dexMod} (Dex)`;
         if(parsedInit.total !== 0) formulaText += ` ${parsedInit.text} (Init)`;
         if(parsedMisc.total !== 0) formulaText += ` ${parsedMisc.text} (Misc)`;
-        
         if(effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
 
         showLog(`Init`, finalScore);
         sendToDiscord("Initiative", `Dice: ${formulaText}`, `**${finalScore}**`, 'check');
-        
         if(consumedInsp) consumeInspiration();
     }
 
-    // --- DEATH SAVES ---
     function rollDeathSave() {
         const r = Math.floor(Math.random() * 20) + 1;
         let msg = "Failure";
         let isCrit = false; let isFail = false;
-        
-        if (r === 20) { 
-            msg = "Regain 1 HP!"; isCrit = true; 
-            document.getElementById('hpCurr').value = 1; 
-            updateHP();
-        } else if (r === 1) {
-            msg = "2 Failures"; isFail = true;
-            updateDS('f'); updateDS('f');
-        } else if (r >= 10) {
-            msg = "Success"; isCrit = true;
-            updateDS('s');
-        } else {
-            msg = "Failure"; isFail = true;
-            updateDS('f');
-        }
-        
+        if (r === 20) { msg = "Regain 1 HP!"; isCrit = true; document.getElementById('hpCurr').value = 1; updateHP(); }
+        else if (r === 1) { msg = "2 Failures"; isFail = true; updateDS('f'); updateDS('f'); }
+        else if (r >= 10) { msg = "Success"; isCrit = true; updateDS('s'); }
+        else { msg = "Failure"; isFail = true; updateDS('f'); }
         showLog("Death Save", r, isCrit, isFail);
         sendToDiscord("Death Save", `Rolled: ${r}`, `**${msg}**`, 'save');
     }
     
     function updateDS(type) {
         const d = data.vitals.ds;
-        for(let i=1; i<=3; i++) {
-            if(!d[type+i]) { d[type+i] = true; break; }
-        }
+        for(let i=1; i<=3; i++) { if(!d[type+i]) { d[type+i] = true; break; } }
         save(); init();
     }
 
@@ -1785,7 +1506,6 @@
     }
     function cycleSkill(skill) { data.skills[skill] = ( (data.skills[skill] || 0) + 1) % 3; save(); renderSkills(); updateAll(); }
     
-    // --- SPELLS & RESOURCES ---
     function updateSpellMax(idx, val) {
         data.spells[idx].max = parseInt(val) || 0;
         if(data.spells[idx].used > data.spells[idx].max) data.spells[idx].used = data.spells[idx].max;
@@ -1793,12 +1513,10 @@
     }
     function toggleSpellSlot(idx, bubbleIdx) {
         const currentUsed = data.spells[idx].used;
-        if (bubbleIdx + 1 === currentUsed) { data.spells[idx].used = bubbleIdx; } 
-        else { data.spells[idx].used = bubbleIdx + 1; }
+        if (bubbleIdx + 1 === currentUsed) { data.spells[idx].used = bubbleIdx; } else { data.spells[idx].used = bubbleIdx + 1; }
         save(); renderSpells();
     }
     
-    // --- FEATURES & ATTACKS MANAGEMENT ---
     function addAttack() { data.attacks.push({ name: '', stat: 'str', dmg: '1d8', desc: '' }); save(); renderAttacks(); }
     function updateAttack(idx, field, val) { data.attacks[idx][field] = val; save(); }
     function delAttack(idx) { data.attacks.splice(idx, 1); save(); renderAttacks(); }
@@ -1814,61 +1532,37 @@
         sendToDiscord(name, desc, "Feature", 'feature');
     }
 
-    // --- RESOURCES V2.9 ---
+    // --- RESOURCES ---
     function addResource() { data.resources.push({ name: '', curr: 0, max: 0, rest: 'none', display: 'none', rCheck: false, rFormula: '1d6' }); save(); renderResources(); }
     function updateRes(i, field, val) { 
         if(field === 'curr' || field === 'max') val = parseInt(val) || 0;
         if(field === 'rCheck') val = val; 
-        data.resources[i][field] = val; 
-        save(); renderResources(); 
+        data.resources[i][field] = val; save(); renderResources(); 
     }
     function modifyRes(i, delta) {
-        const res = data.resources[i];
-        const newVal = res.curr + delta;
-        res.curr = Math.max(0, Math.min(res.max, newVal));
-        save(); renderResources();
+        const res = data.resources[i]; const newVal = res.curr + delta;
+        res.curr = Math.max(0, Math.min(res.max, newVal)); save(); renderResources();
     }
     function setResValue(i) {
-        const res = data.resources[i];
-        const val = prompt("Set value for " + (res.name||'Resource') + ":", res.curr);
-        if(val !== null) {
-            const parsed = parseInt(val);
-            if(!isNaN(parsed)) {
-                res.curr = Math.max(0, Math.min(res.max, parsed));
-                save(); renderResources();
-            }
-        }
+        const res = data.resources[i]; const val = prompt("Set value for " + (res.name||'Resource') + ":", res.curr);
+        if(val !== null) { const parsed = parseInt(val); if(!isNaN(parsed)) { res.curr = Math.max(0, Math.min(res.max, parsed)); save(); renderResources(); } }
     }
     function delRes(i) { data.resources.splice(i, 1); save(); renderResources(); }
-    
     function toggleResBubble(i, bubbleIdx) {
         const currentUsed = data.resources[i].curr;
-        if (bubbleIdx + 1 === currentUsed) { data.resources[i].curr = bubbleIdx; } 
-        else { data.resources[i].curr = bubbleIdx + 1; }
+        if (bubbleIdx + 1 === currentUsed) { data.resources[i].curr = bubbleIdx; } else { data.resources[i].curr = bubbleIdx + 1; }
         save(); renderResources();
     }
-
     function rollResRecharge(i) {
-        const res = data.resources[i];
-        const formula = res.rFormula || '1d6';
-        
+        const res = data.resources[i]; const formula = res.rFormula || '1d6';
         const regex = /^(\d+)?d(\d+)\s*([+-]\s*\d+)?$/i;
         const match = formula.match(regex);
         if(!match) { showLog("Err", "Formula"); return; }
-        
-        const count = parseInt(match[1]) || 1;
-        const sides = parseInt(match[2]);
-        const modStr = match[3] ? match[3].replace(/\s/g, '') : "+0";
-        const mod = parseInt(modStr);
-        
-        const result = coreRoll(count, sides);
-        const total = result.total + mod;
-        
-        const prev = res.curr;
+        const count = parseInt(match[1]) || 1; const sides = parseInt(match[2]);
+        const modStr = match[3] ? match[3].replace(/\s/g, '') : "+0"; const mod = parseInt(modStr);
+        const result = coreRoll(count, sides); const total = result.total + mod;
         res.curr = Math.min(res.max, res.curr + total);
-        
         save(); renderResources();
-        
         showLog(`Recharge ${formula}`, total);
         sendToDiscord(`Recharge: ${res.name}`, `Rolled ${formula}: ${result.formula}${modStr}`, `**+${total}** (Curr: ${res.curr})`, 'check');
     }
@@ -1889,95 +1583,43 @@
         if (type === 'feature') color = 3447003; 
         
         let descText = "";
-        
-        if(type === 'feature') {
-            descText = formulaStr;
-        } else {
-            descText = `**Result:** ${result}\n\n${formulaStr}`;
-            if (customDesc) descText = `*${customDesc}*\n\n` + descText;
-        }
+        if(type === 'feature') { descText = formulaStr; } 
+        else { descText = `**Result:** ${result}\n\n${formulaStr}`; if (customDesc) descText = `*${customDesc}*\n\n` + descText; }
 
-        // SPOILER LOGIC
         const isDeathSave = (label === "Death Save");
-        if (secretMode || isDeathSave) {
-            descText = `|| ${descText} ||`;
-        }
+        if (secretMode || isDeathSave) { descText = `|| ${descText} ||`; }
 
-        const payload = {
-            embeds: [{ 
-                author: { name: data.meta.name || "Character" }, 
-                title: label, 
-                description: descText, 
-                color: color, 
-                footer: { text: `Player: ${data.meta.player}` } 
-            }]
-        };
+        const payload = { embeds: [{ author: { name: data.meta.name || "Character" }, title: label, description: descText, color: color, footer: { text: `Player: ${data.meta.player}` } }] };
         fetch(data.meta.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(err => console.error(err));
-    }
-    
-    function save() { 
-        data.meta.player = document.getElementById('playerName').value;
-        data.meta.name = document.getElementById('charName').value;
-        data.meta.webhook = document.getElementById('webhookUrl').value;
-        data.vitals.curr = document.getElementById('hpCurr').value;
-        data.vitals.max = document.getElementById('hpMax').value;
-        data.vitals.temp = document.getElementById('hpTemp').value;
-        data.vitals.inspiration = parseInt(document.getElementById('inspirationVal').value) || 0;
-        
-        data.meta.speed = document.getElementById('speedVal').value;
-        
-        data.vitals.hdDie = document.getElementById('hdDie').value;
-        data.vitals.hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
-        data.vitals.hdMax = parseInt(document.getElementById('hdMax').value) || 0;
-
-        if(document.getElementById('ds-s1')) {
-            data.vitals.ds = {
-                s1: document.getElementById('ds-s1').checked,
-                s2: document.getElementById('ds-s2').checked,
-                s3: document.getElementById('ds-s3').checked,
-                f1: document.getElementById('ds-f1').checked,
-                f2: document.getElementById('ds-f2').checked,
-                f3: document.getElementById('ds-f3').checked,
-            };
-        }
-        localStorage.setItem('unifiedSheetDataV2', JSON.stringify(data)); 
     }
     
     // --- IO / BACKUP SYSTEM ---
     function showIoMsg(txt) { 
-        const msg = document.getElementById('ioMsg');
-        msg.innerText = txt; 
-        setTimeout(() => msg.innerText = "", 3000); 
+        const msg = document.getElementById('ioMsg'); msg.innerText = txt; setTimeout(() => msg.innerText = "", 3000); 
     }
 
     async function exportData() {
         save();
         try {
-            const jsonStr = JSON.stringify(data);
+            // Export the FULL multi-char structure
+            const jsonStr = JSON.stringify(allData);
             const stream = new Blob([jsonStr]).stream();
             const compressedStream = stream.pipeThrough(new CompressionStream("gzip"));
             const compressedResponse = new Response(compressedStream);
             const blob = await compressedResponse.blob();
-
             const reader = new FileReader();
             reader.onload = function(e) {
                 const base64 = e.target.result.split(',')[1];
                 const field = document.getElementById('ioField'); 
-                field.value = base64; 
-                field.select();
-                field.setSelectionRange(0, 99999);
+                field.value = base64; field.select(); field.setSelectionRange(0, 99999);
                 navigator.clipboard.writeText(base64).then(() => showIoMsg("Compressed & Copied!"));
             };
             reader.readAsDataURL(blob);
-        } catch(e) { 
-            console.error(e);
-            showIoMsg("Export Failed"); 
-        }
+        } catch(e) { console.error(e); showIoMsg("Export Failed"); }
     }
 
     async function importData() {
-        if (!confirm("Are you sure you want to load data? This will overwrite your current character.")) return;
-
+        if (!confirm("Load data? This overwrites ALL characters.")) return;
         const field = document.getElementById('ioField'); 
         const b64 = field.value.trim();
         if(!b64) return showIoMsg("Empty!");
@@ -1990,9 +1632,18 @@
             const resp = new Response(decompressedStream);
             const json = await resp.json(); 
             
-            data = json; 
-            save(); 
-            init(); 
+            // Check if imported data is legacy V2 (single char) or V3 (multi)
+            if (json.activeId && json.characters) {
+                allData = json;
+            } else {
+                // It's a legacy V2 or V1 export
+                const id = 'char_imported_' + Date.now();
+                allData = { activeId: id, characters: {} };
+                allData.characters[id] = json;
+            }
+            
+            saveGlobal(); 
+            loadActiveChar(); 
             field.value = ""; 
             showIoMsg("Data Loaded!");
             
@@ -2000,13 +1651,81 @@
             console.error(e);
             try {
                  const oldJson = decodeURIComponent(atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
-                 data = JSON.parse(oldJson);
-                 save(); init(); field.value = "";
+                 const parsed = JSON.parse(oldJson);
+                 
+                 // Same legacy check
+                 if (parsed.activeId && parsed.characters) {
+                     allData = parsed;
+                 } else {
+                     const id = 'char_legacy_' + Date.now();
+                     allData = { activeId: id, characters: {} };
+                     allData.characters[id] = parsed;
+                 }
+                 
+                 saveGlobal(); loadActiveChar(); field.value = "";
                  showIoMsg("Restored Old Save");
             } catch(err2) {
                 showIoMsg("Invalid Data");
             }
         }
+    }
+
+    // --- DRAG AND DROP & SWAP LOGIC ---
+    let swapSourceCard = null;
+    function setupDragAndDrop() {
+        const grips = document.querySelectorAll('.drag-grip');
+        let draggedCard = null; let initialY = 0; let initialRect = null; let placeholder = null;
+
+        grips.forEach(grip => {
+            grip.addEventListener('dblclick', (e) => { e.preventDefault(); e.stopPropagation(); handleSwapInteraction(grip.closest('.card')); });
+            grip.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0 && e.pointerType === 'mouse') return;
+                const card = grip.parentElement; draggedCard = card;
+                placeholder = document.createElement('div'); placeholder.className = 'card placeholder';
+                placeholder.style.height = card.offsetHeight + 'px'; placeholder.style.background = 'transparent'; placeholder.style.border = '2px dashed #333';
+                initialRect = card.getBoundingClientRect(); initialY = e.clientY;
+                card.style.width = initialRect.width + 'px'; card.classList.add('dragging');
+                card.parentNode.insertBefore(placeholder, card);
+                card.style.position = 'fixed'; card.style.top = initialRect.top + 'px'; card.style.left = initialRect.left + 'px';
+                grip.setPointerCapture(e.pointerId);
+                grip.addEventListener('pointermove', onPointerMove); grip.addEventListener('pointerup', onPointerUp); grip.addEventListener('pointercancel', onPointerUp);
+            });
+            function onPointerMove(e) {
+                if (!draggedCard) return; e.preventDefault();
+                const dy = e.clientY - initialY; draggedCard.style.transform = `translateY(${dy}px)`;
+                const container = document.querySelector('.sheet-container');
+                const siblings = [...container.querySelectorAll('.card:not(.dragging)')];
+                const nextSibling = siblings.find(sibling => {
+                    const rect = sibling.getBoundingClientRect(); const midY = rect.top + rect.height / 2; return e.clientY < midY;
+                });
+                container.insertBefore(placeholder, nextSibling);
+            }
+            function onPointerUp(e) {
+                if (!draggedCard) return;
+                grip.removeEventListener('pointermove', onPointerMove); grip.removeEventListener('pointerup', onPointerUp); grip.removeEventListener('pointercancel', onPointerUp);
+                grip.releasePointerCapture(e.pointerId);
+                draggedCard.classList.remove('dragging'); draggedCard.style.position = ''; draggedCard.style.top = ''; draggedCard.style.left = ''; draggedCard.style.width = ''; draggedCard.style.transform = '';
+                if (placeholder && placeholder.parentNode) { placeholder.parentNode.insertBefore(draggedCard, placeholder); placeholder.remove(); }
+                draggedCard = null; placeholder = null; saveCardOrder();
+            }
+        });
+    }
+    function handleSwapInteraction(card) {
+        if (swapSourceCard === null) { swapSourceCard = card; card.classList.add('swap-active'); showLog("Swap Mode", "Select Another"); } 
+        else if (swapSourceCard === card) { swapSourceCard.classList.remove('swap-active'); swapSourceCard = null; showLog("Swap Mode", "Cancelled"); } 
+        else {
+            const container = document.querySelector('.sheet-container');
+            const placeholderA = document.createElement('div'); const placeholderB = document.createElement('div');
+            container.insertBefore(placeholderA, swapSourceCard); container.insertBefore(placeholderB, card);
+            container.insertBefore(swapSourceCard, placeholderB); container.insertBefore(card, placeholderA);
+            placeholderA.remove(); placeholderB.remove();
+            swapSourceCard.classList.remove('swap-active'); swapSourceCard = null; saveCardOrder(); showLog("Layout", "Swapped");
+        }
+    }
+    function saveCardOrder() {
+        const container = document.querySelector('.sheet-container');
+        const order = Array.from(container.children).filter(c => c.id && c.classList.contains('card')).map(c => c.id);
+        data.uiState.cardOrder = order; save();
     }
 
     init();
