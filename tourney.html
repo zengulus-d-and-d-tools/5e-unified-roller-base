@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified Bracket v4.0 (Split Layout)</title>
+    <title>Unified Bracket v4.1 (Safe Scroll)</title>
     <meta name="theme-color" content="#121212">
     
     <style>
@@ -19,7 +19,6 @@
             --border: #444;
             --text-main: #eee;
             --text-muted: #888;
-            --win-bg: rgba(78, 205, 196, 0.15);
             --connector: #555;
         }
 
@@ -29,21 +28,21 @@
             color: var(--text-main); 
             margin: 0; padding: 20px;
             min-height: 100vh;
-            overflow-x: hidden;
         }
 
+        /* --- FULL WIDTH CONTAINER --- */
         .container { 
-            width: 98%; max-width: 1800px; margin: 0 auto; 
+            width: 98%; margin: 0 auto; 
             display: flex; flex-direction: column; gap: 30px; 
         }
 
-        /* --- CARDS --- */
         .card { 
             background: var(--card-bg); 
             padding: 20px; 
             border-radius: 12px; 
             border: 1px solid #333; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column;
         }
 
         .section-header { 
@@ -52,7 +51,6 @@
         }
         .section-title { font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
 
-        /* --- BUTTONS & INPUTS --- */
         button { cursor: pointer; border: none; border-radius: 4px; font-weight: 600; transition: 0.2s; }
         .btn-action { background: var(--accent); color: #000; width: 100%; height: 40px; margin-top: 10px; }
         .btn-ghost { background: transparent; border: 1px solid #555; color: #aaa; padding: 5px 15px; font-size: 0.8rem; }
@@ -64,42 +62,50 @@
             font-family: monospace; margin-bottom: 10px;
         }
 
-        /* --- SPLIT LAYOUT SYSTEM --- */
-        .split-bracket-wrapper {
-            display: flex;
-            justify-content: center;
-            align-items: stretch;
-            gap: 40px;
-            padding: 20px 0;
+        /* --- SAFE SCROLL SYSTEM --- */
+        /* The outer scroll window */
+        .scroll-window {
             overflow-x: auto;
+            overflow-y: hidden;
+            width: 100%;
+            padding-bottom: 20px; /* Space for scrollbar */
         }
 
-        /* The Left and Right Trees */
-        .bracket-tree {
+        /* The inner layout wrapper */
+        /* This magic combo ensures centering when small, but full expansion when large */
+        .layout-wrapper {
+            display: flex;
+            justify-content: center; /* Centers content if width < screen */
+            min-width: 100%;        /* Forces it to be at least screen width */
+            width: max-content;     /* Allows it to grow beyond screen width */
+        }
+
+        /* The actual bracket flex container */
+        .bracket-tree-container {
             display: flex;
             gap: 60px;
+            padding: 20px; /* Internal breathing room */
         }
-        .bracket-tree.right-tree {
-            flex-direction: row-reverse; /* Mirrors the columns for the right side */
-        }
+
+        /* --- BRACKET STRUCTURE --- */
+        .bracket-side { display: flex; gap: 60px; }
+        .bracket-side.right { flex-direction: row-reverse; }
 
         .round-col {
-            display: flex; 
-            flex-direction: column; 
-            min-width: 220px; 
-            position: relative;
+            display: flex; flex-direction: column; 
+            min-width: 220px; position: relative;
         }
 
-        /* FIX FOR HEADER OVERLAP: Flex layout inside column */
         .col-header {
             text-align: center; color: var(--gold); font-size: 0.75rem; 
-            font-weight: bold; text-transform: uppercase; margin-bottom: 15px;
-            height: 20px; /* Fixed height for header */
+            font-weight: bold; text-transform: uppercase; margin-bottom: 25px; /* Extra spacing so matches don't crowd */
+            height: 20px; 
+            white-space: nowrap;
         }
+        
         .col-matches {
             flex: 1;
             display: flex; flex-direction: column; justify-content: space-around;
-            gap: 20px; /* Fallback gap */
         }
 
         /* --- MATCH NODES --- */
@@ -112,78 +118,63 @@
         .match-node:hover { background: var(--node-hover); transform: scale(1.02); border-color: #555; }
 
         .match-id {
-            position: absolute; top: -8px; right: 5px; font-size: 0.6rem; 
+            position: absolute; top: -9px; right: 5px; font-size: 0.6rem; 
             color: #666; background: var(--node-bg); padding: 0 4px; border: 1px solid #333;
+            border-radius: 3px;
         }
 
-        /* CONNECTORS - LEFT SIDE (Standard) */
-        .left-tree .round-col:not(:last-child) .match-node::after {
+        /* CONNECTORS */
+        /* Left Side */
+        .bracket-side.left .round-col:not(:last-child) .match-node::after {
             content: ''; position: absolute; right: -61px; top: 50%; width: 60px; height: 2px; background: var(--connector); z-index: -1;
         }
-        .left-tree .round-col:not(:last-child) .match-node::before {
-            content: ''; position: absolute; right: -4px; top: 50%; transform: translateY(-50%); 
-            width: 6px; height: 6px; background: #777; border-radius: 50%;
+        .bracket-side.left .round-col:not(:last-child) .match-node::before {
+            content: ''; position: absolute; right: -4px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; background: #777; border-radius: 50%;
         }
 
-        /* CONNECTORS - RIGHT SIDE (Mirrored) */
-        /* Note: Since we use flex-direction: row-reverse, "last-child" is physically the one closest to center */
-        .right-tree .round-col:not(:last-child) .match-node::after {
+        /* Right Side */
+        .bracket-side.right .round-col:not(:last-child) .match-node::after {
             content: ''; position: absolute; left: -61px; top: 50%; width: 60px; height: 2px; background: var(--connector); z-index: -1;
         }
-        .right-tree .round-col:not(:last-child) .match-node::before {
-            content: ''; position: absolute; left: -4px; top: 50%; transform: translateY(-50%); 
-            width: 6px; height: 6px; background: #777; border-radius: 50%;
+        .bracket-side.right .round-col:not(:last-child) .match-node::before {
+            content: ''; position: absolute; left: -4px; top: 50%; transform: translateY(-50%); width: 6px; height: 6px; background: #777; border-radius: 50%;
         }
 
-        /* CENTER CONVERGENCE (WB FINALS) */
-        .wb-center-col {
-            display: flex; flex-direction: column; justify-content: center;
-            min-width: 240px; position: relative;
-        }
-        .wb-center-col .match-node { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-dim); }
-        /* Connectors for center node receiving from both sides */
-        .wb-center-col .match-node::before {
+        /* Center Node */
+        .center-col { display: flex; flex-direction: column; justify-content: center; min-width: 240px; margin: 0 20px; }
+        .center-col .match-node { border-color: var(--accent); box-shadow: 0 0 15px var(--accent-dim); }
+        .center-col .col-header { color: var(--accent); }
+        
+        .center-col .match-node::before {
             content: ''; position: absolute; left: -30px; top: 50%; width: 30px; height: 2px; background: var(--connector);
         }
-        .wb-center-col .match-node::after {
+        .center-col .match-node::after {
             content: ''; position: absolute; right: -30px; top: 50%; width: 30px; height: 2px; background: var(--connector);
         }
 
-        /* COMPETITOR ROWS */
+        /* Rows */
         .comp-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; font-size: 0.9rem; }
         .comp-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ccc; }
-        .comp-score { 
-            width: 22px; text-align: center; background: #111; color: var(--gold); 
-            border-radius: 3px; font-weight: bold; font-size: 0.85rem; 
-        }
+        .comp-score { width: 22px; text-align: center; background: #111; color: var(--gold); border-radius: 3px; font-weight: bold; font-size: 0.85rem; }
+        
         .comp-row.winner .comp-name { color: var(--accent); font-weight: bold; }
         .comp-row.winner .comp-score { background: var(--accent); color: #000; }
         .comp-row.loser { opacity: 0.4; text-decoration: line-through; }
 
-        /* MODAL */
+        /* Losers Bracket Scroll (Linear) */
+        .lb-tree { display: flex; gap: 50px; }
+
+        /* Modal */
         .modal-bg {
             position: fixed; top:0; left:0; width:100%; height:100%; 
             background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
             display: none; align-items: center; justify-content: center; z-index: 1000;
         }
         .modal-bg.active { display: flex; }
-        .modal-box { 
-            background: #222; border: 1px solid var(--accent); padding: 25px; 
-            border-radius: 12px; width: 90%; max-width: 400px; 
-        }
+        .modal-box { background: #222; border: 1px solid var(--accent); padding: 25px; border-radius: 12px; width: 90%; max-width: 400px; }
         .score-ctrl { display: flex; justify-content: space-between; align-items: center; background: #151515; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
         .btn-score { width: 35px; height: 35px; background: #333; color: #fff; font-size: 1.2rem; }
         .score-display-big { font-size: 1.8rem; font-weight: bold; color: var(--gold); width: 50px; text-align: center; background: transparent; border: none; }
-
-        /* LOSERS BRACKET SCROLL */
-        .lb-scroll-wrapper {
-            overflow-x: auto; padding-bottom: 20px;
-        }
-        .lb-flex { display: flex; gap: 50px; min-width: max-content; }
-        
-        .toggle-switch { display: flex; align-items: center; gap: 10px; margin-top: 10px; cursor: pointer; }
-        .toggle-box { width: 20px; height: 20px; border: 1px solid #555; background: #111; display: grid; place-items: center; }
-        .toggle-box.checked { background: var(--accent); border-color: var(--accent); }
     </style>
 </head>
 <body>
@@ -196,9 +187,8 @@
             <button class="btn-ghost" onclick="resetData()">Reset</button>
         </div>
         <textarea id="playerList" placeholder="Enter names (one per line)..."></textarea>
-        <div class="toggle-switch" onclick="toggleRandom()">
-            <div class="toggle-box checked" id="chkRandomBox">✓</div>
-            <span style="color:#aaa; font-size:0.9rem;">Randomize Seeds</span>
+        <div style="margin-top:10px;">
+            <label style="color:#aaa; cursor:pointer;"><input type="checkbox" id="chkRandom" checked> Randomize Seeds</label>
         </div>
         <button class="btn-action" onclick="generateBracket()">Create Bracket</button>
     </div>
@@ -209,12 +199,18 @@
             <button class="btn-ghost" onclick="resetData()">Clear Tourney</button>
         </div>
         
-        <div class="split-bracket-wrapper">
-            <div class="bracket-tree left-tree" id="wb-left-tree"></div>
-            
-            <div class="wb-center-col" id="wb-center-node"></div>
-            
-            <div class="bracket-tree right-tree" id="wb-right-tree"></div>
+        <div class="scroll-window">
+            <div class="layout-wrapper">
+                <div class="bracket-tree-container">
+                    
+                    <div class="bracket-side left" id="wb-left"></div>
+                    
+                    <div class="center-col" id="wb-center"></div>
+                    
+                    <div class="bracket-side right" id="wb-right"></div>
+
+                </div>
+            </div>
         </div>
     </div>
 
@@ -227,8 +223,11 @@
         <div class="section-header">
             <div class="section-title" style="color:#777;">Losers Bracket</div>
         </div>
-        <div class="lb-scroll-wrapper">
-            <div class="lb-flex" id="lb-container"></div>
+        <div class="scroll-window">
+            <div class="layout-wrapper" style="justify-content: flex-start;"> <div class="bracket-tree-container">
+                    <div class="lb-tree" id="lb-container"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -259,10 +258,9 @@
 <script>
     let data = { active: false, matches: [], size: 0 };
     let curMatch = null;
-    let isRandom = true;
 
     function init() {
-        const s = localStorage.getItem('unifiedv4');
+        const s = localStorage.getItem('unifiedv41');
         if(s) {
             data = JSON.parse(s);
             if(data.active) {
@@ -274,15 +272,9 @@
 
     function resetData() {
         if(confirm("Clear current tournament?")) {
-            localStorage.removeItem('unifiedv4');
+            localStorage.removeItem('unifiedv41');
             location.reload();
         }
-    }
-
-    function toggleRandom() {
-        isRandom = !isRandom;
-        document.getElementById('chkRandomBox').innerHTML = isRandom ? '✓' : '';
-        document.getElementById('chkRandomBox').classList.toggle('checked');
     }
 
     // --- GENERATOR ---
@@ -293,6 +285,7 @@
         if(names.length < 3) return alert("Need 3+ players");
         if(names.length > 32) return alert("Max 32 players");
 
+        const isRandom = document.getElementById('chkRandom').checked;
         if(isRandom) names = names.sort(() => Math.random() - 0.5);
 
         // Pad to power of 2
@@ -301,13 +294,6 @@
         for(let i=0; i<size; i++) seeds.push(i < names.length ? names[i] : "BYE");
 
         let matches = [];
-        
-        // --- WINNERS BRACKET ---
-        // We need to tag matches as 'left' or 'right' side for the split view
-        // 16 seeds: 0-3 (Left), 4-7 (Right) are the quarters?
-        // Actually, simple logic:
-        // Size 16. 8 R1 matches. 0-3 Left, 4-7 Right.
-        
         const wbRounds = Math.log2(size);
         let wbLayer = [];
 
@@ -315,7 +301,7 @@
         let r1Ids = [];
         for(let i=0; i<size/2; i++) {
             const id = `wb1_${i}`;
-            // Determine Side: First half of matches Left, Second half Right
+            // Determine Side: First half Left, Second half Right
             const side = (i < (size/4)) ? 'left' : 'right';
             
             matches.push({
@@ -336,11 +322,9 @@
             for(let i=0; i<count; i++) {
                 const id = `wb${r}_${i}`;
                 let name = `Round ${r}`;
-                if(r === wbRounds) name = "WB Final";
-                else if(r === wbRounds-1) name = "WB Semis";
+                if(r === wbRounds) name = "Finals";
+                else if(r === wbRounds-1) name = "Semis";
                 
-                // Side logic: if it's the Final, it's 'center'.
-                // Otherwise, inherit from children.
                 let side = (i < (count/2)) ? 'left' : 'right';
                 if(r === wbRounds) side = 'center';
 
@@ -350,15 +334,13 @@
                 });
                 rIds.push(id);
 
-                // Link Prev
                 link(matches, prev[i*2], id, 1);
                 link(matches, prev[i*2+1], id, 2);
             }
             wbLayer.push(rIds);
         }
 
-        // --- LOSERS BRACKET (Linear) ---
-        // Simplified mapping for visual clarity
+        // --- LOSERS BRACKET ---
         const lbTotalRounds = (wbRounds - 1) * 2;
         let lbLayer = [];
 
@@ -371,8 +353,6 @@
                 p1: null, p2: null, s1:0, s2:0, winner:null
             });
             lbR1Ids.push(id);
-            
-            // Drop losers from WB R1
             linkLose(matches, wbLayer[0][i*2], id, 1);
             linkLose(matches, wbLayer[0][i*2+1], id, 2);
         }
@@ -398,8 +378,6 @@
 
                 if(isDrop) {
                     link(matches, prev[i], id, 1);
-                    // Drop from WB
-                    // WB Round index = r/2
                     const wbSrc = wbLayer[(r/2)][i];
                     linkLose(matches, wbSrc, id, 2);
                 } else {
@@ -410,16 +388,10 @@
             lbLayer.push(rIds);
         }
 
-        // --- GRAND FINALS ---
+        // GF
         const gfId = 'gf';
-        matches.push({
-            id: gfId, type: 'gf', round: 99, name: 'Grand Finals',
-            p1: null, p2: null, s1:0, s2:0, winner:null
-        });
-
-        // WB Winner -> GF P1
+        matches.push({ id: gfId, type: 'gf', round: 99, name: 'Grand Finals', p1: null, p2: null, s1:0, s2:0, winner:null });
         link(matches, wbLayer[wbLayer.length-1][0], gfId, 1);
-        // LB Winner -> GF P2
         link(matches, lbLayer[lbLayer.length-1][0], gfId, 2);
 
         data.matches = matches;
@@ -431,138 +403,103 @@
         document.getElementById('card-setup').style.display = 'none';
     }
 
-    function link(arr, srcId, destId, slot) {
-        const m = arr.find(x => x.id === srcId);
-        if(m) { m.nextWin = destId; m.nextWinSlot = slot; }
-    }
-    function linkLose(arr, srcId, destId, slot) {
-        const m = arr.find(x => x.id === srcId);
-        if(m) { m.nextLose = destId; m.nextLoseSlot = slot; }
-    }
+    function link(arr, srcId, destId, slot) { const m = arr.find(x => x.id === srcId); if(m) { m.nextWin = destId; m.nextWinSlot = slot; } }
+    function linkLose(arr, srcId, destId, slot) { const m = arr.find(x => x.id === srcId); if(m) { m.nextLose = destId; m.nextLoseSlot = slot; } }
 
     // --- RENDERER ---
     function render() {
-        document.getElementById('card-wb').style.display = 'block';
-        document.getElementById('card-lb').style.display = 'block';
+        document.getElementById('card-wb').style.display = 'flex';
+        document.getElementById('card-lb').style.display = 'flex';
         document.getElementById('card-gf').style.display = 'flex';
 
-        // 1. Separate Winners Bracket into Columns
         const wb = data.matches.filter(m => m.type === 'wb');
-        // Group by Round
         const rounds = {};
-        wb.forEach(m => {
-            if(!rounds[m.round]) rounds[m.round] = [];
-            rounds[m.round].push(m);
-        });
+        wb.forEach(m => { if(!rounds[m.round]) rounds[m.round] = []; rounds[m.round].push(m); });
 
-        // Determine Containers
-        const leftTree = document.getElementById('wb-left-tree');
-        const rightTree = document.getElementById('wb-right-tree');
-        const centerNode = document.getElementById('wb-center-node');
+        const leftEl = document.getElementById('wb-left');
+        const rightEl = document.getElementById('wb-right');
+        const centerEl = document.getElementById('wb-center');
         
-        leftTree.innerHTML = '';
-        rightTree.innerHTML = '';
-        centerNode.innerHTML = '';
+        leftEl.innerHTML = ''; rightEl.innerHTML = ''; centerEl.innerHTML = '';
 
-        // Determine max matches in a column to calculate fixed height
-        // The first round has the most matches.
+        // Calculate height
         const r1Count = wb.filter(m => m.round === 1).length;
-        // Height per match (approx 80px + gaps)
-        // If R1 has 8 matches (4 left, 4 right), height is based on 4.
         const colHeight = Math.max(400, (r1Count/2) * 110);
 
-        // Iterate Rounds
         Object.keys(rounds).sort((a,b)=>a-b).forEach(rKey => {
             const matches = rounds[rKey];
-            
-            // Center Node (Finals)
             const centerM = matches.find(m => m.side === 'center');
             if(centerM) {
-                centerNode.appendChild(createMatchEl(centerM));
+                centerEl.appendChild(createColHeader(centerM.name));
+                centerEl.appendChild(createMatchEl(centerM));
                 return;
             }
 
-            // Left Col
             const leftMatches = matches.filter(m => m.side === 'left');
             if(leftMatches.length > 0) {
                 const col = createCol(leftMatches, matches[0].name, colHeight);
-                leftTree.appendChild(col);
+                leftEl.appendChild(col);
             }
 
-            // Right Col
             const rightMatches = matches.filter(m => m.side === 'right');
             if(rightMatches.length > 0) {
                 const col = createCol(rightMatches, matches[0].name, colHeight);
-                rightTree.appendChild(col); // Flex-reverse handles order
-                // Note: Right tree logic puts Round 1 on far right, Round 2 closer to center.
-                // Since flex-direction is row-reverse, appending R1 then R2 works perfectly?
-                // No, standard appending order: Left Tree: R1 -> R2 -> Center.
-                // Right Tree: R1 -> R2 -> Center.
-                // If I append R1 then R2 to Right Tree container, Row Reverse puts R1 on Far Right, R2 on Left of it. Correct.
+                rightEl.appendChild(col);
             }
         });
 
-        // 2. Render Losers
+        // Losers
         const lb = data.matches.filter(m => m.type === 'lb');
-        const lbContainer = document.getElementById('lb-container');
-        lbContainer.innerHTML = '';
-        
-        // Group LB by Round
+        const lbCont = document.getElementById('lb-container');
+        lbCont.innerHTML = '';
         const lbRounds = {};
-        lb.forEach(m => {
-            if(!lbRounds[m.round]) lbRounds[m.round] = [];
-            lbRounds[m.round].push(m);
-        });
+        lb.forEach(m => { if(!lbRounds[m.round]) lbRounds[m.round] = []; lbRounds[m.round].push(m); });
         
-        // LB Height
-        const lbR1Count = lb.filter(m => m.round === 1).length;
-        const lbHeight = Math.max(300, lbR1Count * 110);
-
+        const lbHeight = Math.max(300, lb.filter(m => m.round===1).length * 110);
         Object.keys(lbRounds).sort((a,b)=>a-b).forEach(rKey => {
-            const col = createCol(lbRounds[rKey], lbRounds[rKey][0].name, lbHeight);
-            lbContainer.appendChild(col);
+            lbCont.appendChild(createCol(lbRounds[rKey], lbRounds[rKey][0].name, lbHeight));
         });
 
-        // 3. Grand Finals
+        // GF
         const gf = data.matches.find(m => m.type === 'gf');
-        const gfContainer = document.getElementById('gf-container');
-        gfContainer.innerHTML = '';
-        if(gf) gfContainer.appendChild(createMatchEl(gf));
+        const gfCont = document.getElementById('gf-container');
+        gfCont.innerHTML = '';
+        if(gf) gfCont.appendChild(createMatchEl(gf));
     }
 
     function createCol(matches, title, height) {
         const col = document.createElement('div');
         col.className = 'round-col';
-        col.style.height = height + 'px'; // Enforce alignment
-
-        const head = document.createElement('div');
-        head.className = 'col-header';
-        head.innerText = title;
+        col.style.height = height + 'px';
+        
+        const head = createColHeader(title);
         col.appendChild(head);
 
         const track = document.createElement('div');
         track.className = 'col-matches';
         matches.forEach(m => track.appendChild(createMatchEl(m)));
         col.appendChild(track);
-
         return col;
+    }
+
+    function createColHeader(title) {
+        const d = document.createElement('div');
+        d.className = 'col-header';
+        d.innerText = title;
+        return d;
     }
 
     function createMatchEl(m) {
         const el = document.createElement('div');
         el.className = 'match-node';
         el.onclick = () => openModal(m.id);
-
-        // ID Label
-        const idTag = document.createElement('div');
-        idTag.className = 'match-id';
-        // Cleanup ID for display (wb1_0 -> 1.1)
+        
         const parts = m.id.split('_');
-        idTag.innerText = parts[0].toUpperCase() + (parts[1] ? '.' + (parseInt(parts[1])+1) : '');
-        el.appendChild(idTag);
+        let shortId = parts[0].toUpperCase() + (parts[1] ? '.' + (parseInt(parts[1])+1) : '');
+        if(m.type === 'gf') shortId = "GF";
 
-        // P1
-        el.innerHTML += `
+        el.innerHTML = `
+            <div class="match-id">${shortId}</div>
             <div class="comp-row ${m.winner===1?'winner':(m.winner===2?'loser':'')}">
                 <div class="comp-name">${m.p1||'-'}</div>
                 <div class="comp-score">${m.s1}</div>
@@ -575,7 +512,6 @@
         return el;
     }
 
-    // --- SCORING ---
     function openModal(id) {
         const m = data.matches.find(x => x.id === id);
         if(!m.p1 || !m.p2) return;
@@ -602,26 +538,21 @@
         if(!curMatch) return;
         const s1 = parseInt(document.getElementById('sP1').value);
         const s2 = parseInt(document.getElementById('sP2').value);
-        if(s1 === s2) return alert("No draws allowed");
+        if(s1 === s2) return alert("Draws not allowed");
 
-        curMatch.s1 = s1;
-        curMatch.s2 = s2;
+        curMatch.s1 = s1; curMatch.s2 = s2;
         curMatch.winner = s1 > s2 ? 1 : 2;
 
         const wName = curMatch.winner === 1 ? curMatch.p1 : curMatch.p2;
         const lName = curMatch.winner === 1 ? curMatch.p2 : curMatch.p1;
 
-        // Push Winner
         if(curMatch.nextWin) {
             const next = data.matches.find(m => m.id === curMatch.nextWin);
             if(next) {
                 if(curMatch.nextWinSlot === 1) next.p1 = wName; else next.p2 = wName;
-                // Reset next match if it was already played
                 next.winner = null; next.s1 = 0; next.s2 = 0;
             }
         }
-
-        // Push Loser
         if(curMatch.nextLose) {
             const next = data.matches.find(m => m.id === curMatch.nextLose);
             if(next) {
@@ -647,15 +578,11 @@
 
                     if(m.nextWin) {
                         const next = data.matches.find(x => x.id === m.nextWin);
-                        if(next) {
-                            if(m.nextWinSlot === 1) next.p1 = wName; else next.p2 = wName;
-                        }
+                        if(next) { if(m.nextWinSlot === 1) next.p1 = wName; else next.p2 = wName; }
                     }
                     if(m.nextLose) {
                         const next = data.matches.find(x => x.id === m.nextLose);
-                        if(next) {
-                            if(m.nextLoseSlot === 1) next.p1 = lName; else next.p2 = lName;
-                        }
+                        if(next) { if(m.nextLoseSlot === 1) next.p1 = lName; else next.p2 = lName; }
                     }
                     change = true;
                 }
@@ -664,9 +591,7 @@
         if(change) { save(); render(); advanceByes(); }
     }
 
-    function save() {
-        localStorage.setItem('unifiedv4', JSON.stringify(data));
-    }
+    function save() { localStorage.setItem('unifiedv41', JSON.stringify(data)); }
 
     init();
 
