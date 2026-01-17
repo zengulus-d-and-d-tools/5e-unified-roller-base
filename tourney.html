@@ -3,20 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unified Bracket v4.3 (Fixed Layout)</title>
+    <title>Unified Bracket v5.0 (Dynamic)</title>
     <style>
         :root {
-            --bg: #121212;
-            --panel: #1e1e1e;
-            --node-bg: #252525;
-            --node-hover: #303030;
-            --accent: #00bcd4;
-            --gold: #ffc107;
-            --text: #eee;
-            --line: #444;
-            --node-h: 46px;
+            --bg: #121212; --panel: #1e1e1e;
+            --node-bg: #252525; --node-hover: #303030;
+            --accent: #00bcd4; --gold: #ffc107;
+            --text: #eee; --line: #444;
+            --node-h: 44px;
         }
-
         body { 
             font-family: 'Segoe UI', Roboto, sans-serif; 
             background: var(--bg); color: var(--text); 
@@ -24,88 +19,89 @@
             display: flex; flex-direction: column;
         }
 
-        /* --- UI CHROME --- */
+        /* TOOLBAR */
         #toolbar {
             height: 48px; background: var(--panel); border-bottom: 1px solid #333;
             display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
-            z-index: 100;
+            z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
         .btn { 
             background: transparent; border: 1px solid #444; color: #aaa; 
-            padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; 
+            padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition:0.2s;
         }
         .btn:hover { border-color: var(--accent); color: var(--accent); }
         .btn-p { background: var(--accent); color: #000; border: none; font-weight: bold; }
 
-        /* --- MAIN STAGE --- */
+        /* MAIN AREA */
         #stage {
             flex: 1; position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
-            background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            background: radial-gradient(circle at center, #1b1b1b 0%, #080808 100%);
         }
-
         #bracket-root {
             display: flex; flex-direction: column; gap: 40px; align-items: center;
-            padding: 40px; transition: transform 0.2s;
+            padding: 40px; transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
-        /* --- LAYOUT CONTAINERS --- */
-        .wb-container, .lb-container {
-            display: flex; gap: 40px; align-items: center; justify-content: center;
-        }
-        .lb-container {
-            border-top: 1px dashed #333; padding-top: 30px; 
-        }
-
-        /* The Columns */
+        /* GRID SYSTEM */
+        .wb-container, .lb-container { display: flex; gap: 40px; justify-content: center; }
+        .lb-container { border-top: 1px dashed #333; padding-top: 30px; }
+        
+        /* Sides and Columns */
         .side-block { display: flex; gap: 40px; }
-        .round-col { display: flex; flex-direction: column; justify-content: space-around; min-width: 160px; }
+        .round-col { 
+            display: flex; flex-direction: column; justify-content: space-around; 
+            min-width: 150px; position: relative;
+        }
+        .col-header { 
+            position: absolute; top: -25px; width: 100%; text-align: center; 
+            font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px;
+        }
 
-        /* --- NODES --- */
+        /* NODES */
         .node {
             height: var(--node-h); background: var(--node-bg); border: 1px solid #333;
             border-radius: 4px; display: flex; flex-direction: column; justify-content: center;
             position: relative; cursor: pointer; transition: 0.2s; z-index: 2;
         }
-        .node:hover { transform: scale(1.05); border-color: var(--accent); z-index: 10; }
+        .node:hover { transform: scale(1.05); border-color: var(--accent); z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         
-        .node-id { position: absolute; top: -8px; right: 0; font-size: 0.5rem; color: #555; background: var(--node-bg); padding: 0 4px; }
-        .p-row { display: flex; justify-content: space-between; padding: 0 8px; font-size: 0.75rem; }
-        .p-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; color: #bbb; }
-        .p-sc { font-weight: bold; color: #555; }
+        .node-id { position: absolute; top: -8px; right: 0; font-size: 0.5rem; color: #555; background: var(--node-bg); padding: 0 4px; border-radius: 3px; }
+        .p-row { display: flex; justify-content: space-between; padding: 0 8px; font-size: 0.7rem; }
+        .p-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; color: #bbb; }
+        .p-sc { font-weight: bold; color: #555; width: 15px; text-align: right;}
         
         .win .p-name { color: var(--accent); font-weight: bold; }
         .win .p-sc { color: var(--accent); }
         .lose .p-name { text-decoration: line-through; opacity: 0.4; }
 
-        /* CENTER NODES */
-        .center-stack { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 200px; }
-        .gf-node { border: 1px solid var(--gold); box-shadow: 0 0 10px rgba(255,193,7,0.1); height: 60px; width: 100%; }
-        .wf-node { border: 1px solid var(--accent); height: 50px; width: 100%; }
-        .lf-node { border: 1px solid #666; width: 100%; }
+        /* CENTER STACK */
+        .center-stack { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 180px; gap:5px; }
+        .gf-node { border: 1px solid var(--gold); box-shadow: 0 0 15px rgba(255,193,7,0.1); height: 50px; width: 100%; margin-bottom: 20px;}
+        .final-node { border: 1px solid var(--accent); height: 48px; width: 100%; }
+        .lb-final-node { border: 1px solid #666; width: 100%; }
+        
+        .label-gf { color: var(--gold); font-size: 0.65rem; letter-spacing: 2px; margin-bottom: 5px; }
+        .label-wf { color: var(--accent); font-size: 0.65rem; letter-spacing: 1px; margin-bottom: 5px; margin-top: 10px; }
+        .label-lf { color: #777; font-size: 0.65rem; letter-spacing: 1px; margin-bottom: 5px; }
 
-        /* --- CONNECTORS --- */
-        /* Left Side: Line sticks out to the RIGHT */
-        .side-block.left .node::after {
-            content: ''; position: absolute; right: -41px; top: 50%; width: 40px; height: 1px; background: var(--line); z-index: -1;
-        }
-        /* Right Side: Line sticks out to the LEFT */
-        .side-block.right .node::after {
-            content: ''; position: absolute; left: -41px; top: 50%; width: 40px; height: 1px; background: var(--line); z-index: -1;
-        }
+        /* CONNECTORS */
+        .side-block.left .node::after { content: ''; position: absolute; right: -41px; top: 50%; width: 40px; height: 1px; background: var(--line); z-index: -1; }
+        .side-block.right .node::after { content: ''; position: absolute; left: -41px; top: 50%; width: 40px; height: 1px; background: var(--line); z-index: -1; }
 
-        /* --- MODALS --- */
+        /* MODAL */
         #setup-modal, #score-modal {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 999;
-            display: none; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 999;
+            display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
         }
         .active { display: flex !important; }
-        .modal-box { background: var(--panel); border: 1px solid #444; padding: 25px; border-radius: 8px; width: 320px; }
-        textarea { width: 100%; height: 100px; background: #000; border: 1px solid #333; color: #fff; box-sizing: border-box; }
+        .modal-box { background: var(--panel); border: 1px solid #444; padding: 30px; border-radius: 8px; width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        textarea { width: 100%; height: 150px; background: #000; border: 1px solid #333; color: #fff; padding: 10px; box-sizing: border-box; font-family: monospace; }
         
-        .score-row { display: flex; justify-content: space-between; align-items: center; background: #111; margin-bottom: 10px; padding: 10px; border-radius: 4px; }
-        .sc-inp { width: 40px; text-align: center; background: transparent; border: none; color: #fff; font-size: 1.2rem; }
-        .btn-adj { background: #333; color: #fff; border: none; width: 30px; height: 30px; cursor: pointer; }
+        .score-row { display: flex; justify-content: space-between; align-items: center; background: #111; margin-bottom: 12px; padding: 10px; border-radius: 6px; }
+        .sc-inp { width: 50px; text-align: center; background: transparent; border: none; color: #fff; font-size: 1.4rem; font-weight: bold; }
+        .btn-adj { background: #333; color: #fff; border: none; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; }
+        .btn-adj:hover { background: #444; }
 
     </style>
 </head>
@@ -113,59 +109,33 @@
 
 <div id="setup-modal" class="active">
     <div class="modal-box">
-        <h3 style="margin-top:0; color:var(--accent)">16-Player Setup</h3>
-        <textarea id="pInput" placeholder="Enter names..."></textarea>
-        <button class="btn-p" style="width:100%; margin-top:10px;" onclick="generate()">Start Tournament</button>
+        <h3 style="margin-top:0; color:var(--accent)">Tournament Setup</h3>
+        <p style="color:#888; font-size:0.8rem">Enter names (one per line). Supports any number (4-64).</p>
+        <textarea id="pInput" placeholder="Player 1&#10;Player 2&#10;..."></textarea>
+        <div style="display:flex; justify-content:space-between; margin-top:15px;">
+             <label style="color:#aaa; font-size:0.8rem; display:flex; align-items:center;"><input type="checkbox" id="chkRand" checked> Randomize</label>
+             <button class="btn-p" onclick="generate()">Generate Bracket</button>
+        </div>
     </div>
 </div>
 
 <div id="toolbar">
-    <span style="font-weight:bold; color:var(--accent)">UNIFIED v4.3</span>
+    <div style="font-weight:700; color:var(--accent); letter-spacing:1px;">UNIFIED <span style="color:#fff">v5.0</span></div>
     <div>
-        <button class="btn" onclick="autoFit()">Fit</button>
-        <button class="btn" onclick="reset()">Reset</button>
+        <button class="btn" onclick="autoFit()">Auto-Fit</button>
+        <button class="btn" onclick="reset()">New</button>
     </div>
 </div>
 
 <div id="stage">
     <div id="bracket-root">
-        
-        <div class="wb-container">
-            <div class="side-block left" id="wb-left"></div>
-
-            <div class="center-stack">
-                <div style="font-size:0.6rem; color:var(--gold); letter-spacing:2px; margin-bottom:4px;">GRAND FINALS</div>
-                <div id="gf-slot" style="width:100%"></div>
-                
-                <div style="height:20px; width:1px; background:var(--line);"></div>
-                
-                <div style="font-size:0.6rem; color:var(--accent); letter-spacing:1px; margin-bottom:4px;">WINNERS FINAL</div>
-                <div id="wf-slot" style="width:100%"></div>
-                
-                <div style="height:40px; width:1px; background:var(--line); opacity:0.3"></div>
-            </div>
-
-            <div class="side-block right" id="wb-right"></div>
         </div>
-
-        <div class="lb-container">
-            <div class="side-block left" id="lb-left"></div>
-            
-            <div class="center-stack">
-                <div style="font-size:0.6rem; color:#777; letter-spacing:1px;">L-FINALS</div>
-                <div id="lf-slot" style="width:100%"></div>
-            </div>
-            
-            <div class="side-block right" id="lb-right"></div>
-        </div>
-
-    </div>
 </div>
 
 <div id="score-modal">
     <div class="modal-box">
         <div class="score-row">
-            <span id="mP1">P1</span>
+            <span id="mP1" style="font-weight:bold; max-width:110px; overflow:hidden;">P1</span>
             <div>
                 <button class="btn-adj" onclick="mod(-1, 1)">-</button>
                 <input id="sP1" class="sc-inp" readonly value="0">
@@ -173,203 +143,297 @@
             </div>
         </div>
         <div class="score-row">
-            <span id="mP2">P2</span>
+            <span id="mP2" style="font-weight:bold; max-width:110px; overflow:hidden;">P2</span>
             <div>
                 <button class="btn-adj" onclick="mod(-1, 2)">-</button>
                 <input id="sP2" class="sc-inp" readonly value="0">
                 <button class="btn-adj" onclick="mod(1, 2)">+</button>
             </div>
         </div>
-        <button class="btn-p" style="width:100%" onclick="saveScore()">Save</button>
-        <button class="btn" style="width:100%; margin-top:5px; border:none;" onclick="closeScore()">Cancel</button>
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button class="btn" style="flex:1; border:none;" onclick="closeScore()">Cancel</button>
+            <button class="btn-p" style="flex:1" onclick="saveScore()">Confirm</button>
+        </div>
     </div>
 </div>
 
 <script>
-    let data = { matches: [], active: false };
+    let data = { matches: [], active: false, meta: {} };
     let curId = null;
 
+    // --- GENERATOR LOGIC ---
     function generate() {
         const txt = document.getElementById('pInput').value.trim();
         let names = txt.split('\n').map(x=>x.trim()).filter(x=>x);
-        if(names.length < 4) return alert("Need 4+ players");
         
-        names.sort(() => Math.random() - 0.5);
+        if(names.length < 3) return alert("Need at least 3 players.");
+        if(document.getElementById('chkRand').checked) names.sort(() => Math.random() - 0.5);
+
+        // 1. Calculate Dimensions
+        const size = Math.pow(2, Math.ceil(Math.log2(names.length))); // Next power of 2
         const seeds = [];
-        for(let i=0; i<16; i++) seeds.push(names[i] || "BYE");
+        for(let i=0; i<size; i++) seeds.push(names[i] || "BYE");
 
-        const m = [];
+        const wbRounds = Math.log2(size); 
+        const lbRounds = (wbRounds - 1) * 2;
+        const matches = [];
+
+        // 2. Generate Winners Bracket
+        let wbLayer = []; // Stores IDs for linking
         
-        // --- WINNERS STRUCTURE ---
-        // R1 (8 matches)
-        let w1 = [];
-        for(let i=0; i<8; i++) {
+        // WB Round 1
+        let r1Ids = [];
+        for(let i=0; i<size/2; i++) {
             const id = `w1_${i}`;
-            const side = i<4 ? 'left' : 'right';
-            m.push({ id, type:'wb', r:1, side, p1:seeds[i*2], p2:seeds[i*2+1], s1:0, s2:0, win:null });
-            w1.push(id);
+            const side = i < (size/4) ? 'left' : 'right'; // Butterfly Split
+            matches.push({ id, type:'wb', r:1, side, p1: seeds[i*2], p2: seeds[i*2+1], s1:0, s2:0, win:null });
+            r1Ids.push(id);
         }
-        // R2 (4 matches)
-        let w2 = [];
-        for(let i=0; i<4; i++) {
-            const id = `w2_${i}`;
-            const side = i<2 ? 'left' : 'right';
-            m.push({ id, type:'wb', r:2, side, p1:null, p2:null, s1:0, s2:0, win:null });
-            w2.push(id);
-            link(m, w1[i*2], id, 1); link(m, w1[i*2+1], id, 2);
-        }
-        // R3 (2 matches - Semis)
-        let w3 = [];
-        for(let i=0; i<2; i++) {
-            const id = `w3_${i}`;
-            const side = i===0 ? 'left' : 'right';
-            m.push({ id, type:'wb', r:3, side, p1:null, p2:null, s1:0, s2:0, win:null });
-            w3.push(id);
-            link(m, w2[i*2], id, 1); link(m, w2[i*2+1], id, 2);
-        }
-        // R4 (Winners Final)
-        const wfId = 'wf';
-        m.push({ id: wfId, type:'wb', r:4, side:'center', p1:null, p2:null, s1:0, s2:0, win:null });
-        link(m, w3[0], wfId, 1); link(m, w3[1], wfId, 2);
+        wbLayer.push(r1Ids);
 
-        // --- LOSERS STRUCTURE ---
-        // L1 (4 matches) - Losers from W1
-        let l1 = [];
-        for(let i=0; i<4; i++) {
+        // WB Subsequent Rounds
+        for(let r=2; r<=wbRounds; r++) {
+            let rIds = [];
+            let count = size / Math.pow(2, r);
+            for(let i=0; i<count; i++) {
+                const id = `w${r}_${i}`;
+                // Special: If only 1 match (WB Final), goes to center. Else split.
+                let side = 'center';
+                if(count > 1) side = i < (count/2) ? 'left' : 'right';
+                
+                matches.push({ id, type:'wb', r:r, side, p1:null, p2:null, s1:0, s2:0, win:null });
+                rIds.push(id);
+                
+                // Link from prev round
+                link(matches, wbLayer[r-2][i*2], id, 1);
+                link(matches, wbLayer[r-2][i*2+1], id, 2);
+            }
+            wbLayer.push(rIds);
+        }
+        const wfId = wbLayer[wbLayer.length-1][0]; // Winner Final ID
+
+        // 3. Generate Losers Bracket
+        let lbLayer = [];
+        
+        // LB Round 1 (Drops from WB R1)
+        let l1Ids = [];
+        for(let i=0; i<size/4; i++) {
             const id = `l1_${i}`;
-            const side = i<2 ? 'left' : 'right';
-            m.push({ id, type:'lb', r:1, side, p1:null, p2:null, s1:0, s2:0, win:null });
-            l1.push(id);
-            linkLose(m, w1[i*2], id, 1); linkLose(m, w1[i*2+1], id, 2);
+            const side = i < (size/8) ? 'left' : 'right';
+            matches.push({ id, type:'lb', r:1, side, p1:null, p2:null, s1:0, s2:0, win:null });
+            l1Ids.push(id);
+            linkLose(matches, wbLayer[0][i*2], id, 1);
+            linkLose(matches, wbLayer[0][i*2+1], id, 2);
         }
-        // L2 (4 matches) - Winners L1 vs Losers W2
-        let l2 = [];
-        for(let i=0; i<4; i++) {
-            const id = `l2_${i}`;
-            const side = i<2 ? 'left' : 'right';
-            m.push({ id, type:'lb', r:2, side, p1:null, p2:null, s1:0, s2:0, win:null });
-            l2.push(id);
-            link(m, l1[i], id, 1); linkLose(m, w2[i], id, 2);
-        }
-        // L3 (2 matches) - Winners L2
-        let l3 = [];
-        for(let i=0; i<2; i++) {
-            const id = `l3_${i}`;
-            const side = i===0 ? 'left' : 'right';
-            m.push({ id, type:'lb', r:3, side, p1:null, p2:null, s1:0, s2:0, win:null });
-            l3.push(id);
-            link(m, l2[i*2], id, 1); link(m, l2[i*2+1], id, 2);
-        }
-        // L4 (2 matches) - Winners L3 vs Losers W3
-        let l4 = [];
-        for(let i=0; i<2; i++) {
-            const id = `l4_${i}`;
-            const side = i===0 ? 'left' : 'right';
-            m.push({ id, type:'lb', r:4, side, p1:null, p2:null, s1:0, s2:0, win:null });
-            l4.push(id);
-            link(m, l3[i], id, 1); linkLose(m, w3[i], id, 2);
-        }
-        // L5 (1 match) - LB Semis (Merge Left/Right)
-        const l5Id = 'l5';
-        m.push({ id: l5Id, type:'lb', r:5, side:'center', p1:null, p2:null, s1:0, s2:0, win:null });
-        link(m, l4[0], l5Id, 1); link(m, l4[1], l5Id, 2);
+        lbLayer.push(l1Ids);
 
-        // L6 (1 match) - LB Finals (Winner L5 vs Loser WF)
-        const lfId = 'lf';
-        m.push({ id: lfId, type:'lb', r:6, side:'center', p1:null, p2:null, s1:0, s2:0, win:null });
-        link(m, l5Id, lfId, 1); linkLose(m, wfId, lfId, 2);
+        // LB Rounds Loop
+        // Logic: Total LB rounds (before final) is lbRounds.
+        // Even rounds (2, 4...) take drop from WB. Odd rounds (3, 5...) just advance LB.
+        for(let r=2; r<=lbRounds; r++) {
+            let rIds = [];
+            let prevCount = lbLayer[r-2].length;
+            let isDrop = (r % 2 === 0); // Even rounds accept drop
+            let count = isDrop ? prevCount : prevCount / 2; // Odd rounds reduce count
+            
+            for(let i=0; i<count; i++) {
+                const id = `l${r}_${i}`;
+                
+                // Centering Logic: If count is 1 (LB Semi or Final), center it. Else split.
+                let side = 'center';
+                if(count > 1) side = i < (count/2) ? 'left' : 'right';
 
-        // --- GRAND FINALS ---
+                matches.push({ id, type:'lb', r:r, side, p1:null, p2:null, s1:0, s2:0, win:null });
+                rIds.push(id);
+
+                if(isDrop) {
+                    // Link from Prev LB
+                    link(matches, lbLayer[r-2][i], id, 1);
+                    // Link from WB (Drop). 
+                    // WB Drop Round math: WB R(r/2 + 1) drops to LB R(r)
+                    let wbDropR = (r/2); 
+                    // Need to map WB losers to correct LB match.
+                    // This mapping can get complex. Simple version:
+                    linkLose(matches, wbLayer[wbDropR][i], id, 2);
+                } else {
+                    // Consolidation round (just LB vs LB)
+                    link(matches, lbLayer[r-2][i*2], id, 1);
+                    link(matches, lbLayer[r-2][i*2+1], id, 2);
+                }
+            }
+            lbLayer.push(rIds);
+        }
+        const lfId = lbLayer[lbLayer.length-1][0]; // Losers Final ID
+
+        // 4. Grand Finals
         const gfId = 'gf';
-        m.push({ id: gfId, type:'gf', r:99, side:'center', p1:null, p2:null, s1:0, s2:0, win:null });
-        link(m, wfId, gfId, 1); link(m, lfId, gfId, 2);
+        matches.push({ id: gfId, type:'gf', r:99, side:'center', p1:null, p2:null, s1:0, s2:0, win:null });
+        link(matches, wfId, gfId, 1);
+        link(matches, lfId, gfId, 2);
 
-        data.matches = m;
+        // Store
+        data.matches = matches;
+        data.meta = { wbRounds, lbRounds };
         data.active = true;
         save();
+        
+        // Run
         render();
         advanceByes();
         document.getElementById('setup-modal').classList.remove('active');
         setTimeout(autoFit, 100);
     }
 
-    // --- LINKERS ---
-    function link(arr, src, dest, slot) { 
-        let x=arr.find(z=>z.id===src); if(x){ x.nextWin=dest; x.winSlot=slot; } 
-    }
-    function linkLose(arr, src, dest, slot) { 
-        let x=arr.find(z=>z.id===src); if(x){ x.nextLose=dest; x.loseSlot=slot; } 
-    }
-
-    // --- RENDERER ---
+    // --- RENDERER (DYNAMIC) ---
     function render() {
+        const root = document.getElementById('bracket-root');
+        root.innerHTML = ''; // Clear
+
         if(!data.active) return;
 
-        // Clear
-        const els = ['wb-left','wb-right','lb-left','lb-right','gf-slot','wf-slot','lf-slot'];
-        els.forEach(id => document.getElementById(id).innerHTML = '');
+        // 1. Create Containers
+        const wbCont = document.createElement('div'); wbCont.className = 'wb-container';
+        const lbCont = document.createElement('div'); lbCont.className = 'lb-container';
+        
+        // 2. Build WB Layout
+        // Left Side: Rounds 1 to (Max-1)
+        const wbLeft = document.createElement('div'); wbLeft.className = 'side-block left';
+        for(let r=1; r<data.meta.wbRounds; r++) {
+            wbLeft.appendChild(createCol('wb', r, 'left'));
+        }
+        
+        // Right Side: Rounds (Max-1) down to 1 (Reversed visual order)
+        const wbRight = document.createElement('div'); wbRight.className = 'side-block right';
+        for(let r=data.meta.wbRounds-1; r>=1; r--) {
+            wbRight.appendChild(createCol('wb', r, 'right'));
+        }
 
-        // WB Left: R1 -> R2 -> R3
-        const wl = document.getElementById('wb-left');
-        wl.appendChild(col('wb',1,'left'));
-        wl.appendChild(col('wb',2,'left'));
-        wl.appendChild(col('wb',3,'left'));
+        // Center Stack (WB Final + GF + LB Final + LB Semis if centered)
+        const center = document.createElement('div'); center.className = 'center-stack';
+        center.innerHTML = `
+            <div class="label-gf">GRAND FINALS</div>
+            <div id="slot-gf" style="width:100%"></div>
+            <div style="height:20px; width:1px; background:var(--line)"></div>
+            <div class="label-wf">WINNERS FINAL</div>
+        `;
+        
+        // Add WB Final (Center)
+        const wfMatches = data.matches.filter(m => m.type==='wb' && m.side==='center');
+        wfMatches.forEach(m => center.appendChild(createNode(m, 'final-node')));
 
-        // WB Right: R3 <- R2 <- R1 (Fixed Order)
-        const wr = document.getElementById('wb-right');
-        wr.appendChild(col('wb',3,'right'));
-        wr.appendChild(col('wb',2,'right'));
-        wr.appendChild(col('wb',1,'right'));
+        // Connector to LB
+        const linkDiv = document.createElement('div'); 
+        linkDiv.style.cssText = "height:40px; width:1px; background:var(--line); opacity:0.5";
+        center.appendChild(linkDiv);
 
-        // LB Left: R1 -> R2 -> R3 -> R4
-        const ll = document.getElementById('lb-left');
-        ll.appendChild(col('lb',1,'left'));
-        ll.appendChild(col('lb',2,'left'));
-        ll.appendChild(col('lb',3,'left'));
-        ll.appendChild(col('lb',4,'left'));
+        // Add LB Center Matches (Usually LB Final and maybe LB Semi)
+        // We find all LB matches marked 'center'
+        const lbCenterMatches = data.matches.filter(m => m.type==='lb' && m.side==='center').sort((a,b) => b.r - a.r); // Sort reverse to put Final on top? No.
+        
+        // Actually we want LB Final at top of LB stack
+        center.innerHTML += `<div class="label-lf">L-FINALS</div>`;
+        
+        // We need to render the GF node into the slot created above
+        const gfM = data.matches.find(m => m.type==='gf');
+        if(gfM) {
+            const slot = center.querySelector('#slot-gf');
+            slot.appendChild(createNode(gfM, 'gf-node'));
+        }
 
-        // LB Right: R4 <- R3 <- R2 <- R1
-        const lr = document.getElementById('lb-right');
-        lr.appendChild(col('lb',4,'right'));
-        lr.appendChild(col('lb',3,'right'));
-        lr.appendChild(col('lb',2,'right'));
-        lr.appendChild(col('lb',1,'right'));
+        // Append Center WB/LB to DOM
+        wbCont.appendChild(wbLeft);
+        wbCont.appendChild(center);
+        wbCont.appendChild(wbRight);
+        
+        // 3. Build LB Layout
+        const lbLeft = document.createElement('div'); lbLeft.className = 'side-block left';
+        const lbRight = document.createElement('div'); lbRight.className = 'side-block right';
+        
+        // Loop through LB rounds
+        // We assume last round is Center. 
+        for(let r=1; r<=data.meta.lbRounds; r++) {
+            // Check if this round has side matches
+            const hasLeft = data.matches.some(m => m.type==='lb' && m.r===r && m.side==='left');
+            if(hasLeft) {
+                lbLeft.appendChild(createCol('lb', r, 'left'));
+                // For right side, we unshift to keep order or append? 
+                // Butterfly right side usually flows Inward. So R1 is outer, R2 inner.
+                // We prepending to the right block is tricky. Better to create list then append.
+            }
+        }
+        
+        // For Right side loop reverse? No, LB structure is linear.
+        // Left: 1 -> 2 -> 3
+        // Right: 3 <- 2 <- 1
+        // We need to verify which rounds exist.
+        for(let r=data.meta.lbRounds; r>=1; r--) {
+             const hasRight = data.matches.some(m => m.type==='lb' && m.r===r && m.side==='right');
+             if(hasRight) lbRight.appendChild(createCol('lb', r, 'right'));
+        }
 
-        // Center
-        drawCenter('gf', 'gf-slot', 'gf-node');
-        drawCenter('wb', 'wf-slot', 'wf-node', 4);
-        drawCenter('lb', 'lf-slot', 'lf-node', 6);
+        // Add LB Center nodes to the Center Stack (below the connector)
+        // Sort LB Center matches by Round Ascending (L5 then L6) or Descending?
+        // LB Final (Highest Round) should be closest to GF.
+        lbCenterMatches.sort((a,b) => b.r - a.r).forEach(m => {
+            center.appendChild(createNode(m, 'lb-final-node'));
+            // Add tiny spacer
+            const sp = document.createElement('div'); sp.style.height="10px"; center.appendChild(sp);
+        });
+
+        lbCont.appendChild(lbLeft);
+        // LB shares the center stack visually, but in DOM structure we just place left/right below?
+        // No, the center stack is tall and spans both.
+        // Trick: The center stack is inside `wbCont`. `lbCont` only holds the side wings.
+        // We use a blank center spacer in LB to span the gap.
+        const lbSpacer = document.createElement('div'); 
+        lbSpacer.className = 'center-stack'; 
+        lbSpacer.style.visibility = 'hidden'; // Just for spacing if needed, or set min-width
+        
+        lbCont.appendChild(lbSpacer);
+        lbCont.appendChild(lbRight);
+
+        root.appendChild(wbCont);
+        root.appendChild(lbCont);
     }
 
-    function col(type, r, side) {
+    function createCol(type, r, side) {
         const d = document.createElement('div');
         d.className = 'round-col';
-        let h = 300; // Base height for alignment
-        if(type==='lb') h = 280;
-        d.style.height = h+'px';
         
-        const matches = data.matches.filter(m => m.type===type && m.r===r && m.side===side);
-        matches.forEach(m => d.appendChild(node(m)));
+        // Dynamic Height scaling logic
+        // The first round needs the most height. Inner rounds need less *absolute* space 
+        // but must align. Flex 'justify-content: space-around' handles alignment automatically 
+        // if the container height is tall enough.
+        // We calculate height based on the maximum matches in ANY round (usually R1).
+        const maxMatches = data.matches.filter(m => m.type==='wb' && m.r===1).length;
+        const myMatches = data.matches.filter(m => m.type===type && m.r===r && m.side===side);
+        
+        // Base Height: (Nodes * 50) + Spacing
+        // We force a standard height for the whole bracket based on R1 count
+        let h = (maxMatches/2) * 80; 
+        if(type === 'lb') h = h * 0.8; // LB is slightly more compact
+        d.style.height = Math.max(200, h) + 'px';
+
+        d.innerHTML = `<div class="col-header">${type==='wb'?'R':'L'}${r}</div>`;
+
+        myMatches.forEach(m => d.appendChild(createNode(m)));
         return d;
     }
 
-    function drawCenter(type, slotId, cls, r) {
-        let m;
-        if(type==='gf') m = data.matches.find(x=>x.type==='gf');
-        else m = data.matches.find(x=>x.type===type && x.r===r && x.side==='center');
-        if(m) document.getElementById(slotId).appendChild(node(m, cls));
-    }
-
-    function node(m, extra='') {
+    function createNode(m, extra='') {
         const el = document.createElement('div');
         el.className = 'node ' + extra;
         el.onclick = () => openScore(m.id);
         
         const p1c = m.win===1?'win':(m.win===2?'lose':'');
         const p2c = m.win===2?'win':(m.win===1?'lose':'');
+        
+        // Simpler ID display
+        let shortId = m.id.split('_')[1];
+        if(m.type==='gf') shortId = '';
 
         el.innerHTML = `
-            <div class="node-id">${m.id.split('_').join('.')}</div>
+            ${shortId ? `<div class="node-id">${parseInt(shortId)+1}</div>` : ''}
             <div class="p-row ${p1c}">
                 <div class="p-name">${m.p1||'-'}</div><div class="p-sc">${m.s1}</div>
             </div>
@@ -380,30 +444,27 @@
         return el;
     }
 
-    // --- SCORE ---
+    // --- LOGIC HELPERS ---
+    function link(arr, src, dest, slot) { let x=arr.find(z=>z.id===src); if(x){ x.nextWin=dest; x.winSlot=slot; } }
+    function linkLose(arr, src, dest, slot) { let x=arr.find(z=>z.id===src); if(x){ x.nextLose=dest; x.loseSlot=slot; } }
+
     function openScore(id) {
-        curId = id;
-        const m = data.matches.find(x=>x.id===id);
+        curId = id; const m = data.matches.find(x=>x.id===id);
         if(!m.p1 || !m.p2) return;
-        document.getElementById('mP1').innerText = m.p1;
-        document.getElementById('mP2').innerText = m.p2;
-        document.getElementById('sP1').value = m.s1;
-        document.getElementById('sP2').value = m.s2;
+        document.getElementById('mP1').innerText = m.p1; document.getElementById('mP2').innerText = m.p2;
+        document.getElementById('sP1').value = m.s1; document.getElementById('sP2').value = m.s2;
         document.getElementById('score-modal').classList.add('active');
     }
     function closeScore() { document.getElementById('score-modal').classList.remove('active'); curId = null; }
-    function mod(d, p) {
-        const el = document.getElementById(p===1?'sP1':'sP2');
-        el.value = Math.max(0, parseInt(el.value)+d);
-    }
+    function mod(d, p) { const el = document.getElementById(p===1?'sP1':'sP2'); el.value = Math.max(0, parseInt(el.value)+d); }
+    
     function saveScore() {
         const m = data.matches.find(x=>x.id===curId);
         const s1 = parseInt(document.getElementById('sP1').value);
         const s2 = parseInt(document.getElementById('sP2').value);
-        if(s1===s2) return alert("No draws");
+        if(s1===s2) return alert("Draws not allowed");
         
         m.s1=s1; m.s2=s2; m.win = s1>s2?1:2;
-        
         const w = m.win===1?m.p1:m.p2;
         const l = m.win===1?m.p2:m.p1;
 
@@ -412,15 +473,12 @@
 
         save(); render(); advanceByes(); closeScore();
     }
+    
     function update(id, slot, name) {
         const x = data.matches.find(z=>z.id===id);
-        if(x) {
-            if(slot===1) x.p1=name; else x.p2=name;
-            x.win=null; x.s1=0; x.s2=0;
-        }
+        if(x) { if(slot===1) x.p1=name; else x.p2=name; x.win=null; x.s1=0; x.s2=0; }
     }
 
-    // --- UTILS ---
     function advanceByes() {
         let dirty = false;
         data.matches.forEach(m => {
@@ -429,26 +487,30 @@
                 m.win = m.p2==='BYE'?1:2;
                 const w = m.win===1?m.p1:m.p2;
                 if(m.nextWin) update(m.nextWin, m.winSlot, w);
-                // BYE losers don't drop to LB usually, or drop as BYE
-                if(m.nextLose) update(m.nextLose, m.loseSlot, 'BYE'); 
+                if(m.nextLose) update(m.nextLose, m.loseSlot, 'BYE'); // Pass BYE down to clean LB
                 dirty = true;
             }
         });
         if(dirty) { save(); render(); }
     }
+
     function autoFit() {
         const r = document.getElementById('bracket-root');
         r.style.transform = 'scale(1)';
-        const sc = Math.min(document.body.clientWidth / (r.scrollWidth+40), document.body.clientHeight / (r.scrollHeight+40), 1);
+        const w = r.scrollWidth + 100; const h = r.scrollHeight + 50;
+        const sc = Math.min(window.innerWidth/w, window.innerHeight/h, 1);
         r.style.transform = `scale(${sc})`;
     }
-    function save() { localStorage.setItem('uni_v43', JSON.stringify(data)); }
-    function reset() { if(confirm("Reset?")) { localStorage.removeItem('uni_v43'); location.reload(); } }
 
-    const s = localStorage.getItem('uni_v43');
+    function save() { localStorage.setItem('uni_v5', JSON.stringify(data)); }
+    function reset() { if(confirm("Clear bracket?")) { localStorage.removeItem('uni_v5'); location.reload(); } }
+    
+    // Init
+    const s = localStorage.getItem('uni_v5');
     if(s) { data=JSON.parse(s); if(data.active){ document.getElementById('setup-modal').classList.remove('active'); render(); setTimeout(autoFit,100); }}
+    
+    window.addEventListener('resize', () => setTimeout(autoFit, 200));
 
-    window.addEventListener('resize', ()=>setTimeout(autoFit, 200));
 </script>
 </body>
 </html>
