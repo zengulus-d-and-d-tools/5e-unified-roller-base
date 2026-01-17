@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v4.2</title>
+    <title>Unified 5e Sheet v4.3</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -24,7 +24,7 @@
             --crit: #ffd700; 
             --fail: #e74c3c; 
             --res-bar: #27ae60;
-            --swap-mode: #e67e22; /* Orange for swap mode */
+            --swap-mode: #e67e22;
         }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
@@ -711,7 +711,7 @@
                 <button class="dice-btn" onclick="rollDie(100,0,'d100',false,'check')">d100</button>
             </div>
             <div class="custom-roll-row">
-                <input type="text" id="customFormula" placeholder="e.g. 2d6+4">
+                <input type="text" id="customFormula" placeholder="e.g. 4d6dl1 or 2d6r1">
                 <button class="btn-roll-custom" onclick="rollCustom()">Roll</button>
             </div>
         </div>
@@ -773,14 +773,34 @@
     
     let consumeInspirationOnNextRoll = false;
 
-    // --- CORE DICE ENGINE ---
-    function coreRoll(count, sides, mode = 'norm') {
+    // --- CORE DICE ENGINE (UPDATED v4.3) ---
+    function parseRollModifiers(str) {
+        let mods = { r: 0, dl: 0, kh: 0 };
+        if (!str) return mods;
+        
+        // Reroll: r1, r2, etc. (Recursive)
+        const rMatch = str.match(/r(\d+)/);
+        if (rMatch) mods.r = parseInt(rMatch[1]);
+        
+        // Drop Lowest: dl1, d1
+        const dlMatch = str.match(/d[l]?(\d+)/);
+        if (dlMatch) mods.dl = parseInt(dlMatch[1]);
+        
+        // Keep Highest: kh3, k3
+        const khMatch = str.match(/k[h]?(\d+)/);
+        if (khMatch) mods.kh = parseInt(khMatch[1]);
+        
+        return mods;
+    }
+
+    function coreRoll(count, sides, mode = 'norm', mods = {}) {
         let rolls = [];
         let total = 0;
         let isCrit = false;
         let isFail = false;
         let formula = "";
 
+        // Special Case: 1d20 with Advantage/Disadvantage
         if (count === 1 && sides === 20 && mode !== 'norm') {
             const r1 = Math.floor(Math.random() * sides) + 1;
             const r2 = Math.floor(Math.random() * sides) + 1;
@@ -793,45 +813,95 @@
                 total = Math.min(r1, r2);
                 formula = `[${r1}, ${r2}] (Low)`;
             }
-        } else {
-            for(let i=0; i<count; i++) {
-                let r = Math.floor(Math.random() * sides) + 1;
-                rolls.push(r);
-                total += r;
-            }
-            formula = `[${rolls.join('+')}]`;
-        }
-
-        if (sides === 20 && count === 1) {
             if (total === 20) isCrit = true;
             if (total === 1) isFail = true;
+        } else {
+            // General Dice Roller (supports r, dl, kh)
+            let rollObjs = [];
+            for(let i=0; i<count; i++) {
+                let r = Math.floor(Math.random() * sides) + 1;
+                
+                // Reroll Logic (Recursive)
+                if (mods.r > 0) {
+                    let safety = 0;
+                    while (r <= mods.r && safety < 50) {
+                        r = Math.floor(Math.random() * sides) + 1;
+                        safety++;
+                    }
+                }
+                rollObjs.push({ val: r, dropped: false, originalIdx: i });
+            }
+
+            // Drop/Keep Logic
+            if (mods.dl > 0 || mods.kh > 0) {
+                // Sort by value to identify lowest
+                let sorted = [...rollObjs].sort((a,b) => a.val - b.val);
+                
+                let dropCount = mods.dl;
+                if (mods.kh > 0) {
+                    let calculatedDrop = count - mods.kh;
+                    if (calculatedDrop > dropCount) dropCount = calculatedDrop;
+                }
+                
+                // Mark lowest N as dropped
+                for(let i=0; i<dropCount; i++) {
+                    if (sorted[i]) sorted[i].dropped = true;
+                }
+            }
+
+            // Sum and Formula Construction
+            let valList = [];
+            rollObjs.forEach(obj => {
+                if (!obj.dropped) total += obj.val;
+                valList.push(obj.dropped ? `~~${obj.val}~~` : obj.val);
+            });
+            
+            // Check Crit/Fail on single die (only if standard d20, ignored for complex logic usually)
+            if (count === 1 && sides === 20 && total === 20) isCrit = true;
+            if (count === 1 && sides === 20 && total === 1) isFail = true;
+
+            formula = `[${valList.join('+')}]`;
         }
 
-        return { total, rolls, formula, isCrit, isFail };
+        return { total, rolls: rolls, formula, isCrit, isFail };
     }
 
-    // --- COMPLEX FORMULA PARSER ---
+    // --- COMPLEX FORMULA PARSER (UPDATED) ---
     function parseComplexBonus(str) {
         if (!str) return { total: 0, text: '' };
         let total = 0;
         let parts = [];
-        const diceRegex = /([+-]?)\s*(\d+)d(\d+)/gi;
+        // Regex looks for: sign, count, "d", sides, modifiers (alphanumeric suffix)
+        // Group 1: sign, 2: count, 3: sides, 4: mods
+        const diceRegex = /([+-]?)\s*(\d+)d(\d+)([a-z0-9]*)/gi;
         let match;
-        let cleanStr = str; 
         
+        // Find Dice
+        let diceMatches = [];
         while ((match = diceRegex.exec(str)) !== null) {
-            const sign = (match[1].trim() === '-') ? -1 : 1;
-            const count = parseInt(match[2]);
-            const sides = parseInt(match[3]);
-            
-            const res = coreRoll(count, sides);
-            total += (res.total * sign);
-            
-            const signStr = sign === -1 ? '-' : '+';
-            parts.push(`${signStr}[${res.formula.replace(/[\[\]]/g,'')}]`);
+            diceMatches.push(match);
         }
-        
-        cleanStr = str.replace(diceRegex, '');
+
+        // Process Dice
+        diceMatches.forEach(m => {
+             const fullMatch = m[0];
+             const sign = (m[1].trim() === '-') ? -1 : 1;
+             const count = parseInt(m[2]);
+             const sides = parseInt(m[3]);
+             const modStr = m[4] || "";
+             
+             const mods = parseRollModifiers(modStr);
+             const res = coreRoll(count, sides, 'norm', mods);
+             
+             total += (res.total * sign);
+             const signStr = sign === -1 ? '-' : '+';
+             let form = res.formula; 
+             if (modStr) form += `(${modStr})`; 
+             parts.push(`${signStr}${form}`);
+        });
+
+        // Remove dice from string to find static bonuses
+        let cleanStr = str.replace(diceRegex, '');
         
         const staticRegex = /([+-]?)\s*(\d+)/gi;
         while ((match = staticRegex.exec(cleanStr)) !== null) {
@@ -1456,8 +1526,13 @@
         const conMod = getMod(data.stats.con.val);
 
         const result = coreRoll(1, sides);
-        const roll = result.rolls[0];
-        const total = Math.max(0, roll + conMod); 
+        const roll = result.rolls[0]; // Simple access for single die, check structure if modified
+        // roll might be object now? coreRoll returns rolls array of objects? No, wait.
+        // Let's check updated coreRoll signature.
+        // coreRoll returns: { total, rolls: [{val, dropped}, ...], ... }
+        
+        const rollVal = result.rolls[0].val; // Access .val
+        const total = Math.max(0, rollVal + conMod); 
 
         let hpCurr = parseInt(document.getElementById('hpCurr').value) || 0;
         const hpMax = parseInt(document.getElementById('hpMax').value) || 0;
@@ -1473,7 +1548,7 @@
         updateHP(); 
         save();
 
-        const formula = `[${roll}] ${conMod>=0?'+':''}${conMod} (Con)`;
+        const formula = `[${rollVal}] ${conMod>=0?'+':''}${conMod} (Con)`;
         showLog(formula, total);
         sendToDiscord("Short Rest", `Used 1${dieStr}. Formula: ${formula}`, `**Healed ${hpCurr - oldHp} HP**`, 'check');
     }
