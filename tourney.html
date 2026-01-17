@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unified Bracket v5.0 (Dynamic)</title>
+    <title>Unified Bracket v6.0 (SVG)</title>
     <style>
         :root {
             --bg: #121212; --panel: #1e1e1e;
             --node-bg: #252525; --node-hover: #303030;
             --accent: #00bcd4; --gold: #ffc107;
-            --text: #eee; --line: #444;
+            --text: #eee; --line: #555;
             --node-h: 44px;
         }
         body { 
@@ -25,38 +25,38 @@
             display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
             z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
         }
-        .btn { 
-            background: transparent; border: 1px solid #444; color: #aaa; 
-            padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition:0.2s;
-        }
+        .btn { background: transparent; border: 1px solid #444; color: #aaa; padding: 5px 14px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; transition:0.2s; }
         .btn:hover { border-color: var(--accent); color: var(--accent); }
         .btn-p { background: var(--accent); color: #000; border: none; font-weight: bold; }
 
-        /* MAIN AREA */
+        /* MAIN STAGE */
         #stage {
             flex: 1; position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center;
             background: radial-gradient(circle at center, #1b1b1b 0%, #080808 100%);
         }
         #bracket-root {
-            display: flex; flex-direction: column; gap: 40px; align-items: center;
-            padding: 40px; transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            position: relative; /* Context for SVG */
+            display: flex; flex-direction: column; gap: 60px; align-items: center;
+            padding: 50px; transition: transform 0.2s;
         }
 
-        /* GRID SYSTEM */
-        .wb-container, .lb-container { display: flex; gap: 40px; justify-content: center; }
-        .lb-container { border-top: 1px dashed #333; padding-top: 30px; }
-        
-        /* Sides and Columns */
-        .side-block { display: flex; gap: 40px; }
-        .round-col { 
-            display: flex; flex-direction: column; justify-content: space-around; 
-            min-width: 150px; position: relative;
+        /* SVG LAYER */
+        #connections {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; /* Let clicks pass through to nodes */
+            z-index: 0;
         }
-        .col-header { 
-            position: absolute; top: -25px; width: 100%; text-align: center; 
-            font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px;
+        path {
+            fill: none; stroke: var(--line); stroke-width: 1.5px;
+            transition: d 0.3s ease; /* Smooth animation when resizing */
         }
+
+        /* LAYOUT CONTAINERS */
+        .wb-container, .lb-container { display: flex; gap: 50px; justify-content: center; z-index: 1; }
+        .side-block { display: flex; gap: 50px; }
+        .round-col { display: flex; flex-direction: column; justify-content: space-around; min-width: 150px; position: relative; }
+        .col-header { position: absolute; top: -25px; width: 100%; text-align: center; font-size: 0.6rem; color: #555; text-transform: uppercase; letter-spacing: 1px; }
 
         /* NODES */
         .node {
@@ -65,7 +65,6 @@
             position: relative; cursor: pointer; transition: 0.2s; z-index: 2;
         }
         .node:hover { transform: scale(1.05); border-color: var(--accent); z-index: 10; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        
         .node-id { position: absolute; top: -8px; right: 0; font-size: 0.5rem; color: #555; background: var(--node-bg); padding: 0 4px; border-radius: 3px; }
         .p-row { display: flex; justify-content: space-between; padding: 0 8px; font-size: 0.7rem; }
         .p-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; color: #bbb; }
@@ -76,18 +75,12 @@
         .lose .p-name { text-decoration: line-through; opacity: 0.4; }
 
         /* CENTER STACK */
-        .center-stack { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 180px; gap:5px; }
+        .center-stack { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 180px; gap: 10px; z-index: 1; }
         .gf-node { border: 1px solid var(--gold); box-shadow: 0 0 15px rgba(255,193,7,0.1); height: 50px; width: 100%; margin-bottom: 20px;}
         .final-node { border: 1px solid var(--accent); height: 48px; width: 100%; }
         .lb-final-node { border: 1px solid #666; width: 100%; }
         
-        .label-gf { color: var(--gold); font-size: 0.65rem; letter-spacing: 2px; margin-bottom: 5px; }
-        .label-wf { color: var(--accent); font-size: 0.65rem; letter-spacing: 1px; margin-bottom: 5px; margin-top: 10px; }
-        .label-lf { color: #777; font-size: 0.65rem; letter-spacing: 1px; margin-bottom: 5px; }
-
-        /* CONNECTORS */
-        .side-block.left .node::after { content: ''; position: absolute; right: -41px; top: 50%; width: 40px; height: 1px; background: var(--line); z-index: -1; }
-        .side-block.right .node::after { content: ''; position: absolute; left: -41px; top: 50%; width: 40px; height: 1px; background: var(--line); z-index: -1; }
+        .label { font-size: 0.65rem; letter-spacing: 1px; margin-bottom: 2px; }
 
         /* MODAL */
         #setup-modal, #score-modal {
@@ -97,30 +90,26 @@
         .active { display: flex !important; }
         .modal-box { background: var(--panel); border: 1px solid #444; padding: 30px; border-radius: 8px; width: 340px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         textarea { width: 100%; height: 150px; background: #000; border: 1px solid #333; color: #fff; padding: 10px; box-sizing: border-box; font-family: monospace; }
-        
         .score-row { display: flex; justify-content: space-between; align-items: center; background: #111; margin-bottom: 12px; padding: 10px; border-radius: 6px; }
         .sc-inp { width: 50px; text-align: center; background: transparent; border: none; color: #fff; font-size: 1.4rem; font-weight: bold; }
         .btn-adj { background: #333; color: #fff; border: none; width: 32px; height: 32px; border-radius: 4px; cursor: pointer; font-size: 1.1rem; }
-        .btn-adj:hover { background: #444; }
-
     </style>
 </head>
 <body>
 
 <div id="setup-modal" class="active">
     <div class="modal-box">
-        <h3 style="margin-top:0; color:var(--accent)">Tournament Setup</h3>
-        <p style="color:#888; font-size:0.8rem">Enter names (one per line). Supports any number (4-64).</p>
-        <textarea id="pInput" placeholder="Player 1&#10;Player 2&#10;..."></textarea>
+        <h3 style="margin-top:0; color:var(--accent)">Dynamic Setup</h3>
+        <textarea id="pInput" placeholder="Names (4-64 supported)..."></textarea>
         <div style="display:flex; justify-content:space-between; margin-top:15px;">
              <label style="color:#aaa; font-size:0.8rem; display:flex; align-items:center;"><input type="checkbox" id="chkRand" checked> Randomize</label>
-             <button class="btn-p" onclick="generate()">Generate Bracket</button>
+             <button class="btn-p" onclick="generate()">Generate</button>
         </div>
     </div>
 </div>
 
 <div id="toolbar">
-    <div style="font-weight:700; color:var(--accent); letter-spacing:1px;">UNIFIED <span style="color:#fff">v5.0</span></div>
+    <div style="font-weight:700; color:var(--accent);">UNIFIED <span style="color:#fff">v6.0</span></div>
     <div>
         <button class="btn" onclick="autoFit()">Auto-Fit</button>
         <button class="btn" onclick="reset()">New</button>
@@ -129,6 +118,7 @@
 
 <div id="stage">
     <div id="bracket-root">
+        <svg id="connections"></svg>
         </div>
 </div>
 
@@ -136,19 +126,11 @@
     <div class="modal-box">
         <div class="score-row">
             <span id="mP1" style="font-weight:bold; max-width:110px; overflow:hidden;">P1</span>
-            <div>
-                <button class="btn-adj" onclick="mod(-1, 1)">-</button>
-                <input id="sP1" class="sc-inp" readonly value="0">
-                <button class="btn-adj" onclick="mod(1, 1)">+</button>
-            </div>
+            <div><button class="btn-adj" onclick="mod(-1, 1)">-</button><input id="sP1" class="sc-inp" readonly value="0"><button class="btn-adj" onclick="mod(1, 1)">+</button></div>
         </div>
         <div class="score-row">
             <span id="mP2" style="font-weight:bold; max-width:110px; overflow:hidden;">P2</span>
-            <div>
-                <button class="btn-adj" onclick="mod(-1, 2)">-</button>
-                <input id="sP2" class="sc-inp" readonly value="0">
-                <button class="btn-adj" onclick="mod(1, 2)">+</button>
-            </div>
+            <div><button class="btn-adj" onclick="mod(-1, 2)">-</button><input id="sP2" class="sc-inp" readonly value="0"><button class="btn-adj" onclick="mod(1, 2)">+</button></div>
         </div>
         <div style="display:flex; gap:10px; margin-top:20px;">
             <button class="btn" style="flex:1; border:none;" onclick="closeScore()">Cancel</button>
@@ -161,61 +143,49 @@
     let data = { matches: [], active: false, meta: {} };
     let curId = null;
 
-    // --- GENERATOR LOGIC ---
+    // --- GENERATOR (Same logic as v5, creates data structure) ---
     function generate() {
         const txt = document.getElementById('pInput').value.trim();
         let names = txt.split('\n').map(x=>x.trim()).filter(x=>x);
-        
-        if(names.length < 3) return alert("Need at least 3 players.");
+        if(names.length < 3) return alert("Need 3+ players.");
         if(document.getElementById('chkRand').checked) names.sort(() => Math.random() - 0.5);
 
-        // 1. Calculate Dimensions
-        const size = Math.pow(2, Math.ceil(Math.log2(names.length))); // Next power of 2
+        const size = Math.pow(2, Math.ceil(Math.log2(names.length)));
         const seeds = [];
         for(let i=0; i<size; i++) seeds.push(names[i] || "BYE");
 
         const wbRounds = Math.log2(size); 
         const lbRounds = (wbRounds - 1) * 2;
         const matches = [];
+        let wbLayer = [];
 
-        // 2. Generate Winners Bracket
-        let wbLayer = []; // Stores IDs for linking
-        
-        // WB Round 1
+        // WB Gen
         let r1Ids = [];
         for(let i=0; i<size/2; i++) {
             const id = `w1_${i}`;
-            const side = i < (size/4) ? 'left' : 'right'; // Butterfly Split
+            const side = i < (size/4) ? 'left' : 'right';
             matches.push({ id, type:'wb', r:1, side, p1: seeds[i*2], p2: seeds[i*2+1], s1:0, s2:0, win:null });
             r1Ids.push(id);
         }
         wbLayer.push(r1Ids);
 
-        // WB Subsequent Rounds
         for(let r=2; r<=wbRounds; r++) {
             let rIds = [];
             let count = size / Math.pow(2, r);
             for(let i=0; i<count; i++) {
                 const id = `w${r}_${i}`;
-                // Special: If only 1 match (WB Final), goes to center. Else split.
-                let side = 'center';
-                if(count > 1) side = i < (count/2) ? 'left' : 'right';
-                
+                let side = count > 1 ? (i < (count/2) ? 'left' : 'right') : 'center';
                 matches.push({ id, type:'wb', r:r, side, p1:null, p2:null, s1:0, s2:0, win:null });
                 rIds.push(id);
-                
-                // Link from prev round
                 link(matches, wbLayer[r-2][i*2], id, 1);
                 link(matches, wbLayer[r-2][i*2+1], id, 2);
             }
             wbLayer.push(rIds);
         }
-        const wfId = wbLayer[wbLayer.length-1][0]; // Winner Final ID
+        const wfId = wbLayer[wbLayer.length-1][0];
 
-        // 3. Generate Losers Bracket
+        // LB Gen
         let lbLayer = [];
-        
-        // LB Round 1 (Drops from WB R1)
         let l1Ids = [];
         for(let i=0; i<size/4; i++) {
             const id = `l1_${i}`;
@@ -227,289 +197,251 @@
         }
         lbLayer.push(l1Ids);
 
-        // LB Rounds Loop
-        // Logic: Total LB rounds (before final) is lbRounds.
-        // Even rounds (2, 4...) take drop from WB. Odd rounds (3, 5...) just advance LB.
         for(let r=2; r<=lbRounds; r++) {
             let rIds = [];
             let prevCount = lbLayer[r-2].length;
-            let isDrop = (r % 2 === 0); // Even rounds accept drop
-            let count = isDrop ? prevCount : prevCount / 2; // Odd rounds reduce count
+            let isDrop = (r % 2 === 0);
+            let count = isDrop ? prevCount : prevCount / 2;
             
             for(let i=0; i<count; i++) {
                 const id = `l${r}_${i}`;
-                
-                // Centering Logic: If count is 1 (LB Semi or Final), center it. Else split.
-                let side = 'center';
-                if(count > 1) side = i < (count/2) ? 'left' : 'right';
-
+                let side = count > 1 ? (i < (count/2) ? 'left' : 'right') : 'center';
                 matches.push({ id, type:'lb', r:r, side, p1:null, p2:null, s1:0, s2:0, win:null });
                 rIds.push(id);
 
                 if(isDrop) {
-                    // Link from Prev LB
                     link(matches, lbLayer[r-2][i], id, 1);
-                    // Link from WB (Drop). 
-                    // WB Drop Round math: WB R(r/2 + 1) drops to LB R(r)
                     let wbDropR = (r/2); 
-                    // Need to map WB losers to correct LB match.
-                    // This mapping can get complex. Simple version:
                     linkLose(matches, wbLayer[wbDropR][i], id, 2);
                 } else {
-                    // Consolidation round (just LB vs LB)
                     link(matches, lbLayer[r-2][i*2], id, 1);
                     link(matches, lbLayer[r-2][i*2+1], id, 2);
                 }
             }
             lbLayer.push(rIds);
         }
-        const lfId = lbLayer[lbLayer.length-1][0]; // Losers Final ID
+        const lfId = lbLayer[lbLayer.length-1][0];
 
-        // 4. Grand Finals
+        // GF
         const gfId = 'gf';
         matches.push({ id: gfId, type:'gf', r:99, side:'center', p1:null, p2:null, s1:0, s2:0, win:null });
         link(matches, wfId, gfId, 1);
         link(matches, lfId, gfId, 2);
 
-        // Store
         data.matches = matches;
         data.meta = { wbRounds, lbRounds };
         data.active = true;
         save();
-        
-        // Run
         render();
         advanceByes();
         document.getElementById('setup-modal').classList.remove('active');
-        setTimeout(autoFit, 100);
     }
 
-    // --- RENDERER (DYNAMIC) ---
+    // --- RENDERER ---
     function render() {
-        const root = document.getElementById('bracket-root');
-        root.innerHTML = ''; // Clear
-
         if(!data.active) return;
+        const root = document.getElementById('bracket-root');
+        // Keep SVG, clear rest
+        const svg = document.getElementById('connections');
+        root.innerHTML = ''; 
+        root.appendChild(svg);
 
-        // 1. Create Containers
-        const wbCont = document.createElement('div'); wbCont.className = 'wb-container';
-        const lbCont = document.createElement('div'); lbCont.className = 'lb-container';
+        // Containers
+        const wbCont = mk('div','wb-container');
+        const lbCont = mk('div','lb-container');
         
-        // 2. Build WB Layout
-        // Left Side: Rounds 1 to (Max-1)
-        const wbLeft = document.createElement('div'); wbLeft.className = 'side-block left';
-        for(let r=1; r<data.meta.wbRounds; r++) {
-            wbLeft.appendChild(createCol('wb', r, 'left'));
-        }
+        // WB Layout
+        const wbLeft = mk('div','side-block left');
+        for(let r=1; r<data.meta.wbRounds; r++) wbLeft.appendChild(createCol('wb', r, 'left'));
         
-        // Right Side: Rounds (Max-1) down to 1 (Reversed visual order)
-        const wbRight = document.createElement('div'); wbRight.className = 'side-block right';
-        for(let r=data.meta.wbRounds-1; r>=1; r--) {
-            wbRight.appendChild(createCol('wb', r, 'right'));
-        }
+        const wbRight = mk('div','side-block right');
+        for(let r=data.meta.wbRounds-1; r>=1; r--) wbRight.appendChild(createCol('wb', r, 'right'));
 
-        // Center Stack (WB Final + GF + LB Final + LB Semis if centered)
-        const center = document.createElement('div'); center.className = 'center-stack';
-        center.innerHTML = `
-            <div class="label-gf">GRAND FINALS</div>
-            <div id="slot-gf" style="width:100%"></div>
-            <div style="height:20px; width:1px; background:var(--line)"></div>
-            <div class="label-wf">WINNERS FINAL</div>
-        `;
+        // Center
+        const center = mk('div','center-stack');
+        center.innerHTML = `<div class="label" style="color:var(--gold)">GRAND FINALS</div><div id="slot-gf" style="width:100%"></div>`;
         
-        // Add WB Final (Center)
         const wfMatches = data.matches.filter(m => m.type==='wb' && m.side==='center');
-        wfMatches.forEach(m => center.appendChild(createNode(m, 'final-node')));
-
-        // Connector to LB
-        const linkDiv = document.createElement('div'); 
-        linkDiv.style.cssText = "height:40px; width:1px; background:var(--line); opacity:0.5";
-        center.appendChild(linkDiv);
-
-        // Add LB Center Matches (Usually LB Final and maybe LB Semi)
-        // We find all LB matches marked 'center'
-        const lbCenterMatches = data.matches.filter(m => m.type==='lb' && m.side==='center').sort((a,b) => b.r - a.r); // Sort reverse to put Final on top? No.
-        
-        // Actually we want LB Final at top of LB stack
-        center.innerHTML += `<div class="label-lf">L-FINALS</div>`;
-        
-        // We need to render the GF node into the slot created above
-        const gfM = data.matches.find(m => m.type==='gf');
-        if(gfM) {
-            const slot = center.querySelector('#slot-gf');
-            slot.appendChild(createNode(gfM, 'gf-node'));
-        }
-
-        // Append Center WB/LB to DOM
-        wbCont.appendChild(wbLeft);
-        wbCont.appendChild(center);
-        wbCont.appendChild(wbRight);
-        
-        // 3. Build LB Layout
-        const lbLeft = document.createElement('div'); lbLeft.className = 'side-block left';
-        const lbRight = document.createElement('div'); lbRight.className = 'side-block right';
-        
-        // Loop through LB rounds
-        // We assume last round is Center. 
-        for(let r=1; r<=data.meta.lbRounds; r++) {
-            // Check if this round has side matches
-            const hasLeft = data.matches.some(m => m.type==='lb' && m.r===r && m.side==='left');
-            if(hasLeft) {
-                lbLeft.appendChild(createCol('lb', r, 'left'));
-                // For right side, we unshift to keep order or append? 
-                // Butterfly right side usually flows Inward. So R1 is outer, R2 inner.
-                // We prepending to the right block is tricky. Better to create list then append.
-            }
-        }
-        
-        // For Right side loop reverse? No, LB structure is linear.
-        // Left: 1 -> 2 -> 3
-        // Right: 3 <- 2 <- 1
-        // We need to verify which rounds exist.
-        for(let r=data.meta.lbRounds; r>=1; r--) {
-             const hasRight = data.matches.some(m => m.type==='lb' && m.r===r && m.side==='right');
-             if(hasRight) lbRight.appendChild(createCol('lb', r, 'right'));
-        }
-
-        // Add LB Center nodes to the Center Stack (below the connector)
-        // Sort LB Center matches by Round Ascending (L5 then L6) or Descending?
-        // LB Final (Highest Round) should be closest to GF.
-        lbCenterMatches.sort((a,b) => b.r - a.r).forEach(m => {
-            center.appendChild(createNode(m, 'lb-final-node'));
-            // Add tiny spacer
-            const sp = document.createElement('div'); sp.style.height="10px"; center.appendChild(sp);
+        wfMatches.forEach(m => {
+            center.innerHTML += `<div class="label" style="color:var(--accent); margin-top:15px">WINNERS FINAL</div>`;
+            center.appendChild(createNode(m, 'final-node'));
         });
-
-        lbCont.appendChild(lbLeft);
-        // LB shares the center stack visually, but in DOM structure we just place left/right below?
-        // No, the center stack is tall and spans both.
-        // Trick: The center stack is inside `wbCont`. `lbCont` only holds the side wings.
-        // We use a blank center spacer in LB to span the gap.
-        const lbSpacer = document.createElement('div'); 
-        lbSpacer.className = 'center-stack'; 
-        lbSpacer.style.visibility = 'hidden'; // Just for spacing if needed, or set min-width
         
-        lbCont.appendChild(lbSpacer);
-        lbCont.appendChild(lbRight);
+        const lbCenterMatches = data.matches.filter(m => m.type==='lb' && m.side==='center').sort((a,b) => b.r - a.r);
+        if(lbCenterMatches.length) center.innerHTML += `<div class="label" style="color:#777; margin-top:20px">L-FINALS</div>`;
+        lbCenterMatches.forEach(m => center.appendChild(createNode(m, 'lb-final-node')));
+        
+        // Render GF into slot
+        const gfM = data.matches.find(m => m.type==='gf');
+        if(gfM) center.querySelector('#slot-gf').appendChild(createNode(gfM, 'gf-node'));
 
-        root.appendChild(wbCont);
-        root.appendChild(lbCont);
+        wbCont.append(wbLeft, center, wbRight);
+        
+        // LB Layout
+        const lbLeft = mk('div','side-block left');
+        for(let r=1; r<=data.meta.lbRounds; r++) {
+            if(data.matches.some(m => m.type==='lb' && m.r===r && m.side==='left')) 
+                lbLeft.appendChild(createCol('lb', r, 'left'));
+        }
+        
+        const lbRight = mk('div','side-block right');
+        for(let r=data.meta.lbRounds; r>=1; r--) {
+            if(data.matches.some(m => m.type==='lb' && m.r===r && m.side==='right'))
+                lbRight.appendChild(createCol('lb', r, 'right'));
+        }
+
+        // Invisible spacer for LB center gap
+        const lbSpacer = mk('div','center-stack');
+        lbSpacer.style.visibility = 'hidden';
+        lbCont.append(lbLeft, lbSpacer, lbRight);
+
+        root.append(wbCont, lbCont);
+        
+        // Wait for DOM layout then Draw Lines
+        setTimeout(() => { autoFit(); drawLines(); }, 50);
     }
 
     function createCol(type, r, side) {
-        const d = document.createElement('div');
-        d.className = 'round-col';
-        
-        // Dynamic Height scaling logic
-        // The first round needs the most height. Inner rounds need less *absolute* space 
-        // but must align. Flex 'justify-content: space-around' handles alignment automatically 
-        // if the container height is tall enough.
-        // We calculate height based on the maximum matches in ANY round (usually R1).
-        const maxMatches = data.matches.filter(m => m.type==='wb' && m.r===1).length;
-        const myMatches = data.matches.filter(m => m.type===type && m.r===r && m.side===side);
-        
-        // Base Height: (Nodes * 50) + Spacing
-        // We force a standard height for the whole bracket based on R1 count
-        let h = (maxMatches/2) * 80; 
-        if(type === 'lb') h = h * 0.8; // LB is slightly more compact
+        const d = mk('div','round-col');
+        const count = data.matches.filter(m => m.type==='wb' && m.r===1).length;
+        let h = (count/2) * 80;
+        if(type === 'lb') h = h * 0.8;
         d.style.height = Math.max(200, h) + 'px';
-
         d.innerHTML = `<div class="col-header">${type==='wb'?'R':'L'}${r}</div>`;
-
-        myMatches.forEach(m => d.appendChild(createNode(m)));
+        
+        data.matches.filter(m => m.type===type && m.r===r && m.side===side)
+            .forEach(m => d.appendChild(createNode(m)));
         return d;
     }
 
-    function createNode(m, extra='') {
-        const el = document.createElement('div');
-        el.className = 'node ' + extra;
+    function createNode(m, ex='') {
+        const el = mk('div', 'node ' + ex);
+        el.id = `node-${m.id}`; // Crucial for SVG linking
         el.onclick = () => openScore(m.id);
-        
         const p1c = m.win===1?'win':(m.win===2?'lose':'');
         const p2c = m.win===2?'win':(m.win===1?'lose':'');
-        
-        // Simpler ID display
-        let shortId = m.id.split('_')[1];
-        if(m.type==='gf') shortId = '';
-
-        el.innerHTML = `
-            ${shortId ? `<div class="node-id">${parseInt(shortId)+1}</div>` : ''}
-            <div class="p-row ${p1c}">
-                <div class="p-name">${m.p1||'-'}</div><div class="p-sc">${m.s1}</div>
-            </div>
-            <div class="p-row ${p2c}">
-                <div class="p-name">${m.p2||'-'}</div><div class="p-sc">${m.s2}</div>
-            </div>
-        `;
+        let sid = m.id.split('_')[1];
+        if(m.type==='gf') sid = '';
+        el.innerHTML = `${sid?`<div class="node-id">${parseInt(sid)+1}</div>`:''}
+            <div class="p-row ${p1c}"><div class="p-name">${m.p1||'-'}</div><div class="p-sc">${m.s1}</div></div>
+            <div class="p-row ${p2c}"><div class="p-name">${m.p2||'-'}</div><div class="p-sc">${m.s2}</div></div>`;
         return el;
     }
 
-    // --- LOGIC HELPERS ---
-    function link(arr, src, dest, slot) { let x=arr.find(z=>z.id===src); if(x){ x.nextWin=dest; x.winSlot=slot; } }
-    function linkLose(arr, src, dest, slot) { let x=arr.find(z=>z.id===src); if(x){ x.nextLose=dest; x.loseSlot=slot; } }
+    // --- SVG DRAWER (The Magic) ---
+    function drawLines() {
+        const svg = document.getElementById('connections');
+        svg.innerHTML = ''; // Clear lines
+        const rootRect = document.getElementById('bracket-root').getBoundingClientRect();
+        
+        // Helper to get relative coords
+        const getPt = (id, side) => {
+            const el = document.getElementById(`node-${id}`);
+            if(!el) return null;
+            const r = el.getBoundingClientRect();
+            // Scale correction
+            const scale = rootRect.width / document.getElementById('bracket-root').offsetWidth;
+            
+            const relY = (r.top - rootRect.top + r.height/2) / scale;
+            const relLeft = (r.left - rootRect.left) / scale;
+            const relRight = (r.right - rootRect.left) / scale;
+            
+            return { x: side==='left' ? relLeft : relRight, y: relY };
+        };
 
+        data.matches.forEach(m => {
+            if(m.nextWin) drawPath(m.id, m.nextWin, m.side, false);
+            if(m.nextLose) drawPath(m.id, m.nextLose, m.side, true);
+        });
+
+        function drawPath(srcId, dstId, srcSide, isLoserDrop) {
+            // Logic to determine sides
+            let startSide = 'right'; 
+            let endSide = 'left';
+
+            // If we are in the Right Bracket, flow is reversed (Left output)
+            if(srcSide === 'right') startSide = 'left';
+            
+            // Drop lines usually come from bottom or side? stick to side.
+            if(srcSide === 'right' && isLoserDrop) startSide = 'left'; // Consistently output inward
+
+            // Destination Input Side
+            const dstM = data.matches.find(x=>x.id===dstId);
+            if(dstM.side === 'right') endSide = 'right'; 
+
+            const p1 = getPt(srcId, startSide);
+            const p2 = getPt(dstId, endSide);
+
+            if(!p1 || !p2) return;
+
+            // ELBOW PATH GENERATION
+            let d = '';
+            const midX = (p1.x + p2.x) / 2;
+            
+            // Simple Elbow
+            d = `M ${p1.x} ${p1.y} L ${midX} ${p1.y} L ${midX} ${p2.y} L ${p2.x} ${p2.y}`;
+
+            // Dashed line for loser drops
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', d);
+            if(isLoserDrop) {
+                path.style.strokeDasharray = "5,5";
+                path.style.opacity = "0.4";
+            }
+            svg.appendChild(path);
+        }
+    }
+
+    // --- STANDARD UTILS ---
+    function mk(tag, cls) { const e = document.createElement(tag); e.className = cls; return e; }
+    function link(arr,s,d,sl){ let x=arr.find(z=>z.id===s); if(x){x.nextWin=d; x.winSlot=sl;} }
+    function linkLose(arr,s,d,sl){ let x=arr.find(z=>z.id===s); if(x){x.nextLose=d; x.loseSlot=sl;} }
+    
     function openScore(id) {
-        curId = id; const m = data.matches.find(x=>x.id===id);
-        if(!m.p1 || !m.p2) return;
-        document.getElementById('mP1').innerText = m.p1; document.getElementById('mP2').innerText = m.p2;
-        document.getElementById('sP1').value = m.s1; document.getElementById('sP2').value = m.s2;
+        curId=id; const m=data.matches.find(x=>x.id===id); if(!m.p1||!m.p2)return;
+        document.getElementById('mP1').innerText=m.p1; document.getElementById('mP2').innerText=m.p2;
+        document.getElementById('sP1').value=m.s1; document.getElementById('sP2').value=m.s2;
         document.getElementById('score-modal').classList.add('active');
     }
-    function closeScore() { document.getElementById('score-modal').classList.remove('active'); curId = null; }
-    function mod(d, p) { const el = document.getElementById(p===1?'sP1':'sP2'); el.value = Math.max(0, parseInt(el.value)+d); }
-    
-    function saveScore() {
-        const m = data.matches.find(x=>x.id===curId);
-        const s1 = parseInt(document.getElementById('sP1').value);
-        const s2 = parseInt(document.getElementById('sP2').value);
-        if(s1===s2) return alert("Draws not allowed");
-        
-        m.s1=s1; m.s2=s2; m.win = s1>s2?1:2;
-        const w = m.win===1?m.p1:m.p2;
-        const l = m.win===1?m.p2:m.p1;
-
+    function closeScore(){document.getElementById('score-modal').classList.remove('active'); curId=null;}
+    function mod(d,p){const el=document.getElementById(p===1?'sP1':'sP2'); el.value=Math.max(0,parseInt(el.value)+d);}
+    function saveScore(){
+        const m=data.matches.find(x=>x.id===curId); const s1=parseInt(document.getElementById('sP1').value); const s2=parseInt(document.getElementById('sP2').value);
+        if(s1===s2)return alert("No draws");
+        m.s1=s1; m.s2=s2; m.win=s1>s2?1:2;
+        const w=m.win===1?m.p1:m.p2; const l=m.win===1?m.p2:m.p1;
         if(m.nextWin) update(m.nextWin, m.winSlot, w);
         if(m.nextLose) update(m.nextLose, m.loseSlot, l);
-
         save(); render(); advanceByes(); closeScore();
     }
-    
-    function update(id, slot, name) {
-        const x = data.matches.find(z=>z.id===id);
-        if(x) { if(slot===1) x.p1=name; else x.p2=name; x.win=null; x.s1=0; x.s2=0; }
-    }
-
-    function advanceByes() {
-        let dirty = false;
-        data.matches.forEach(m => {
-            if(!m.win && (m.p1==='BYE' || m.p2==='BYE')) {
-                m.s1 = m.p2==='BYE'?1:0; m.s2 = m.p1==='BYE'?1:0;
-                m.win = m.p2==='BYE'?1:2;
-                const w = m.win===1?m.p1:m.p2;
-                if(m.nextWin) update(m.nextWin, m.winSlot, w);
-                if(m.nextLose) update(m.nextLose, m.loseSlot, 'BYE'); // Pass BYE down to clean LB
-                dirty = true;
+    function update(id,sl,n){const x=data.matches.find(z=>z.id===id); if(x){if(sl===1)x.p1=n; else x.p2=n; x.win=null; x.s1=0; x.s2=0;}}
+    function advanceByes(){
+        let d=false; data.matches.forEach(m=>{
+            if(!m.win && (m.p1==='BYE'||m.p2==='BYE')){
+                m.s1=m.p2==='BYE'?1:0; m.s2=m.p1==='BYE'?1:0; m.win=m.p2==='BYE'?1:2;
+                const w=m.win===1?m.p1:m.p2;
+                if(m.nextWin) update(m.nextWin,m.winSlot,w);
+                if(m.nextLose) update(m.nextLose,m.loseSlot,'BYE');
+                d=true;
             }
         });
-        if(dirty) { save(); render(); }
+        if(d){save(); render();}
     }
-
-    function autoFit() {
-        const r = document.getElementById('bracket-root');
-        r.style.transform = 'scale(1)';
-        const w = r.scrollWidth + 100; const h = r.scrollHeight + 50;
-        const sc = Math.min(window.innerWidth/w, window.innerHeight/h, 1);
-        r.style.transform = `scale(${sc})`;
+    function autoFit(){
+        const r=document.getElementById('bracket-root'); r.style.transform='scale(1)';
+        const w=r.scrollWidth+100; const h=r.scrollHeight+50;
+        const sc=Math.min(window.innerWidth/w, window.innerHeight/h, 1);
+        r.style.transform=`scale(${sc})`;
+        // Redraw lines after scaling (coordinates change)
+        // Actually coords don't change relative to root, but good to be safe
     }
-
-    function save() { localStorage.setItem('uni_v5', JSON.stringify(data)); }
-    function reset() { if(confirm("Clear bracket?")) { localStorage.removeItem('uni_v5'); location.reload(); } }
+    function save(){localStorage.setItem('uni_v6',JSON.stringify(data));}
+    function reset(){if(confirm("Clear?")){localStorage.removeItem('uni_v6'); location.reload();}}
     
     // Init
-    const s = localStorage.getItem('uni_v5');
-    if(s) { data=JSON.parse(s); if(data.active){ document.getElementById('setup-modal').classList.remove('active'); render(); setTimeout(autoFit,100); }}
-    
-    window.addEventListener('resize', () => setTimeout(autoFit, 200));
+    const s=localStorage.getItem('uni_v6');
+    if(s){data=JSON.parse(s); if(data.active){document.getElementById('setup-modal').classList.remove('active'); render();}}
+    window.addEventListener('resize', ()=>{ autoFit(); drawLines(); });
 
 </script>
 </body>
