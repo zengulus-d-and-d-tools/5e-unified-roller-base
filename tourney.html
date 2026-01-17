@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Unified Bracket v2.0 (Configurable)</title>
+    <meta name="theme-color" content="#1e1e1e">
+    
+    <style>
+        :root {
+            --bg: #121212;
+            --card-bg: #1e1e1e;
+            --input-bg: #2d2d2d;
+            --accent: #4ecdc4; 
+            --gold: #f1c40f; 
+            --fail: #e74c3c; 
+            --text: #e0e0e0;
+            --border: #333;
+            --win-bg: rgba(78, 205, 196, 0.15);
+            --lose-opacity: 0.4;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            padding: 20px 10px; margin: 0; 
+            overscroll-behavior-y: none;
+            padding-bottom: 50px;
+        }
+        .container { 
+            width: 100%; max-width: 1200px; margin: 0 auto; 
+            display: flex; flex-direction: column; gap: 15px; 
+        }
+        
+        .card { 
+            background: var(--card-bg); padding: 15px; 
+            border-radius: 12px; border: 1px solid var(--border); 
+            display: flex; flex-direction: column; position: relative;
+        }
+        .section-title { 
+            margin: 0; color: #888; font-size: 0.85rem; text-transform: uppercase; 
+            border-bottom: 1px solid #333; padding-bottom: 8px; margin-bottom: 8px;
+            letter-spacing: 0.05em; font-weight: bold; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        button { 
+            min-height: 44px; border: none; border-radius: 6px; 
+            font-weight: bold; cursor: pointer; font-size: 0.9rem; transition: 0.2s;
+        }
+        input[type="text"], textarea { 
+            background: var(--input-bg); border: 1px solid var(--border); 
+            color: #fff; padding: 10px; border-radius: 6px; 
+            font-size: 1rem; width: 100%; box-sizing: border-box; 
+            font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 150px; font-family: monospace; }
+        input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+
+        .btn-action { background: var(--accent); color: #000; width: 100%; margin-top: 10px; }
+        .btn-reset { background: #333; color: #ccc; border: 1px solid #444; }
+        .btn-reset:hover { background: var(--fail); color: white; border-color: var(--fail); }
+
+        /* --- BRACKET UI --- */
+        .bracket-scroll-area {
+            overflow-x: auto; padding-bottom: 10px;
+            scrollbar-width: thin; scrollbar-color: #444 #222;
+        }
+        .bracket-scroll-area::-webkit-scrollbar { height: 8px; }
+        .bracket-scroll-area::-webkit-scrollbar-track { background: #222; }
+        .bracket-scroll-area::-webkit-scrollbar-thumb { background-color: #444; border-radius: 4px; }
+
+        .bracket-flex { display: flex; gap: 40px; min-width: max-content; padding-right: 20px; }
+        
+        .round-col {
+            display: flex; flex-direction: column; justify-content: space-around;
+            gap: 10px; min-width: 200px; position: relative;
+        }
+        .round-title {
+            text-align: center; font-size: 0.7rem; color: var(--gold);
+            text-transform: uppercase; font-weight: bold; margin-bottom: 10px;
+            position: sticky; top: 0; background: var(--card-bg); z-index: 2; padding: 5px 0;
+        }
+
+        /* --- MATCH NODE --- */
+        .match-node {
+            background: #252525; border: 1px solid #333; border-radius: 8px;
+            padding: 6px; display: flex; flex-direction: column; gap: 2px;
+            position: relative; min-height: 50px; justify-content: center;
+        }
+        /* Connectors */
+        .round-col:not(:last-child) .match-node::after {
+            content: ''; position: absolute; right: -41px; top: 50%; width: 40px; height: 1px;
+            background: #444; z-index: 0;
+        }
+
+        .match-id {
+            position: absolute; top: -6px; right: 5px;
+            font-size: 0.55rem; color: #555; background: #252525; padding: 0 4px;
+        }
+
+        .competitor-row {
+            display: flex; align-items: center; gap: 8px;
+            padding: 3px 5px; border-radius: 4px; transition: background 0.2s; cursor: pointer;
+        }
+        .competitor-row:hover { background: rgba(255,255,255,0.05); }
+        .competitor-row.winner { background: var(--win-bg); border-left: 2px solid var(--accent); }
+        .competitor-row.loser { opacity: var(--lose-opacity); text-decoration: line-through; }
+
+        .name-display { flex: 1; font-weight: bold; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .score-display { 
+            width: 24px; text-align: center; font-weight: bold; font-size: 0.85rem;
+            background: #111; border: 1px solid #333; border-radius: 4px; color: var(--gold);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+            z-index: 9999; display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-card { width: 90%; max-width: 400px; background: var(--card-bg); border: 1px solid var(--accent); padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .score-control-row {
+            display: flex; justify-content: space-between; align-items: center;
+            background: #252525; padding: 10px; margin-bottom: 10px; border-radius: 8px;
+        }
+        .score-btn { width: 40px; background: #333; color: #fff; }
+        .score-val-big { font-size: 1.5rem; font-weight: bold; width: 50px; text-align: center; background: transparent; border: none; color: white;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="card" id="card-setup">
+        <div class="section-title">
+            <span>Tournament Setup</span>
+            <button class="btn-reset" onclick="resetTournament()" style="min-height: 25px; font-size: 0.7rem; padding: 0 10px;">Reset</button>
+        </div>
+        <div style="font-size: 0.8rem; color: #888; margin-bottom: 8px;">
+            Supports up to 32 players (automatically scales to 4, 8, 16, 32). <br>
+            Paste names (one per line). System will randomize seeds if names are not ordered.
+        </div>
+        <textarea id="playerInput" placeholder="Name 1&#10;Name 2&#10;..."></textarea>
+        <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+            <input type="checkbox" id="chkRandomize" checked> <label for="chkRandomize" style="font-size:0.8rem; color:#aaa;">Randomize Seeds</label>
+        </div>
+        <button class="btn-action" onclick="generateBracket()">GENERATE BRACKET</button>
+    </div>
+
+    <div class="card" id="card-wb" style="display:none;">
+        <div class="section-title">Winners Bracket</div>
+        <div class="bracket-scroll-area">
+            <div class="bracket-flex" id="wb-container"></div>
+        </div>
+    </div>
+
+    <div class="card" id="card-lb" style="display:none;">
+        <div class="section-title">Losers Bracket</div>
+        <div class="bracket-scroll-area">
+            <div class="bracket-flex" id="lb-container"></div>
+        </div>
+    </div>
+    
+    <div class="card" id="card-finals" style="display:none;">
+        <div class="section-title">Grand Finals</div>
+        <div class="bracket-flex" style="justify-content: center;" id="finals-container"></div>
+    </div>
+
+</div>
+
+<div class="modal-overlay" id="scoreModal">
+    <div class="modal-card">
+        <h3 style="margin-top:0; color:var(--accent); text-align:center;">Report Match</h3>
+        
+        <div class="score-control-row">
+            <span id="mP1Name" style="font-weight:bold; width:100px; overflow:hidden; text-overflow:ellipsis;">P1</span>
+            <button class="score-btn" onclick="adjScore(1, -1)">-</button>
+            <input type="number" id="mP1Score" class="score-val-big" readonly value="0">
+            <button class="score-btn" onclick="adjScore(1, 1)">+</button>
+        </div>
+
+        <div class="score-control-row">
+            <span id="mP2Name" style="font-weight:bold; width:100px; overflow:hidden; text-overflow:ellipsis;">P2</span>
+            <button class="score-btn" onclick="adjScore(2, -1)">-</button>
+            <input type="number" id="mP2Score" class="score-val-big" readonly value="0">
+            <button class="score-btn" onclick="adjScore(2, 1)">+</button>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button style="flex:1; background:#333; color:#ccc;" onclick="closeModal()">Cancel</button>
+            <button style="flex:1; background:var(--accent); color:#000;" onclick="confirmMatch()">Confirm Winner</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let tournamentData = { active: false, matches: [], size: 0 };
+    let currentMatchId = null;
+
+    // --- INIT ---
+    function init() {
+        const saved = localStorage.getItem('unifiedBracketDataV2');
+        if (saved) {
+            tournamentData = JSON.parse(saved);
+            if (tournamentData.active) {
+                document.getElementById('card-setup').style.display = 'none';
+                renderBrackets();
+            }
+        }
+    }
+
+    function resetTournament() {
+        if(!confirm("Erase all tournament data?")) return;
+        tournamentData = { active: false, matches: [], size: 0 };
+        localStorage.removeItem('unifiedBracketDataV2');
+        location.reload();
+    }
+
+    // --- UTILS ---
+    function nextPowerOf2(n) {
+        if (n <= 2) return 2;
+        return Math.pow(2, Math.ceil(Math.log(n) / Math.log(2)));
+    }
+
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // --- GENERATION ALGORITHM ---
+    function generateBracket() {
+        const raw = document.getElementById('playerInput').value.trim();
+        let names = raw.split('\n').map(x => x.trim()).filter(x => x !== "");
+        
+        if (names.length < 3) { alert("Please enter at least 3 players."); return; }
+        if (names.length > 32) { alert("Max limit is 32 players."); return; }
+
+        if(document.getElementById('chkRandomize').checked) names = shuffle(names);
+
+        const size = nextPowerOf2(names.length);
+        const byesNeeded = size - names.length;
+
+        // Seeding Logic: Pair Top vs Bottom (1 vs 16, 2 vs 15)
+        // We push names into an array of size 'size'.
+        // If we have Byes, they ideally go to the highest seeds (end of the list in this logic).
+        let seeds = [];
+        
+        // Simple fill for inputs
+        for(let i=0; i<size; i++) {
+            if (i < names.length) seeds.push(names[i]);
+            else seeds.push("BYE");
+        }
+
+        // Now we pair them: 
+        // For size 8, Matches are: (0 vs 7), (3 vs 4), (1 vs 6), (2 vs 5) <-- Standard "Snake/Fold" order is complex.
+        // For this tool, we will use simple sequential fold: First half vs Reversed Second Half.
+        // Match 1: Seed 0 vs Seed Size-1
+        // Match 2: Seed 1 vs Seed Size-2
+        
+        // Actually, to make brackets look nice, we need specific ordering so the semis meet correctly.
+        // Let's use a simpler mapping for reliability:
+        // P1 of Match I is seeds[i]
+        // P2 of Match I is seeds[size - 1 - i]
+        // We only generate size/2 matches.
+        
+        let matches = [];
+        const wbRounds = Math.log2(size);
+        
+        // --- WINNERS BRACKET GENERATION ---
+        let matchCounter = 1;
+        let wbLayer = []; // Stores match IDs for the current round to link to next
+
+        // WB Round 1
+        let currentRoundMatches = [];
+        for(let i=0; i < size/2; i++) {
+            const mid = `wb1_${i+1}`;
+            // Pairing logic: 0 vs 15, 1 vs 14...
+            // Note: This isn't "perfect" pro seeding, but it ensures 1 and 2 don't meet until finals.
+            const p1 = seeds[i];
+            const p2 = seeds[size - 1 - i];
+            
+            matches.push(createMatch(mid, `WB R1`, 'wb', p1, p2, null, null, 1));
+            currentRoundMatches.push(mid);
+        }
+        wbLayer.push(currentRoundMatches);
+
+        // WB Subsequent Rounds
+        for(let r=2; r <= wbRounds; r++) {
+            let nextRoundMatches = [];
+            const matchCount = size / Math.pow(2, r);
+            const prevLayer = wbLayer[r-2]; // IDs of previous round
+
+            for(let i=0; i < matchCount; i++) {
+                const mid = `wb${r}_${i+1}`;
+                const name = r === wbRounds ? "WB Finals" : (r === wbRounds -1 ? "WB Semis" : `WB R${r}`);
+                
+                // Create empty match
+                matches.push(createMatch(mid, name, 'wb', null, null, null, null, 1));
+                nextRoundMatches.push(mid);
+
+                // Link previous winners to this match
+                // Match i in this round takes winners from Match 2*i and 2*i+1 in prev round
+                const src1 = prevLayer[2*i];
+                const src2 = prevLayer[2*i + 1];
+                
+                linkNext(matches, src1, mid, 1); // Winner of src1 -> Slot 1
+                linkNext(matches, src2, mid, 2); // Winner of src2 -> Slot 2
+            }
+            wbLayer.push(nextRoundMatches);
+        }
+
+        // --- LOSERS BRACKET GENERATION ---
+        // LB Round count formula: (WB_Rounds - 1) * 2
+        // If size 8 (3 rounds), LB has 4 rounds.
+        // If size 16 (4 rounds), LB has 6 rounds.
+        const lbTotalRounds = (wbRounds - 1) * 2;
+        let lbLayer = []; 
+
+        // LB Round 1: Takes Losers from WB R1
+        // Count = WB R1 Count / 2
+        let lbR1Matches = [];
+        for(let i=0; i < (size/4); i++) {
+            const mid = `lb1_${i+1}`;
+            matches.push(createMatch(mid, `LB R1`, 'lb', null, null, null, null, 1));
+            lbR1Matches.push(mid);
+
+            // Link WB R1 Losers
+            // Simple mapping: WB Matches 2*i and 2*i+1 drop here
+            // WB 1 & 2 -> LB 1. WB 3 & 4 -> LB 2.
+            const wbSrc1 = wbLayer[0][2*i]; 
+            const wbSrc2 = wbLayer[0][2*i+1];
+            linkLose(matches, wbSrc1, mid, 1);
+            linkLose(matches, wbSrc2, mid, 2);
+        }
+        lbLayer.push(lbR1Matches);
+
+        // LB Subsequent Rounds
+        for(let r=2; r <= lbTotalRounds; r++) {
+            // Is this a "Drop In" round? (Even numbered LB rounds usually take drop-ins from WB)
+            // Pattern: LB R1 (No drop, processed above).
+            // LB R2: Takes WB R2 Losers.
+            // LB R3: Winners of LB R2 play each other.
+            // LB R4: Takes WB R3 Losers.
+            
+            const isDropRound = (r % 2 === 0); 
+            const prevLayer = lbLayer[r-2];
+            let currentRoundIds = [];
+            
+            // Calculate match count. 
+            // If drop round, count equals previous round.
+            // If consolidation round (odd, >1), count is half previous.
+            let count = isDropRound ? prevLayer.length : prevLayer.length / 2;
+            
+            for(let i=0; i < count; i++) {
+                const mid = `lb${r}_${i+1}`;
+                let rName = `LB R${r}`;
+                if (r === lbTotalRounds) rName = "LB Finals";
+                if (r === lbTotalRounds - 1) rName = "LB Semis";
+
+                matches.push(createMatch(mid, rName, 'lb', null, null, null, null, 1));
+                currentRoundIds.push(mid);
+
+                if (isDropRound) {
+                    // One player from Previous LB, one from WB Drop
+                    // Slot 1: Previous LB Winner (Straight mapping i -> i)
+                    linkNext(matches, prevLayer[i], mid, 1);
+                    
+                    // Slot 2: WB Loser
+                    // Which WB round drops here? 
+                    // LB R2 takes WB R2. LB R4 takes WB R3. LB R6 takes WB R4.
+                    // WB Round Index = (r / 2) + 1
+                    const wbRoundIdx = (r / 2); // 0-based index for wbLayer array (1 = WB R2)
+                    const wbSourceId = wbLayer[wbRoundIdx][i]; // Simple mapping
+                    
+                    // Usually we reverse seed here to avoid rematches, but for simplicity:
+                    // If we have multiple matches, reverse the order of drops? 
+                    // Let's just do direct mapping to keep code stable.
+                    linkLose(matches, wbSourceId, mid, 2);
+                } else {
+                    // Consolidation Round (Winners of prev LB play each other)
+                    const src1 = prevLayer[2*i];
+                    const src2 = prevLayer[2*i+1];
+                    linkNext(matches, src1, mid, 1);
+                    linkNext(matches, src2, mid, 2);
+                }
+            }
+            lbLayer.push(currentRoundIds);
+        }
+
+        // --- GRAND FINALS ---
+        // Winner of WB Finals vs Winner of LB Finals
+        const midGF = `gf_1`;
+        matches.push(createMatch(midGF, `Grand Finals`, 'gf', null, null, null, null, 0));
+        
+        const wbFinalId = wbLayer[wbLayer.length-1][0];
+        const lbFinalId = lbLayer[lbLayer.length-1][0];
+        
+        linkNext(matches, wbFinalId, midGF, 1); // WB Winner to P1
+        linkNext(matches, lbFinalId, midGF, 2); // LB Winner to P2
+
+        tournamentData.matches = matches;
+        tournamentData.size = size;
+        tournamentData.active = true;
+        save();
+        
+        document.getElementById('card-setup').style.display = 'none';
+        renderBrackets();
+        autoAdvanceByes();
+    }
+
+    // --- LOGIC HELPERS ---
+    function createMatch(id, name, type, p1, p2, nextWin, nextLose, nextSlot) {
+        return { id, name, type, p1, p2, s1:0, s2:0, winner:null, nextWin, nextLose, nextWinSlot:nextSlot, nextLoseSlot:0 };
+    }
+    
+    function linkNext(arr, srcId, destId, slot) {
+        const m = arr.find(x => x.id === srcId);
+        if(m) { m.nextWin = destId; m.nextWinSlot = slot; }
+    }
+    
+    function linkLose(arr, srcId, destId, slot) {
+        const m = arr.find(x => x.id === srcId);
+        if(m) { m.nextLose = destId; m.nextLoseSlot = slot; }
+    }
+
+    // --- RENDER ---
+    function renderBrackets() {
+        document.getElementById('card-wb').style.display = 'flex';
+        document.getElementById('card-lb').style.display = 'flex';
+        document.getElementById('card-finals').style.display = 'flex';
+
+        // Extract unique round names for columns
+        const allWb = tournamentData.matches.filter(m => m.type === 'wb');
+        const wbRoundNames = [...new Set(allWb.map(m => m.name))];
+        
+        const allLb = tournamentData.matches.filter(m => m.type === 'lb');
+        const lbRoundNames = [...new Set(allLb.map(m => m.name))];
+
+        renderSection('wb-container', wbRoundNames, 'wb');
+        renderSection('lb-container', lbRoundNames, 'lb');
+        
+        const finalsContainer = document.getElementById('finals-container');
+        finalsContainer.innerHTML = '';
+        const gfMatch = tournamentData.matches.find(m => m.type === 'gf');
+        if(gfMatch) finalsContainer.appendChild(createMatchNode(gfMatch));
+    }
+
+    function renderSection(containerId, roundNames, type) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+        
+        roundNames.forEach(rName => {
+            const col = document.createElement('div');
+            col.className = 'round-col';
+            
+            const title = document.createElement('div');
+            title.className = 'round-title';
+            title.innerText = rName;
+            col.appendChild(title);
+
+            const matches = tournamentData.matches.filter(m => m.name === rName && m.type === type);
+            matches.forEach(m => col.appendChild(createMatchNode(m)));
+            container.appendChild(col);
+        });
+    }
+
+    function createMatchNode(m) {
+        const div = document.createElement('div');
+        div.className = 'match-node';
+        div.onclick = () => openScoreModal(m.id);
+        
+        // Dynamic styling for winner/loser
+        const p1Class = m.winner === 1 ? 'winner' : (m.winner === 2 ? 'loser' : '');
+        const p2Class = m.winner === 2 ? 'winner' : (m.winner === 1 ? 'loser' : '');
+
+        div.innerHTML = `
+            <div class="match-id">${m.id.split('_')[1]}</div>
+            <div class="competitor-row ${p1Class}">
+                <div class="name-display" style="color:${m.p1 ? '#fff' : '#555'}">${m.p1 || 'TBD'}</div>
+                <div class="score-display">${m.s1}</div>
+            </div>
+            <div class="competitor-row ${p2Class}">
+                <div class="name-display" style="color:${m.p2 ? '#fff' : '#555'}">${m.p2 || 'TBD'}</div>
+                <div class="score-display">${m.s2}</div>
+            </div>
+        `;
+        return div;
+    }
+
+    // --- GAMEPLAY ---
+    function openScoreModal(mid) {
+        const m = tournamentData.matches.find(x => x.id === mid);
+        if(!m.p1 || !m.p2) return; 
+        currentMatchId = mid;
+        document.getElementById('mP1Name').innerText = m.p1;
+        document.getElementById('mP2Name').innerText = m.p2;
+        document.getElementById('mP1Score').value = m.s1;
+        document.getElementById('mP2Score').value = m.s2;
+        document.getElementById('scoreModal').classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('scoreModal').classList.remove('active');
+        currentMatchId = null;
+    }
+
+    function adjScore(p, delta) {
+        const el = document.getElementById(p === 1 ? 'mP1Score' : 'mP2Score');
+        let val = parseInt(el.value) || 0;
+        val = Math.max(0, val + delta);
+        el.value = val;
+    }
+
+    function confirmMatch() {
+        if (!currentMatchId) return;
+        const m = tournamentData.matches.find(x => x.id === currentMatchId);
+        const s1 = parseInt(document.getElementById('mP1Score').value);
+        const s2 = parseInt(document.getElementById('mP2Score').value);
+        if (s1 === s2) { alert("Draws not allowed"); return; }
+
+        m.s1 = s1; m.s2 = s2;
+        m.winner = s1 > s2 ? 1 : 2;
+        
+        const winnerName = m.winner === 1 ? m.p1 : m.p2;
+        const loserName = m.winner === 1 ? m.p2 : m.p1;
+
+        // Push Winner
+        if (m.nextWin) {
+            const nextM = tournamentData.matches.find(x => x.id === m.nextWin);
+            if (nextM) {
+                if (m.nextWinSlot === 1) nextM.p1 = winnerName;
+                else nextM.p2 = winnerName;
+                // Reset next match if valid
+                if(nextM.p1 && nextM.p2 && nextM.winner) { nextM.winner = null; nextM.s1=0; nextM.s2=0; }
+            }
+        }
+        // Push Loser
+        if (m.nextLose) {
+            const nextL = tournamentData.matches.find(x => x.id === m.nextLose);
+            if (nextL) {
+                if (m.nextLoseSlot === 1) nextL.p1 = loserName;
+                else nextL.p2 = loserName;
+                if(nextL.p1 && nextL.p2 && nextL.winner) { nextL.winner = null; nextL.s1=0; nextL.s2=0; }
+            }
+        }
+
+        save(); renderBrackets(); closeModal(); autoAdvanceByes();
+    }
+
+    function autoAdvanceByes() {
+        let changed = false;
+        tournamentData.matches.forEach(m => {
+            if (!m.winner && m.p1 && m.p2) {
+                if (m.p1 === 'BYE' || m.p2 === 'BYE') {
+                    // Logic: If P2 is BYE, P1 wins.
+                    m.s1 = m.p2 === 'BYE' ? 1 : 0;
+                    m.s2 = m.p1 === 'BYE' ? 1 : 0;
+                    m.winner = m.p2 === 'BYE' ? 1 : 2;
+                    
+                    const winnerName = m.winner === 1 ? m.p1 : m.p2;
+                    const loserName = "BYE";
+
+                    if (m.nextWin) {
+                        const nextM = tournamentData.matches.find(x => x.id === m.nextWin);
+                        if (nextM) {
+                            if (m.nextWinSlot === 1) nextM.p1 = winnerName; else nextM.p2 = winnerName;
+                        }
+                    }
+                    if (m.nextLose) {
+                        const nextL = tournamentData.matches.find(x => x.id === m.nextLose);
+                        if (nextL) {
+                            if (m.nextLoseSlot === 1) nextL.p1 = loserName; else nextL.p2 = loserName;
+                        }
+                    }
+                    changed = true;
+                }
+            }
+        });
+        if(changed) { save(); renderBrackets(); autoAdvanceByes(); }
+    }
+
+    function save() { localStorage.setItem('unifiedBracketDataV2', JSON.stringify(tournamentData)); }
+
+    init();
+</script>
+</body>
+</html>
