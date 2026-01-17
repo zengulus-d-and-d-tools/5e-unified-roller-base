@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v4.7</title>
+    <title>Unified 5e Sheet v4.8</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -40,7 +40,7 @@
         /* --- LAYOUT CONTAINER --- */
         .sheet-container { 
             width: 100%; 
-            max-width: 1200px; /* UPDATED: Wider max width */
+            max-width: 1200px; 
             margin: 0 auto; 
             padding: 10px; 
             display: flex; 
@@ -50,14 +50,12 @@
             position: relative; 
         }
 
-        /* UPDATED: Desktop Grid Layout */
         @media (min-width: 900px) {
             .sheet-container {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                align-items: start; /* Prevents stretching */
+                align-items: start;
             }
-            /* Cards that should span full width on desktop */
             #card-vitals, #card-combat, #card-atk, #card-io {
                 grid-column: 1 / -1;
             }
@@ -83,7 +81,6 @@
             box-sizing: border-box;
             transition: border-color 0.3s, box-shadow 0.3s;
         }
-        /* Center content on wide screens */
         @media (min-width: 900px) {
             .roller-bar { padding: 8px calc(50% - 600px + 15px); }
         }
@@ -105,7 +102,6 @@
         .adv-btn.active[data-mode="dis"] { background: #c0392b; color: #fff; border-color: #c0392b; }
         .adv-btn.active[data-mode="norm"] { background: #2980b9; color: #fff; border-color: #2980b9; }
 
-        /* SECRET BTN */
         .secret-btn {
             background: #333; border: 1px solid #444; color: #888;
             width: 38px; height: 38px; border-radius: 6px;
@@ -130,7 +126,6 @@
             font-weight: 600; position: absolute; top: 0; left: 0; width: 100%; text-align: center;
         }
 
-        /* --- LOG AREA --- */
         .log-area { 
             display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
             flex: 1; text-align: right; margin-left: 15px; overflow: hidden;
@@ -141,7 +136,6 @@
         .crit-text { color: var(--crit); text-shadow: 0 0 15px rgba(255, 215, 0, 0.5); }
         .fail-text { color: var(--fail); text-shadow: 0 0 10px rgba(231, 76, 60, 0.3); }
 
-        /* Toggle Switch */
         .toggle-switch {
             position: relative; width: 40px; height: 22px; flex-shrink: 0;
         }
@@ -157,7 +151,6 @@
         input:checked + .slider { background-color: var(--accent); border-color: var(--accent); }
         input:checked + .slider:before { transform: translateX(18px); background-color: black; }
 
-        /* AC Row */
         .ac-row {
             display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
             background: #252525; padding: 8px; border-radius: 8px; border: 1px solid #333;
@@ -171,37 +164,28 @@
             display: flex; flex-direction: column;
             position: relative;
             transition: all 0.2s ease;
-            /* Padding for Handles */
             padding-left: 45px; 
-            height: fit-content; /* Ensure height adapts in grid */
+            height: fit-content;
         }
-        /* COMPACT MODE FOR COLLAPSED CARDS */
         .card.card-collapsed {
-            padding-bottom: 5px; /* Minimal bottom padding */
+            padding-bottom: 5px; 
             padding-top: 10px;
-            background: #181818; /* Slightly darker to distinguish */
+            background: #181818;
         }
         .card.card-collapsed .section-title {
-            border-bottom: none; /* Remove separator line */
+            border-bottom: none; 
             margin-bottom: 0;
             padding-bottom: 5px;
         }
 
-        /* DRAG STATE STYLES */
         .card.dragging {
-            opacity: 0.5;
-            background: #111;
-            border-color: var(--accent);
-            z-index: 999;
+            opacity: 0.5; background: #111; border-color: var(--accent); z-index: 999;
         }
-
-        /* SWAP MODE STYLES */
         .card.swap-active {
             border: 2px solid var(--swap-mode) !important;
             box-shadow: 0 0 15px rgba(230, 126, 34, 0.3);
         }
         
-        /* LEFT GRIP (Drag) */
         .drag-grip {
             position: absolute; top: 0; left: 0; bottom: 0; width: 35px; 
             display: flex; justify-content: center; align-items: center;
@@ -214,7 +198,6 @@
         .drag-grip:hover { color: var(--accent); background: rgba(255,255,255,0.02); }
         .drag-grip::after { content: '⣿'; }
 
-        /* ACTIVE GRIP IN SWAP MODE */
         .card.swap-active .drag-grip {
             background: rgba(230, 126, 34, 0.2);
             color: var(--swap-mode);
@@ -253,7 +236,6 @@
         textarea { resize: vertical; font-family: inherit; }
         input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
-        /* --- CHARACTER SWITCHER --- */
         .char-switcher-row {
             display: flex; gap: 8px; margin-bottom: 12px;
             padding-bottom: 12px; border-bottom: 1px solid #333;
@@ -266,7 +248,6 @@
         .btn-char-add { color: #2ecc71; }
         .btn-char-del { color: #e74c3c; }
 
-        /* --- HP & VITALS --- */
         .hp-visual-bar {
             position: relative; width: 100%; height: 24px;
             background-color: var(--hp-max); border-radius: 6px;
@@ -302,13 +283,11 @@
         }
         .btn-hp-quick:active { background: #555; }
         
-        /* HIT DIE ROW */
         .hd-row {
             display: flex; align-items: center; gap: 10px;
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
             margin-top: 10px;
         }
-        /* UPDATED: Wider width for Hit Dice */
         .hd-val { width: 50px !important; text-align: center; font-weight: bold; color: #fff; }
         
         .btn-roll-hd { 
@@ -318,7 +297,6 @@
         }
         .btn-roll-hd:disabled { background: #555; color: #888; cursor: not-allowed; }
 
-        /* DEATH SAVES */
         .death-save-row {
             display: grid; grid-template-columns: auto 1fr 1fr auto; gap: 10px; 
             align-items: center; background: #252525; padding: 8px; border-radius: 6px; margin-top: 10px;
@@ -327,7 +305,7 @@
         .ds-group { display: flex; gap: 8px; align-items: center; justify-content: center; }
         .ds-check { 
             appearance: none; -webkit-appearance: none;
-            width: 44px; height: 44px; /* Explicit 44px */
+            width: 44px; height: 44px; 
             border-radius: 50%; 
             border: 2px solid #555; cursor: pointer; background: #1a1a1a;
             margin: 0; display: grid; place-content: center;
@@ -337,12 +315,10 @@
         .ds-fail:checked { background: #e74c3c; color: #e74c3c; }
         .btn-ds-roll { background: #333; color: #fff; font-size: 0.7rem; font-weight: bold; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 
-        /* REST BUTTONS */
         .rest-row { display: flex; gap: 10px; margin-top: 10px; }
         .btn-rest { flex: 1; background: #2c3e50; color: #ccc; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; border: 1px solid #444; }
         .btn-rest:hover { background: #34495e; color: #fff; }
 
-        /* AC SECTION */
         .ac-wrapper {
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
             margin-bottom: 10px;
@@ -352,7 +328,6 @@
         .ac-config-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 6px; border-top: 1px solid #444; padding-top: 6px; }
         .ac-label-small { font-size: 0.65rem; color: #888; text-transform: uppercase; font-weight: bold; }
 
-        /* --- SPELLS --- */
         .spell-row { 
             display: flex; align-items: center; gap: 10px; margin-bottom: 8px; 
             background: #252525; padding: 8px; border-radius: 8px;
@@ -362,8 +337,8 @@
         .spell-bubbles { display: flex; gap: 8px; flex-wrap: wrap; flex: 1; }
         
         .bubble { 
-            width: 38px; height: 38px; /* Visual size */
-            margin: 3px; /* Spacing */
+            width: 38px; height: 38px; 
+            margin: 3px; 
             border-radius: 50%; border: 2px solid #555; 
             cursor: pointer; background: #1a1a1a;
             position: relative;
@@ -374,7 +349,6 @@
         }
         .bubble.used { background: var(--slot); border-color: var(--slot); box-shadow: 0 0 5px var(--slot); }
 
-        /* --- DICE --- */
         .dice-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 5px; }
         .dice-btn { 
             background: #333; color: #fff; border: 1px solid #444; padding: 10px; 
@@ -384,7 +358,6 @@
         .custom-roll-row { display: flex; gap: 10px; margin-top: 10px; }
         .btn-roll-custom { background: var(--accent); color: #000; font-weight: bold; border:none; padding: 0 20px; border-radius: 6px; cursor: pointer;}
         
-        /* --- STATS & SAVES --- */
         .grid-6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .stat-card { background: var(--card-bg); padding: 8px; border-radius: 8px; text-align: center; border: 1px solid var(--border); display: flex; flex-direction: column; }
         .stat-card h3 { margin: 0 0 2px 0; font-size: 0.8rem; color: #aaa; }
@@ -407,12 +380,21 @@
         .btn-sm-save { flex: 1; background: #2c3e50; color: #fff; border: 1px solid #444; border-radius: 4px; font-size: 0.7rem; font-weight: bold; padding: 6px 0; cursor: pointer; text-transform: uppercase; }
         .btn-sm-save:hover { background: var(--accent); color: #000; }
 
-        /* --- SKILLS --- */
         .skill-list { display: grid; grid-template-columns: 1fr; gap: 8px; }
         .skill-row { background: var(--card-bg); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); }
         .skill-name { flex: 1; font-size: 0.95rem; font-weight: 500; }
+        
+        /* UPDATED: Skill Attribute Badge */
+        .skill-attr {
+            font-size: 0.65rem; text-transform: uppercase; color: #666;
+            border: 1px solid #444; border-radius: 4px; padding: 3px 5px;
+            cursor: pointer; margin-right: 10px; font-weight: bold; min-width: 25px; text-align: center;
+        }
+        .skill-attr:hover { color: #fff; border-color: #666; }
+        .skill-attr.overridden { color: var(--accent); border-color: var(--accent); }
+
         .prof-toggle { 
-            font-size: 1.4rem; padding: 10px; /* Increase padding for touch */
+            font-size: 1.4rem; padding: 10px; 
             cursor: pointer; min-width: 44px; text-align: center; 
         } 
         .prof-toggle.prof { color: var(--accent); }
@@ -424,7 +406,6 @@
         }
         .btn-roll-skill:active { background: var(--accent); color: #000; }
 
-        /* --- ATTACKS & FEATURES --- */
         .atk-row { 
             display: flex; flex-direction: column; gap: 8px; 
             margin-bottom: 15px; background: #252525; padding: 10px; 
@@ -441,7 +422,7 @@
         .atk-controls { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
         
         button { 
-            min-height: 44px; /* Enforce height */
+            min-height: 44px; 
             border: none; border-radius: 6px; font-weight: bold; cursor: pointer; 
             font-size: 0.9rem; 
         }
@@ -450,7 +431,6 @@
         .webhook-row { margin-top: 5px; padding-top: 10px; border-top: 1px solid #333; }
         .discord-active { color: #5865F2; font-weight: bold; }
 
-        /* --- RESOURCES & VISUALIZATION --- */
         .combat-row {
             display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
             margin-bottom: 10px;
@@ -465,11 +445,9 @@
         
         .res-name { font-weight: bold; font-size: 0.9rem; color: #fff; flex: 1; }
         
-        /* Inputs Row (Always Visible in v2.9) */
         .res-controls-row { display: flex; align-items: center; gap: 6px; width: 100%; }
         .res-val { width: 60px !important; text-align: center; font-weight: bold; padding: 5px !important; }
         
-        /* Visualizations */
         .res-viz-bar { 
             width: 100%; height: 22px; background: #1a1a1a; cursor: pointer;
             border-radius: 4px; position: relative; border: 1px solid #444; overflow: hidden; margin-top: 2px;
@@ -477,12 +455,9 @@
         .res-bar-fill { height: 100%; background: var(--res-bar); transition: width 0.3s; }
         
         .res-viz-bubbles { display: flex; gap: 6px; flex-wrap: wrap; width: 100%; padding: 4px 0; margin-top: 2px; }
-        /* UPDATED: Larger Tap Targets */
         .res-bubble-item { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #555; cursor: pointer; background: #1a1a1a; }
         .res-bubble-item.filled { background: var(--res-bar); border-color: var(--res-bar); box-shadow: 0 0 5px var(--res-bar); }
 
-        /* Controls */
-        /* UPDATED: Reset Select */
         .res-reset-select { 
             background: #333; color: #ccc; border: 1px solid #444; 
             height: 35px; font-size: 0.75rem; padding: 0 5px;
@@ -834,7 +809,6 @@
         'stealth': 'dex', 'survival': 'wis'
     };
 
-    // Standard 5e Slot Progression (Levels 1-20)
     const spellSlotTable = {
         full: [
             [2], [3], [4,2], [4,3], [4,3,2], [4,3,3], [4,3,3,1], [4,3,3,2], [4,3,3,3,1], [4,3,3,3,2],
@@ -845,7 +819,6 @@
             [1], [2], [2], [2], [2], [2], [2], [2], [2], [2],
             [3], [3], [3], [3], [3], [3], [4], [4], [4], [4]
         ]
-        // Half/Third casters are calculated derived from full table
     };
 
     let allData = { 
@@ -853,7 +826,6 @@
         characters: {}
     };
     
-    // "data" points to the active character object
     let data = {}; 
 
     let consumeInspirationOnNextRoll = false;
@@ -892,7 +864,9 @@
             },
             ac: { mode: 'std', dexCap: '100', base: 10, bonus: 0, customStat1: 'dex', customStat2: 'none', bonuses: [] },
             stats: { str: {val:10,save:false}, dex: {val:10,save:false}, con: {val:10,save:false}, int: {val:10,save:false}, wis: {val:10,save:false}, cha: {val:10,save:false} },
-            skills: {}, attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
+            skills: {}, 
+            skillOverrides: {}, // NEW: Store skill attr overrides
+            attacks: [], features: [], spells: [], resources: [], rollMode: 'norm',
             uiState: { cardOrder: [] }
         };
         Object.keys(skillsMap).forEach(s => char.skills[s] = 0);
@@ -976,11 +950,12 @@
         if (!data.meta) data.meta = {};
         if (!data.vitals) data.vitals = {};
         if (!data.uiState) data.uiState = {};
+        if (!data.skillOverrides) data.skillOverrides = {}; // Ensure initialization
 
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
         document.getElementById('charLevel').value = data.meta.level || 1;
-        document.getElementById('casterType').value = data.meta.casterType || 'none'; // Populate Caster Type
+        document.getElementById('casterType').value = data.meta.casterType || 'none';
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
@@ -1234,13 +1209,18 @@
             document.getElementById(`mod-${s}`).innerText = (mod >= 0 ? "+" : "") + mod;
             document.getElementById(`def-${s}`).innerText = 11 + saveBonus;
         });
+        
+        // UPDATED: Skill Calculations using Overrides
         Object.keys(skillsMap).forEach(s => {
-            const stat = skillsMap[s];
-            const mod = getMod(data.stats[stat].val);
+            const defaultStat = skillsMap[s];
+            const activeStat = (data.skillOverrides && data.skillOverrides[s]) ? data.skillOverrides[s] : defaultStat;
+            
+            const mod = getMod(data.stats[activeStat].val);
             const profLevel = data.skills[s] || 0;
             const bonus = mod + (profLevel * pb);
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
+        
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
         statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
@@ -1390,14 +1370,11 @@
     function shortRest() {
         if(!confirm("SHORT REST\n\n- Reset SR Counters?\n(Hit Dice must be rolled manually)")) return;
         data.resources.forEach(r => { if(r.rest === 'sr') r.curr = r.max; });
-        
-        // Pact Magic Recovery
         const type = data.meta.casterType || 'none';
         if(type === 'pact') {
             data.spells.forEach(s => s.used = 0);
             showLog("Pact Magic", "Slots Reset");
         }
-        
         save(); renderResources(); renderSpells(); showLog("Short Rest", "Counters Reset");
     }
 
@@ -1562,9 +1539,16 @@
             const state = data.skills[s] || 0; 
             const icon = state === 2 ? '◈' : (state === 1 ? '◆' : '◇');
             const cls = state === 2 ? 'exp' : (state === 1 ? 'prof' : '');
+            
+            // UPDATED: Skill Attribute Badge Logic
+            const defaultStat = skillsMap[s];
+            const activeStat = (data.skillOverrides && data.skillOverrides[s]) ? data.skillOverrides[s] : defaultStat;
+            const isOverridden = (activeStat !== defaultStat);
+
             return `
             <div class="skill-row">
                 <span class="prof-toggle ${cls}" onclick="cycleSkill('${s}')">${icon}</span>
+                <span class="skill-attr ${isOverridden ? 'overridden' : ''}" onclick="cycleSkillAttr('${s}')">${activeStat.substr(0,3)}</span>
                 <span class="skill-name">${s.charAt(0).toUpperCase() + s.slice(1)}</span>
                 <span style="font-weight:bold; color:#ddd;" id="skill-bonus-${s}">+0</span>
                 <button class="btn-roll-skill" onclick="rollSkill('${s}')">🎲</button>
@@ -1626,7 +1610,6 @@
         });
     }
 
-    // --- Caster Logic ---
     function calcSpellSlots() {
         const type = document.getElementById('casterType').value;
         const lvl = parseInt(document.getElementById('charLevel').value) || 1;
@@ -1641,8 +1624,8 @@
         let tableToUse = spellSlotTable.full;
 
         if (type === 'full') effectiveLvl = lvl;
-        else if (type === 'half') effectiveLvl = Math.floor(lvl / 2); // Paladin/Ranger (start at 2)
-        else if (type === 'third') effectiveLvl = Math.ceil(lvl / 3); // AT/EK
+        else if (type === 'half') effectiveLvl = Math.floor(lvl / 2);
+        else if (type === 'third') effectiveLvl = Math.ceil(lvl / 3);
         else if (type === 'pact') {
             effectiveLvl = lvl;
             tableToUse = spellSlotTable.pact;
@@ -1653,31 +1636,17 @@
         if (effectiveLvl === 0) {
             data.spells.forEach(s => s.max = 0);
         } else {
-            // Get slots from table (index is level - 1)
             const slots = tableToUse[effectiveLvl - 1] || [];
-            
             if (type === 'pact') {
-                // Warlock Logic: All slots are same level (the highest in the array position)
-                // Actually, the warlock table in standard 5e is just count of slots.
-                // Level of slot is based on character level.
-                // Simplified Warlock Logic for this sheet:
-                // We will populate the specific Slot Level row with the count.
-                // Slot Level:
                 let slotLvl = 1;
                 if(lvl >= 3) slotLvl = 2;
                 if(lvl >= 5) slotLvl = 3;
                 if(lvl >= 7) slotLvl = 4;
                 if(lvl >= 9) slotLvl = 5;
-                
-                const slotCount = slots[0]; // The array I made for pact is just single val
-                
-                // Clear old
+                const slotCount = slots[0]; 
                 data.spells.forEach(s => s.max = 0);
-                // Set new
                 if (data.spells[slotLvl-1]) data.spells[slotLvl-1].max = slotCount;
-
             } else {
-                // Standard Casting
                 data.spells.forEach((s, i) => {
                     s.max = slots[i] || 0;
                 });
@@ -1752,13 +1721,20 @@
         const totalBonus = mod + (data.stats[stat].save ? pb : 0);
         rollDie(20, totalBonus, stat.toUpperCase() + " Save", true, 'save'); 
     }
+    
+    // UPDATED: Roll Skill with Overrides
     function rollSkill(skill) {
-        const stat = skillsMap[skill];
+        const defaultStat = skillsMap[skill];
+        const activeStat = (data.skillOverrides && data.skillOverrides[skill]) ? data.skillOverrides[skill] : defaultStat;
+        
         const pb = getPB(data.meta.level);
-        const mod = getMod(data.stats[stat].val);
+        const mod = getMod(data.stats[activeStat].val);
         const profLevel = data.skills[skill] || 0;
-        rollDie(20, mod + (profLevel * pb), skill.charAt(0).toUpperCase() + skill.slice(1), true, 'check');
+        
+        const label = `${skill.charAt(0).toUpperCase() + skill.slice(1)} (${activeStat.toUpperCase()})`;
+        rollDie(20, mod + (profLevel * pb), label, true, 'check');
     }
+    
     function rollAttack(idx) {
         const atk = data.attacks[idx];
         const pb = getPB(data.meta.level);
@@ -1773,6 +1749,25 @@
         else { data.stats[stat].save = e.target.checked; save(); updateAll(); }
     }
     function cycleSkill(skill) { data.skills[skill] = ( (data.skills[skill] || 0) + 1) % 3; save(); renderSkills(); updateAll(); }
+    
+    // UPDATED: Cycle Skill Attribute
+    function cycleSkillAttr(skill) {
+        if (!data.skillOverrides) data.skillOverrides = {};
+        const defaultStat = skillsMap[skill];
+        const current = data.skillOverrides[skill] || defaultStat;
+        
+        const idx = stats.indexOf(current);
+        const nextIdx = (idx + 1) % stats.length;
+        const nextStat = stats[nextIdx];
+        
+        // If next is default, remove override to clean up data, otherwise set it
+        if (nextStat === defaultStat) {
+            delete data.skillOverrides[skill];
+        } else {
+            data.skillOverrides[skill] = nextStat;
+        }
+        save(); renderSkills(); updateAll();
+    }
     
     function updateSpellMax(idx, val) {
         data.spells[idx].max = parseInt(val) || 0;
