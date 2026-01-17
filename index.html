@@ -288,7 +288,8 @@
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
             margin-top: 10px;
         }
-        .hd-val { width: 50px !important; text-align: center; font-weight: bold; color: #fff; }
+        /* UPDATED: Wider width for Hit Dice (3 digits) */
+        .hd-val { width: 70px !important; text-align: center; font-weight: bold; color: #fff; }
         
         .btn-roll-hd { 
             background: #e67e22; color: #fff; flex: 1; 
@@ -384,14 +385,32 @@
         .skill-row { background: var(--card-bg); padding: 8px 12px; border-radius: 8px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); }
         .skill-name { flex: 1; font-size: 0.95rem; font-weight: 500; }
         
-        /* UPDATED: Skill Attribute Badge */
+          /* NEW: Skill Attribute Toggle Button */
         .skill-attr {
-            font-size: 0.65rem; text-transform: uppercase; color: #666;
-            border: 1px solid #444; border-radius: 4px; padding: 3px 5px;
-            cursor: pointer; margin-right: 10px; font-weight: bold; min-width: 25px; text-align: center;
+            font-size: 0.7rem; 
+            font-weight: bold; 
+            color: #888;
+            border: 1px solid #444; 
+            border-radius: 4px; 
+            padding: 4px 8px;
+            cursor: pointer; 
+            margin-right: 10px; 
+            min-width: 30px; 
+            text-align: center;
+            background: #222;
+            transition: all 0.2s;
         }
-        .skill-attr:hover { color: #fff; border-color: #666; }
-        .skill-attr.overridden { color: var(--accent); border-color: var(--accent); }
+        .skill-attr:hover { 
+            color: #fff; 
+            border-color: #666; 
+            background: #333;
+        }
+        .skill-attr.overridden { 
+            color: #000; 
+            background: var(--accent); 
+            border-color: var(--accent); 
+            box-shadow: 0 0 5px var(--accent);
+        }
 
         .prof-toggle { 
             font-size: 1.4rem; padding: 10px; 
@@ -1203,28 +1222,33 @@
 
     function updateAll() {
         const pb = getPB(data.meta.level);
+    
+        // Update Stat Modifiers
         stats.forEach(s => {
             const mod = getMod(data.stats[s].val);
             const saveBonus = mod + (data.stats[s].save ? pb : 0);
             document.getElementById(`mod-${s}`).innerText = (mod >= 0 ? "+" : "") + mod;
             document.getElementById(`def-${s}`).innerText = 11 + saveBonus;
         });
-        
-        // UPDATED: Skill Calculations using Overrides
+    
+        // Update Skill Bonuses (With Attribute Override check)
         Object.keys(skillsMap).forEach(s => {
             const defaultStat = skillsMap[s];
+            // Use override if exists, else default
             const activeStat = (data.skillOverrides && data.skillOverrides[s]) ? data.skillOverrides[s] : defaultStat;
-            
+        
             const mod = getMod(data.stats[activeStat].val);
             const profLevel = data.skills[s] || 0;
             const bonus = mod + (profLevel * pb);
             document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
         });
-        
+    
+        // Global DC
         const statsArr = ['int', 'wis', 'cha'];
         let maxMod = -5;
         statsArr.forEach(s => { const m = getMod(data.stats[s].val); if(m > maxMod) maxMod = m; });
         document.getElementById('globalDC').innerText = 8 + pb + maxMod;
+    
         updateAC();
     }
 
@@ -1540,15 +1564,16 @@
             const icon = state === 2 ? '◈' : (state === 1 ? '◆' : '◇');
             const cls = state === 2 ? 'exp' : (state === 1 ? 'prof' : '');
             
-            // UPDATED: Skill Attribute Badge Logic
+            // Logic to determine which stat is active
             const defaultStat = skillsMap[s];
+            // Check if we have an override, otherwise use default
             const activeStat = (data.skillOverrides && data.skillOverrides[s]) ? data.skillOverrides[s] : defaultStat;
             const isOverridden = (activeStat !== defaultStat);
-
+    
             return `
             <div class="skill-row">
                 <span class="prof-toggle ${cls}" onclick="cycleSkill('${s}')">${icon}</span>
-                <span class="skill-attr ${isOverridden ? 'overridden' : ''}" onclick="cycleSkillAttr('${s}')">${activeStat.substr(0,3)}</span>
+                <span class="skill-attr ${isOverridden ? 'overridden' : ''}" onclick="cycleSkillAttr('${s}')" title="Click to change Attribute">${activeStat.toUpperCase().substr(0,3)}</span>
                 <span class="skill-name">${s.charAt(0).toUpperCase() + s.slice(1)}</span>
                 <span style="font-weight:bold; color:#ddd;" id="skill-bonus-${s}">+0</span>
                 <button class="btn-roll-skill" onclick="rollSkill('${s}')">🎲</button>
@@ -1726,12 +1751,14 @@
     function rollSkill(skill) {
         const defaultStat = skillsMap[skill];
         const activeStat = (data.skillOverrides && data.skillOverrides[skill]) ? data.skillOverrides[skill] : defaultStat;
-        
+    
         const pb = getPB(data.meta.level);
         const mod = getMod(data.stats[activeStat].val);
         const profLevel = data.skills[skill] || 0;
-        
+    
+        // Add label to show which stat was used
         const label = `${skill.charAt(0).toUpperCase() + skill.slice(1)} (${activeStat.toUpperCase()})`;
+    
         rollDie(20, mod + (profLevel * pb), label, true, 'check');
     }
     
@@ -1753,20 +1780,26 @@
     // UPDATED: Cycle Skill Attribute
     function cycleSkillAttr(skill) {
         if (!data.skillOverrides) data.skillOverrides = {};
+    
+        // Get current stat
         const defaultStat = skillsMap[skill];
         const current = data.skillOverrides[skill] || defaultStat;
-        
+    
+        // Find next stat in the list
         const idx = stats.indexOf(current);
         const nextIdx = (idx + 1) % stats.length;
         const nextStat = stats[nextIdx];
-        
-        // If next is default, remove override to clean up data, otherwise set it
+    
+        // If next is the default, remove the override to save data space
         if (nextStat === defaultStat) {
             delete data.skillOverrides[skill];
         } else {
             data.skillOverrides[skill] = nextStat;
         }
-        save(); renderSkills(); updateAll();
+    
+        save(); 
+        renderSkills(); 
+        updateAll(); // Recalculate bonuses
     }
     
     function updateSpellMax(idx, val) {
@@ -1987,3 +2020,4 @@
 </script>
 </body>
 </html>
+
