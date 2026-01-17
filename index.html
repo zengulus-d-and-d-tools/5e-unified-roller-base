@@ -1639,7 +1639,7 @@
         rollDie(20, mod + pb, (atk.name || 'Weapon') + " Atk", true, 'atk', atk.desc);
     }
     
-    function updateStat(stat, val) { data.stats[stat].val = parseInt(val); save(); updateAll(); }
+    function updateStat(stat, val) { data.stats[stat].val = parseInt(val) || 0; save(); updateAll(); }
     function toggleSave(stat, e) { 
         if(e.target.tagName !== 'INPUT') { data.stats[stat].save = !data.stats[stat].save; save(); renderStats(); updateAll(); } 
         else { data.stats[stat].save = e.target.checked; save(); updateAll(); }
@@ -1864,5 +1864,6 @@
 </script>
 </body>
 </html>
+
 
 
