@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Unified 5e Sheet v4.6</title>
+    <title>Unified 5e Sheet v4.7</title>
     <meta name="theme-color" content="#1e1e1e">
     
     <style>
@@ -36,10 +36,31 @@
             padding-bottom: 50px; 
             overscroll-behavior-y: none;
         }
+        
+        /* --- LAYOUT CONTAINER --- */
         .sheet-container { 
-            width: 100%; max-width: 800px; margin: 0 auto; padding: 10px; 
-            display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; 
+            width: 100%; 
+            max-width: 1200px; /* UPDATED: Wider max width */
+            margin: 0 auto; 
+            padding: 10px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 15px; 
+            box-sizing: border-box; 
             position: relative; 
+        }
+
+        /* UPDATED: Desktop Grid Layout */
+        @media (min-width: 900px) {
+            .sheet-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                align-items: start; /* Prevents stretching */
+            }
+            /* Cards that should span full width on desktop */
+            #card-vitals, #card-combat, #card-atk, #card-io {
+                grid-column: 1 / -1;
+            }
         }
         
         /* --- UTILITY --- */
@@ -62,6 +83,11 @@
             box-sizing: border-box;
             transition: border-color 0.3s, box-shadow 0.3s;
         }
+        /* Center content on wide screens */
+        @media (min-width: 900px) {
+            .roller-bar { padding: 8px calc(50% - 600px + 15px); }
+        }
+
         .roller-bar.insp-active {
             border-bottom: 2px solid var(--gold);
             box-shadow: 0 4px 15px rgba(241, 196, 15, 0.2);
@@ -147,6 +173,7 @@
             transition: all 0.2s ease;
             /* Padding for Handles */
             padding-left: 45px; 
+            height: fit-content; /* Ensure height adapts in grid */
         }
         /* COMPACT MODE FOR COLLAPSED CARDS */
         .card.card-collapsed {
@@ -215,7 +242,7 @@
             max-height: 0; opacity: 0; margin: 0; pointer-events: none;
         }
 
-        .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .header-grid { display: grid; grid-template-columns: 1fr 0.5fr 1fr; gap: 12px; }
         .field-group { display: flex; flex-direction: column; }
         label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
         
@@ -281,7 +308,9 @@
             background: #252525; padding: 10px; border-radius: 8px; border: 1px solid #333;
             margin-top: 10px;
         }
+        /* UPDATED: Wider width for Hit Dice */
         .hd-val { width: 50px !important; text-align: center; font-weight: bold; color: #fff; }
+        
         .btn-roll-hd { 
             background: #e67e22; color: #fff; flex: 1; 
             font-weight: bold; font-size: 0.85rem; height: 38px;
@@ -526,6 +555,16 @@
             <label>Level</label>
             <input type="number" id="charLevel" value="1" oninput="updateLevel(this.value)">
         </div>
+        <div class="field-group">
+            <label>Caster Type</label>
+            <select id="casterType" onchange="save()">
+                <option value="none">None</option>
+                <option value="full">Full Caster</option>
+                <option value="half">Half (Pal/Rgr)</option>
+                <option value="third">1/3 (AT/EK)</option>
+                <option value="pact">Warlock</option>
+            </select>
+        </div>
     </div>
 
     <div class="section-title mt-2">Vitals & Health</div>
@@ -713,6 +752,9 @@
             <span>Spell Slots</span>
         </div>
         <div class="accordion-content" id="body-spells">
+            <div style="margin-bottom:10px; display:flex; justify-content:flex-end;">
+                <button onclick="calcSpellSlots()" style="background:#2c3e50; color:#fff; font-size:0.7rem; height:30px; padding:0 10px;">Auto-Calc Slots (From Level)</button>
+            </div>
             <div id="spellSlotsList"></div>
         </div>
     </div>
@@ -792,6 +834,20 @@
         'stealth': 'dex', 'survival': 'wis'
     };
 
+    // Standard 5e Slot Progression (Levels 1-20)
+    const spellSlotTable = {
+        full: [
+            [2], [3], [4,2], [4,3], [4,3,2], [4,3,3], [4,3,3,1], [4,3,3,2], [4,3,3,3,1], [4,3,3,3,2],
+            [4,3,3,3,2,1], [4,3,3,3,2,1], [4,3,3,3,2,1,1], [4,3,3,3,2,1,1], [4,3,3,3,2,1,1,1], [4,3,3,3,2,1,1,1],
+            [4,3,3,3,2,1,1,1,1], [4,3,3,3,3,1,1,1,1], [4,3,3,3,3,2,1,1,1], [4,3,3,3,3,2,2,1,1]
+        ],
+        pact: [
+            [1], [2], [2], [2], [2], [2], [2], [2], [2], [2],
+            [3], [3], [3], [3], [3], [3], [4], [4], [4], [4]
+        ]
+        // Half/Third casters are calculated derived from full table
+    };
+
     let allData = { 
         activeId: 'char_default',
         characters: {}
@@ -827,7 +883,7 @@
     // --- CHARACTER SWITCHING LOGIC ---
     function getDefaultChar() {
         let char = {
-            meta: { player: '', name: 'New Character', level: 1, webhook: '', discordActive: false, init: 0, speed: '' },
+            meta: { player: '', name: 'New Character', level: 1, casterType: 'none', webhook: '', discordActive: false, init: 0, speed: '' },
             vitals: { 
                 curr: '', max: '', temp: '', 
                 hdDie: 'd8', hdCurr: 1, hdMax: 1,
@@ -924,6 +980,7 @@
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
         document.getElementById('charLevel').value = data.meta.level || 1;
+        document.getElementById('casterType').value = data.meta.casterType || 'none'; // Populate Caster Type
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
         
@@ -1017,6 +1074,7 @@
         data.vitals.hdDie = document.getElementById('hdDie').value;
         data.vitals.hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
         data.vitals.hdMax = parseInt(document.getElementById('hdMax').value) || 0;
+        data.meta.casterType = document.getElementById('casterType').value;
 
         if(document.getElementById('ds-s1')) {
             data.vitals.ds = {
@@ -1332,7 +1390,15 @@
     function shortRest() {
         if(!confirm("SHORT REST\n\n- Reset SR Counters?\n(Hit Dice must be rolled manually)")) return;
         data.resources.forEach(r => { if(r.rest === 'sr') r.curr = r.max; });
-        save(); renderResources(); showLog("Short Rest", "Counters Reset");
+        
+        // Pact Magic Recovery
+        const type = data.meta.casterType || 'none';
+        if(type === 'pact') {
+            data.spells.forEach(s => s.used = 0);
+            showLog("Pact Magic", "Slots Reset");
+        }
+        
+        save(); renderResources(); renderSpells(); showLog("Short Rest", "Counters Reset");
     }
 
     function longRest() {
@@ -1560,6 +1626,68 @@
         });
     }
 
+    // --- Caster Logic ---
+    function calcSpellSlots() {
+        const type = document.getElementById('casterType').value;
+        const lvl = parseInt(document.getElementById('charLevel').value) || 1;
+        
+        if (type === 'none') {
+             if(!confirm("Clear all spell slots?")) return;
+             data.spells.forEach(s => s.max = 0);
+             save(); renderSpells(); return;
+        }
+
+        let effectiveLvl = 0;
+        let tableToUse = spellSlotTable.full;
+
+        if (type === 'full') effectiveLvl = lvl;
+        else if (type === 'half') effectiveLvl = Math.floor(lvl / 2); // Paladin/Ranger (start at 2)
+        else if (type === 'third') effectiveLvl = Math.ceil(lvl / 3); // AT/EK
+        else if (type === 'pact') {
+            effectiveLvl = lvl;
+            tableToUse = spellSlotTable.pact;
+        }
+
+        effectiveLvl = Math.max(0, Math.min(20, effectiveLvl));
+
+        if (effectiveLvl === 0) {
+            data.spells.forEach(s => s.max = 0);
+        } else {
+            // Get slots from table (index is level - 1)
+            const slots = tableToUse[effectiveLvl - 1] || [];
+            
+            if (type === 'pact') {
+                // Warlock Logic: All slots are same level (the highest in the array position)
+                // Actually, the warlock table in standard 5e is just count of slots.
+                // Level of slot is based on character level.
+                // Simplified Warlock Logic for this sheet:
+                // We will populate the specific Slot Level row with the count.
+                // Slot Level:
+                let slotLvl = 1;
+                if(lvl >= 3) slotLvl = 2;
+                if(lvl >= 5) slotLvl = 3;
+                if(lvl >= 7) slotLvl = 4;
+                if(lvl >= 9) slotLvl = 5;
+                
+                const slotCount = slots[0]; // The array I made for pact is just single val
+                
+                // Clear old
+                data.spells.forEach(s => s.max = 0);
+                // Set new
+                if (data.spells[slotLvl-1]) data.spells[slotLvl-1].max = slotCount;
+
+            } else {
+                // Standard Casting
+                data.spells.forEach((s, i) => {
+                    s.max = slots[i] || 0;
+                });
+            }
+        }
+        
+        save(); renderSpells();
+        showLog("Slots", "Updated");
+    }
+
     function renderResources() {
         const list = document.getElementById('resourceList');
         list.innerHTML = data.resources.map((res, i) => {
@@ -1618,7 +1746,7 @@
 
     // --- DATA HELPERS ---
     function rollCheck(stat) { rollDie(20, getMod(data.stats[stat].val), stat.toUpperCase() + " Check", true, 'check'); }
-    function rollSave(stat) {
+    function rollSave(stat) { 
         const pb = getPB(data.meta.level);
         const mod = getMod(data.stats[stat].val);
         const totalBonus = mod + (data.stats[stat].save ? pb : 0);
@@ -1864,6 +1992,3 @@
 </script>
 </body>
 </html>
-
-
-
