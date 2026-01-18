@@ -826,6 +826,7 @@
 </div>
 
 <script>
+    let isPopulating = false; // Guard to prevent saving during initial load
     const stats = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
     const skillsMap = {
         'acrobatics': 'dex', 'animal handling': 'wis', 'arcana': 'int', 'athletics': 'str', 
@@ -974,6 +975,7 @@
     }
 
     function populateUI() {
+        isPopulating = true;
         if (!data.meta) data.meta = {};
         if (!data.vitals) data.vitals = {};
         if (!data.uiState) data.uiState = {};
@@ -1060,6 +1062,7 @@
         renderResources();
         updateAll();
         setMode(data.rollMode || 'norm');
+        isPopulating = false;
     }
 
     function saveGlobal() {
@@ -1067,6 +1070,7 @@
     }
 
     function save() {
+        if (isPopulating) return;
         data.meta.player = document.getElementById('playerName').value;
         data.meta.name = document.getElementById('charName').value;
         data.meta.webhook = document.getElementById('webhookUrl').value;
@@ -2066,6 +2070,7 @@
 </script>
 </body>
 </html>
+
 
 
 
