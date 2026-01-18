@@ -978,7 +978,7 @@
         if (!data.vitals) data.vitals = {};
         if (!data.uiState) data.uiState = {};
         if (!data.skillMisc) data.skillMisc = {};
-        if (!data.skillOverrides) data.skillOverrides = {}; // Ensure initialization
+        if (!data.skillOverrides) data.skillOverrides = {};
 
         document.getElementById('playerName').value = data.meta.player || '';
         document.getElementById('charName').value = data.meta.name || '';
@@ -986,20 +986,21 @@
         document.getElementById('casterType').value = data.meta.casterType || 'none';
         document.getElementById('webhookUrl').value = data.meta.webhook || '';
         document.getElementById('sendToDiscord').checked = data.meta.discordActive || false;
-        
+    
         document.getElementById('initBonus').value = data.meta.init || "+0";
         document.getElementById('speedVal').value = data.meta.speed || '';
-        
+    
         toggleDiscord(data.meta.discordActive);
 
-        document.getElementById('hpCurr').value = data.vitals.curr || '';
-        document.getElementById('hpMax').value = data.vitals.max || '';
-        document.getElementById('hpTemp').value = data.vitals.temp || '';
+        // FIX: Use (val !== undefined) check instead of (|| '') to allow 0 to persist
+        document.getElementById('hpCurr').value = (data.vitals.curr !== undefined && data.vitals.curr !== null) ? data.vitals.curr : '';
+        document.getElementById('hpMax').value = (data.vitals.max !== undefined && data.vitals.max !== null) ? data.vitals.max : '';
+        document.getElementById('hpTemp').value = (data.vitals.temp !== undefined && data.vitals.temp !== null) ? data.vitals.temp : '';
         document.getElementById('inspirationVal').value = data.vitals.inspiration || 0;
-        
+    
         document.getElementById('hdDie').value = data.vitals.hdDie || 'd8';
-        document.getElementById('hdCurr').value = data.vitals.hdCurr;
-        document.getElementById('hdMax').value = data.vitals.hdMax;
+        document.getElementById('hdCurr').value = (data.vitals.hdCurr !== undefined) ? data.vitals.hdCurr : 1;
+        document.getElementById('hdMax').value = (data.vitals.hdMax !== undefined) ? data.vitals.hdMax : 1;
 
         if (!data.vitals.ds) data.vitals.ds = {s1:false, s2:false, s3:false, f1:false, f2:false, f3:false};
         document.getElementById('ds-s1').checked = data.vitals.ds.s1;
@@ -1069,9 +1070,12 @@
         data.meta.player = document.getElementById('playerName').value;
         data.meta.name = document.getElementById('charName').value;
         data.meta.webhook = document.getElementById('webhookUrl').value;
-        data.vitals.curr = document.getElementById('hpCurr').value;
-        data.vitals.max = document.getElementById('hpMax').value;
-        data.vitals.temp = document.getElementById('hpTemp').value;
+    
+        // FIX: Convert HP to numbers during save to ensure clean data
+        data.vitals.curr = parseInt(document.getElementById('hpCurr').value);
+        data.vitals.max = parseInt(document.getElementById('hpMax').value);
+        data.vitals.temp = parseInt(document.getElementById('hpTemp').value) || 0;
+    
         data.vitals.inspiration = parseInt(document.getElementById('inspirationVal').value) || 0;
         data.meta.speed = document.getElementById('speedVal').value;
         data.vitals.hdDie = document.getElementById('hdDie').value;
@@ -2062,6 +2066,7 @@
 </script>
 </body>
 </html>
+
 
 
 
