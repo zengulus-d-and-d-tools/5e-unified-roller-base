@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GM Dashboard v1.4</title>
+    <title>GM Dashboard v1.5</title>
     <style>
         :root {
             --bg: #121212;
@@ -87,11 +87,8 @@
         .toggle-btn { flex: 1; background: transparent; color: #666; font-size: 0.8rem; height: 30px; border-radius: 4px; }
         .toggle-btn.active { background: #333; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.5); }
         
-        /* Advantage Colors */
         .toggle-btn.active[data-mode="adv"] { background: var(--green); color: #000; }
         .toggle-btn.active[data-mode="dis"] { background: var(--red); color: #fff; }
-
-        /* Luck Colors */
         .toggle-btn.active[data-luck="good"] { background: var(--cyan); color: #000; }
         .toggle-btn.active[data-luck="bad"] { background: var(--pink); color: #000; }
 
@@ -269,9 +266,9 @@
 
         <div class="section-header" style="margin-top:15px;">Quick Checks</div>
         <div class="tier-grid">
-            <button class="btn-tier" onclick="rollTier('incompetent')">
-                <span>Incompetent <span style="font-size:0.7rem; color:#666;">(Raw d20)</span></span>
-                <span class="tier-bonus" id="bonus-inc">+0</span>
+            <button class="btn-tier" onclick="rollTier('crap')">
+                <span>Crap <span style="font-size:0.7rem; color:#666;">(d20 - 1)</span></span>
+                <span class="tier-bonus" id="bonus-inc">-1</span>
             </button>
             <button class="btn-tier" onclick="rollTier('competent')">
                 <span>Competent <span style="font-size:0.7rem; color:#666;">(PB)</span></span>
@@ -430,7 +427,7 @@
             return (val >= 0 ? '+' : '') + val;
         };
         
-        document.getElementById('bonus-inc').innerText = calc(0);
+        document.getElementById('bonus-inc').innerText = calc(-1);
         document.getElementById('bonus-comp').innerText = calc(pb);
         document.getElementById('bonus-tal').innerText = calc(pb + 2);
         document.getElementById('bonus-exp').innerText = calc((pb * 2) + 2);
@@ -453,7 +450,7 @@
         document.querySelectorAll('.toggle-btn[data-luck]').forEach(b => b.classList.remove('active'));
         document.querySelector(`.toggle-btn[data-luck="${luckStr}"]`).classList.add('active');
         
-        updateBonuses(); // This visually updates the buttons immediately
+        updateBonuses(); 
     }
 
     // SHARED ROLL FUNCTION
@@ -512,19 +509,18 @@
         let tierLabel = "";
 
         switch(tier) {
-            case 'incompetent': baseBonus = 0; tierLabel = "Incompetent"; break;
+            case 'crap': baseBonus = -1; tierLabel = "Crap"; break;
             case 'competent': baseBonus = pb; tierLabel = "Competent"; break;
             case 'talented': baseBonus = pb + 2; tierLabel = "Talented"; break;
             case 'expert': baseBonus = (pb * 2) + 2; tierLabel = "Expert"; break;
             case 'master': baseBonus = (pb * 2) + 5; tierLabel = "Master"; break;
         }
 
-        // Apply Luck here mathematically, so the roll log is clean (e.g. +3 instead of +2+1)
+        // Apply Luck here mathematically
         const finalBonus = baseBonus + luckMode;
         
-        let reason = reasonInput ? `${reasonInput} (${tierLabel})` : tierLabel;
-        if(luckMode === 1) reason += " (Good Day)";
-        if(luckMode === -1) reason += " (Bad Day)";
+        // Clean Log Logic: Use input if available, else fallback to Tier Name
+        const reason = reasonInput || tierLabel;
 
         performRoll(finalBonus, reason);
     }
@@ -533,9 +529,8 @@
         const val = document.getElementById('manualBonus').value;
         const bonus = parseInt(val) || 0;
         const reasonInput = document.getElementById('adhocReason').value;
-        const reason = reasonInput ? `${reasonInput} (Manual)` : "Manual Roll";
+        const reason = reasonInput || "Manual Roll";
         
-        // Note: Luck does NOT apply to manual arbitrary rolls, as they are "Arbitrary"
         performRoll(bonus, reason);
     }
 
