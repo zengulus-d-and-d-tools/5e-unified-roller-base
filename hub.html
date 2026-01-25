@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Force Hub v3.2</title>
+    <title>Task Force Hub v3.3</title>
     <style>
         :root {
             --bg: #121212; --card: #1e1e1e; --accent: #4ecdc4; --danger: #ff6b6b; --gold: #f1c40f; --text: #e0e0e0; --border: #333;
@@ -85,6 +85,7 @@
 
 <script>
     const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
+    // Rewards converted to a datalist for suggestions while allowing free text
     const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
 
     let state = {
@@ -119,7 +120,7 @@
     function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
 
     function addPlayer() {
-        state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: projectRewards[0] });
+        state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
         save();
     }
 
@@ -173,9 +174,10 @@
                     <span class="mini-label">Active Project Clock (4 Segments)</span>
                     <input type="text" placeholder="Project Name (e.g., Learn Draconic)..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
                     <div style="display:flex; gap:10px;">
-                        <select onchange="updatePlayer(${i}, 'projectReward', this.value)" style="flex:2;">
-                            ${projectRewards.map(r => `<option value="${r}" ${p.projectReward===r?'selected':''}>Goal: ${r}</option>`).join('')}
-                        </select>
+                        <input type="text" list="reward-options" placeholder="Reward Goal..." value="${p.projectReward}" onchange="updatePlayer(${i}, 'projectReward', this.value)" style="flex:2;">
+                        <datalist id="reward-options">
+                            ${projectRewards.map(r => `<option value="${r}">`).join('')}
+                        </datalist>
                         <div class="clock-container" style="flex:1; justify-content:flex-end;">
                             ${[1,2,3,4].map(s => `<div class="clock-seg ${p.projectClock>=s?'filled':''}"></div>`).join('')}
                             <button class="btn" onclick="modClock(${i},1)" style="margin-left:8px;">+</button>
