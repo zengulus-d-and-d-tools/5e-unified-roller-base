@@ -525,6 +525,8 @@ function updateLabel(conn, alpha) {
     // Check if currently editing
     const isEditing = el && el.querySelector('.label-input') === document.activeElement;
 
+    // MANDATORY FIX: Use a boolean flag to keep it visible if it was just edited to empty
+    // OR if the value is non-empty.
     if (conn.label || isEditing) {
         if (!el) {
             el = document.createElement('div');
@@ -546,7 +548,7 @@ function updateLabel(conn, alpha) {
 
             // Input Handler
             input.oninput = (e) => {
-                conn.label = e.target.innerText; // Use innerText
+                conn.label = e.target.innerText; // Keep data in sync
                 saveBoard();
             };
             input.onmousedown = (e) => e.stopPropagation();
@@ -554,8 +556,8 @@ function updateLabel(conn, alpha) {
             // Key Handler
             input.onkeydown = (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault(); // Stop new line
-                    input.blur(); // Triggers disappearance if empty
+                    e.preventDefault();
+                    input.blur(); // Blur triggers disappearance if empty next frame
                 }
             };
 
@@ -575,6 +577,7 @@ function updateLabel(conn, alpha) {
 
         const input = el.querySelector('.label-input');
         if (input && document.activeElement !== input) {
+            // Sync display value with data, but avoid recursion during typing
             if (input.innerText !== (conn.label || "")) {
                 input.innerText = conn.label || "";
             }
@@ -595,10 +598,6 @@ function updateLabel(conn, alpha) {
         el.style.display = 'flex';
     } else {
         if (el) el.style.display = 'none';
-        // Cleanup if truly empty and not editing
-        if (!isEditing && (!conn.label || conn.label.trim() === "") && el) {
-            // Can optionally remove here if you want clean DOM, but display:none is fine
-        }
     }
     return pt;
 }
