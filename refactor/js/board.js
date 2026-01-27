@@ -522,7 +522,10 @@ function updateLabel(conn, alpha) {
     const midIdx = Math.floor(conn.points.length / 2);
     const pt = conn.points[midIdx];
 
-    if (conn.label) {
+    // Check if currently editing
+    const isEditing = el && el.querySelector('.label-input') === document.activeElement;
+
+    if (conn.label || isEditing) {
         if (!el) {
             el = document.createElement('div');
             el.id = 'lbl_' + conn.id;
@@ -536,14 +539,24 @@ function updateLabel(conn, alpha) {
                 saveBoard();
             };
 
-            const input = document.createElement('input');
+            const input = document.createElement('div');
             input.className = 'label-input';
-            input.value = conn.label;
-            input.oninput = (e) => { conn.label = e.target.value; saveBoard(); };
+            input.contentEditable = true;
+            input.innerText = conn.label || "";
+
+            // Input Handler
+            input.oninput = (e) => {
+                conn.label = e.target.innerText; // Use innerText
+                saveBoard();
+            };
             input.onmousedown = (e) => e.stopPropagation();
-            // ENTER KEY SAVES
+
+            // Key Handler
             input.onkeydown = (e) => {
-                if (e.key === 'Enter') input.blur();
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault(); // Stop new line
+                    input.blur(); // Triggers disappearance if empty
+                }
             };
 
             const btnRight = document.createElement('div');
@@ -562,7 +575,9 @@ function updateLabel(conn, alpha) {
 
         const input = el.querySelector('.label-input');
         if (input && document.activeElement !== input) {
-            input.value = conn.label;
+            if (input.innerText !== (conn.label || "")) {
+                input.innerText = conn.label || "";
+            }
         }
 
         const stateMap = { 0: '—', 1: '◀', 2: '▶' };
@@ -580,10 +595,13 @@ function updateLabel(conn, alpha) {
         el.style.display = 'flex';
     } else {
         if (el) el.style.display = 'none';
+        // Cleanup if truly empty and not editing
+        if (!isEditing && (!conn.label || conn.label.trim() === "") && el) {
+            // Can optionally remove here if you want clean DOM, but display:none is fine
+        }
     }
     return pt;
 }
-
 
 // --- INTERACTION EVENT LISTENERS ---
 
