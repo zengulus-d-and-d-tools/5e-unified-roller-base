@@ -1,7 +1,11 @@
-(() => {
-    const data = window.RTF_DATA;
+(function () {
+    // Ensure we are looking at the right global scope
+    const data = (window.RTF_DATA) || (window.DATA);
+
     if (!data || !data.dm) {
-        console.error('DM data unavailable');
+        console.error('DM data unavailable', window.RTF_DATA);
+        // Alert the user so they know something is wrong locally
+        alert("Critical Error: Data file not loaded or incomplete. Please refresh or check console.");
         return;
     }
 
@@ -136,6 +140,7 @@
         el.classList.toggle('open');
     }
 
+    // Expose to window explicitly
     window.genStreetScene = genStreetScene;
     window.genTexture = genTexture;
     window.genNPC = genNPC;
@@ -143,4 +148,6 @@
     window.genSnag = genSnag;
     window.genBroadsheet = genBroadsheet;
     window.toggleRef = toggleRef;
+
+    console.log("DM Screen Script Loaded Successfully. Data Present:", !!data);
 })();
