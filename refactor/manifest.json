@@ -1,0 +1,16 @@
+{
+  "name": "Ravnica Task Force Tools",
+  "short_name": "RavnicaTools",
+  "description": "Offline-first HTML tools for 5e Ravnica campaigns.",
+  "start_url": "tools.html",
+  "display": "standalone",
+  "background_color": "#0f0f13",
+  "theme_color": "#1e1e1e",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/512/dungeons-and-dragons.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

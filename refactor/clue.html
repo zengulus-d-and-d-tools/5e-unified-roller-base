@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ravnica Intersection Gen</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/clue.css">
+
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="header-bar">
+        <a href="tools.html"
+            style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
+            Portal</a>
+        <span
+            style="color:var(--text); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Intersection
+            Gen</span>
+    </div>
+
+    <h1>Intersection Gen v4</h1>
+    <p class="sub">
+        <strong style="color:var(--st-green)">Signal</strong> = The Clue Object &nbsp;|&nbsp;
+        <strong style="color:var(--st-orange)">Noise</strong> = The Context / Coating
+    </p>
+
+    <div class="protocol-box">
+        <span style="color:var(--accent); font-weight:bold;">Usage Protocol:</span> Click Guilds below to toggle
+        status.<br>
+        1 Click = <span style="color:var(--st-orange); font-weight:bold;">NOISE</span> (Herring) | 2 Clicks = <span
+            style="color:var(--st-green); font-weight:bold;">SIGNAL</span> (Involved)<br>
+        Generator picks 1 Signal and 1 Noise from selected guilds.
+    </div>
+
+    <div class="guild-grid" id="guildGrid"></div>
+
+    <div class="controls">
+        <select id="modeSel" class="mode-select">
+            <option value="phys">Physical</option>
+            <option value="soc">Social</option>
+            <option value="arc">Arcane</option>
+        </select>
+        <button class="gen-btn" onclick="generateClue()">Generate Data</button>
+    </div>
+
+    <div class="result-card" id="resultCard">
+        <div class="res-header">
+            <span class="res-type" id="outType">Physical Evidence</span>
+        </div>
+
+        <div class="res-body">
+            <div class="data-block signal">
+                <span class="lbl" style="color:var(--st-green)">The Signal (Object)</span>
+                <span class="g-tag" id="sigGuild">Guild</span>
+                <div class="val" id="sigVal">A rigid legal writ</div>
+            </div>
+
+            <div class="data-block noise">
+                <span class="lbl" style="color:var(--st-orange)">The Noise (Context)</span>
+                <span class="g-tag" id="noiseGuild">Guild</span>
+                <div class="val" id="noiseVal">Covered in vibrant moss</div>
+            </div>
+        </div>
+
+        <div class="res-footer">
+            <div class="res-stat">
+                <label>Friction</label>
+                <span style="color:var(--gold)" id="outFric">Locked</span>
+            </div>
+            <div class="res-stat">
+                <label>Fail Cost</label>
+                <span style="color:var(--danger)" id="outCost">Heat +1</span>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="js/clue.js"></script>
+    <script src="js/vector-field.js"></script>
+</body>
+
+</html>

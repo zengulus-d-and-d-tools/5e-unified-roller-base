@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Bracket v6.0</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/tourney.css">
+
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div id="setup-modal" class="active">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:var(--accent)">Dynamic Setup</h3>
+            <textarea id="pInput" placeholder="Names (4-64 supported)..."></textarea>
+            <div style="display:flex; justify-content:space-between; margin-top:20px; align-items: center;">
+                <label style="color:#aaa; font-size:0.9rem; display:flex; align-items:center; cursor: pointer;">
+                    <input type="checkbox" id="chkRand" checked style="margin-right: 8px;"> Randomize
+                </label>
+                <button class="btn-p" onclick="generate()" style="padding: 10px 20px;">GENERATE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toolbar">
+        <div style="display:flex; align-items:center; gap:20px;">
+            <a href="tools.html"
+                style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
+                Portal</a>
+            <div style="font-weight:900; color:var(--accent); letter-spacing: 1px;">UNIFIED <span
+                    style="color:#fff; opacity:0.5;">v6.0</span></div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="autoFit()">Auto-Fit</button>
+            <button class="btn" onclick="reset()">New Bracket</button>
+        </div>
+    </div>
+
+    <div id="stage">
+        <div id="bracket-root">
+            <svg id="connections"></svg>
+        </div>
+    </div>
+
+    <div id="score-modal">
+        <div class="modal-box">
+            <h3 style="margin-top:0; margin-bottom: 20px; color:#fff; font-size: 1rem;">Report Score</h3>
+            <div class="score-row">
+                <span id="mP1"
+                    style="font-weight:bold; max-width:140px; overflow:hidden; text-overflow: ellipsis;">P1</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button class="btn-adj" onclick="mod(-1, 1)">-</button>
+                    <input id="sP1" class="sc-inp" readonly value="0">
+                    <button class="btn-adj" onclick="mod(1, 1)">+</button>
+                </div>
+            </div>
+            <div class="score-row">
+                <span id="mP2"
+                    style="font-weight:bold; max-width:140px; overflow:hidden; text-overflow: ellipsis;">P2</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button class="btn-adj" onclick="mod(-1, 2)">-</button>
+                    <input id="sP2" class="sc-inp" readonly value="0">
+                    <button class="btn-adj" onclick="mod(1, 2)">+</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:15px; margin-top:25px;">
+                <button class="btn" style="flex:1; border-color: #555;" onclick="closeScore()">Cancel</button>
+                <button class="btn-p" style="flex:1" onclick="saveScore()">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <script src="js/tourney.js"></script>
+    <script src="js/vector-field.js"></script>
+</body>
+
+</html>
