@@ -33,6 +33,7 @@
     }
 
     function genStreetScene() {
+        console.log("genStreetScene called");
         const rollActor = d(12);
         let actorName = '';
         let actionList = [];
@@ -56,7 +57,10 @@
         const box = document.getElementById('out-street');
         if (box) box.classList.add('active');
         const content = document.getElementById('dispatch-content');
-        if (!content) return;
+        if (!content) {
+            console.error("dispatch-content element not found");
+            return;
+        }
         content.innerHTML = `
             <div class="dispatch-row"><div class="dispatch-label">Actor</div><div class="dispatch-val highlight">${actorName}</div></div>
             <div class="dispatch-row"><div class="dispatch-label">Activity</div><div class="dispatch-val">${action}</div></div>
@@ -66,6 +70,7 @@
     }
 
     function genTexture(type) {
+        console.log("genTexture called with type:", type);
         let html = '';
         if (type === 'struct') {
             html = `<span class="hl-txt">${rand(txtStruct.a)}</span>, made of <span class="hl-ctx">${rand(txtStruct.b)}</span>, currently <span class="hl-state">${rand(txtStruct.c)}</span>.`;
@@ -80,6 +85,7 @@
     }
 
     function genNPC() {
+        console.log("genNPC called");
         const roll = d(6) + d(6) - 2;
         const res = npcs[roll];
         const g = rand(guilds);
@@ -91,9 +97,13 @@
     }
 
     function genHazard() {
+        console.log("genHazard called");
         const roll = d(6) + d(6);
         const h = hazards.find(x => x.roll === roll);
-        if (!h) return;
+        if (!h) {
+            console.error("No hazard found for roll:", roll);
+            return;
+        }
         setText('out-hazard', `
             <div class="out-main out-heat">${h.name}</div>
             <div class="out-sub">${h.eff}</div>
@@ -101,6 +111,7 @@
     }
 
     function genSnag() {
+        console.log("genSnag called");
         const roll = d(20) + d(20);
         const s = snags[roll] || snags[21];
         setText('out-hazard', `
@@ -111,9 +122,13 @@
     }
 
     function genBroadsheet() {
+        console.log("genBroadsheet called");
         const roll = d(6) - 1;
         const p = papers[roll];
-        if (!p) return;
+        if (!p) {
+            console.error("No broadsheet found for roll:", roll);
+            return;
+        }
         const cls = p.e.includes('Heat +') ? 'out-heat' : 'out-good';
         setText('out-paper', `
             <div class="out-main">${p.n}</div>
@@ -123,12 +138,20 @@
     }
 
     function toggleRef(id) {
+        console.log("toggleRef called with id:", id);
         const el = document.getElementById(id);
-        if (!el) return;
+        if (!el) {
+            console.error("Element not found:", id);
+            return;
+        }
         const body = el.querySelector('tbody');
-        if (!body) return;
+        if (!body) {
+            console.error("Tbody not found in element:", id);
+            return;
+        }
 
         if (body.innerHTML.trim() === '') {
+            console.log("Filling accordion content for:", id);
             if (id === 'clue-ref') {
                 body.innerHTML = clueSigs.map(c => `
                     <tr><td class="ref-hl">${c.g}</td><td><span class="clue-type">PHYSICAL:</span> ${c.p}<br><span class="clue-type" style="margin-top:4px;">SOCIAL:</span> ${c.s}<br><span class="clue-type" style="margin-top:4px; color:var(--accent-dim); text-shadow:0 0 1px var(--accent);">ARCANE:</span> ${c.a}</td></tr>
@@ -150,4 +173,13 @@
     window.toggleRef = toggleRef;
 
     console.log("DM Screen Script Loaded Successfully. Data Present:", !!data);
+    console.log("Exposed functions:", {
+        genStreetScene: !!window.genStreetScene,
+        genTexture: !!window.genTexture,
+        genNPC: !!window.genNPC,
+        genHazard: !!window.genHazard,
+        genSnag: !!window.genSnag,
+        genBroadsheet: !!window.genBroadsheet,
+        toggleRef: !!window.toggleRef
+    });
 })();
