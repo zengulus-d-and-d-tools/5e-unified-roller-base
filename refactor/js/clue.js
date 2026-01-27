@@ -61,13 +61,21 @@
         const coreItem = signalGuild[mode][Math.floor(Math.random() * signalGuild[mode].length)];
         const surfItem = noiseGuild[mode][Math.floor(Math.random() * noiseGuild[mode].length)];
 
+        const signalIsCore = Math.random() < 0.5;
+        const signalBlock = signalIsCore
+            ? { text: coreItem.core, guild: signalGuild.name, type: 'Core' }
+            : { text: surfItem.surf, guild: noiseGuild.name, type: 'Surface' };
+        const noiseBlock = signalIsCore
+            ? { text: surfItem.surf, guild: noiseGuild.name, type: 'Surface' }
+            : { text: coreItem.core, guild: signalGuild.name, type: 'Core' };
+
         const friction = FRICTIONS[Math.floor(Math.random() * FRICTIONS.length)];
         const cost = COSTS[Math.floor(Math.random() * COSTS.length)];
 
-        renderResult(mode, coreItem.core, surfItem.surf, friction, cost, signalGuild.name, noiseGuild.name);
+        renderResult(mode, signalBlock, noiseBlock, friction, cost);
     }
 
-    function renderResult(mode, coreText, surfText, friction, cost, sigName, noiseName) {
+    function renderResult(mode, signal, noise, friction, cost) {
         const card = document.getElementById('resultCard');
         card.style.display = 'none';
         card.offsetHeight;
@@ -75,11 +83,13 @@
 
         document.getElementById('outType').innerText = mode.toUpperCase() + ' EVIDENCE';
 
-        document.getElementById('sigGuild').innerText = sigName;
-        document.getElementById('sigVal').innerText = coreText.charAt(0).toUpperCase() + coreText.slice(1);
+        document.getElementById('sigLabel').innerText = `The Signal (${signal.type})`;
+        document.getElementById('sigGuild').innerText = signal.guild;
+        document.getElementById('sigVal').innerText = signal.text.charAt(0).toUpperCase() + signal.text.slice(1);
 
-        document.getElementById('noiseGuild').innerText = noiseName;
-        document.getElementById('noiseVal').innerText = surfText.charAt(0).toUpperCase() + surfText.slice(1);
+        document.getElementById('noiseLabel').innerText = `The Noise (${noise.type})`;
+        document.getElementById('noiseGuild').innerText = noise.guild;
+        document.getElementById('noiseVal').innerText = noise.text.charAt(0).toUpperCase() + noise.text.slice(1);
 
         document.getElementById('outFric').innerText = friction;
         document.getElementById('outCost').innerText = cost;
