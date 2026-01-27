@@ -482,8 +482,11 @@ function renderConditions() {
 
 function genLoot(type) {
     const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-    const qty = Math.min(10, Math.max(1, parseInt(document.getElementById('lootQty').value) || 1));
-    const multiplier = document.getElementById('valueMultiplier').checked;
+    const qtyInput = document.getElementById('lootQty');
+    const qtyCount = qtyInput ? parseInt(qtyInput.value) : 1;
+    const qty = Math.min(10, Math.max(1, qtyCount || 1));
+    const multCheck = document.getElementById('valueMultiplier');
+    const multiplier = multCheck ? multCheck.checked : false;
     let results = [];
 
     for (let i = 0; i < qty; i++) {
@@ -500,11 +503,9 @@ function genLoot(type) {
 
             let material, value;
             if (multiplier) {
-                material = "Masterwork Gold";
-                // If multiplier is on, let's pick from fancy values or maybe even higher? 
-                // The prompt says "value multiplier ... should override so the material is always 'masterwork gold'"
-                // I'll stick to fancy values for now as it makes sense for gold.
-                value = pick(lootTables.trinket.fancy.values);
+                const matType = pick(["Jade", "Silver", "Gold", "Platinum"]);
+                material = `Masterwork ${matType}`;
+                value = "50 gp";
             } else {
                 const isFancy = Math.random() < 0.4;
                 const tier = isFancy ? lootTables.trinket.fancy : lootTables.trinket.cheap;
@@ -516,14 +517,24 @@ function genLoot(type) {
         results.push(item);
     }
 
-    const resultText = results.length > 1 ? results.map((res, idx) => `${idx + 1}. ${res}`).join('\n') : results[0];
+    // Always show numbering if more than 1 item
+    let resultText = "";
+    if (results.length > 1) {
+        resultText = results.map((res, idx) => `${idx + 1}. ${res}`).join('\n');
+    } else if (results.length === 1) {
+        resultText = results[0];
+    } else {
+        resultText = "No items generated.";
+    }
 
     const el = document.getElementById('lootResult');
-    el.style.opacity = 0;
-    setTimeout(() => {
-        el.innerText = resultText;
-        el.style.opacity = 1;
-    }, 100);
+    if (el) {
+        el.style.opacity = 0;
+        setTimeout(() => {
+            el.innerText = resultText;
+            el.style.opacity = 1;
+        }, 100);
+    }
 }
 
 function switchTab(id) {
