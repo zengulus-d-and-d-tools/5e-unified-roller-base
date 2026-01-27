@@ -17,6 +17,12 @@ let activeCase = "UNNAMED";
 let focusMode = false;
 let focusedNodeId = null;
 
+// View State
+let view = { x: 0, y: 0, scale: 1 };
+let panMode = false;
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+
 // Physics Config
 const PHYSICS_STEPS = 5;
 const GRAVITY = 0.5;
@@ -29,6 +35,7 @@ window.onload = () => {
     resizeCanvas();
     loadBoard();
     initGuildToolbar();
+    updateViewCSS();
     requestAnimationFrame(physicsLoop);
 };
 
@@ -63,13 +70,92 @@ function toggleToolbar() {
     const toolbar = document.getElementById('toolbar-wrapper');
     const btn = document.getElementById('toolbar-toggle');
     toolbar.classList.toggle('toolbar-hidden');
+    btn.innerText = toolbar.classList.contains('toolbar-hidden') ? "Show Toolbar" : "Hide Toolbar";
+}
 
-    if (toolbar.classList.contains('toolbar-hidden')) {
-        btn.innerText = "Show Toolbar";
-    } else {
-        btn.innerText = "Hide Toolbar";
+// --- COORDINATE MAPPING ---
+function screenToWorld(x, y) {
+    return {
+        x: (x - view.x) / view.scale,
+        y: (y - view.y) / view.scale
+    };
+}
+
+function updateViewCSS() {
+    const transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+    container.style.transform = transform;
+    labelContainer.style.transform = transform;
+}
+
+function togglePanMode() {
+    panMode = !panMode;
+    const btn = document.getElementById('btn-pan');
+    if (btn) {
+        btn.innerText = panMode ? "🖐️ Pan: ON" : "🖐️ Pan: OFF";
+        btn.style.background = panMode ? "var(--gold)" : "";
+        btn.style.color = panMode ? "#000" : "";
+        document.body.style.cursor = panMode ? "grab" : "default";
     }
 }
+
+// --- ZOOM & PAN HANDLERS ---
+document.addEventListener('wheel', (e) => {
+    if (e.target.closest('.toolbar-scroll-wrapper')) return; // Allow toolbar scroll
+    e.preventDefault();
+
+    const zoomIntensity = 0.1;
+    const direction = e.deltaY > 0 ? -1 : 1;
+    const factor = direction * zoomIntensity;
+
+    // Zoom towards mouse
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+
+    // Calculate world point before zoom
+    const wx = (mouseX - view.x) / view.scale;
+    const wy = (mouseY - view.y) / view.scale;
+
+    let newScale = view.scale + factor;
+    // Limits
+    newScale = Math.max(0.2, Math.min(newScale, 3));
+
+    // Calculate new Offset so (wx, wy) remains under (mouseX, mouseY)
+    // mouseX = newX + wx * newScale
+    view.x = mouseX - wx * newScale;
+    view.y = mouseY - wy * newScale;
+    view.scale = newScale;
+
+    updateViewCSS();
+}, { passive: false });
+
+document.addEventListener('mousedown', (e) => {
+    // Middle click or Pan Mode (Left Click on BG)
+    if (e.button === 1 || (panMode && e.button === 0 && !e.target.closest('.node') && !e.target.closest('.label-input'))) {
+        isPanning = true;
+        panStart = { x: e.clientX, y: e.clientY };
+        document.body.style.cursor = "grabbing";
+        e.preventDefault(); // Prevent text selection
+    }
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (isPanning) {
+        const dx = e.clientX - panStart.x;
+        const dy = e.clientY - panStart.y;
+        view.x += dx;
+        view.y += dy;
+        panStart = { x: e.clientX, y: e.clientY };
+        updateViewCSS();
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (isPanning) {
+        isPanning = false;
+        document.body.style.cursor = panMode ? "grab" : "default";
+    }
+});
+
 
 // --- DRAG HELPER (NEW NODE) ---
 function startDragNew(e, type) {
@@ -85,12 +171,12 @@ document.body.addEventListener('dragover', (e) => {
 document.body.addEventListener('drop', (e) => {
     e.preventDefault();
     let type = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('type');
-    if (!type && e.target.getAttribute('data-type')) {
-        type = e.target.getAttribute('data-type');
-    }
+    if (!type && e.target.getAttribute('data-type')) type = e.target.getAttribute('data-type');
 
     if (type) {
-        createNode(type, e.clientX, e.clientY);
+        // Drop coordinates are screen. Need World.
+        const worldPos = screenToWorld(e.clientX, e.clientY);
+        createNode(type, worldPos.x, worldPos.y);
         saveBoard();
     }
 });
@@ -163,13 +249,26 @@ function updatePhysics() {
     });
 }
 
+// IMPORTANT: getPortPos needs to return WORLD coordinates because nodes are transformed relative to 0,0 WORLD, 
+// BUT getBoundingClientRect returns SCREEN coordinates.
+// Since the container is transformed, its local coordinates are World coords.
+// node.offsetLeft/Top is relative to container (World).
+// But we need exact edge. 
+// Standard node is 150x80 (or auto). 
+// Safer to use node.offsetLeft + width.
 function getPortPos(nodeEl, port) {
-    const r = nodeEl.getBoundingClientRect();
-    if (port === 'top') return { x: r.left + r.width / 2, y: r.top };
-    if (port === 'bottom') return { x: r.left + r.width / 2, y: r.bottom };
-    if (port === 'left') return { x: r.left, y: r.top + r.height / 2 };
-    if (port === 'right') return { x: r.right, y: r.top + r.height / 2 };
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    // We use offsetLeft/Top because they are relative to the Container (World Space)
+    // CAUTION: styles applied transform on container, so offset props are correct in local space.
+    const left = nodeEl.offsetLeft;
+    const top = nodeEl.offsetTop;
+    const width = nodeEl.offsetWidth;
+    const height = nodeEl.offsetHeight;
+
+    if (port === 'top') return { x: left + width / 2, y: top };
+    if (port === 'bottom') return { x: left + width / 2, y: top + height };
+    if (port === 'left') return { x: left, y: top + height / 2 };
+    if (port === 'right') return { x: left + width, y: top + height / 2 };
+    return { x: left + width / 2, y: top + height / 2 };
 }
 
 // --- NODE CREATION ---
@@ -208,9 +307,9 @@ function createNode(type, x, y, id = null, content = {}) {
         <div class="node-body">${body}</div>
     `;
 
-    // Listeners
     nodeEl.addEventListener('mousedown', (e) => {
         if (e.target.classList.contains('port')) return;
+        if (panMode && e.button === 0) return; // Don't drag nodes in Pan Mode (unless we want to? Usually distinct modes)
         startDragNode(e, nodeEl);
     });
 
@@ -234,14 +333,19 @@ function startDragNode(e, el) {
     if (e.button !== 0) return;
 
     draggedNode = el;
-    offset.x = e.clientX - el.offsetLeft;
-    offset.y = e.clientY - el.offsetTop;
+    // Map screen click to world offset
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    offset.x = worldPos.x - el.offsetLeft;
+    offset.y = worldPos.y - el.offsetTop;
 }
 
 document.addEventListener('mousemove', (e) => {
+    // World Mouse Pos
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+
     if (draggedNode) {
-        const x = e.clientX - offset.x;
-        const y = e.clientY - offset.y;
+        const x = worldPos.x - offset.x;
+        const y = worldPos.y - offset.y;
         draggedNode.style.left = x + 'px';
         draggedNode.style.top = y + 'px';
 
@@ -252,8 +356,9 @@ document.addEventListener('mousemove', (e) => {
         }
     }
     if (isConnecting) {
-        connectStart.currentX = e.clientX;
-        connectStart.currentY = e.clientY;
+        // Track current mouse in World Space
+        connectStart.currentX = worldPos.x;
+        connectStart.currentY = worldPos.y;
     }
 });
 
@@ -278,7 +383,8 @@ function startConnectionDrag(e, node, port) {
     e.stopPropagation();
     e.preventDefault();
     isConnecting = true;
-    connectStart = { id: node.id, port: port, x: e.clientX, y: e.clientY, currentX: e.clientX, currentY: e.clientY };
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    connectStart = { id: node.id, port: port, x: worldPos.x, y: worldPos.y, currentX: worldPos.x, currentY: worldPos.y };
 }
 
 function completeConnection(targetNode, targetPort) {
@@ -310,7 +416,11 @@ function completeConnection(targetNode, targetPort) {
 
 // --- DRAWING ---
 function drawConnections() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear screen
+
+    // Apply View Transform
+    ctx.save();
+    ctx.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
 
     if (isConnecting) {
         ctx.beginPath();
@@ -330,13 +440,10 @@ function drawConnections() {
     ctx.lineJoin = 'round';
 
     connections.forEach(conn => {
-        let alpha = 1; // Default
+        let alpha = 1;
         if (focusMode) {
             const n1 = document.getElementById(conn.from);
             const n2 = document.getElementById(conn.to);
-
-            // Strict Focus Logic: If EITHER is blurred (pruned), the interaction is faded!
-            // This ensures only the "active path" is highlighted.
             if (!n1 || !n2 || n1.classList.contains('blurred') || n2.classList.contains('blurred')) {
                 alpha = 0.1;
             }
@@ -358,33 +465,43 @@ function drawConnections() {
 
             const centerPt = updateLabel(conn, alpha);
 
-            if (centerPt) {
-                const midIdx = Math.floor(conn.points.length / 2);
-                const pA = conn.points[midIdx - 1];
-                const pB = conn.points[midIdx + 1];
+            // Draw Arrows (Anchored Logic)
+            if (conn.points.length > 6) {
+                const OFFSET = 0; // Not needed if anchoring directly on point
 
-                if (pA && pB) {
-                    const dx = pB.x - pA.x;
-                    const dy = pB.y - pA.y;
-                    const angle = Math.atan2(dy, dx);
-                    const OFFSET = 45;
+                // Left Arrow: Index 2
+                if (conn.arrowLeft !== 0) {
+                    // Determine angle at p[2] using p[1] and p[3]
+                    const idx = 2;
+                    const pA = conn.points[idx - 1];
+                    const pB = conn.points[idx + 1];
+                    const pt = conn.points[idx];
+                    const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x);
 
-                    if (conn.arrowLeft === 1) {
-                        drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle + Math.PI);
-                    } else if (conn.arrowLeft === 2) {
-                        drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle);
-                    }
+                    if (conn.arrowLeft === 1) // Arrow pointing 'back' relative to flow -> Towards Start
+                        drawArrowHead(ctx, pt.x, pt.y, angle + Math.PI);
+                    else
+                        drawArrowHead(ctx, pt.x, pt.y, angle);
+                }
 
-                    if (conn.arrowRight === 1) {
-                        drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle + Math.PI);
-                    } else if (conn.arrowRight === 2) {
-                        drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle);
-                    }
+                // Right Arrow: Index 6 (Total 9: 0..8, so 6 is 75%)
+                if (conn.arrowRight !== 0) {
+                    const idx = 6;
+                    const pA = conn.points[idx - 1];
+                    const pB = conn.points[idx + 1];
+                    const pt = conn.points[idx];
+                    const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x);
+
+                    if (conn.arrowRight === 1)
+                        drawArrowHead(ctx, pt.x, pt.y, angle + Math.PI);
+                    else
+                        drawArrowHead(ctx, pt.x, pt.y, angle);
                 }
             }
         }
     });
-    ctx.globalAlpha = 1;
+
+    ctx.restore(); // Reset transform for next frame (or clears mostly)
 }
 
 function drawArrowHead(ctx, x, y, rotation) {
@@ -424,6 +541,10 @@ function updateLabel(conn, alpha) {
             input.value = conn.label;
             input.oninput = (e) => { conn.label = e.target.value; saveBoard(); };
             input.onmousedown = (e) => e.stopPropagation();
+            // ENTER KEY SAVES
+            input.onkeydown = (e) => {
+                if (e.key === 'Enter') input.blur();
+            };
 
             const btnRight = document.createElement('div');
             btnRight.className = 'arrow-btn';
@@ -439,7 +560,6 @@ function updateLabel(conn, alpha) {
             labelContainer.appendChild(el);
         }
 
-        // Only update value if NOT focused (prevents cursor jumping)
         const input = el.querySelector('.label-input');
         if (input && document.activeElement !== input) {
             input.value = conn.label;
@@ -447,20 +567,14 @@ function updateLabel(conn, alpha) {
 
         const stateMap = { 0: '—', 1: '◀', 2: '▶' };
 
-        const btnLeft = el.children[0];
-        const btnRight = el.children[2];
-
-        btnLeft.innerText = stateMap[conn.arrowLeft || 0];
-        btnRight.innerText = stateMap[conn.arrowRight || 0];
-
-        btnLeft.className = 'arrow-btn ' + (conn.arrowLeft !== 0 ? 'active' : '');
-        btnRight.className = 'arrow-btn ' + (conn.arrowRight !== 0 ? 'active' : '');
+        el.children[0].innerText = stateMap[conn.arrowLeft || 0];
+        el.children[2].innerText = stateMap[conn.arrowRight || 0];
+        el.children[0].className = 'arrow-btn ' + (conn.arrowLeft !== 0 ? 'active' : '');
+        el.children[2].className = 'arrow-btn ' + (conn.arrowRight !== 0 ? 'active' : '');
 
         el.style.left = pt.x + 'px';
         el.style.top = pt.y + 'px';
         el.style.opacity = alpha;
-
-        // Disable pointer events if faded (pruned)
         el.style.pointerEvents = (alpha < 0.5) ? 'none' : 'auto';
 
         el.style.display = 'flex';
@@ -482,13 +596,16 @@ document.addEventListener('dblclick', (e) => {
         return;
     }
 
-    // String -> Add Label
+    // String Check - Needs Screen to World for Mouse Check?
+    // distToSegment assumes Points are in World. Mouse needs to be World.
+    const worldM = screenToWorld(e.clientX, e.clientY);
+
     let bestDist = 20;
     let closestConn = null;
     connections.forEach(conn => {
         if (!conn.points) return;
         for (let i = 0; i < conn.points.length - 1; i++) {
-            const dist = distToSegment({ x: e.clientX, y: e.clientY }, conn.points[i], conn.points[i + 1]);
+            const dist = distToSegment({ x: worldM.x, y: worldM.y }, conn.points[i], conn.points[i + 1]);
             if (dist < bestDist) {
                 bestDist = dist;
                 closestConn = conn;
@@ -508,8 +625,6 @@ document.addEventListener('dblclick', (e) => {
 
 document.addEventListener('click', (e) => {
     const nodeEl = e.target.closest('.node');
-
-    // Ignore edits
     if (nodeEl && nodeEl.classList.contains('editing')) return;
 
     if (nodeEl) {
@@ -597,7 +712,6 @@ function editTargetNode() {
             const body = el.querySelector('.node-body');
 
             el.classList.add('editing');
-
             title.contentEditable = true;
             body.contentEditable = true;
             title.focus();

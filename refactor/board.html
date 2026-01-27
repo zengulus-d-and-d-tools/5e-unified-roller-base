@@ -20,11 +20,7 @@
         <a href="tools.html" class="back-link">&larr; Portal</a>
         <div class="board-title">CASE FILE: <span id="caseName" contenteditable="true">UNNAMED</span></div>
         <div class="board-controls">
-            <div
-                style="font-size:0.7rem; color:#666; display:flex; flex-direction:column; text-align:right; margin-right:10px;">
-                <span>Double-Click BG to Reset Focus</span>
-                <span>Click String to Add Note</span>
-            </div>
+            <button class="btn-tool" id="btn-pan" onclick="togglePanMode()">🖐️ Pan: OFF</button>
             <button class="btn-tool" onclick="saveBoard()">💾 Save</button>
             <button class="btn-tool" onclick="exportBoard()">📤 Export</button>
             <button class="btn-tool" onclick="importBoard()">📥 Import</button>

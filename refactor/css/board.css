@@ -39,7 +39,7 @@ body:active {
     width: 100%;
     height: 100%;
     z-index: 15;
-    /* Above canvas, below nodes */
+    transform-origin: 0 0;
     pointer-events: none;
 }
 
