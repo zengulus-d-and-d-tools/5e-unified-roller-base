@@ -5,7 +5,7 @@
 
     let width = 0;
     let height = 0;
-    const mouse = { x: -999, y: -999, active: false, down: false };
+    const mouse = { x: -999, y: -999, active: false, down: false, prevX: -999, prevY: -999 };
     let lastScrollY = window.scrollY;
     let scrollVelocity = 0;
     const BASE_RADIUS = 200;
@@ -32,6 +32,8 @@
         }
     ];
 
+    const fluidPush = { x: 0, y: 0 };
+
     const updateAccent = () => {
         const style = getComputedStyle(document.documentElement);
         return style.getPropertyValue('--accent').trim() || '#4ecdc4';
@@ -56,6 +58,14 @@
 
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', e => {
+        if (mouse.prevX !== -999) {
+            const dx = e.clientX - mouse.prevX;
+            const dy = e.clientY - mouse.prevY;
+            fluidPush.x += dx * 0.4;
+            fluidPush.y += dy * 0.4;
+        }
+        mouse.prevX = e.clientX;
+        mouse.prevY = e.clientY;
         mouse.x = e.clientX;
         mouse.y = e.clientY;
         mouse.active = true;
@@ -63,14 +73,22 @@
     window.addEventListener('mousedown', () => mouse.down = true);
     window.addEventListener('mouseup', () => mouse.down = false);
     window.addEventListener('touchstart', e => {
-        mouse.x = e.touches[0].clientX;
-        mouse.y = e.touches[0].clientY;
+        mouse.prevX = mouse.x = e.touches[0].clientX;
+        mouse.prevY = mouse.y = e.touches[0].clientY;
         mouse.active = true;
         mouse.down = true;
+        fluidPush.x += (Math.random() - 0.5) * 5;
+        fluidPush.y += (Math.random() - 0.5) * 5;
     });
     window.addEventListener('touchmove', e => {
-        mouse.x = e.touches[0].clientX;
-        mouse.y = e.touches[0].clientY;
+        const nx = e.touches[0].clientX;
+        const ny = e.touches[0].clientY;
+        if (mouse.prevX !== -999) {
+            fluidPush.x += (nx - mouse.prevX) * 0.4;
+            fluidPush.y += (ny - mouse.prevY) * 0.4;
+        }
+        mouse.prevX = mouse.x = nx;
+        mouse.prevY = mouse.y = ny;
     });
     window.addEventListener('touchend', () => { mouse.active = false; mouse.down = false; });
     window.addEventListener('scroll', () => {
@@ -103,12 +121,27 @@
             angle = Math.atan2(vy + windForce, vx);
         }
 
+        const fluidMag = Math.hypot(fluidPush.x, fluidPush.y);
+        if (fluidMag > 0.1) {
+            const baseVX = Math.cos(angle);
+            const baseVY = Math.sin(angle);
+            const pushVX = fluidPush.x / fluidMag;
+            const pushVY = fluidPush.y / fluidMag;
+            const falloff = Math.max(0, 1 - dist / (radius * 0.9));
+            const influence = Math.min(0.6, fluidMag * 0.0025) * falloff;
+            const mixVX = baseVX * (1 - influence) + pushVX * influence;
+            const mixVY = baseVY * (1 - influence) + pushVY * influence;
+            angle = Math.atan2(mixVY, mixVX);
+        }
+
         return { angle, alpha };
     };
 
     const animate = () => {
         ctx.clearRect(0, 0, width, height);
         scrollVelocity *= 0.9;
+        fluidPush.x *= 0.92;
+        fluidPush.y *= 0.92;
 
         if (!mouse.active && Math.abs(scrollVelocity) < 0.1) {
             requestAnimationFrame(animate);
@@ -156,6 +189,35 @@
                 }
             }
         });
+
+        // angular vectors overlay
+        const arrowSpacing = 28;
+        const arrowRadius = BASE_RADIUS * 0.95;
+        const startX = Math.floor((mouse.x - arrowRadius) / arrowSpacing) * arrowSpacing;
+        const endX = Math.floor((mouse.x + arrowRadius) / arrowSpacing) * arrowSpacing;
+        const startY = Math.floor((mouse.y - arrowRadius) / arrowSpacing) * arrowSpacing;
+        const endY = Math.floor((mouse.y + arrowRadius) / arrowSpacing) * arrowSpacing;
+
+        for (let gx = startX; gx <= endX; gx += arrowSpacing) {
+            for (let gy = startY; gy <= endY; gy += arrowSpacing) {
+                const flow = sampleFlow(gx, gy, mouse.x, mouse.y, arrowRadius, time, 0.12);
+                if (!flow) continue;
+                const length = 12 * flow.alpha;
+                const tipX = gx + Math.cos(flow.angle) * length;
+                const tipY = gy + Math.sin(flow.angle) * length;
+                const thickness = length * 0.24;
+                const perpX = -Math.sin(flow.angle) * thickness;
+                const perpY = Math.cos(flow.angle) * thickness;
+
+                ctx.fillStyle = accentColor;
+                ctx.globalAlpha = Math.min(1, flow.alpha * 1.1);
+                ctx.beginPath();
+                ctx.moveTo(gx + perpX, gy + perpY);
+                ctx.lineTo(gx - perpX, gy - perpY);
+                ctx.lineTo(tipX, tipY);
+                ctx.fill();
+            }
+        }
 
         ctx.shadowBlur = 0;
         ctx.globalAlpha = 1;
