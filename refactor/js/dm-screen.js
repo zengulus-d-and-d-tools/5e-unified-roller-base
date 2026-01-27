@@ -24,12 +24,21 @@
     const d = (n) => Math.floor(Math.random() * n) + 1;
 
     function setText(id, html) {
+        console.log("setText called for id:", id);
         const box = document.getElementById(id);
-        if (!box) return;
-        const content = box.querySelector(id.includes('texture') ? '.texture-out' : '.text-output');
-        if (!content) return;
+        if (!box) {
+            console.error("box element not found:", id);
+            return;
+        }
+        const selector = id.includes('texture') ? '.texture-out' : '.text-output';
+        const content = box.querySelector(selector);
+        if (!content) {
+            console.error("content element not found using selector:", selector, "inside box:", id);
+            return;
+        }
         content.innerHTML = html;
         box.classList.add('active');
+        console.log("Box activated:", id, "Display style:", window.getComputedStyle(box).display);
     }
 
     function genStreetScene() {
@@ -55,7 +64,10 @@
         const sourceName = rollSource <= 10 ? guilds[rollSource - 1] : (rollSource === 11 ? 'Hazard' : 'Gang');
 
         const box = document.getElementById('out-street');
-        if (box) box.classList.add('active');
+        if (box) {
+            box.classList.add('active');
+            console.log("Box activated: out-street. Display style:", window.getComputedStyle(box).display);
+        }
         const content = document.getElementById('dispatch-content');
         if (!content) {
             console.error("dispatch-content element not found");
