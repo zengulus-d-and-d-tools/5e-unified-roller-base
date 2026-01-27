@@ -196,7 +196,6 @@ function createNode(type, x, y, id = null, content = {}) {
     const body = content.body || '';
     const icon = iconMap[type] || '❓';
 
-    // REMOVED contenteditable from here. Handled by Edit Node interaction.
     nodeEl.innerHTML = `
         <div class="port top" data-port="top"></div>
         <div class="port bottom" data-port="bottom"></div>
@@ -216,7 +215,6 @@ function createNode(type, x, y, id = null, content = {}) {
     });
 
     nodeEl.addEventListener('contextmenu', (e) => showContextMenu(e, nodeEl));
-    // Input listener removed, handled in edit mode explicitly
 
     nodeEl.querySelectorAll('.port').forEach(p => {
         p.addEventListener('mousedown', (e) => startConnectionDrag(e, nodeEl, p.dataset.port));
@@ -232,8 +230,7 @@ function createNode(type, x, y, id = null, content = {}) {
 
 // --- NODE DRAGGING ---
 function startDragNode(e, el) {
-    if (el.classList.contains('editing')) return; // Allow text select in edit mode
-    // if (e.target.isContentEditable) return; // Legacy check
+    if (el.classList.contains('editing')) return;
     if (e.button !== 0) return;
 
     draggedNode = el;
@@ -302,7 +299,7 @@ function completeConnection(targetNode, targetPort) {
             label: '',
             labelT: 0.5,
             points: [],
-            arrowLeft: 0, // 0=None, 1=Left(<), 2=Right(>)
+            arrowLeft: 0,
             arrowRight: 0
         };
         connections.push(newConn);
@@ -332,23 +329,16 @@ function drawConnections() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
-    // Track active labels for cleanup
-    const activeLabelIds = new Set();
-
     connections.forEach(conn => {
-        let alpha = 0.8;
+        let alpha = 1; // Default
         if (focusMode) {
-            const involved = (conn.from === focusedNodeId || conn.to === focusedNodeId);
-            if (!involved) {
-                const n1 = document.getElementById(conn.from);
-                const n2 = document.getElementById(conn.to);
-                // Check if either node is visually active (not blurred)
-                // In toggle logic, a node is 'active' if it's not blurred.
-                // If both are blurred, the line is dimmed.
-                // If one is active, the line is active (to show connectivity).
-                if ((n1 && n1.classList.contains('blurred')) && (n2 && n2.classList.contains('blurred'))) {
-                    alpha = 0.1;
-                }
+            const n1 = document.getElementById(conn.from);
+            const n2 = document.getElementById(conn.to);
+
+            // Strict Focus Logic: If EITHER is blurred (pruned), the interaction is faded!
+            // This ensures only the "active path" is highlighted.
+            if (!n1 || !n2 || n1.classList.contains('blurred') || n2.classList.contains('blurred')) {
+                alpha = 0.1;
             }
         }
 
@@ -366,11 +356,8 @@ function drawConnections() {
             ctx.lineTo(conn.points[conn.points.length - 1].x, conn.points[conn.points.length - 1].y);
             ctx.stroke();
 
-            // Label & Arrows
             const centerPt = updateLabel(conn, alpha);
-            if (conn.label) activeLabelIds.add('lbl_' + conn.id);
 
-            // Draw Arrows visuals on Canvas
             if (centerPt) {
                 const midIdx = Math.floor(conn.points.length / 2);
                 const pA = conn.points[midIdx - 1];
@@ -382,18 +369,15 @@ function drawConnections() {
                     const angle = Math.atan2(dy, dx);
                     const OFFSET = 45;
 
-                    // Left Side Arrow
-                    if (conn.arrowLeft === 1) { // < (Point Left relative to screen? No relative to line)
-                        // 1 = Pointing Towards Start (Left on screen if horiz)
+                    if (conn.arrowLeft === 1) {
                         drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle + Math.PI);
-                    } else if (conn.arrowLeft === 2) { // >
+                    } else if (conn.arrowLeft === 2) {
                         drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle);
                     }
 
-                    // Right Side Arrow
-                    if (conn.arrowRight === 1) { // <
+                    if (conn.arrowRight === 1) {
                         drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle + Math.PI);
-                    } else if (conn.arrowRight === 2) { // >
+                    } else if (conn.arrowRight === 2) {
                         drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle);
                     }
                 }
@@ -401,12 +385,6 @@ function drawConnections() {
         }
     });
     ctx.globalAlpha = 1;
-
-    // Cleanup interactions
-    // This is simple but expensive to query DOM every frame? 
-    // Optimization: Only do this when deleting connections. 
-    // BUT we need to hide labels if connections variable changes.
-    // Let's trust that deleteNode handles removal.
 }
 
 function drawArrowHead(ctx, x, y, rotation) {
@@ -445,7 +423,7 @@ function updateLabel(conn, alpha) {
             input.className = 'label-input';
             input.value = conn.label;
             input.oninput = (e) => { conn.label = e.target.value; saveBoard(); };
-            input.onmousedown = (e) => e.stopPropagation(); // allow interaction
+            input.onmousedown = (e) => e.stopPropagation();
 
             const btnRight = document.createElement('div');
             btnRight.className = 'arrow-btn';
@@ -461,7 +439,12 @@ function updateLabel(conn, alpha) {
             labelContainer.appendChild(el);
         }
 
-        // Sync visual state
+        // Only update value if NOT focused (prevents cursor jumping)
+        const input = el.querySelector('.label-input');
+        if (input && document.activeElement !== input) {
+            input.value = conn.label;
+        }
+
         const stateMap = { 0: '—', 1: '◀', 2: '▶' };
 
         const btnLeft = el.children[0];
@@ -476,6 +459,10 @@ function updateLabel(conn, alpha) {
         el.style.left = pt.x + 'px';
         el.style.top = pt.y + 'px';
         el.style.opacity = alpha;
+
+        // Disable pointer events if faded (pruned)
+        el.style.pointerEvents = (alpha < 0.5) ? 'none' : 'auto';
+
         el.style.display = 'flex';
     } else {
         if (el) el.style.display = 'none';
@@ -486,11 +473,9 @@ function updateLabel(conn, alpha) {
 
 // --- INTERACTION EVENT LISTENERS ---
 
-// 1. Double Click Handler (Focus & Labels)
 document.addEventListener('dblclick', (e) => {
     e.preventDefault();
 
-    // Node -> Focus Mode
     const nodeEl = e.target.closest('.node');
     if (nodeEl) {
         enterFocusMode(nodeEl.id);
@@ -517,14 +502,11 @@ document.addEventListener('dblclick', (e) => {
             saveBoard();
         }
     } else {
-        // Background -> Reset Focus
         resetFocus();
     }
 });
 
-// 2. Single Click Handler (Toggle Focus Visibility)
 document.addEventListener('click', (e) => {
-    // Is it a node?
     const nodeEl = e.target.closest('.node');
 
     // Ignore edits
@@ -532,7 +514,6 @@ document.addEventListener('click', (e) => {
 
     if (nodeEl) {
         if (focusMode) {
-            // Toggle visibility in focus mode
             if (nodeEl.classList.contains('blurred')) {
                 nodeEl.classList.remove('blurred');
             } else {
@@ -563,7 +544,6 @@ function enterFocusMode(nodeId) {
         n.classList.add('blurred');
     });
 
-    // Show initial network (Node + Connections + Neighbors)
     expandFocus(nodeId);
 
     const main = document.getElementById(nodeId);
@@ -618,7 +598,6 @@ function editTargetNode() {
 
             el.classList.add('editing');
 
-            // Force editable
             title.contentEditable = true;
             body.contentEditable = true;
             title.focus();
@@ -632,7 +611,6 @@ function editTargetNode() {
 
             const onBlur = () => {
                 setTimeout(() => {
-                    // Only finish if neither is focused
                     if (document.activeElement !== title && document.activeElement !== body) {
                         finishEdit();
                     }
@@ -648,7 +626,7 @@ function editTargetNode() {
                     body.focus();
                 }
             });
-            // Select all text
+
             const range = document.createRange();
             range.selectNodeContents(title);
             const sel = window.getSelection();
@@ -665,10 +643,8 @@ function deleteTargetNode() {
         const el = document.getElementById(id);
         if (el) el.remove();
 
-        // Remove connections
         const removedConns = connections.filter(c => c.from === id || c.to === id);
 
-        // Clean up labels
         removedConns.forEach(c => {
             const lbl = document.getElementById('lbl_' + c.id);
             if (lbl) lbl.remove();
@@ -717,7 +693,7 @@ function loadBoard() {
 
         nodes = data.nodes || [];
         container.innerHTML = '';
-        labelContainer.innerHTML = ''; // Clean slate
+        labelContainer.innerHTML = '';
         nodes.forEach(n => {
             createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
         });
