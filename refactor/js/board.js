@@ -5,7 +5,7 @@ const ctx = canvas.getContext('2d');
 const contextMenu = document.getElementById('context-menu');
 
 let nodes = [];
-let connections = []; // {id: 'c1', from: id, to: id, fromPort: 'btm', toPort: 'top', label: 'conn', labelT: 0.5, physics: [], arrowLeft: false, arrowRight: false}
+let connections = [];
 let nextId = 1;
 let draggedNode = null;
 let offset = { x: 0, y: 0 };
@@ -20,9 +20,9 @@ let focusedNodeId = null;
 // Physics Config
 const PHYSICS_STEPS = 5;
 const GRAVITY = 0.5;
-const SEGMENT_LENGTH = 18; // More slack
+const SEGMENT_LENGTH = 18;
 const STIFFNESS = 0.5;
-const POINTS_COUNT = 9; // Smoother curve
+const POINTS_COUNT = 9;
 
 // --- INITIALIZATION ---
 window.onload = () => {
@@ -111,7 +111,6 @@ function updatePhysics() {
         const p1 = getPortPos(n1, conn.fromPort);
         const p2 = getPortPos(n2, conn.toPort);
 
-        // Initialize points
         if (!conn.points || conn.points.length !== POINTS_COUNT) {
             conn.points = [];
             for (let i = 0; i < POINTS_COUNT; i++) {
@@ -125,11 +124,9 @@ function updatePhysics() {
             }
         }
 
-        // Update pinned positions
         conn.points[0].x = p1.x; conn.points[0].y = p1.y;
         conn.points[POINTS_COUNT - 1].x = p2.x; conn.points[POINTS_COUNT - 1].y = p2.y;
 
-        // Verlet Integration
         for (let i = 0; i < conn.points.length; i++) {
             const p = conn.points[i];
             if (!p.pinned) {
@@ -143,7 +140,6 @@ function updatePhysics() {
             }
         }
 
-        // Constraints
         for (let k = 0; k < 3; k++) {
             for (let i = 0; i < conn.points.length - 1; i++) {
                 const pA = conn.points[i];
@@ -200,16 +196,17 @@ function createNode(type, x, y, id = null, content = {}) {
     const body = content.body || '';
     const icon = iconMap[type] || '❓';
 
+    // REMOVED contenteditable from here. Handled by Edit Node interaction.
     nodeEl.innerHTML = `
         <div class="port top" data-port="top"></div>
         <div class="port bottom" data-port="bottom"></div>
         <div class="port left" data-port="left"></div>
         <div class="port right" data-port="right"></div>
         <div class="node-header">
-            <div class="node-title" contenteditable="true">${title}</div>
+            <div class="node-title">${title}</div>
             <div class="node-icon">${icon}</div>
         </div>
-        <div class="node-body" contenteditable="true">${body}</div>
+        <div class="node-body">${body}</div>
     `;
 
     // Listeners
@@ -218,11 +215,8 @@ function createNode(type, x, y, id = null, content = {}) {
         startDragNode(e, nodeEl);
     });
 
-    // NOTE: Removed single click listener for Focus to allow content editing
-    // Focus is now Double Click triggers
-
     nodeEl.addEventListener('contextmenu', (e) => showContextMenu(e, nodeEl));
-    nodeEl.addEventListener('input', () => saveBoard());
+    // Input listener removed, handled in edit mode explicitly
 
     nodeEl.querySelectorAll('.port').forEach(p => {
         p.addEventListener('mousedown', (e) => startConnectionDrag(e, nodeEl, p.dataset.port));
@@ -238,7 +232,8 @@ function createNode(type, x, y, id = null, content = {}) {
 
 // --- NODE DRAGGING ---
 function startDragNode(e, el) {
-    if (e.target.isContentEditable) return;
+    if (el.classList.contains('editing')) return; // Allow text select in edit mode
+    // if (e.target.isContentEditable) return; // Legacy check
     if (e.button !== 0) return;
 
     draggedNode = el;
@@ -307,8 +302,8 @@ function completeConnection(targetNode, targetPort) {
             label: '',
             labelT: 0.5,
             points: [],
-            arrowLeft: false,
-            arrowRight: false
+            arrowLeft: 0, // 0=None, 1=Left(<), 2=Right(>)
+            arrowRight: 0
         };
         connections.push(newConn);
         saveBoard();
@@ -337,6 +332,9 @@ function drawConnections() {
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
+    // Track active labels for cleanup
+    const activeLabelIds = new Set();
+
     connections.forEach(conn => {
         let alpha = 0.8;
         if (focusMode) {
@@ -344,7 +342,11 @@ function drawConnections() {
             if (!involved) {
                 const n1 = document.getElementById(conn.from);
                 const n2 = document.getElementById(conn.to);
-                if (n1 && n2 && (n1.classList.contains('blurred') || n2.classList.contains('blurred'))) {
+                // Check if either node is visually active (not blurred)
+                // In toggle logic, a node is 'active' if it's not blurred.
+                // If both are blurred, the line is dimmed.
+                // If one is active, the line is active (to show connectivity).
+                if ((n1 && n1.classList.contains('blurred')) && (n2 && n2.classList.contains('blurred'))) {
                     alpha = 0.1;
                 }
             }
@@ -364,23 +366,34 @@ function drawConnections() {
             ctx.lineTo(conn.points[conn.points.length - 1].x, conn.points[conn.points.length - 1].y);
             ctx.stroke();
 
+            // Label & Arrows
             const centerPt = updateLabel(conn, alpha);
+            if (conn.label) activeLabelIds.add('lbl_' + conn.id);
 
-            if (centerPt && (conn.arrowLeft || conn.arrowRight)) {
-                // Calculate angle at center
+            // Draw Arrows visuals on Canvas
+            if (centerPt) {
                 const midIdx = Math.floor(conn.points.length / 2);
                 const pA = conn.points[midIdx - 1];
                 const pB = conn.points[midIdx + 1];
+
                 if (pA && pB) {
                     const dx = pB.x - pA.x;
                     const dy = pB.y - pA.y;
                     const angle = Math.atan2(dy, dx);
                     const OFFSET = 45;
 
-                    if (conn.arrowLeft) {
+                    // Left Side Arrow
+                    if (conn.arrowLeft === 1) { // < (Point Left relative to screen? No relative to line)
+                        // 1 = Pointing Towards Start (Left on screen if horiz)
                         drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle + Math.PI);
+                    } else if (conn.arrowLeft === 2) { // >
+                        drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle);
                     }
-                    if (conn.arrowRight) {
+
+                    // Right Side Arrow
+                    if (conn.arrowRight === 1) { // <
+                        drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle + Math.PI);
+                    } else if (conn.arrowRight === 2) { // >
                         drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle);
                     }
                 }
@@ -388,6 +401,12 @@ function drawConnections() {
         }
     });
     ctx.globalAlpha = 1;
+
+    // Cleanup interactions
+    // This is simple but expensive to query DOM every frame? 
+    // Optimization: Only do this when deleting connections. 
+    // BUT we need to hide labels if connections variable changes.
+    // Let's trust that deleteNode handles removal.
 }
 
 function drawArrowHead(ctx, x, y, rotation) {
@@ -416,10 +435,9 @@ function updateLabel(conn, alpha) {
 
             const btnLeft = document.createElement('div');
             btnLeft.className = 'arrow-btn';
-            btnLeft.innerText = '◀';
             btnLeft.onclick = (e) => {
                 e.stopPropagation();
-                conn.arrowLeft = !conn.arrowLeft;
+                conn.arrowLeft = ((conn.arrowLeft || 0) + 1) % 3;
                 saveBoard();
             };
 
@@ -427,14 +445,13 @@ function updateLabel(conn, alpha) {
             input.className = 'label-input';
             input.value = conn.label;
             input.oninput = (e) => { conn.label = e.target.value; saveBoard(); };
-            input.onmousedown = (e) => e.stopPropagation();
+            input.onmousedown = (e) => e.stopPropagation(); // allow interaction
 
             const btnRight = document.createElement('div');
             btnRight.className = 'arrow-btn';
-            btnRight.innerText = '▶';
             btnRight.onclick = (e) => {
                 e.stopPropagation();
-                conn.arrowRight = !conn.arrowRight;
+                conn.arrowRight = ((conn.arrowRight || 0) + 1) % 3;
                 saveBoard();
             };
 
@@ -445,8 +462,16 @@ function updateLabel(conn, alpha) {
         }
 
         // Sync visual state
-        el.children[0].className = 'arrow-btn ' + (conn.arrowLeft ? 'active' : '');
-        el.children[2].className = 'arrow-btn ' + (conn.arrowRight ? 'active' : '');
+        const stateMap = { 0: '—', 1: '◀', 2: '▶' };
+
+        const btnLeft = el.children[0];
+        const btnRight = el.children[2];
+
+        btnLeft.innerText = stateMap[conn.arrowLeft || 0];
+        btnRight.innerText = stateMap[conn.arrowRight || 0];
+
+        btnLeft.className = 'arrow-btn ' + (conn.arrowLeft !== 0 ? 'active' : '');
+        btnRight.className = 'arrow-btn ' + (conn.arrowRight !== 0 ? 'active' : '');
 
         el.style.left = pt.x + 'px';
         el.style.top = pt.y + 'px';
@@ -497,15 +522,24 @@ document.addEventListener('dblclick', (e) => {
     }
 });
 
-// 2. Single Click Handler (Expand Focus)
+// 2. Single Click Handler (Toggle Focus Visibility)
 document.addEventListener('click', (e) => {
-    if (!focusMode) return;
-
     // Is it a node?
     const nodeEl = e.target.closest('.node');
+
+    // Ignore edits
+    if (nodeEl && nodeEl.classList.contains('editing')) return;
+
     if (nodeEl) {
-        // If it's already focused (or connected to focus), expanding should show ITS neighbors
-        expandFocus(nodeEl.id);
+        if (focusMode) {
+            // Toggle visibility in focus mode
+            if (nodeEl.classList.contains('blurred')) {
+                nodeEl.classList.remove('blurred');
+            } else {
+                nodeEl.classList.add('blurred');
+            }
+        }
+        return;
     }
 });
 
@@ -559,18 +593,6 @@ function resetFocus() {
     });
 }
 
-function buildAdjacency() {
-    // Helper if needed for deeper recursion
-    const g = {};
-    connections.forEach(c => {
-        if (!g[c.from]) g[c.from] = [];
-        if (!g[c.to]) g[c.to] = [];
-        g[c.from].push(c.to);
-        g[c.to].push(c.from);
-    });
-    return g;
-}
-
 
 // --- CONTEXT MENU ---
 function showContextMenu(e, node) {
@@ -585,21 +607,53 @@ window.onclick = (e) => {
     if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
 };
 
+// --- EDIT NODE ---
 function editTargetNode() {
     const id = contextMenu.dataset.target;
     if (id) {
         const el = document.getElementById(id);
         if (el) {
             const title = el.querySelector('.node-title');
-            if (title) {
-                title.focus();
-                // Select all text for easy replacement
-                const range = document.createRange();
-                range.selectNodeContents(title);
-                const sel = window.getSelection();
-                sel.removeAllRanges();
-                sel.addRange(range);
-            }
+            const body = el.querySelector('.node-body');
+
+            el.classList.add('editing');
+
+            // Force editable
+            title.contentEditable = true;
+            body.contentEditable = true;
+            title.focus();
+
+            const finishEdit = () => {
+                title.contentEditable = false;
+                body.contentEditable = false;
+                el.classList.remove('editing');
+                saveBoard();
+            };
+
+            const onBlur = () => {
+                setTimeout(() => {
+                    // Only finish if neither is focused
+                    if (document.activeElement !== title && document.activeElement !== body) {
+                        finishEdit();
+                    }
+                }, 50);
+            };
+
+            title.addEventListener('blur', onBlur);
+            body.addEventListener('blur', onBlur);
+
+            title.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    body.focus();
+                }
+            });
+            // Select all text
+            const range = document.createRange();
+            range.selectNodeContents(title);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
         }
         contextMenu.style.display = 'none';
     }
@@ -610,6 +664,16 @@ function deleteTargetNode() {
     if (id) {
         const el = document.getElementById(id);
         if (el) el.remove();
+
+        // Remove connections
+        const removedConns = connections.filter(c => c.from === id || c.to === id);
+
+        // Clean up labels
+        removedConns.forEach(c => {
+            const lbl = document.getElementById('lbl_' + c.id);
+            if (lbl) lbl.remove();
+        });
+
         nodes = nodes.filter(n => n.id !== id);
         connections = connections.filter(c => c.from !== id && c.to !== id);
         saveBoard();
@@ -649,15 +713,11 @@ function loadBoard() {
         document.getElementById('caseName').innerText = data.name || "UNNAMED";
 
         connections = data.connections || [];
-        connections.forEach(c => {
-            c.points = []; // Reset physics visuals
-            // Restore arrow state defaults if old data
-            if (c.arrowLeft === undefined) c.arrowLeft = false;
-            if (c.arrowRight === undefined) c.arrowRight = false;
-        });
+        connections.forEach(c => c.points = []);
 
         nodes = data.nodes || [];
         container.innerHTML = '';
+        labelContainer.innerHTML = ''; // Clean slate
         nodes.forEach(n => {
             createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
         });

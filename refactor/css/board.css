@@ -396,6 +396,21 @@ body:active {
 }
 
 
+/* --- EDITING STATE --- */
+.node.editing {
+    border-color: var(--gold);
+    box-shadow: 0 0 15px var(--gold);
+    background: rgba(40, 40, 45, 0.9);
+    cursor: text;
+}
+
+.node.editing .node-title,
+.node.editing .node-body {
+    outline: 1px dashed rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+
 /* --- STRING LABELS --- */
 .string-label {
     position: absolute;
@@ -408,14 +423,13 @@ body:active {
     pointer-events: auto;
     cursor: move;
     transform: translate(-50%, -50%);
-    min-width: 60px;
+    min-width: 80px;
     text-align: center;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     gap: 4px;
     z-index: 50;
-    /* Always on top of lines */
 }
 
 .string-label:focus-within {
@@ -432,24 +446,26 @@ body:active {
     font-family: inherit;
     font-size: inherit;
     outline: none;
+    pointer-events: auto;
 }
 
 .arrow-btn {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     border-radius: 2px;
-    opacity: 0.5;
-    font-size: 0.6rem;
+    opacity: 0.6;
+    font-size: 0.7rem;
     user-select: none;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .arrow-btn:hover {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .arrow-btn.active {
