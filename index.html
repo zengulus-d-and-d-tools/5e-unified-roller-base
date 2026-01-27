@@ -348,8 +348,9 @@
             position: relative;
             transition: all 0.2s ease;
             padding-left: 45px;
+            padding-top: 16px;
             height: fit-content;
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(12px);
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
 
@@ -417,12 +418,42 @@
             text-transform: uppercase;
             border-bottom: 1px solid #333;
             padding-bottom: 8px;
-            margin-bottom: 8px;
+            margin-bottom: 12px;
             letter-spacing: 0.05em;
             font-weight: bold;
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
+            /* Center Title */
             align-items: center;
+            position: relative;
+            min-height: 20px;
+        }
+
+        .prof-toggle-abs {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 5;
+            padding: 5px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .prof-toggle-abs:hover {
+            opacity: 1;
+        }
+
+        .accordion-trigger-abs {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            padding: 5px;
+            z-index: 5;
         }
 
         .accordion-trigger {
@@ -430,7 +461,7 @@
             user-select: none;
         }
 
-        .accordion-trigger::after {
+        .accordion-trigger-abs::after {
             content: '▼';
             font-size: 0.7rem;
             color: #666;
@@ -443,7 +474,7 @@
             padding-bottom: 0;
         }
 
-        .accordion-trigger.collapsed::after {
+        .accordion-trigger-abs.collapsed::after {
             transform: rotate(-90deg);
         }
 
@@ -807,6 +838,12 @@
         .ds-fail:checked {
             background: #e74c3c;
             color: #e74c3c;
+        }
+
+        .ds-check.buff-check:checked {
+            background: #a29bfe;
+            border-color: #a29bfe;
+            color: #111;
         }
 
         .btn-ds-roll {
@@ -1829,8 +1866,12 @@
         </div>
         <div class="card" id="card-ac">
             <div class="drag-grip"></div>
-            <div class="section-title"><span>Armor Class</span><span class="ac-val-big" id="acTotalDisplay">10</span>
-            </div><label style="font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-bottom:10px;"><input
+            <div class="section-title">
+                <span>Armor Class</span>
+                <span class="ac-val-big" id="acTotalDisplay"
+                    style="position:absolute; right:10px; top:50%; transform:translateY(-50%);">10</span>
+            </div>
+            <label style="font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-bottom:10px;"><input
                     type="checkbox" id="acCustomToggle" onchange="toggleACMode()">Use Custom Formula (Monk/Barb)
             </label>
             <div id="acStdControls" class="grid-6"
@@ -1874,8 +1915,9 @@
         </div>
         <div class="card" id="card-combat">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-combat" onclick="toggleSection('combat')">
+            <div class="section-title" id="head-combat">
                 <span>Combat Stats & Resources</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('combat')"></span>
             </div>
             <div class="accordion-content" id="body-combat">
                 <div class="combat-row">
@@ -1899,8 +1941,9 @@
         </div>
         <div class="card" id="card-attr">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-attr" onclick="toggleSection('attr')">
+            <div class="section-title" id="head-attr">
                 <span>Attributes</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('attr')"></span>
             </div>
             <div class="accordion-content" id="body-attr">
                 <div class="grid-6" id="statsGrid"></div>
@@ -1910,17 +1953,15 @@
         <div class="card" id="card-buffs">
             <div class="drag-grip"></div>
             <div class="section-title"><span>Active Effects / Buffs</span>
-                <div style="display:flex; gap:10px;"><span class="prof-toggle" onclick="toggleHide('buffs')"
-                        style="cursor:pointer;">👁️</span><span class="accordion-trigger"
-                        onclick="toggleAccordion(this)"></span></div>
+                <span class="accordion-trigger-abs" onclick="toggleAccordion(this)"></span>
             </div>
             <div class="accordion-content">
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;"><label
                         style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; cursor:pointer;"><input
-                            type="checkbox" class="ds-check" id="buffBless" onchange="updateBuffs()"><span
+                            type="checkbox" class="ds-check buff-check" id="buffBless" onchange="updateBuffs()"><span
                             style="font-weight:bold; color:#a29bfe;">Bless (+1d4)</span></label><label
                         style="display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; cursor:pointer;"><input
-                            type="checkbox" class="ds-check" id="buffGuidance" onchange="updateBuffs()"><span
+                            type="checkbox" class="ds-check buff-check" id="buffGuidance" onchange="updateBuffs()"><span
                             style="font-weight:bold; color:#a29bfe;">Guidance (+1d4)</span></label></div>
                 <div class="row"><input type="text" id="buffGlobal" placeholder="Global Mod (e.g. +2, -1d4)"
                         onchange="updateBuffs()" style="text-align:center; font-weight:bold;"></div>
@@ -1929,7 +1970,7 @@
         <!-- SETTINGS / VISIBILITY -->
         <div class="card" id="card-settings">
             <div class="drag-grip"></div>
-            <div class="section-title"><span>Sheet Settings</span><span class="accordion-trigger collapsed"
+            <div class="section-title"><span>Sheet Settings</span><span class="accordion-trigger-abs collapsed"
                     onclick="toggleAccordion(this)"></span></div>
             <div class="accordion-content collapsed"><label
                     style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
@@ -1950,8 +1991,9 @@
         </div>
         <div class="card" id="card-atk">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-atk" onclick="toggleSection('atk')">
+            <div class="section-title" id="head-atk">
                 <span>Attacks</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('atk')"></span>
             </div>
             <div class="accordion-content" id="body-atk">
                 <div id="attackList"></div><button class="add-btn" onclick="addAttack()">+Add Weapon /
@@ -1960,8 +2002,9 @@
         </div>
         <div class="card" id="card-feats">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-feats" onclick="toggleSection('feats')">
+            <div class="section-title" id="head-feats">
                 <span>Features & Traits</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('feats')"></span>
             </div>
             <div class="accordion-content" id="body-feats">
                 <div id="featureList"></div><button class="add-btn" style="background: var(--accent-feat); color: #fff;"
@@ -1971,8 +2014,9 @@
         </div>
         <div class="card" id="card-spells">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-spells" onclick="toggleSection('spells')">
+            <div class="section-title" id="head-spells">
                 <span>Spell Slots</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('spells')"></span>
             </div>
             <div class="accordion-content" id="body-spells">
                 <div style="margin-bottom:10px; display:flex; justify-content:flex-end;"><button
@@ -1984,8 +2028,9 @@
         </div>
         <div class="card" id="card-skills">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-skills" onclick="toggleSection('skills')">
+            <div class="section-title" id="head-skills">
                 <span>Skills</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('skills')"></span>
             </div>
             <div class="accordion-content" id="body-skills">
                 <div class="skill-list" id="skillGrid"></div>
@@ -1993,8 +2038,9 @@
         </div>
         <div class="card" id="card-roller">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-roller" onclick="toggleSection('roller')">
+            <div class="section-title" id="head-roller">
                 <span>Arbitrary Roller</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('roller')"></span>
             </div>
             <div class="accordion-content" id="body-roller">
                 <div class="custom-roll-row" style="margin-bottom:10px;"><input type="text" id="customLabel"
@@ -2013,8 +2059,9 @@
         </div>
         <div class="card io-card" id="card-io">
             <div class="drag-grip"></div>
-            <div class="section-title accordion-trigger" id="head-io" onclick="toggleSection('io')">
+            <div class="section-title" id="head-io">
                 <span>Backup Data</span>
+                <span class="accordion-trigger-abs" onclick="toggleSection('io')"></span>
             </div>
             <div class="accordion-content" id="body-io">
                 <div class="field-group"><label>Player Name (For Log)</label><input type="text" id="playerName"
@@ -2078,9 +2125,11 @@
             const head = document.getElementById('head-' + key);
             const body = document.getElementById('body-' + key);
             const card = document.getElementById('card-' + key);
+            const trigger = head ? head.querySelector('.accordion-trigger-abs') : null;
 
-            head.classList.toggle('collapsed');
-            body.classList.toggle('collapsed');
+            if (head) head.classList.toggle('collapsed');
+            if (body) body.classList.toggle('collapsed');
+            if (trigger) trigger.classList.toggle('collapsed');
 
             const isOpen = !body.classList.contains('collapsed');
 
@@ -2474,6 +2523,7 @@
             renderFeatures();
             renderSpells();
             renderResources();
+            refreshBuffsUI();
             updateAll();
             setMode(data.rollMode || 'norm');
             isPopulating = false;
@@ -2563,10 +2613,15 @@
                 bless: document.getElementById('buffBless').checked,
                 guidance: document.getElementById('buffGuidance').checked,
                 global: document.getElementById('buffGlobal').value
-            }
-
-                ;
+            };
             save();
+        }
+
+        function refreshBuffsUI() {
+            if (!data.buffs) data.buffs = { bless: false, guidance: false, global: "" };
+            if (document.getElementById('buffBless')) document.getElementById('buffBless').checked = !!data.buffs.bless;
+            if (document.getElementById('buffGuidance')) document.getElementById('buffGuidance').checked = !!data.buffs.guidance;
+            if (document.getElementById('buffGlobal')) document.getElementById('buffGlobal').value = data.buffs.global || "";
         }
 
         function toggleHide(cardId) {
@@ -2608,23 +2663,17 @@
                     // Add Eye toggle if missing (except specific cards)
                     let header = card.querySelector('.section-title');
 
-                    if (header && !header.querySelector('.prof-toggle') && card.id !== 'card-buffs') {
+                    if (header && !header.querySelector('.prof-toggle-abs')) {
                         const cleanId = card.id.replace('card-', '');
                         const eye = document.createElement('span');
-                        eye.className = 'prof-toggle';
+                        eye.className = 'prof-toggle-abs';
                         eye.innerText = '👁️';
-                        eye.style.cursor = 'pointer';
-                        eye.style.marginRight = '10px';
 
                         eye.onclick = (e) => {
-                            e.stopPropagation(); toggleHide(cleanId);
-                        }
+                            e.stopPropagation();
+                            toggleHide(cleanId);
+                        };
 
-                            ;
-
-                        // Insert before text 
-                        // header usually has span text + accordion trigger
-                        // let's just prepend to header
                         header.insertBefore(eye, header.firstChild);
                     }
                 }
@@ -2739,10 +2788,8 @@
         }
 
         function rollDie(sides, bonus, label, allowAdvantage = true, type = 'check', customDesc = '') {
-            const miscStr = (data.skillMisc && stats.includes(label.toLowerCase())) ? "" : ""; // handled in caller usually, but let's keep it safe
-            // Actually, global misc is handled in caller for skills, but not for generic rolls.
-            // Let's stick to the buffs logic I wrote earlier.
-
+            const miscStr = document.getElementById('globalMisc').value.trim();
+            const parsedMisc = parseComplexBonus(miscStr);
             let effectiveMode = data.rollMode;
             let consumedInsp = false;
 
@@ -2758,68 +2805,37 @@
             let buffText = "";
 
             if (data.buffs) {
-
-                // BLESS: +1d4 to Atk and Save
                 if (data.buffs.bless && (type === 'atk' || type === 'save')) {
                     const r = Math.floor(Math.random() * 4) + 1;
                     buffTotal += r;
-
-                    buffText += `+${r
-                        }
-
-                    (Bless)`;
+                    buffText += ` +${r}(Bless)`;
                 }
-
-                // GUIDANCE: +1d4 to Check
                 if (data.buffs.guidance && type === 'check') {
                     const r = Math.floor(Math.random() * 4) + 1;
                     buffTotal += r;
-
-                    buffText += `+${r
-                        }
-
-                    (Guidance)`;
+                    buffText += ` +${r}(Guidance)`;
                 }
-
-                // GLOBAL
                 if (data.buffs.global) {
                     const parsed = parseComplexBonus(data.buffs.global);
                     buffTotal += parsed.total;
-
-                    if (parsed.text) buffText += `+${parsed.text
-                        }
-
-                    (Global)`;
+                    if (parsed.text) buffText += ` +${parsed.text}(Global)`;
                 }
             }
 
-            const total = result.total + bonus + buffTotal; // Global misc is passed in buffs now
-
+            const total = result.total + bonus + parsedMisc.total + buffTotal;
             let formulaText = result.formula;
 
-            if (bonus !== 0) formulaText += ` ${bonus >= 0 ? '+' : ''
-                }
-
-            ${bonus
-                }
-
-            `;
+            if (bonus !== 0) formulaText += ` ${bonus >= 0 ? '+' : ''}${bonus}`;
+            if (parsedMisc.total !== 0) formulaText += ` +${parsedMisc.text}(Misc)`;
             formulaText += buffText;
 
-            if (allowAdvantage && effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()
-                })`;
+            if (allowAdvantage && effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
 
             showLog(formulaText, total, result.isCrit, result.isFail);
 
-            sendToDiscord(label + (effectiveMode !== 'norm' && allowAdvantage ? ` (${effectiveMode.toUpperCase()
+            sendToDiscord(label + (effectiveMode !== 'norm' && allowAdvantage ? ` (${effectiveMode.toUpperCase()})` : ''),
+                `Dice: ${formulaText}`, `**${total}**`, type, customDesc);
 
-                })` : ''), `Dice: ${formulaText
-                }
-
-                `, `**${total
-            }
-
-                **`, type, customDesc);
             if (consumedInsp) consumeInspiration();
         }
 
@@ -3331,51 +3347,6 @@
             </div>`;
         }
 
-        function rollDie(sides, bonus, label, allowAdvantage = true, type = 'check', customDesc = '') {
-            const miscStr = document.getElementById('globalMisc').value.trim();
-            const parsedMisc = parseComplexBonus(miscStr);
-            let effectiveMode = data.rollMode;
-            let consumedInsp = false;
-
-            if (allowAdvantage && consumeInspirationOnNextRoll) {
-                effectiveMode = 'adv';
-                consumedInsp = true;
-            }
-
-            const result = coreRoll(1, sides, allowAdvantage ? effectiveMode : 'norm');
-            const total = result.total + bonus + parsedMisc.total;
-
-            let formulaText = result.formula;
-
-            if (bonus !== 0) formulaText += ` ${bonus >= 0 ? '+' : ''
-                }
-
-            ${bonus
-                }
-
-            `;
-
-            if (parsedMisc.total !== 0) formulaText += ` ${parsedMisc.text
-                }
-
-            (Misc)`;
-
-            if (allowAdvantage && effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()
-                })`;
-
-            showLog(formulaText, total, result.isCrit, result.isFail);
-
-            sendToDiscord(label + (effectiveMode !== 'norm' && allowAdvantage ? ` (${effectiveMode.toUpperCase()
-
-                })` : ''), `Dice: ${formulaText
-                }
-
-                `, `**${total
-            }
-
-                **`, type, customDesc);
-            if (consumedInsp) consumeInspiration();
-        }
 
         function rollCustom() {
             const formula = document.getElementById('customFormula').value.trim();
@@ -4798,11 +4769,7 @@
             init();
 
             // Post-Init Hook for Buffs & Visibility
-            if (data.buffs) {
-                if (document.getElementById('buffBless')) document.getElementById('buffBless').checked = ! !data.buffs.bless;
-                if (document.getElementById('buffGuidance')) document.getElementById('buffGuidance').checked = ! !data.buffs.guidance;
-                if (document.getElementById('buffGlobal')) document.getElementById('buffGlobal').value = data.buffs.global || "";
-            }
+            refreshBuffsUI();
 
             if (data.uiState.showHidden !== undefined && document.getElementById('showHiddenCards')) {
                 document.getElementById('showHiddenCards').checked = data.uiState.showHidden;

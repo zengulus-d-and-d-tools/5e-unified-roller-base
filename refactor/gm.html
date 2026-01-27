@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GM Dashboard v1.5</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/gm.css">
+
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+    <div class="nav-bar">
+        <div class="nav-item" onclick="window.location.href='tools.html'"
+            style="flex:0 0 60px; font-size:0.8rem; border-right:1px solid #444;">&larr;</div>
+        <div class="nav-item active" onclick="switchTab('tracker')">Tracker</div>
+        <div class="nav-item" onclick="switchTab('roller')">Roller</div>
+        <div class="nav-item" onclick="switchTab('ref')">Ref & Loot</div>
+    </div>
+
+    <div id="tab-tracker" class="container active">
+
+        <div class="card" style="border-top: 2px solid var(--green);">
+            <div class="section-header">Add Single Combatant</div>
+            <div class="grid-2">
+                <input type="text" id="addName" placeholder="Name">
+                <input type="number" id="addInit" placeholder="Total Init" style="font-weight:bold;">
+            </div>
+            <div class="row">
+                <input type="number" id="addDex" placeholder="Dex Score" style="width:80px;"
+                    title="Dex Score (Tie Breaker)">
+                <input type="number" id="addHP" placeholder="HP" style="width:80px;">
+                <button class="btn-success" style="flex:1;" onclick="addSingle()">Add</button>
+            </div>
+            <div style="font-size:0.7rem; color:#666; text-align:center;">*Init is final roll. Dex is score (10-20) for
+                tie-break.</div>
+        </div>
+
+        <div class="card" style="border-top: 2px solid var(--accent);">
+            <div class="section-header"
+                onclick="document.getElementById('mobBody').style.display = document.getElementById('mobBody').style.display=='none'?'flex':'none'"
+                style="cursor:pointer;">
+                <span>Mob Generator</span> <span>▼</span>
+            </div>
+            <div id="mobBody" style="display:none; flex-direction:column; gap:10px;">
+                <div class="grid-2">
+                    <input type="text" id="mobName" placeholder="Base Name (e.g. Goblin)">
+                    <input type="number" id="mobCount" placeholder="Count" value="1">
+                </div>
+                <div class="row">
+                    <input type="number" id="mobInitMod" placeholder="Init Mod (+2)">
+                    <input type="number" id="mobDexScore" placeholder="Dex Score (14)">
+                    <input type="number" id="mobHP" placeholder="HP (7)">
+                </div>
+                <button class="btn-main" onclick="genMobs()">Roll & Generate</button>
+            </div>
+        </div>
+
+        <div style="text-align:center; margin-top:20px; padding-bottom:20px;">
+            <button class="btn-danger btn-sm" onclick="clearCombat()">⚠ Clear Encounter</button>
+        </div>
+
+        <div id="combatList" class="combat-list"></div>
+
+        <div class="tracker-footer">
+            <div class="round-counter">
+                <span>Round</span>
+                <span class="round-val" id="roundVal">1</span>
+            </div>
+            <button class="btn-sec" onclick="prevTurn()" style="width:50px;">◀</button>
+            <button class="btn-main" style="flex:1;" onclick="nextTurn()">Next Turn ▶</button>
+        </div>
+    </div>
+
+    <div id="tab-roller" class="container">
+        <div class="log-display">
+            <div class="log-label" id="rollLabel">Ready...</div>
+            <div class="log-result" id="rollVal">-</div>
+            <div class="log-detail" id="rollFormula"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-header">Setup</div>
+            <div class="row">
+                <input type="text" id="adhocName" placeholder="Name (e.g. NPC)">
+                <input type="text" id="adhocReason" placeholder="Reason (e.g. Stealth)">
+            </div>
+            <div class="row" style="margin-top:5px;">
+                <div style="flex:1; display:flex; align-items:center; gap:10px;">
+                    <label style="font-size:0.8rem; color:#888; white-space:nowrap;">Level / CR:</label>
+                    <input type="number" id="rollLevel" value="1" min="1" max="30" oninput="updateBonuses()"
+                        style="width:50px; text-align:center; font-weight:bold;">
+                    <div style="font-size:0.8rem; color:var(--accent);" id="pbDisplay">PB: +2</div>
+                </div>
+            </div>
+
+            <div class="grid-2" style="margin-top:15px;">
+                <div>
+                    <div class="section-header">Roll Mode</div>
+                    <div class="toggle-box">
+                        <button class="toggle-btn" data-mode="dis" onclick="setMode('dis')">DIS</button>
+                        <button class="toggle-btn active" data-mode="norm" onclick="setMode('norm')">—</button>
+                        <button class="toggle-btn" data-mode="adv" onclick="setMode('adv')">ADV</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="section-header">Luck Mod</div>
+                    <div class="toggle-box">
+                        <button class="toggle-btn" data-luck="bad" onclick="setLuck('bad')">Bad</button>
+                        <button class="toggle-btn active" data-luck="norm" onclick="setLuck('norm')">—</button>
+                        <button class="toggle-btn" data-luck="good" onclick="setLuck('good')">Good</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-header" style="margin-top:15px;">Quick Checks</div>
+            <div class="tier-grid">
+                <button class="btn-tier" onclick="rollTier('crap')">
+                    <span>Crap <span style="font-size:0.7rem; color:#666;">(d20 - 1)</span></span>
+                    <span class="tier-bonus" id="bonus-inc">-1</span>
+                </button>
+                <button class="btn-tier" onclick="rollTier('competent')">
+                    <span>Competent <span style="font-size:0.7rem; color:#666;">(PB)</span></span>
+                    <span class="tier-bonus" id="bonus-comp">+2</span>
+                </button>
+                <button class="btn-tier" onclick="rollTier('talented')">
+                    <span>Talented <span style="font-size:0.7rem; color:#666;">(PB + 2)</span></span>
+                    <span class="tier-bonus" id="bonus-tal">+4</span>
+                </button>
+                <button class="btn-tier" onclick="rollTier('expert')">
+                    <span>Expert <span style="font-size:0.7rem; color:#666;">(2xPB + 2)</span></span>
+                    <span class="tier-bonus" id="bonus-exp">+6</span>
+                </button>
+                <button class="btn-tier" onclick="rollTier('master')">
+                    <span>Master <span style="font-size:0.7rem; color:#666;">(2xPB + 5)</span></span>
+                    <span class="tier-bonus" id="bonus-mas">+9</span>
+                </button>
+            </div>
+
+            <div class="section-header" style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">Arbitrary
+                Roll</div>
+            <div class="row">
+                <input type="number" id="manualBonus" placeholder="Mod (+/-)" style="font-weight:bold;">
+                <button class="btn-sec" style="width:100px;" onclick="rollManual()">Roll</button>
+            </div>
+
+            <div class="webhook-box">
+                <div class="section-header">Discord Integration</div>
+                <input type="text" id="webhookUrl" placeholder="Webhook URL..." oninput="saveGM()">
+                <label style="display:flex; align-items:center; gap:8px; margin-top:10px; cursor:pointer;">
+                    <input type="checkbox" id="discordActive" onchange="saveGM()">
+                    <span style="color:#fff; font-weight:bold;">Active</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; margin-top:10px; cursor:pointer;">
+                    <input type="checkbox" id="secretRoll">
+                    <span style="color:var(--accent); font-weight:bold;">Secret Roll (||Spoiler||)</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-header">DC Estimator</div>
+            <input type="range" min="5" max="30" value="10" step="5" oninput="updateDC(this.value)">
+            <div style="text-align:center;">
+                <div style="font-size:2rem; font-weight:bold; color:var(--accent);" id="dcDisplay">DC 10</div>
+                <div style="color:#888; font-size:0.9rem;" id="dcDesc">Medium</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-ref" class="container">
+        <!-- BESTIARY CARD -->
+        <div class="card">
+            <div class="section-header">Bestiary / Presets</div>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="mobSaveName" placeholder="Preset Name (e.g. Goblin)">
+                <button class="btn-main" onclick="saveMobPreset()" style="width:80px;">Save</button>
+            </div>
+            <div style="font-size:0.7rem; color:#888; margin-top:5px;">Saves current Mob Generator settings.</div>
+
+            <div id="bestiaryList" style="margin-top:15px; display:grid; gap:8px;"></div>
+        </div>
+
+        <div class="card">
+            <div class="section-header">Data Management</div>
+            <div class="grid-2">
+                <button class="btn-sec" onclick="exportGM()">💾 Export JSON</button>
+                <button class="btn-sec" onclick="importGM()">📂 Import JSON</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-header">Quick Loot</div>
+            <div class="grid-2">
+                <button class="btn-sec" onclick="genLoot('pocket')">Pocket Lint</button>
+                <button class="btn-sec" onclick="genLoot('trinket')">Trinket</button>
+            </div>
+            <div id="lootResult"
+                style="margin-top:10px; font-style:italic; color:var(--accent); min-height:20px; text-align:center; transition: opacity 0.2s ease-in-out;">
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-header">Scratchpad</div>
+            <textarea id="scratchpad" rows="6" placeholder="Notes..." oninput="saveGM()"></textarea>
+        </div>
+
+        <div class="card" style="padding:0; overflow:hidden;">
+            <div class="section-header" style="margin:10px 10px 0 10px; border:none;">Conditions Ref</div>
+            <div id="conditionsList"></div>
+        </div>
+    </div>
+    <script src="js/gm.js"></script>
+    <script src="js/vector-field.js"></script>
+</body>
+
+</html>
