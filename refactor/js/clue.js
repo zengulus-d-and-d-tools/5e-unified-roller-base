@@ -73,20 +73,25 @@
         }
         const noiseGuild = GUILDS[noiseIdx];
 
-        const coreItem = pickEntry(signalGuild, mode);
-        const surfItem = pickEntry(noiseGuild, mode);
-
-        const objectData = { text: coreItem.core, guild: signalGuild.name };
-        const contextData = { text: surfItem.surf, guild: noiseGuild.name };
+        const signalEntry = pickEntry(signalGuild, mode);
+        const noiseEntry = pickEntry(noiseGuild, mode);
         const objectIsSignal = Math.random() < 0.5;
+
+        const objectData = objectIsSignal
+            ? { text: signalEntry.core, guild: signalGuild.name, role: 'signal', kind: 'Object' }
+            : { text: noiseEntry.core, guild: noiseGuild.name, role: 'noise', kind: 'Object' };
+
+        const contextData = objectIsSignal
+            ? { text: noiseEntry.surf, guild: noiseGuild.name, role: 'noise', kind: 'Context' }
+            : { text: signalEntry.surf, guild: signalGuild.name, role: 'signal', kind: 'Context' };
 
         const friction = FRICTIONS[Math.floor(Math.random() * FRICTIONS.length)];
         const cost = COSTS[Math.floor(Math.random() * COSTS.length)];
 
-        renderResult(mode, objectData, contextData, objectIsSignal, friction, cost);
+        renderResult(mode, objectData, contextData, friction, cost);
     }
 
-    function renderResult(mode, objectData, contextData, objectIsSignal, friction, cost) {
+    function renderResult(mode, objectData, contextData, friction, cost) {
         const card = document.getElementById('resultCard');
         card.style.display = 'none';
         card.offsetHeight;
@@ -95,6 +100,7 @@
         document.getElementById('outType').innerText = mode.toUpperCase() + ' EVIDENCE';
 
         const objectBlock = document.getElementById('objectBlock');
+        const objectIsSignal = objectData.role === 'signal';
         objectBlock.classList.toggle('signal', objectIsSignal);
         objectBlock.classList.toggle('noise', !objectIsSignal);
         const objectLabel = document.getElementById('objectLabel');
@@ -103,7 +109,7 @@
         document.getElementById('objectGuild').innerText = objectData.guild;
         document.getElementById('objectVal').innerText = objectData.text.charAt(0).toUpperCase() + objectData.text.slice(1);
 
-        const contextIsSignal = !objectIsSignal;
+        const contextIsSignal = contextData.role === 'signal';
         const contextBlock = document.getElementById('contextBlock');
         contextBlock.classList.toggle('signal', contextIsSignal);
         contextBlock.classList.toggle('noise', !contextIsSignal);
