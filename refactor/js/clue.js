@@ -7,6 +7,21 @@
 
     const { guilds: GUILDS, frictions: FRICTIONS, costs: COSTS } = data.clue;
 
+    const randIndex = (len) => {
+        if (len <= 0) return 0;
+        if (window.crypto && window.crypto.getRandomValues) {
+            const buf = new Uint32Array(1);
+            window.crypto.getRandomValues(buf);
+            return buf[0] % len;
+        }
+        return Math.floor(Math.random() * len);
+    };
+
+    const pickEntry = (guild, mode) => {
+        const list = guild[mode] || [];
+        return list[randIndex(list.length)] || { core: '', surf: '' };
+    };
+
     // Status: 0 = Grey, 1 = Herring (Orange), 2 = Involved (Green)
     let guildStatus = new Array(10).fill(0);
 
@@ -58,8 +73,8 @@
         }
         const noiseGuild = GUILDS[noiseIdx];
 
-        const coreItem = signalGuild[mode][Math.floor(Math.random() * signalGuild[mode].length)];
-        const surfItem = noiseGuild[mode][Math.floor(Math.random() * noiseGuild[mode].length)];
+        const coreItem = pickEntry(signalGuild, mode);
+        const surfItem = pickEntry(noiseGuild, mode);
 
         const objectData = { text: coreItem.core, guild: signalGuild.name };
         const contextData = { text: surfItem.surf, guild: noiseGuild.name };
