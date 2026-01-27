@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ravnica Investigation Board</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/board.css">
+    <meta name="theme-color" content="#1e1e1e">
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <!-- Canvas for drawing connection lines (strings) -->
+    <canvas id="connection-layer"></canvas>
+
+    <div class="header-overlay">
+        <a href="tools.html" class="back-link">&larr; Portal</a>
+        <div class="board-title">CASE FILE: <span id="caseName" contenteditable="true">UNNAMED</span></div>
+        <div class="board-controls">
+            <button class="btn-tool" onclick="saveBoard()">💾 Save</button>
+            <button class="btn-tool" onclick="clearBoard()">🗑️ Clear</button>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'person')">
+            <div class="icon">👤</div>
+            <div class="label">Person</div>
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'location')">
+            <div class="icon">📍</div>
+            <div class="label">Location</div>
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'clue')">
+            <div class="icon">🔍</div>
+            <div class="label">Clue</div>
+        </div>
+        <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'note')">
+            <div class="icon">📝</div>
+            <div class="label">Note</div>
+        </div>
+    </div>
+
+    <!-- Container for the dragged nodes -->
+    <div id="board-container"></div>
+
+    <div id="context-menu" class="context-menu">
+        <div class="menu-item" onclick="startConnection()">🔗 Connect Strings</div>
+        <div class="menu-item delete" onclick="deleteTargetNode()">🗑️ Delete Node</div>
+    </div>
+
+    <script src="js/vector-field.js"></script>
+    <script src="js/board.js"></script>
+</body>
+
+</html>
