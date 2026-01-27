@@ -5,7 +5,7 @@ const ctx = canvas.getContext('2d');
 const contextMenu = document.getElementById('context-menu');
 
 let nodes = [];
-let connections = []; // {id: 'c1', from: id, to: id, fromPort: 'btm', toPort: 'top', label: 'conn', labelT: 0.5, physics: []}
+let connections = []; // {id: 'c1', from: id, to: id, fromPort: 'btm', toPort: 'top', label: 'conn', labelT: 0.5, physics: [], arrowLeft: false, arrowRight: false}
 let nextId = 1;
 let draggedNode = null;
 let offset = { x: 0, y: 0 };
@@ -20,13 +20,15 @@ let focusedNodeId = null;
 // Physics Config
 const PHYSICS_STEPS = 5;
 const GRAVITY = 0.5;
-const SEGMENT_LENGTH = 15;
-const STIFFNESS = 0.5; // 0-1, 1 is rigid
+const SEGMENT_LENGTH = 18; // More slack
+const STIFFNESS = 0.5;
+const POINTS_COUNT = 9; // Smoother curve
 
 // --- INITIALIZATION ---
 window.onload = () => {
     resizeCanvas();
     loadBoard();
+    initGuildToolbar();
     requestAnimationFrame(physicsLoop);
 };
 
@@ -35,6 +37,38 @@ window.onresize = () => resizeCanvas();
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+}
+
+function initGuildToolbar() {
+    const guildContainer = document.getElementById('guild-tools');
+    if (!guildContainer || !window.RTF_DATA || !window.RTF_DATA.clue) return;
+
+    guildContainer.innerHTML = '';
+    window.RTF_DATA.clue.guilds.forEach(g => {
+        const el = document.createElement('div');
+        el.className = `tool-item g-${g.id}`;
+        el.draggable = true;
+        el.setAttribute('data-type', g.id);
+        el.ondragstart = (e) => startDragNew(e, g.id);
+
+        el.innerHTML = `
+            <div class="icon">${g.icon}</div>
+            <div class="label">${g.name}</div>
+         `;
+        guildContainer.appendChild(el);
+    });
+}
+
+function toggleToolbar() {
+    const toolbar = document.getElementById('toolbar-wrapper');
+    const btn = document.getElementById('toolbar-toggle');
+    toolbar.classList.toggle('toolbar-hidden');
+
+    if (toolbar.classList.contains('toolbar-hidden')) {
+        btn.innerText = "Show Toolbar";
+    } else {
+        btn.innerText = "Hide Toolbar";
+    }
 }
 
 // --- DRAG HELPER (NEW NODE) ---
@@ -50,10 +84,7 @@ document.body.addEventListener('dragover', (e) => {
 
 document.body.addEventListener('drop', (e) => {
     e.preventDefault();
-    // Try multiple formats for robustness
     let type = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('type');
-
-    // Safety for Guild dragging if browser acts up
     if (!type && e.target.getAttribute('data-type')) {
         type = e.target.getAttribute('data-type');
     }
@@ -64,7 +95,86 @@ document.body.addEventListener('drop', (e) => {
     }
 });
 
-// ... [Physics Loop and getPortPos unchanged] ...
+// --- PHYSICS LOOP ---
+function physicsLoop() {
+    updatePhysics();
+    drawConnections();
+    requestAnimationFrame(physicsLoop);
+}
+
+function updatePhysics() {
+    connections.forEach(conn => {
+        const n1 = document.getElementById(conn.from);
+        const n2 = document.getElementById(conn.to);
+        if (!n1 || !n2) return;
+
+        const p1 = getPortPos(n1, conn.fromPort);
+        const p2 = getPortPos(n2, conn.toPort);
+
+        // Initialize points
+        if (!conn.points || conn.points.length !== POINTS_COUNT) {
+            conn.points = [];
+            for (let i = 0; i < POINTS_COUNT; i++) {
+                conn.points.push({
+                    x: p1.x + (p2.x - p1.x) * (i / (POINTS_COUNT - 1)),
+                    y: p1.y + (p2.y - p1.y) * (i / (POINTS_COUNT - 1)),
+                    oldx: p1.x + (p2.x - p1.x) * (i / (POINTS_COUNT - 1)),
+                    oldy: p1.y + (p2.y - p1.y) * (i / (POINTS_COUNT - 1)),
+                    pinned: (i === 0 || i === POINTS_COUNT - 1)
+                });
+            }
+        }
+
+        // Update pinned positions
+        conn.points[0].x = p1.x; conn.points[0].y = p1.y;
+        conn.points[POINTS_COUNT - 1].x = p2.x; conn.points[POINTS_COUNT - 1].y = p2.y;
+
+        // Verlet Integration
+        for (let i = 0; i < conn.points.length; i++) {
+            const p = conn.points[i];
+            if (!p.pinned) {
+                const vx = (p.x - p.oldx) * 0.9;
+                const vy = (p.y - p.oldy) * 0.9;
+                p.oldx = p.x;
+                p.oldy = p.y;
+                p.x += vx;
+                p.y += vy;
+                p.y += GRAVITY;
+            }
+        }
+
+        // Constraints
+        for (let k = 0; k < 3; k++) {
+            for (let i = 0; i < conn.points.length - 1; i++) {
+                const pA = conn.points[i];
+                const pB = conn.points[i + 1];
+
+                const dx = pB.x - pA.x;
+                const dy = pB.y - pA.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const diff = (dist - SEGMENT_LENGTH) / dist;
+
+                if (!pA.pinned) {
+                    pA.x += dx * 0.5 * diff;
+                    pA.y += dy * 0.5 * diff;
+                }
+                if (!pB.pinned) {
+                    pB.x -= dx * 0.5 * diff;
+                    pB.y -= dy * 0.5 * diff;
+                }
+            }
+        }
+    });
+}
+
+function getPortPos(nodeEl, port) {
+    const r = nodeEl.getBoundingClientRect();
+    if (port === 'top') return { x: r.left + r.width / 2, y: r.top };
+    if (port === 'bottom') return { x: r.left + r.width / 2, y: r.bottom };
+    if (port === 'left') return { x: r.left, y: r.top + r.height / 2 };
+    if (port === 'right') return { x: r.right, y: r.top + r.height / 2 };
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
 
 // --- NODE CREATION ---
 function createNode(type, x, y, id = null, content = {}) {
@@ -81,7 +191,6 @@ function createNode(type, x, y, id = null, content = {}) {
         izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬'
     };
 
-    // Auto-Title Logic
     let defaultTitle = (type || 'Unknown').toUpperCase();
     if (type && type.length > 4 && !['person', 'location', 'note'].includes(type) && !content.title) {
         defaultTitle = type.charAt(0).toUpperCase() + type.slice(1);
@@ -89,8 +198,6 @@ function createNode(type, x, y, id = null, content = {}) {
 
     const title = content.title || defaultTitle;
     const body = content.body || '';
-
-    // Safety fallback for icon
     const icon = iconMap[type] || '❓';
 
     nodeEl.innerHTML = `
@@ -111,11 +218,8 @@ function createNode(type, x, y, id = null, content = {}) {
         startDragNode(e, nodeEl);
     });
 
-    // Focus Mode Click - REMOVED ContentEditable check to allow nice UX
-    nodeEl.addEventListener('click', (e) => {
-        if (draggedNode) return;
-        toggleFocus(nodeEl.id);
-    });
+    // NOTE: Removed single click listener for Focus to allow content editing
+    // Focus is now Double Click triggers
 
     nodeEl.addEventListener('contextmenu', (e) => showContextMenu(e, nodeEl));
     nodeEl.addEventListener('input', () => saveBoard());
@@ -132,23 +236,245 @@ function createNode(type, x, y, id = null, content = {}) {
     return nodeEl;
 }
 
-// ... [Node Dragging and Connection Logic unchanged] ...
+// --- NODE DRAGGING ---
+function startDragNode(e, el) {
+    if (e.target.isContentEditable) return;
+    if (e.button !== 0) return;
 
-// --- CLICK INTERACTION FOR STRINGS (Moved from Canvas to Body) ---
-document.addEventListener('click', (e) => {
-    // 1. If we clicked a UI element, ignore
-    if (e.target.closest('.node') ||
-        e.target.closest('.toolbar') ||
-        e.target.closest('.header-overlay') ||
-        e.target.closest('.context-menu') ||
-        e.target.closest('.string-label')) { // Allow editing labels
+    draggedNode = el;
+    offset.x = e.clientX - el.offsetLeft;
+    offset.y = e.clientY - el.offsetTop;
+}
+
+document.addEventListener('mousemove', (e) => {
+    if (draggedNode) {
+        const x = e.clientX - offset.x;
+        const y = e.clientY - offset.y;
+        draggedNode.style.left = x + 'px';
+        draggedNode.style.top = y + 'px';
+
+        const nodeData = nodes.find(n => n.id === draggedNode.id);
+        if (nodeData) {
+            nodeData.x = x;
+            nodeData.y = y;
+        }
+    }
+    if (isConnecting) {
+        connectStart.currentX = e.clientX;
+        connectStart.currentY = e.clientY;
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (draggedNode) {
+        draggedNode = null;
+        saveBoard();
+    }
+    if (isConnecting) {
+        if (e.target.classList.contains('port')) {
+            const targetNode = e.target.closest('.node');
+            const targetPort = e.target.dataset.port;
+            completeConnection(targetNode, targetPort);
+        } else {
+            isConnecting = false;
+        }
+    }
+});
+
+// --- CONNECTION LOGIC ---
+function startConnectionDrag(e, node, port) {
+    e.stopPropagation();
+    e.preventDefault();
+    isConnecting = true;
+    connectStart = { id: node.id, port: port, x: e.clientX, y: e.clientY, currentX: e.clientX, currentY: e.clientY };
+}
+
+function completeConnection(targetNode, targetPort) {
+    if (targetNode.id === connectStart.id) return;
+
+    const exists = connections.some(c =>
+        (c.from === connectStart.id && c.to === targetNode.id) ||
+        (c.from === targetNode.id && c.to === connectStart.id)
+    );
+
+    if (!exists) {
+        const newConn = {
+            id: 'conn_' + Date.now(),
+            from: connectStart.id,
+            to: targetNode.id,
+            fromPort: connectStart.port,
+            toPort: targetPort,
+            label: '',
+            labelT: 0.5,
+            points: [],
+            arrowLeft: false,
+            arrowRight: false
+        };
+        connections.push(newConn);
+        saveBoard();
+    }
+    isConnecting = false;
+}
+
+// --- DRAWING ---
+function drawConnections() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (isConnecting) {
+        ctx.beginPath();
+        const startEl = document.getElementById(connectStart.id);
+        const startPos = getPortPos(startEl, connectStart.port);
+        ctx.moveTo(startPos.x, startPos.y);
+        ctx.lineTo(connectStart.currentX, connectStart.currentY);
+        ctx.strokeStyle = '#f1c40f';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    connections.forEach(conn => {
+        let alpha = 0.8;
+        if (focusMode) {
+            const involved = (conn.from === focusedNodeId || conn.to === focusedNodeId);
+            if (!involved) {
+                const n1 = document.getElementById(conn.from);
+                const n2 = document.getElementById(conn.to);
+                if (n1 && n2 && (n1.classList.contains('blurred') || n2.classList.contains('blurred'))) {
+                    alpha = 0.1;
+                }
+            }
+        }
+
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = '#c0392b';
+
+        if (conn.points && conn.points.length > 0) {
+            ctx.beginPath();
+            ctx.moveTo(conn.points[0].x, conn.points[0].y);
+            for (let i = 1; i < conn.points.length - 1; i++) {
+                const xc = (conn.points[i].x + conn.points[i + 1].x) / 2;
+                const yc = (conn.points[i].y + conn.points[i + 1].y) / 2;
+                ctx.quadraticCurveTo(conn.points[i].x, conn.points[i].y, xc, yc);
+            }
+            ctx.lineTo(conn.points[conn.points.length - 1].x, conn.points[conn.points.length - 1].y);
+            ctx.stroke();
+
+            const centerPt = updateLabel(conn, alpha);
+
+            if (centerPt && (conn.arrowLeft || conn.arrowRight)) {
+                // Calculate angle at center
+                const midIdx = Math.floor(conn.points.length / 2);
+                const pA = conn.points[midIdx - 1];
+                const pB = conn.points[midIdx + 1];
+                if (pA && pB) {
+                    const dx = pB.x - pA.x;
+                    const dy = pB.y - pA.y;
+                    const angle = Math.atan2(dy, dx);
+                    const OFFSET = 45;
+
+                    if (conn.arrowLeft) {
+                        drawArrowHead(ctx, centerPt.x - Math.cos(angle) * OFFSET, centerPt.y - Math.sin(angle) * OFFSET, angle + Math.PI);
+                    }
+                    if (conn.arrowRight) {
+                        drawArrowHead(ctx, centerPt.x + Math.cos(angle) * OFFSET, centerPt.y + Math.sin(angle) * OFFSET, angle);
+                    }
+                }
+            }
+        }
+    });
+    ctx.globalAlpha = 1;
+}
+
+function drawArrowHead(ctx, x, y, rotation) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.beginPath();
+    ctx.moveTo(-6, -4);
+    ctx.lineTo(6, 0);
+    ctx.lineTo(-6, 4);
+    ctx.fillStyle = '#f1c40f';
+    ctx.fill();
+    ctx.restore();
+}
+
+function updateLabel(conn, alpha) {
+    let el = document.getElementById('lbl_' + conn.id);
+    const midIdx = Math.floor(conn.points.length / 2);
+    const pt = conn.points[midIdx];
+
+    if (conn.label) {
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'lbl_' + conn.id;
+            el.className = 'string-label';
+
+            const btnLeft = document.createElement('div');
+            btnLeft.className = 'arrow-btn';
+            btnLeft.innerText = '◀';
+            btnLeft.onclick = (e) => {
+                e.stopPropagation();
+                conn.arrowLeft = !conn.arrowLeft;
+                saveBoard();
+            };
+
+            const input = document.createElement('input');
+            input.className = 'label-input';
+            input.value = conn.label;
+            input.oninput = (e) => { conn.label = e.target.value; saveBoard(); };
+            input.onmousedown = (e) => e.stopPropagation();
+
+            const btnRight = document.createElement('div');
+            btnRight.className = 'arrow-btn';
+            btnRight.innerText = '▶';
+            btnRight.onclick = (e) => {
+                e.stopPropagation();
+                conn.arrowRight = !conn.arrowRight;
+                saveBoard();
+            };
+
+            el.appendChild(btnLeft);
+            el.appendChild(input);
+            el.appendChild(btnRight);
+            labelContainer.appendChild(el);
+        }
+
+        // Sync visual state
+        el.children[0].className = 'arrow-btn ' + (conn.arrowLeft ? 'active' : '');
+        el.children[2].className = 'arrow-btn ' + (conn.arrowRight ? 'active' : '');
+
+        el.style.left = pt.x + 'px';
+        el.style.top = pt.y + 'px';
+        el.style.opacity = alpha;
+        el.style.display = 'flex';
+    } else {
+        if (el) el.style.display = 'none';
+    }
+    return pt;
+}
+
+
+// --- INTERACTION EVENT LISTENERS ---
+
+// 1. Double Click Handler (Focus & Labels)
+document.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+
+    // Node -> Focus Mode
+    const nodeEl = e.target.closest('.node');
+    if (nodeEl) {
+        enterFocusMode(nodeEl.id);
         return;
     }
 
-    // 2. Check for String Clicks (Math)
-    let bestDist = 15; // Tolerance
+    // String -> Add Label
+    let bestDist = 20;
     let closestConn = null;
-
     connections.forEach(conn => {
         if (!conn.points) return;
         for (let i = 0; i < conn.points.length - 1; i++) {
@@ -166,58 +492,61 @@ document.addEventListener('click', (e) => {
             saveBoard();
         }
     } else {
-        // 3. Background Click -> Reset Focus
+        // Background -> Reset Focus
         resetFocus();
-        focusedNodeId = null;
     }
 });
 
-// --- FOCUS MODE LOGIC ---
-function toggleFocus(nodeId) {
-    if (focusMode && focusedNodeId === nodeId) {
-        resetFocus(); // Toggle off
-        return;
-    }
+// 2. Single Click Handler (Expand Focus)
+document.addEventListener('click', (e) => {
+    if (!focusMode) return;
 
+    // Is it a node?
+    const nodeEl = e.target.closest('.node');
+    if (nodeEl) {
+        // If it's already focused (or connected to focus), expanding should show ITS neighbors
+        expandFocus(nodeEl.id);
+    }
+});
+
+function distToSegment(p, v, w) {
+    const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
+    if (l2 == 0) return Math.hypot(p.x - v.x, p.y - v.y);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+}
+
+
+// --- ACCESSORY FUNCTIONS ---
+function enterFocusMode(nodeId) {
     focusMode = true;
     focusedNodeId = nodeId;
     document.body.classList.add('focus-active');
 
-    // 1. Reset all
     document.querySelectorAll('.node').forEach(n => {
         n.classList.remove('focused');
         n.classList.add('blurred');
     });
 
-    // 2. BFS to find connected nodes
-    const graph = buildAdjacency();
-    const related = new Set();
-    const queue = [nodeId];
-    related.add(nodeId);
+    // Show initial network (Node + Connections + Neighbors)
+    expandFocus(nodeId);
 
-    // Only 1 degree of separation? Or full tree? 
-    // User asked: "click a connected item, the original stays selected but the ones connected to that are brought back"
-    // Implies we highlight the Tree. Let's do Full Connected Component.
+    const main = document.getElementById(nodeId);
+    if (main) main.classList.add('focused');
+}
 
-    while (queue.length > 0) {
-        const curr = queue.shift();
-        const neighbors = graph[curr] || [];
-        neighbors.forEach(n => {
-            if (!related.has(n)) {
-                related.add(n);
-                queue.push(n);
-            }
-        });
-    }
-
-    // 3. Highlight related
-    related.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.classList.remove('blurred');
-            if (id === focusedNodeId) el.classList.add('focused'); // Primary focus
-        }
+function expandFocus(nodeId) {
+    unblurNode(nodeId);
+    connections.forEach(c => {
+        if (c.from === nodeId) unblurNode(c.to);
+        if (c.to === nodeId) unblurNode(c.from);
     });
+}
+
+function unblurNode(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('blurred');
 }
 
 function resetFocus() {
@@ -230,13 +559,8 @@ function resetFocus() {
     });
 }
 
-document.body.addEventListener('dblclick', (e) => {
-    if (e.target === document.body || e.target.id === 'connection-layer') {
-        resetFocus();
-    }
-});
-
 function buildAdjacency() {
+    // Helper if needed for deeper recursion
     const g = {};
     connections.forEach(c => {
         if (!g[c.from]) g[c.from] = [];
@@ -246,6 +570,7 @@ function buildAdjacency() {
     });
     return g;
 }
+
 
 // --- CONTEXT MENU ---
 function showContextMenu(e, node) {
@@ -259,6 +584,26 @@ function showContextMenu(e, node) {
 window.onclick = (e) => {
     if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
 };
+
+function editTargetNode() {
+    const id = contextMenu.dataset.target;
+    if (id) {
+        const el = document.getElementById(id);
+        if (el) {
+            const title = el.querySelector('.node-title');
+            if (title) {
+                title.focus();
+                // Select all text for easy replacement
+                const range = document.createRange();
+                range.selectNodeContents(title);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }
+        contextMenu.style.display = 'none';
+    }
+}
 
 function deleteTargetNode() {
     const id = contextMenu.dataset.target;
@@ -288,8 +633,10 @@ function saveBoard() {
         connections: connections.map(c => ({
             from: c.from, to: c.to,
             fromPort: c.fromPort, toPort: c.toPort,
-            label: c.label
-        })) // Clean points
+            label: c.label,
+            arrowLeft: c.arrowLeft,
+            arrowRight: c.arrowRight
+        }))
     };
 
     localStorage.setItem('invBoardData', JSON.stringify(data));
@@ -302,8 +649,12 @@ function loadBoard() {
         document.getElementById('caseName').innerText = data.name || "UNNAMED";
 
         connections = data.connections || [];
-        // Reset points for physics gen
-        connections.forEach(c => c.points = []);
+        connections.forEach(c => {
+            c.points = []; // Reset physics visuals
+            // Restore arrow state defaults if old data
+            if (c.arrowLeft === undefined) c.arrowLeft = false;
+            if (c.arrowRight === undefined) c.arrowRight = false;
+        });
 
         nodes = data.nodes || [];
         container.innerHTML = '';
@@ -313,9 +664,8 @@ function loadBoard() {
     }
 }
 
-// --- EXPORT / IMPORT ---
 function exportBoard() {
-    saveBoard(); // Ensure latest state
+    saveBoard();
     const raw = localStorage.getItem('invBoardData');
     if (!raw) return;
 
@@ -341,12 +691,10 @@ function importBoard() {
         const reader = new FileReader();
         reader.onload = (evt) => {
             try {
-                // Validate JSON?
                 const json = JSON.parse(evt.target.result);
                 if (json.nodes && json.connections) {
                     localStorage.setItem('invBoardData', JSON.stringify(json));
                     loadBoard();
-                    drawConnections(); // Redraw immediately
                     alert("Case File Loaded Successfully!");
                 } else {
                     alert("Invalid File Format");

@@ -38,7 +38,9 @@
     <!-- Container for string labels (separate to sit on top of canvas but below focused nodes) -->
     <div id="string-label-container"></div>
 
-    <div class="toolbar-scroll-wrapper">
+    <div id="toolbar-toggle" onclick="toggleToolbar()">Hide Toolbar</div>
+
+    <div class="toolbar-scroll-wrapper" id="toolbar-wrapper">
         <div class="toolbar">
             <!-- CORE TYPES -->
             <div class="tool-group">
@@ -62,57 +64,19 @@
 
             <div class="divider"></div>
 
-            <!-- GUILDS -->
-            <div class="tool-group">
-                <div class="tool-item g-azorius" draggable="true" ondragstart="startDragNew(event, 'azorius')">
-                    <div class="icon">⚖️</div>
-                    <div class="label">Azorius</div>
-                </div>
-                <div class="tool-item g-boros" draggable="true" ondragstart="startDragNew(event, 'boros')">
-                    <div class="icon">⚔️</div>
-                    <div class="label">Boros</div>
-                </div>
-                <div class="tool-item g-dimir" draggable="true" ondragstart="startDragNew(event, 'dimir')">
-                    <div class="icon">👁️</div>
-                    <div class="label">Dimir</div>
-                </div>
-                <div class="tool-item g-golgari" draggable="true" ondragstart="startDragNew(event, 'golgari')">
-                    <div class="icon">🍄</div>
-                    <div class="label">Golgari</div>
-                </div>
-                <div class="tool-item g-gruul" draggable="true" ondragstart="startDragNew(event, 'gruul')">
-                    <div class="icon">🔥</div>
-                    <div class="label">Gruul</div>
-                </div>
-                <div class="tool-item g-izzet" draggable="true" ondragstart="startDragNew(event, 'izzet')">
-                    <div class="icon">⚡</div>
-                    <div class="label">Izzet</div>
-                </div>
-                <div class="tool-item g-orzhov" draggable="true" ondragstart="startDragNew(event, 'orzhov')">
-                    <div class="icon">💰</div>
-                    <div class="label">Orzhov</div>
-                </div>
-                <div class="tool-item g-rakdos" draggable="true" ondragstart="startDragNew(event, 'rakdos')">
-                    <div class="icon">🎪</div>
-                    <div class="label">Rakdos</div>
-                </div>
-                <div class="tool-item g-selesnya" draggable="true" ondragstart="startDragNew(event, 'selesnya')">
-                    <div class="icon">🌳</div>
-                    <div class="label">Selesnya</div>
-                </div>
-                <div class="tool-item g-simic" draggable="true" ondragstart="startDragNew(event, 'simic')">
-                    <div class="icon">🧬</div>
-                    <div class="label">Simic</div>
-                </div>
+            <!-- GUILDS (Populated from data.js) -->
+            <div class="tool-group" id="guild-tools">
             </div>
         </div>
     </div>
 
     <!-- Context Menu (Simplified, mostly replaced by direct interaction) -->
     <div id="context-menu" class="context-menu">
+        <div class="menu-item" onclick="editTargetNode()">✏️ Edit Text</div>
         <div class="menu-item delete" onclick="deleteTargetNode()">🗑️ Delete Node</div>
     </div>
 
+    <script src="js/data.js"></script>
     <script src="js/vector-field.js"></script>
     <script src="js/board.js"></script>
 </body>

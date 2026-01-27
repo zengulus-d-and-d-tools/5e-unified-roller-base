@@ -113,17 +113,52 @@ body:active {
 }
 
 /* --- TOOLBAR --- */
+#toolbar-toggle {
+    position: fixed;
+    bottom: 110px;
+    /* Sits above toolbar */
+    left: 20px;
+    z-index: 101;
+    background: rgba(30, 30, 35, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #888;
+    backdrop-filter: blur(4px);
+    transition: 0.3s;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+#toolbar-toggle:hover {
+    color: #fff;
+    background: var(--accent);
+}
+
 .toolbar-scroll-wrapper {
     position: fixed;
     bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 20px;
+    /* Left Aligned */
+    right: 20px;
+    transform: none;
     z-index: 100;
-    max-width: 90vw;
     overflow-x: auto;
     border-radius: 12px;
-    /* Hide scrollbar */
     scrollbar-width: none;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27), opacity 0.3s;
+    pointer-events: auto;
+    width: fit-content;
+    max-width: calc(100% - 40px);
+}
+
+.toolbar-hidden {
+    transform: translateY(150px);
+    pointer-events: none;
+    opacity: 0;
 }
 
 .toolbar-scroll-wrapper::-webkit-scrollbar {
@@ -131,7 +166,7 @@ body:active {
 }
 
 .toolbar {
-    background: rgba(30, 30, 35, 0.8);
+    background: rgba(30, 30, 35, 0.85);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
@@ -364,25 +399,63 @@ body:active {
 /* --- STRING LABELS --- */
 .string-label {
     position: absolute;
-    background: rgba(20, 20, 20, 0.9);
+    background: rgba(20, 20, 20, 0.95);
     border: 1px solid var(--accent);
     color: var(--accent);
     font-size: 0.7rem;
-    padding: 2px 6px;
+    padding: 2px;
     border-radius: 4px;
     pointer-events: auto;
     cursor: move;
     transform: translate(-50%, -50%);
-    /* Centered on point */
-    min-width: 20px;
+    min-width: 60px;
     text-align: center;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    z-index: 50;
+    /* Always on top of lines */
 }
 
-.string-label:focus {
+.string-label:focus-within {
     outline: 2px solid var(--gold);
-    background: black;
-    z-index: 50;
+    z-index: 60;
+}
+
+.label-input {
+    background: transparent;
+    border: none;
+    color: inherit;
+    width: 60px;
+    text-align: center;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+}
+
+.arrow-btn {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+    opacity: 0.5;
+    font-size: 0.6rem;
+    user-select: none;
+}
+
+.arrow-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.arrow-btn.active {
+    color: var(--gold);
+    opacity: 1;
+    font-weight: bold;
 }
 
 
