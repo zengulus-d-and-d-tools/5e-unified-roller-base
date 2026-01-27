@@ -1,4 +1,5 @@
-export const DATA = {
+(function (global) {
+    const DATA = {
     guilds: ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"],
 
     conditions: [
@@ -582,4 +583,7 @@ export const DATA = {
             "Exhaustion", "Info Leak", "Set-Piece Trigger", "Disadvantage", "Spell Slot Drain"
         ]
     }
-};
+    };
+
+    global.RTF_DATA = DATA;
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));
