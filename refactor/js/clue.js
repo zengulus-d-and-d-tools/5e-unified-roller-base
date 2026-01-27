@@ -61,21 +61,17 @@
         const coreItem = signalGuild[mode][Math.floor(Math.random() * signalGuild[mode].length)];
         const surfItem = noiseGuild[mode][Math.floor(Math.random() * noiseGuild[mode].length)];
 
-        const signalIsCore = Math.random() < 0.5;
-        const signalBlock = signalIsCore
-            ? { text: coreItem.core, guild: signalGuild.name, type: 'Core' }
-            : { text: surfItem.surf, guild: noiseGuild.name, type: 'Surface' };
-        const noiseBlock = signalIsCore
-            ? { text: surfItem.surf, guild: noiseGuild.name, type: 'Surface' }
-            : { text: coreItem.core, guild: signalGuild.name, type: 'Core' };
+        const objectData = { text: coreItem.core, guild: signalGuild.name };
+        const contextData = { text: surfItem.surf, guild: noiseGuild.name };
+        const objectIsSignal = Math.random() < 0.5;
 
         const friction = FRICTIONS[Math.floor(Math.random() * FRICTIONS.length)];
         const cost = COSTS[Math.floor(Math.random() * COSTS.length)];
 
-        renderResult(mode, signalBlock, noiseBlock, friction, cost);
+        renderResult(mode, objectData, contextData, objectIsSignal, friction, cost);
     }
 
-    function renderResult(mode, signal, noise, friction, cost) {
+    function renderResult(mode, objectData, contextData, objectIsSignal, friction, cost) {
         const card = document.getElementById('resultCard');
         card.style.display = 'none';
         card.offsetHeight;
@@ -83,13 +79,24 @@
 
         document.getElementById('outType').innerText = mode.toUpperCase() + ' EVIDENCE';
 
-        document.getElementById('sigLabel').innerText = `The Signal (${signal.type})`;
-        document.getElementById('sigGuild').innerText = signal.guild;
-        document.getElementById('sigVal').innerText = signal.text.charAt(0).toUpperCase() + signal.text.slice(1);
+        const objectBlock = document.getElementById('objectBlock');
+        objectBlock.classList.toggle('signal', objectIsSignal);
+        objectBlock.classList.toggle('noise', !objectIsSignal);
+        const objectLabel = document.getElementById('objectLabel');
+        objectLabel.innerText = `${objectIsSignal ? 'The Signal' : 'The Noise'} (Object)`;
+        objectLabel.style.color = objectIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
+        document.getElementById('objectGuild').innerText = objectData.guild;
+        document.getElementById('objectVal').innerText = objectData.text.charAt(0).toUpperCase() + objectData.text.slice(1);
 
-        document.getElementById('noiseLabel').innerText = `The Noise (${noise.type})`;
-        document.getElementById('noiseGuild').innerText = noise.guild;
-        document.getElementById('noiseVal').innerText = noise.text.charAt(0).toUpperCase() + noise.text.slice(1);
+        const contextIsSignal = !objectIsSignal;
+        const contextBlock = document.getElementById('contextBlock');
+        contextBlock.classList.toggle('signal', contextIsSignal);
+        contextBlock.classList.toggle('noise', !contextIsSignal);
+        const contextLabel = document.getElementById('contextLabel');
+        contextLabel.innerText = `${contextIsSignal ? 'The Signal' : 'The Noise'} (Context)`;
+        contextLabel.style.color = contextIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
+        document.getElementById('contextGuild').innerText = contextData.guild;
+        document.getElementById('contextVal').innerText = contextData.text.charAt(0).toUpperCase() + contextData.text.slice(1);
 
         document.getElementById('outFric').innerText = friction;
         document.getElementById('outCost').innerText = cost;
