@@ -572,11 +572,17 @@
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
         ctx.beginPath();
 
-        const STEPS = 4; // 4x subdivision = 7.5px virtual resolution
+        // OPTIMIZATION: 3x subdivision is visually sufficient (9 dots/cell) vs 4x (16 dots/cell)
+        const STEPS = 3;
 
         layers.forEach(layer => {
             const { cols, rows, rawNodes, rawMeta } = layer;
-            // Iterate cols-1, rows-1 to allow interpolation
+
+            // OPTIMIZATION: Batching
+            // HTML5 Canvas struggles with paths containing thousands of sub-paths.
+            // We flush the path every column to keep performance high.
+            ctx.beginPath();
+
             for (let cx = 0; cx < cols - 1; cx++) {
                 for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
@@ -605,11 +611,12 @@
                     const shock = s1;
                     const isActive = (energy > 0.1 || shock > 0.05);
 
-                    // Always draw the main corners (Base Grid)
+                    // Base Grid Points (Always draw corners if active or greeble)
                     if (s1 > 0.01 || e1 > 0.01 || isGreeble) {
-                        const size = 1 + (e1 + s1) * 3;
-                        ctx.moveTo(x1, y1);
-                        ctx.arc(x1, y1, size, 0, Math.PI * 2);
+                        const size = 1.5 + (e1 + s1) * 3;
+                        ctx.rect(x1 - size / 2, y1 - size / 2, size, size);
+                    } else if (e1 > 0.01) {
+                        ctx.rect(x1 - 1, y1 - 1, 2, 2);
                     }
 
                     if (isGreeble || isActive) {
@@ -634,13 +641,16 @@
                                 const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
                                 const finalShock = lerp(st, sb, ty);
 
-                                const size = 0.5 + (finalEnergy + finalShock) * 2;
-                                ctx.moveTo(finalX, finalY);
-                                ctx.arc(finalX, finalY, size, 0, Math.PI * 2);
+                                const size = 1 + (finalEnergy * 2 + finalShock * 3);
+                                ctx.rect(finalX - size / 2, finalY - size / 2, size, size);
                             }
                         }
                     }
                 }
+                // FLUSH PATH PER COLUMN
+                // This keeps the command buffer small and responsive.
+                ctx.fill();
+                ctx.beginPath();
             }
         });
         ctx.fill();
