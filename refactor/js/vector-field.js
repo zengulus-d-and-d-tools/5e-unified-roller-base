@@ -50,7 +50,7 @@
         { id: 'RAIN', label: 'BG: Rain' },
         { id: 'CONSTELLATION', label: 'BG: Constellation' },
         { id: 'NEBULA', label: 'BG: Nebula' },
-        { id: 'NEURAL', label: 'BG: Neural' },
+        { id: 'ELECTRIC', label: 'BG: Electric' },
         { id: 'OFF', label: 'BG: Off' }
     ];
     let currentStyleIdx = 0;
@@ -80,7 +80,8 @@
                 x: Math.random() * width,
                 y: Math.random() * height,
                 vx: (Math.random() - 0.5) * 1,
-                vy: (Math.random() - 0.5) * 1
+                vy: (Math.random() - 0.5) * 1,
+                radius: 1.5 + Math.random()
             });
         }
     };
@@ -221,27 +222,38 @@
                 }
 
                 vx *= CONFIG.FRICTION; vy *= CONFIG.FRICTION;
-                x += vx; y += vy;
 
-                rawNodes[baseIdx] = x; rawNodes[baseIdx + 1] = y;
-                rawNodes[baseIdx + 2] = vx; rawNodes[baseIdx + 3] = vy;
-
-                rawMeta[i * 2] = Math.abs(vx) + Math.abs(vy);
-
+                // SHOCKWAVE PHYSICAL PUSH
                 let shock = 0;
                 if (activeShocks) {
                     for (let s of shockwaves) {
-                        const dx = x - s.x; const dy = y - s.y;
+                        const dx = x - s.x;
+                        const dy = y - s.y;
                         const distSq = dx * dx + dy * dy;
                         const dist = Math.sqrt(distSq);
                         const d = Math.abs(dist - s.radius);
                         if (d < s.thickness * 3) {
                             const band = Math.exp(-(d * d) / (2 * s.thickness * s.thickness));
                             const lifeFade = 1 - (s.age / s.maxAge);
-                            shock = Math.max(shock, band * lifeFade * s.amplitude);
+                            const intensity = band * lifeFade * s.amplitude;
+                            shock = Math.max(shock, intensity);
+
+                            // Apply radial force
+                            if (dist > 1) {
+                                const push = intensity * 2.0; // Force scalar
+                                vx += (dx / dist) * push;
+                                vy += (dy / dist) * push;
+                            }
                         }
                     }
                 }
+
+                x += vx; y += vy;
+
+                rawNodes[baseIdx] = x; rawNodes[baseIdx + 1] = y;
+                rawNodes[baseIdx + 2] = vx; rawNodes[baseIdx + 3] = vy;
+
+                rawMeta[i * 2] = Math.abs(vx) + Math.abs(vy);
                 rawMeta[i * 2 + 1] = shock;
             }
         });
@@ -304,6 +316,17 @@
         }
     };
 
+    const drawLightning = (ctx, x1, y1, x2, y2, intensity) => {
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        // Jitter based on intensity
+        const jitter = (Math.random() - 0.5) * 20 * (intensity + 0.2);
+
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(midX + jitter, midY + jitter);
+        ctx.lineTo(x2, y2);
+    };
+
     // --- RENDERERS ---
     const renderField = (rgb) => {
         layers.forEach(layer => {
@@ -327,25 +350,48 @@
         });
     };
 
-    const renderNeural = (rgb) => {
-        layers.forEach(layer => {
-            const BUCKETS = 21;
-            if (!layer.buckets) {
-                layer.buckets = Array.from({ length: BUCKETS }, () => []);
-                layer.shockBucket = [];
-            }
-            for (let b = 0; b < BUCKETS; b++) layer.buckets[b].length = 0;
-            layer.shockBucket.length = 0;
+    const renderElectric = (rgb) => {
+        // High contrast, jagged lines
+        const { width, height } = canvas;
+        ctx.lineJoin = 'miter';
 
-            const { cols, rows } = layer;
+        layers.forEach(layer => {
+            const { cols, rows, rawMeta, rawNodes } = layer;
+            ctx.strokeStyle = `rgba(${rgb}, 0.8)`;
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = `rgba(${rgb}, 1)`;
+            ctx.beginPath();
+
             for (let cx = 0; cx < cols; cx++) {
                 for (let cy = 0; cy < rows; cy++) {
                     const idx = cx * rows + cy;
-                    if (cx < cols - 1) processConnection(layer, idx, idx + rows, true);
-                    if (cy < rows - 1) processConnection(layer, idx, idx + 1, true);
+                    // Only draw if high energy
+                    const shock = rawMeta[idx * 2 + 1];
+                    const energy = rawMeta[idx * 2];
+
+                    if (shock > 0.1 || energy > 0.5) {
+                        const x = rawNodes[idx * 6];
+                        const y = rawNodes[idx * 6 + 1];
+
+                        // Connect to neighbors if they are also active
+                        if (cx < cols - 1) {
+                            const nIdx = idx + rows;
+                            if (rawMeta[nIdx * 2 + 1] > 0.1 || rawMeta[nIdx * 2] > 0.5) {
+                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], shock);
+                            }
+                        }
+                        if (cy < rows - 1) {
+                            const nIdx = idx + 1;
+                            if (rawMeta[nIdx * 2 + 1] > 0.1 || rawMeta[nIdx * 2] > 0.5) {
+                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], shock);
+                            }
+                        }
+                    }
                 }
             }
-            drawBuckets(layer, rgb, 1.2, 4);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
         });
     };
 
@@ -424,20 +470,43 @@
     };
 
     const renderTopo = (rgb) => {
-        ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
-        ctx.lineWidth = 1.5;
+        // IMPROVED: Connection based isobars
+        ctx.strokeStyle = `rgba(${rgb}, 0.4)`;
+        ctx.lineWidth = 1.2;
+
         layers.forEach(l => {
-            const { cols, rows, rawMeta } = l;
+            const { cols, rows, rawMeta, rawNodes } = l;
+            // Bands: 0.2, 0.5, 0.8
+            const bands = [0.2, 0.5, 0.8];
+
             ctx.beginPath();
-            for (let cx = 0; cx < cols - 1; cx++) {
-                for (let cy = 0; cy < rows - 1; cy++) {
-                    const iTL = cx * rows + cy;
-                    const vTL = rawMeta[iTL * 2] + rawMeta[iTL * 2 + 1];
-                    if (vTL > 0.1) {
-                        const x = l.rawNodes[iTL * 6];
-                        const y = l.rawNodes[iTL * 6 + 1];
-                        ctx.moveTo(x + 5, y);
-                        ctx.arc(x, y, 5 + vTL * 10, 0, Math.PI * 2);
+            for (let cx = 0; cx < cols; cx++) {
+                for (let cy = 0; cy < rows; cy++) {
+                    const idx = cx * rows + cy;
+                    const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1]; // energy+shock
+
+                    // Check right
+                    if (cx < cols - 1) {
+                        const nIdx = (cx + 1) * rows + cy;
+                        const e2 = rawMeta[nIdx * 2] + rawMeta[nIdx * 2 + 1];
+                        // If both are within a band tolerance
+                        for (let band of bands) {
+                            if (Math.abs(e1 - band) < 0.1 && Math.abs(e2 - band) < 0.1) {
+                                ctx.moveTo(rawNodes[idx * 6], rawNodes[idx * 6 + 1]);
+                                ctx.lineTo(rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1]);
+                            }
+                        }
+                    }
+                    // Check down
+                    if (cy < rows - 1) {
+                        const nIdx = cx * rows + (cy + 1);
+                        const e2 = rawMeta[nIdx * 2] + rawMeta[nIdx * 2 + 1];
+                        for (let band of bands) {
+                            if (Math.abs(e1 - band) < 0.1 && Math.abs(e2 - band) < 0.1) {
+                                ctx.moveTo(rawNodes[idx * 6], rawNodes[idx * 6 + 1]);
+                                ctx.lineTo(rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1]);
+                            }
+                        }
                     }
                 }
             }
@@ -474,13 +543,43 @@
         ctx.stroke();
     };
 
-    const renderConstellation = (rgb) => {
+    const renderConstellation = (rgb, activeShocks) => {
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
         ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
         stars.forEach(s => {
+            // Mouse Repel
+            if (mouse.x !== -999) {
+                const dx = s.x - mouse.x;
+                const dy = s.y - mouse.y;
+                const d = Math.hypot(dx, dy);
+                if (d < 150) {
+                    s.vx += (dx / d) * 0.5;
+                    s.vy += (dy / d) * 0.5;
+                }
+            }
+            // Shockwave Push
+            if (activeShocks) {
+                shockwaves.forEach(wave => {
+                    const dx = s.x - wave.x;
+                    const dy = s.y - wave.y;
+                    const d = Math.hypot(dx, dy);
+                    const distFromWave = Math.abs(d - wave.radius);
+                    if (distFromWave < wave.thickness * 2) {
+                        const push = wave.amplitude * 0.5;
+                        s.vx += (dx / d) * push;
+                        s.vy += (dy / d) * push;
+                    }
+                });
+            }
+
             s.x += s.vx; s.y += s.vy;
+            s.vx *= 0.95; s.vy *= 0.95;
+
             if (s.x < 0 || s.x > width) s.vx *= -1;
             if (s.y < 0 || s.y > height) s.vy *= -1;
+
+            if (Math.abs(s.vx) < 0.1) s.vx += (Math.random() - 0.5) * 0.01;
+            if (Math.abs(s.vy) < 0.1) s.vy += (Math.random() - 0.5) * 0.01;
         });
         ctx.beginPath();
         for (let i = 0; i < stars.length; i++) {
@@ -556,9 +655,10 @@
             case 'BOIDS': renderBoids(accent); break;
             case 'TOPO': renderTopo(accent); break;
             case 'RAIN': renderRain(accent, activeShocks); break;
-            case 'CONSTELLATION': renderConstellation(accent); break;
+            case 'CONSTELLATION': renderConstellation(accent, activeShocks); break;
             case 'NEBULA': renderNebula(accent); break;
-            case 'NEURAL': renderNeural(accent); break;
+            case 'ELECTRIC': renderElectric(accent); break;
+            case 'NEURAL': renderElectric(accent); break; // Fallback
         }
 
         requestAnimationFrame(animate);

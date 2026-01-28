@@ -15,7 +15,7 @@
 <body>
     <canvas id="vector-cloud"></canvas>
 
-    <div class="header-bar">
+    <div class="header-bar" style="display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:20px;">
             <a href="tools.html"
                 style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
@@ -25,7 +25,12 @@
                 <div class="header-sub">Ravnica Procedural Engine v3</div>
             </div>
         </div>
-        <div style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">⚖️</div>
+        <div style="display:flex; align-items:center; gap:20px;">
+            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
+                style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🌌
+                BG: Field</button>
+            <div style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">⚖️</div>
+        </div>
     </div>
 
     <div class="container">

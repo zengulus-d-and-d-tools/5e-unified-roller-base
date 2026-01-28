@@ -13,13 +13,19 @@
 <body>
     <canvas id="vector-cloud"></canvas>
 
-    <div class="header-bar">
-        <a href="tools.html"
-            style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
-            Portal</a>
-        <span
-            style="color:var(--text); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Intersection
-            Gen</span>
+    <div class="header-bar"
+        style="display:flex; align-items:center; justify-content:space-between; padding: 10px 20px;">
+        <div style="display:flex; align-items:center;">
+            <a href="tools.html"
+                style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s; margin-right:15px;">&larr;
+                Portal</a>
+            <span
+                style="color:var(--text); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Intersection
+                Gen</span>
+        </div>
+        <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
+            style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🌌
+            BG: Field</button>
     </div>
 
     <div class="clue-container">
@@ -49,35 +55,35 @@
         </div>
 
         <div class="result-card" id="resultCard">
-        <div class="res-header">
-            <span class="res-type" id="outType">Physical Evidence</span>
-        </div>
-
-        <div class="res-body">
-            <div class="data-block signal" id="objectBlock">
-                <span class="lbl" id="objectLabel">The Signal (Object)</span>
-                <span class="g-tag" id="objectGuild">Guild</span>
-                <div class="val" id="objectVal">A rigid legal writ</div>
+            <div class="res-header">
+                <span class="res-type" id="outType">Physical Evidence</span>
             </div>
 
-            <div class="data-block noise" id="contextBlock">
-                <span class="lbl" id="contextLabel">The Noise (Context)</span>
-                <span class="g-tag" id="contextGuild">Guild</span>
-                <div class="val" id="contextVal">Covered in vibrant moss</div>
-            </div>
-        </div>
+            <div class="res-body">
+                <div class="data-block signal" id="objectBlock">
+                    <span class="lbl" id="objectLabel">The Signal (Object)</span>
+                    <span class="g-tag" id="objectGuild">Guild</span>
+                    <div class="val" id="objectVal">A rigid legal writ</div>
+                </div>
 
-        <div class="res-footer">
-            <div class="res-stat">
-                <label>Friction</label>
-                <span style="color:var(--gold)" id="outFric">Locked</span>
+                <div class="data-block noise" id="contextBlock">
+                    <span class="lbl" id="contextLabel">The Noise (Context)</span>
+                    <span class="g-tag" id="contextGuild">Guild</span>
+                    <div class="val" id="contextVal">Covered in vibrant moss</div>
+                </div>
             </div>
-            <div class="res-stat">
-            <label>Fail Cost</label>
-            <span style="color:var(--danger)" id="outCost">Heat +1</span>
+
+            <div class="res-footer">
+                <div class="res-stat">
+                    <label>Friction</label>
+                    <span style="color:var(--gold)" id="outFric">Locked</span>
+                </div>
+                <div class="res-stat">
+                    <label>Fail Cost</label>
+                    <span style="color:var(--danger)" id="outCost">Heat +1</span>
+                </div>
+            </div>
         </div>
-    </div>
-    </div>
     </div>
     <script src="js/data.js"></script>
     <script src="js/clue.js"></script>
