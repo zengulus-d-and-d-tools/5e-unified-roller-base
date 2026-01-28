@@ -23,8 +23,8 @@
         SHOCK_THICKNESS: 15,
         SHOCK_SPEED: 1,
         LAYERS: [
-            { spacing: 20, radius: 260, drag: 0.15 },
-            { spacing: 10, radius: 180, drag: 0.075 }
+            { spacing: 30, radius: 260, drag: 0.15 },
+            { spacing: 20, radius: 180, drag: 0.075 }
         ]
     };
 
@@ -261,6 +261,10 @@
                         const dx = x - s.x;
                         const dy = y - s.y;
                         const distSq = dx * dx + dy * dy;
+                        // Optimization: Check distSq first before costly sqrt
+                        const maxDist = s.radius + s.thickness * 4;
+                        if (distSq > maxDist * maxDist) continue;
+
                         const dist = Math.sqrt(distSq);
                         const d = Math.abs(dist - s.radius);
                         if (d < s.thickness * 3) {
@@ -371,25 +375,110 @@
 
     // --- RENDERERS ---
     const renderField = (rgb) => {
-        layers.forEach(layer => {
-            const BUCKETS = 21;
-            if (!layer.buckets) {
-                layer.buckets = Array.from({ length: BUCKETS }, () => []);
-                layer.shockBucket = [];
-            }
-            for (let b = 0; b < BUCKETS; b++) layer.buckets[b].length = 0;
-            layer.shockBucket.length = 0;
+        // Force field lines
+        // We accumulate lines in buckets for efficient drawing
+        const buckets = [];
+        for (let i = 0; i < 21; i++) buckets.push([]);
+        const shockBucket = [];
 
-            const { cols, rows } = layer;
-            for (let cx = 0; cx < cols; cx++) {
-                for (let cy = 0; cy < rows; cy++) {
+        // Manual Subdivision for Field Density
+        const STEPS = 2; // 2x subdivision
+
+        const lerp = (a, b, t) => a + (b - a) * t;
+
+        layers.forEach(l => {
+            const { cols, rows, rawNodes, rawMeta } = l;
+
+            for (let cx = 0; cx < cols - 1; cx++) {
+                for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
-                    if (cx < cols - 1) processConnection(layer, idx, idx + rows, false);
-                    if (cy < rows - 1) processConnection(layer, idx, idx + 1, false);
+                    const right = idx + rows;
+                    const down = idx + 1;
+                    const diag = idx + rows + 1;
+
+                    // Node Data
+                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                    const e1 = rawMeta[idx * 2]; const s1 = rawMeta[idx * 2 + 1];
+
+                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                    const e2 = rawMeta[right * 2]; const s2 = rawMeta[right * 2 + 1];
+
+                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                    const e3 = rawMeta[down * 2]; const s3 = rawMeta[down * 2 + 1];
+
+                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                    const e4 = rawMeta[diag * 2]; const s4 = rawMeta[diag * 2 + 1];
+
+                    // Subdivide
+                    for (let sx = 0; sx < STEPS; sx++) {
+                        for (let sy = 0; sy < STEPS; sy++) {
+                            const tx = sx / STEPS;
+                            const ty = sy / STEPS;
+                            const step = 1 / STEPS;
+
+                            // Interpolate Top-Left (current virtual node)
+                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+                            const vx = lerp(xt, xb, ty);
+                            const vy = lerp(yt, yb, ty);
+                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+                            const ve = lerp(et, eb, ty);
+                            const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
+                            const vs = lerp(st, sb, ty);
+
+                            // Right Neighbor (virtual)
+                            // Note: we only need to connect Right and Down to form the net
+                            const txR = tx + step;
+                            const xtR = lerp(x1, x2, txR); const ytR = lerp(y1, y2, txR);
+                            const xbR = lerp(x3, x4, txR); const ybR = lerp(y3, y4, txR);
+                            const vxR = lerp(xtR, xbR, ty);
+                            const vyR = lerp(ytR, ybR, ty);
+
+                            // Down Neighbor (virtual)
+                            const tyD = ty + step;
+                            const xtD = lerp(x1, x2, tx); const ytD = lerp(y1, y2, tx);
+                            const xbD = lerp(x3, x4, tx); const ybD = lerp(y3, y4, tx);
+                            const vxD = lerp(xtD, xbD, tyD);
+                            const vyD = lerp(ytD, ybD, tyD);
+
+                            // Draw (Push to buckets)
+                            // Right connection
+                            if (sx < STEPS || cx < cols - 1) { // Careful with boundary, simplified: just draw
+                                // Calculate visibility
+                                const moveVis = ve * CONFIG.TRAIL_SENSITIVITY;
+                                const combinedAlpha = (moveVis * activity) + vs;
+
+                                if (combinedAlpha > CONFIG.VISIBILITY_CUTOFF) {
+                                    if (combinedAlpha > 0.8) {
+                                        shockBucket.push(vx, vy, vxR, vyR);
+                                    } else {
+                                        let bucketIdx = Math.floor(Math.min(1.0, combinedAlpha) * 20);
+                                        if (bucketIdx > 0 && bucketIdx < buckets.length) buckets[bucketIdx].push(vx, vy, vxR, vyR);
+                                    }
+                                }
+                            }
+
+                            // Down connection
+                            if (sy < STEPS || cy < rows - 1) {
+                                const moveVis = ve * CONFIG.TRAIL_SENSITIVITY;
+                                const combinedAlpha = (moveVis * activity) + vs;
+
+                                if (combinedAlpha > CONFIG.VISIBILITY_CUTOFF) {
+                                    if (combinedAlpha > 0.8) {
+                                        shockBucket.push(vx, vy, vxD, vyD);
+                                    } else {
+                                        let bucketIdx = Math.floor(Math.min(1.0, combinedAlpha) * 20);
+                                        if (bucketIdx > 0 && bucketIdx < buckets.length) buckets[bucketIdx].push(vx, vy, vxD, vyD);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            drawBuckets(layer, rgb, 0.8, CONFIG.SHOCK_WIDTH);
         });
+
+        drawBuckets(ctx, rgb, buckets, shockBucket);
     };
 
     const renderElectric = (rgb) => {
@@ -398,11 +487,12 @@
         ctx.lineJoin = 'miter';
         ctx.lineCap = 'round';
 
+        const STEPS = 2; // 2x subdivision
+
         layers.forEach(layer => {
             const { cols, rows, rawMeta, rawNodes } = layer;
-            ctx.shadowBlur = 20; // Stronger glow
+            ctx.shadowBlur = 20;
 
-            // Randomly flash the whole field occasionally, but ONLY if active
             if (activity > 0.01 && Math.random() < 0.05) {
                 ctx.shadowColor = `rgba(255, 255, 255, 0.8)`;
             } else {
@@ -411,128 +501,235 @@
 
             ctx.beginPath();
 
-            for (let cx = 0; cx < cols; cx++) {
-                for (let cy = 0; cy < rows; cy++) {
+            for (let cx = 0; cx < cols - 1; cx++) {
+                for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
-                    const x = rawNodes[idx * 6];
-                    const y = rawNodes[idx * 6 + 1];
-                    // Higher threshold for "sparks"
-                    let shock = rawMeta[idx * 2 + 1];
-                    let energy = rawMeta[idx * 2];
+                    const right = idx + rows;
+                    const down = idx + 1;
+                    const diag = idx + rows + 1;
 
-                    // SPARK BRUSH: Removed static boost. 
-                    // Now relies entirely on physics (movement/shocks).
+                    // Node Data
+                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                    const s1 = rawMeta[idx * 2 + 1]; const e1 = rawMeta[idx * 2];
 
-                    if (shock > 0.1 || energy > 0.85) { // MUCH Higher threshold for sparsity
-                        const intensity = shock + (energy * 0.5);
-                        const alpha = Math.min(1, intensity);
+                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                    const s2 = rawMeta[right * 2 + 1]; const e2 = rawMeta[right * 2]; // Right
 
-                        // FLICKER & CULL: Only draw ~40% of potential arcs for that "clean" look
-                        if (Math.random() > 0.6) {
-                            ctx.beginPath(); // New path for per-bolt styling if needed, but we batch for perf
-                            // Actually, to support variable thickness we need separate strokes or complex batching.
-                            // For performance, let's just stick to one thickness per batch? 
-                            // No, user wants thick bolts. Let's do it right: Per-bolt stroke for quality, try to optimize later.
+                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                    const s3 = rawMeta[down * 2 + 1]; const e3 = rawMeta[down * 2]; // Down
 
-                            ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
-                            ctx.lineWidth = 1.5 + (intensity * 2.0); // Variable thickness: 1.5 to ~5.0
-                            if (intensity > 1.2) {
-                                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-                                ctx.lineWidth += 1;
-                                ctx.shadowColor = `rgba(255, 255, 255, 1.0)`;
-                            } else {
-                                ctx.shadowColor = `rgba(${rgb}, 0.8)`;
-                            }
+                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                    const s4 = rawMeta[diag * 2 + 1]; const e4 = rawMeta[diag * 2]; // Diag
 
-                            const isHot = (nIdx) => {
-                                let nShock = rawMeta[nIdx * 2 + 1];
-                                let nEnergy = rawMeta[nIdx * 2];
-                                return (nShock > 0.1 || nEnergy > 0.85); // Match new threshold
-                            };
+                    const lerp = (a, b, t) => a + (b - a) * t;
 
-                            // Connect to neighbors with Jitter
-                            const jitterVal = 15; // Increased jitter
-                            const jx = () => (Math.random() - 0.5) * jitterVal;
-                            const jy = () => (Math.random() - 0.5) * jitterVal;
+                    // Subdivide
+                    for (let sx = 0; sx < STEPS; sx++) {
+                        for (let sy = 0; sy < STEPS; sy++) {
+                            const tx = sx / STEPS;
+                            const ty = sy / STEPS;
 
-                            let drawn = false;
+                            // Interpolate Position
+                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+                            const finalX = lerp(xt, xb, ty);
+                            const finalY = lerp(yt, yb, ty);
 
-                            if (cx < cols - 1) {
-                                const nIdx = idx + rows;
-                                if (isHot(nIdx)) {
-                                    const ex = rawNodes[nIdx * 6];
-                                    const ey = rawNodes[nIdx * 6 + 1];
-                                    ctx.moveTo(x + jx(), y + jy());
-                                    drawLightning(ctx, x + jx(), y + jy(), ex + jx(), ey + jy(), 60 * intensity, 3);
-                                    drawn = true;
+                            // Interpolate Energy/Shock
+                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+                            const finalEnergy = lerp(et, eb, ty);
+
+                            const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
+                            const finalShock = lerp(st, sb, ty);
+
+                            // Logic
+                            if (finalShock > 0.1 || finalEnergy > 0.85) {
+                                const intensity = finalShock + (finalEnergy * 0.5);
+                                const alpha = Math.min(1, intensity);
+
+                                if (Math.random() > 0.6) {
+                                    ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
+                                    ctx.lineWidth = 1.5 + (intensity * 2.0);
+                                    if (intensity > 1.2) {
+                                        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                                        ctx.lineWidth += 1;
+                                        ctx.shadowColor = `rgba(255, 255, 255, 1.0)`;
+                                    } else {
+                                        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
+                                    }
+
+                                    // Neighbors?
+                                    // Just connect to random jitter point for arc look
+                                    const jitterVal = 15;
+                                    const jx = () => (Math.random() - 0.5) * jitterVal;
+                                    const jy = () => (Math.random() - 0.5) * jitterVal;
+
+                                    // Connect to virtual neighbor (right side) effectively
+                                    // We approximate neighbor by just jumping step size
+                                    const stepX = (x2 - x1) / STEPS;
+                                    const stepY = (x3 - x1) / STEPS; // approx
+
+                                    const ex = finalX + stepX + jx();
+                                    const ey = finalY + stepY + jy(); // vague direction
+
+                                    ctx.moveTo(finalX + jx(), finalY + jy());
+                                    // Make bolt slightly longer to bridge gaps
+                                    drawLightning(ctx, finalX + jx(), finalY + jy(), ex, ey, 40 * intensity, 3);
+                                    ctx.stroke();
+                                    ctx.beginPath(); // Reset
                                 }
                             }
-                            if (!drawn && cy < rows - 1) { // Prefer one connection per node to reduce mesh effect
-                                const nIdx = idx + 1;
-                                if (isHot(nIdx)) {
-                                    const ex = rawNodes[nIdx * 6];
-                                    const ey = rawNodes[nIdx * 6 + 1];
-                                    ctx.moveTo(x + jx(), y + jy());
-                                    drawLightning(ctx, x + jx(), y + jy(), ex + jx(), ey + jy(), 60 * intensity, 3);
-                                    drawn = true;
-                                }
-                            }
+                        }
+                    }
+                }
+            }
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = 1;
+        });
+    }; const renderGrid = (rgb) => {
+        ctx.strokeStyle = `rgba(${rgb}, 0.2)`; // Lower alpha for density
+        ctx.lineWidth = 0.5; // Thinner lines for high density
+        ctx.beginPath();
 
-                            if (drawn) ctx.stroke();
+        const STEPS = 4; // 4x subdivision = 7.5px virtual resolution
+
+        layers.forEach(layer => {
+            const { cols, rows, rawNodes } = layer;
+            for (let cx = 0; cx < cols - 1; cx++) {
+                for (let cy = 0; cy < rows - 1; cy++) {
+                    const idx = cx * rows + cy;
+                    const right = idx + rows;
+                    const down = idx + 1;
+                    const diag = idx + rows + 1;
+
+                    // Cell Corners
+                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1]; // TL
+                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1]; // TR
+                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1]; // BL
+                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1]; // BR
+
+                    // Draw Top Edge and Left Edge (Main Grid)
+                    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+                    ctx.moveTo(x1, y1); ctx.lineTo(x3, y3);
+
+                    // Check for Detail (Greebling)
+                    // 1. Deterministic visual hash (approx 15% of cells)
+                    const isGreeble = ((cx * 7 + cy * 11) % 7 === 0);
+                    // 2. Local Energy
+                    const energy = layer.rawMeta[idx * 2];
+                    const shock = layer.rawMeta[idx * 2 + 1];
+                    const isActive = (energy > 0.1 || shock > 0.05);
+
+                    if (isGreeble || isActive) {
+                        // Internal Subdivision (Bilinear Interpolation)
+                        for (let s = 1; s < STEPS; s++) {
+                            const t = s / STEPS;
+
+                            // Vertical Lines (Lerp Top to Bot)
+                            const tx = x1 + (x2 - x1) * t; const ty = y1 + (y2 - y1) * t;
+                            const bx = x3 + (x4 - x3) * t; const by = y3 + (y4 - y3) * t;
+                            ctx.moveTo(tx, ty); ctx.lineTo(bx, by);
+
+                            // Horizontal Lines (Lerp Left to Right)
+                            const lx = x1 + (x3 - x1) * t; const ly = y1 + (y3 - y1) * t;
+                            const rx = x2 + (x4 - x2) * t; const ry = y2 + (y4 - y2) * t;
+                            ctx.moveTo(lx, ly); ctx.lineTo(rx, ry);
                         }
                     }
                 }
             }
         });
-        ctx.shadowBlur = 0;
-        ctx.lineWidth = 1;
-    };
-
-    const renderGrid = (rgb) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.4)`;
-        layers.forEach(l => {
-            const count = l.cols * l.rows;
-            for (let i = 0; i < count; i++) {
-                const base = i * 6;
-                const bx = l.rawNodes[base + 4];
-                const by = l.rawNodes[base + 5];
-                const energy = l.rawMeta[i * 2] + l.rawMeta[i * 2 + 1];
-                const size = 1 + Math.min(3, energy * 2);
-                ctx.globalAlpha = 0.2 + Math.min(0.8, energy);
-                ctx.beginPath();
-                ctx.arc(bx, by, size, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        });
-        ctx.globalAlpha = 1;
+        ctx.stroke();
     };
 
     const renderVector = (rgb) => {
         ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
         ctx.lineWidth = 1;
+        ctx.beginPath();
+
+        const STEPS = 2; // 2x subdivision = 15px virtual resolution
+
         layers.forEach(l => {
-            const count = l.cols * l.rows;
-            for (let i = 0; i < count; i++) {
-                const base = i * 6;
-                const x = l.rawNodes[base];
-                const y = l.rawNodes[base + 1];
-                const vx = l.rawNodes[base + 2];
-                const vy = l.rawNodes[base + 3];
-                const shock = l.rawMeta[i * 2 + 1];
-                const mag = Math.hypot(vx, vy);
-                if (mag < 0.1 && shock < 0.1) continue;
-                const len = 5 + mag * 10 + shock * 20;
-                const angle = Math.atan2(vy, vx);
-                const x2 = x + Math.cos(angle) * len;
-                const y2 = y + Math.sin(angle) * len;
-                ctx.globalAlpha = Math.min(1, (mag + shock) * 2);
-                ctx.beginPath();
-                ctx.moveTo(x, y);
-                ctx.lineTo(x2, y2);
-                ctx.stroke();
+            const { cols, rows, rawNodes, rawMeta } = l;
+            // Iterate cols-1, rows-1 to allow interpolation
+            for (let cx = 0; cx < cols - 1; cx++) {
+                for (let cy = 0; cy < rows - 1; cy++) {
+                    const idx = cx * rows + cy;
+                    const right = idx + rows;
+                    const down = idx + 1;
+                    const diag = idx + rows + 1;
+
+                    // Node Data (Position & Velocity)
+                    const base = idx * 6;
+                    const x = rawNodes[base]; const y = rawNodes[base + 1];
+                    const vx = rawNodes[base + 2]; const vy = rawNodes[base + 3];
+
+                    const baseR = right * 6;
+                    const vxR = rawNodes[baseR + 2]; const vyR = rawNodes[baseR + 3];
+                    const xR = rawNodes[baseR]; const yR = rawNodes[baseR + 1];
+
+                    const baseD = down * 6;
+                    const vxD = rawNodes[baseD + 2]; const vyD = rawNodes[baseD + 3];
+                    const xD = rawNodes[baseD]; const yD = rawNodes[baseD + 1]; // Typo fix: yD comes from baseD? No, uniform grid. 
+                    // Actually, rawNodes contains x,y. Let's trust rawNodes.
+
+                    const baseDD = diag * 6;
+                    const vxDD = rawNodes[baseDD + 2]; const vyDD = rawNodes[baseDD + 3];
+
+
+                    // Subdivide
+                    for (let sx = 0; sx < STEPS; sx++) {
+                        for (let sy = 0; sy < STEPS; sy++) {
+                            const tx = sx / STEPS;
+                            const ty = sy / STEPS;
+
+                            // Bilinear Interpolation of Velocity and Position!
+                            // Simple approx: Lerp X, then Lerp Y
+                            // V_top = Lerp(vx, vxR, tx)
+                            // V_bot = Lerp(vxD, vxDD, tx)
+                            // V = Lerp(V_top, V_bot, ty)
+
+                            const lerp = (a, b, t) => a + (b - a) * t;
+
+                            const vxt = lerp(vx, vxR, tx);
+                            const vyt = lerp(vy, vyR, tx);
+                            const vxb = lerp(vxD, vxDD, tx);
+                            const vyb = lerp(vyD, vyDD, tx);
+
+                            const finalVX = lerp(vxt, vxb, ty);
+                            const finalVY = lerp(vyt, vyb, ty);
+
+                            // Position Interpolation relative to cell
+                            // Grid is roughly uniform, but nodes move? 
+                            // Wait, nodes move in this simulation (x += vx). 
+                            // So we MUST interpolate x,y from the 4 corners.
+                            const xt = lerp(x, xR, tx);
+                            const yt = lerp(y, yR, tx); // Top row x,y? y is same? No, nodes move.
+                            const xb = lerp(xD, rawNodes[baseDD], tx); // rawNodes[baseDD] is xDD
+                            const yb = lerp(yD, rawNodes[baseDD + 1], tx); // yDD
+
+                            const finalX = lerp(xt, xb, ty);
+                            const finalY = lerp(yt, yb, ty);
+
+                            const mag = Math.hypot(finalVX, finalVY);
+                            const shock = rawMeta[idx * 2 + 1]; // Just use TL shock for now, or interp? Interp is overkill.
+
+                            if (mag > 0.1 || shock > 0.1) {
+                                const len = 5 + mag * 10 + shock * 20;
+                                const angle = Math.atan2(finalVY, finalVX);
+                                const x2 = finalX + Math.cos(angle) * len;
+                                const y2 = finalY + Math.sin(angle) * len;
+
+                                // Draw Arrow
+                                ctx.moveTo(finalX, finalY);
+                                ctx.lineTo(x2, y2);
+                            }
+                        }
+                    }
+                }
             }
         });
-        ctx.globalAlpha = 1;
+        ctx.stroke();
     };
 
     const renderBoids = (rgb) => {
@@ -695,90 +892,117 @@
         ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
         ctx.lineWidth = 1.0;
 
-        // Thresholds for elevation bands
+        // Thresholds
         const thresholds = [0.2, 0.4, 0.6, 0.8];
+        const STEPS = 2; // 2x subdivision
 
         layers.forEach(l => {
             const { cols, rows, rawMeta, rawNodes } = l;
 
-            // Helper to get energy at (cx, cy)
-            const getE = (cx, cy) => {
-                if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return 0;
-                const idx = cx * rows + cy;
-                return rawMeta[idx * 2] + rawMeta[idx * 2 + 1]; // energy + shock
-            };
+            // Helper Lerp
+            const lerp = (a, b, t) => a + (b - a) * t;
 
-            // Helper to interpolate position between two nodes based on energy
-            // For aesthetic simplicity, we just use midpoint (0.5) 
-            // or we could do linear interpolation for smoother curves.
-            // Let's do midpoint for "stylized" look, or linear for "accurate".
-            // Linear looks better.
-            const lerp = (v0, v1, t) => {
-                return (t - v0) / (v1 - v0);
-            };
+            // Iterate Quads
+            for (let cx = 0; cx < cols - 1; cx++) {
+                for (let cy = 0; cy < rows - 1; cy++) {
+                    const idx = cx * rows + cy;
+                    const right = idx + rows;
+                    const down = idx + 1;
+                    const diag = idx + rows + 1;
 
-            for (let tVal of thresholds) {
-                ctx.beginPath();
-                for (let cx = 0; cx < cols - 1; cx++) {
-                    for (let cy = 0; cy < rows - 1; cy++) {
-                        // 4 corners
-                        const tl = getE(cx, cy);
-                        const tr = getE(cx + 1, cy);
-                        const br = getE(cx + 1, cy + 1);
-                        const bl = getE(cx, cy + 1);
+                    // Corner Data
+                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                    const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1];
 
-                        let idx = 0;
-                        if (tl >= tVal) idx |= 8;
-                        if (tr >= tVal) idx |= 4;
-                        if (br >= tVal) idx |= 2;
-                        if (bl >= tVal) idx |= 1;
+                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                    const e2 = rawMeta[right * 2] + rawMeta[right * 2 + 1];
 
-                        if (idx === 0 || idx === 15) continue;
+                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                    const e3 = rawMeta[down * 2] + rawMeta[down * 2 + 1];
 
-                        // Node positions
-                        const bIdx = (cx * rows + cy) * 6;
-                        const x = rawNodes[bIdx];
-                        const y = rawNodes[bIdx + 1];
-                        // Assume uniform grid spacing for cell size
-                        // We can just grab neighbor coords
-                        const bRight = ((cx + 1) * rows + cy) * 6;
-                        const xRight = rawNodes[bRight];
-                        const bDown = (cx * rows + (cy + 1)) * 6;
-                        const yDown = rawNodes[bDown + 1];
+                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                    const e4 = rawMeta[diag * 2] + rawMeta[diag * 2 + 1];
 
-                        // Midpoints (Top, Right, Bottom, Left)
-                        // Simple midpoint interpolation relative to cell corner (x,y)
-                        // A better way is using the generic marching squares lookup geometry
-                        // a = (x + lerp(tl, tr, tVal)*(xRight-x), y)
-                        // etc.
+                    // Subdivide
+                    for (let sx = 0; sx < STEPS; sx++) {
+                        for (let sy = 0; sy < STEPS; sy++) {
+                            const tx = sx / STEPS;
+                            const ty = sy / STEPS;
+                            const step = 1 / STEPS;
 
-                        // SIMPLIFIED GEOMETRY (midpoints) for performance/style
-                        const cellW = xRight - x;
-                        const cellH = yDown - y;
-                        const a = { x: x + cellW * 0.5, y: y }; // Top
-                        const b = { x: x + cellW, y: y + cellH * 0.5 }; // Right
-                        const c = { x: x + cellW * 0.5, y: y + cellH }; // Bottom
-                        const d = { x: x, y: y + cellH * 0.5 }; // Left
+                            // 1. Calculate Virtual Corners
+                            // Top Left (current)
+                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+                            const vx = lerp(xt, xb, ty);
+                            const vy = lerp(yt, yb, ty);
+                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+                            const ve = lerp(et, eb, ty);
 
-                        switch (idx) {
-                            case 1: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
-                            case 2: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
-                            case 3: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
-                            case 4: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
-                            case 5: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
-                            case 6: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
-                            case 7: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
-                            case 8: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
-                            case 9: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
-                            case 10: ctx.moveTo(a.x, a.y); ctx.lineTo(d.x, d.y); ctx.moveTo(b.x, b.y); ctx.lineTo(c.x, c.y); break;
-                            case 11: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
-                            case 12: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
-                            case 13: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
-                            case 14: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                            // Right
+                            const txR = tx + step;
+                            const xtR = lerp(x1, x2, txR); const ytR = lerp(y1, y2, txR);
+                            const xbR = lerp(x3, x4, txR); const ybR = lerp(y3, y4, txR);
+                            const vxR = lerp(xtR, xbR, ty);
+                            const vyR = lerp(ytR, ybR, ty);
+                            const etR = lerp(e1, e2, txR); const ebR = lerp(e3, e4, txR);
+                            const veR = lerp(etR, ebR, ty);
+
+                            // Bottom
+                            const tyD = ty + step;
+                            const xtD = lerp(x1, x2, tx); const ytD = lerp(y1, y2, tx);
+                            const xbD = lerp(x3, x4, tx); const ybD = lerp(y3, y4, tx);
+                            const vxD = lerp(xtD, xbD, tyD);
+                            const vyD = lerp(ytD, ybD, tyD);
+                            const etD = lerp(e1, e2, tx); const ebD = lerp(e3, e4, tx);
+                            const veD = lerp(etD, ebD, tyD);
+
+                            // Bottom Right
+                            const vxDD = lerp(xtR, xbR, tyD);
+                            const vyDD = lerp(ytR, ybR, tyD);
+                            const veDD = lerp(etR, ebR, tyD);
+
+                            // 2. Marching Squares on Virtual Cell
+                            for (let tVal of thresholds) {
+                                let cIdx = 0;
+                                if (ve >= tVal) cIdx |= 8;    // TL
+                                if (veR >= tVal) cIdx |= 4;   // TR
+                                if (veDD >= tVal) cIdx |= 2;  // BR
+                                if (veD >= tVal) cIdx |= 1;   // BL
+
+                                if (cIdx === 0 || cIdx === 15) continue;
+
+                                // Geometry
+                                const cellW = vxR - vx;
+                                const cellH = vxD - vx; // approx using x difference? No, vxD.x matches vx.x approx?
+                                // Better:
+                                const a = { x: (vx + vxR) * 0.5, y: (vy + vyR) * 0.5 }; // Top Mid
+                                const b = { x: (vxR + vxDD) * 0.5, y: (vyR + vyDD) * 0.5 }; // Right Mid
+                                const c = { x: (vxD + vxDD) * 0.5, y: (vyD + vyDD) * 0.5 }; // Bot Mid
+                                const d = { x: (vx + vxD) * 0.5, y: (vy + vyD) * 0.5 }; // Left Mid
+
+                                ctx.beginPath();
+                                switch (cIdx) {
+                                    case 1: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                                    case 2: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
+                                    case 3: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
+                                    case 4: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
+                                    case 5: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                                    case 6: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
+                                    case 7: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
+                                    case 8: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
+                                    case 9: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
+                                    case 10: ctx.moveTo(a.x, a.y); ctx.lineTo(d.x, d.y); ctx.moveTo(b.x, b.y); ctx.lineTo(c.x, c.y); break;
+                                    case 11: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
+                                    case 12: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
+                                    case 13: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
+                                    case 14: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                                }
+                                ctx.stroke();
+                            }
                         }
                     }
                 }
-                ctx.stroke();
             }
         });
     };
@@ -911,25 +1135,67 @@
 
     const renderNebula = (rgb) => {
         ctx.globalCompositeOperation = 'lighter';
-        layers.forEach(l => {
-            const count = l.cols * l.rows;
-            for (let i = 0; i < count; i += 4) {
-                const e = l.rawMeta[i * 2] + l.rawMeta[i * 2 + 1];
-                if (e > 0.1) {
-                    const base = i * 6;
-                    const x = l.rawNodes[base];
-                    const y = l.rawNodes[base + 1];
-                    // Clamp radius so it doesn't explode infinitely
-                    const radius = 20 + Math.min(e, 3.0) * 40;
-                    const alpha = Math.min(1.0, e * 0.15); // Lower alpha mul
 
-                    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
-                    grad.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-                    grad.addColorStop(1, `rgba(${rgb}, 0)`);
-                    ctx.fillStyle = grad;
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius, 0, Math.PI * 2);
-                    ctx.fill();
+        const STEPS = 2; // 2x subdivision
+
+        layers.forEach(l => {
+            const { cols, rows, rawNodes, rawMeta } = l;
+
+            for (let cx = 0; cx < cols - 1; cx++) {
+                for (let cy = 0; cy < rows - 1; cy++) {
+                    const idx = cx * rows + cy;
+                    const right = idx + rows;
+                    const down = idx + 1;
+                    const diag = idx + rows + 1;
+
+                    // Node Data
+                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                    const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1];
+
+                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                    const e2 = rawMeta[right * 2] + rawMeta[right * 2 + 1];
+
+                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                    const e3 = rawMeta[down * 2] + rawMeta[down * 2 + 1];
+
+                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                    const e4 = rawMeta[diag * 2] + rawMeta[diag * 2 + 1];
+
+                    const lerp = (a, b, t) => a + (b - a) * t;
+
+                    // Skip empty quads
+                    if (e1 < 0.1 && e2 < 0.1 && e3 < 0.1 && e4 < 0.1) continue;
+
+                    for (let sx = 0; sx < STEPS; sx++) {
+                        for (let sy = 0; sy < STEPS; sy++) {
+                            const tx = sx / STEPS;
+                            const ty = sy / STEPS;
+
+                            // Interpolate Position
+                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+                            const finalX = lerp(xt, xb, ty);
+                            const finalY = lerp(yt, yb, ty);
+
+                            // Interpolate Energy
+                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+                            const finalEnergy = lerp(et, eb, ty);
+
+                            if (finalEnergy > 0.1) {
+                                // Clamp radius so it doesn't explode infinitely
+                                const radius = 10 + Math.min(finalEnergy, 3.0) * 20; // Smaller radius for density
+                                const alpha = Math.min(1.0, finalEnergy * 0.15);
+
+                                const grad = ctx.createRadialGradient(finalX, finalY, 0, finalX, finalY, radius);
+                                grad.addColorStop(0, `rgba(${rgb}, ${alpha})`);
+                                grad.addColorStop(1, `rgba(${rgb}, 0)`);
+                                ctx.fillStyle = grad;
+                                ctx.beginPath();
+                                ctx.arc(finalX, finalY, radius, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        }
+                    }
                 }
             }
         });
