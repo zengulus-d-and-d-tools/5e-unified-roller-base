@@ -294,44 +294,22 @@
         });
     };
 
-    const processConnection = (layer, i1, i2, isNeural) => {
-        const { rawNodes, rawMeta, buckets, shockBucket } = layer;
-        const base1 = i1 * 6; const base2 = i2 * 6;
-        const x1 = rawNodes[base1]; const y1 = rawNodes[base1 + 1];
-        const x2 = rawNodes[base2]; const y2 = rawNodes[base2 + 1];
 
-        const s1 = rawMeta[i1 * 2 + 1]; const s2 = rawMeta[i2 * 2 + 1];
-        const avgShock = (s1 + s2) * 0.5;
 
-        // Neural mode shows faint network always, others optimize
-        if (!isNeural && activity < 0.01 && avgShock < 0.01) return;
-
-        const e1 = rawMeta[i1 * 2]; const e2 = rawMeta[i2 * 2];
-        let moveVis = (e1 + e2) * (isNeural ? CONFIG.TRAIL_SENSITIVITY * 4 : CONFIG.TRAIL_SENSITIVITY);
-        if (isNeural) moveVis += 0.05;
-
-        const combinedAlpha = (moveVis * (isNeural ? 1.0 : activity)) + avgShock;
-
-        if (combinedAlpha > CONFIG.VISIBILITY_CUTOFF || isNeural) {
-            if (combinedAlpha > 0.8) {
-                shockBucket.push(x1, y1, x2, y2);
-            } else {
-                let bucketIdx = Math.floor(Math.min(1.0, combinedAlpha) * 20);
-                if (bucketIdx > 0 && bucketIdx < buckets.length) buckets[bucketIdx].push(x1, y1, x2, y2);
-            }
-        }
-    };
-
-    const drawBuckets = (layer, rgb, lineWidth, shockWidth) => {
+    const drawBuckets = (ctx, rgb, buckets, shockBucket) => {
         const baseColor = `rgba(${rgb}, `;
         const shockColorStr = `rgba(${rgb}, 0.9)`;
-        ctx.lineWidth = lineWidth;
-        const BUCKETS = 21;
+        // ctx.lineWidth is handled by caller or defaults, specifically 1.0 usually
+        // But renderField relies on this function to draw fading lines.
+
+        // Buckets loop
+        const BUCKETS = buckets.length;
         for (let b = 1; b < BUCKETS; b++) {
-            const list = layer.buckets[b];
+            const list = buckets[b];
             if (list.length === 0) continue;
             const alpha = b * 0.05;
             ctx.strokeStyle = baseColor + alpha + ")";
+            ctx.lineWidth = 1;
             ctx.beginPath();
             for (let i = 0; i < list.length; i += 4) {
                 ctx.moveTo(list[i], list[i + 1]);
@@ -339,13 +317,15 @@
             }
             ctx.stroke();
         }
-        if (layer.shockBucket.length > 0) {
+
+        // Shock bucket
+        if (shockBucket.length > 0) {
             ctx.strokeStyle = shockColorStr;
-            ctx.lineWidth = shockWidth;
+            ctx.lineWidth = 2; // Hardcoded shock width
             ctx.beginPath();
-            for (let i = 0; i < layer.shockBucket.length; i += 4) {
-                ctx.moveTo(layer.shockBucket[i], layer.shockBucket[i + 1]);
-                ctx.lineTo(layer.shockBucket[i + 2], layer.shockBucket[i + 3]);
+            for (let i = 0; i < shockBucket.length; i += 4) {
+                ctx.moveTo(shockBucket[i], shockBucket[i + 1]);
+                ctx.lineTo(shockBucket[i + 2], shockBucket[i + 3]);
             }
             ctx.stroke();
         }
@@ -586,15 +566,17 @@
             ctx.shadowBlur = 0;
             ctx.lineWidth = 1;
         });
-    }; const renderGrid = (rgb) => {
-        ctx.strokeStyle = `rgba(${rgb}, 0.2)`; // Lower alpha for density
-        ctx.lineWidth = 0.5; // Thinner lines for high density
+    };
+
+    const renderGrid = (rgb) => {
+        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
         ctx.beginPath();
 
         const STEPS = 4; // 4x subdivision = 7.5px virtual resolution
 
         layers.forEach(layer => {
-            const { cols, rows, rawNodes } = layer;
+            const { cols, rows, rawNodes, rawMeta } = layer;
+            // Iterate cols-1, rows-1 to allow interpolation
             for (let cx = 0; cx < cols - 1; cx++) {
                 for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
@@ -602,44 +584,66 @@
                     const down = idx + 1;
                     const diag = idx + rows + 1;
 
-                    // Cell Corners
-                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1]; // TL
-                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1]; // TR
-                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1]; // BL
-                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1]; // BR
+                    // Node Data
+                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                    const e1 = rawMeta[idx * 2]; const s1 = rawMeta[idx * 2 + 1];
 
-                    // Draw Top Edge and Left Edge (Main Grid)
-                    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-                    ctx.moveTo(x1, y1); ctx.lineTo(x3, y3);
+                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                    const e2 = rawMeta[right * 2]; const s2 = rawMeta[right * 2 + 1];
+
+                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                    const e3 = rawMeta[down * 2]; const s3 = rawMeta[down * 2 + 1];
+
+                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                    const e4 = rawMeta[diag * 2]; const s4 = rawMeta[diag * 2 + 1];
 
                     // Check for Detail (Greebling)
                     // 1. Deterministic visual hash (approx 15% of cells)
                     const isGreeble = ((cx * 7 + cy * 11) % 7 === 0);
                     // 2. Local Energy
-                    const energy = layer.rawMeta[idx * 2];
-                    const shock = layer.rawMeta[idx * 2 + 1];
+                    const energy = e1;
+                    const shock = s1;
                     const isActive = (energy > 0.1 || shock > 0.05);
 
+                    // Always draw the main corners (Base Grid)
+                    if (s1 > 0.01 || e1 > 0.01 || isGreeble) {
+                        const size = 1 + (e1 + s1) * 3;
+                        ctx.moveTo(x1, y1);
+                        ctx.arc(x1, y1, size, 0, Math.PI * 2);
+                    }
+
                     if (isGreeble || isActive) {
+                        const lerp = (a, b, t) => a + (b - a) * t;
+
                         // Internal Subdivision (Bilinear Interpolation)
-                        for (let s = 1; s < STEPS; s++) {
-                            const t = s / STEPS;
+                        for (let sx = 0; sx < STEPS; sx++) {
+                            for (let sy = 0; sy < STEPS; sy++) {
+                                if (sx === 0 && sy === 0) continue; // Skip TL
+                                const tx = sx / STEPS;
+                                const ty = sy / STEPS;
 
-                            // Vertical Lines (Lerp Top to Bot)
-                            const tx = x1 + (x2 - x1) * t; const ty = y1 + (y2 - y1) * t;
-                            const bx = x3 + (x4 - x3) * t; const by = y3 + (y4 - y3) * t;
-                            ctx.moveTo(tx, ty); ctx.lineTo(bx, by);
+                                // Interpolate Position
+                                const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+                                const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+                                const finalX = lerp(xt, xb, ty);
+                                const finalY = lerp(yt, yb, ty);
 
-                            // Horizontal Lines (Lerp Left to Right)
-                            const lx = x1 + (x3 - x1) * t; const ly = y1 + (y3 - y1) * t;
-                            const rx = x2 + (x4 - x2) * t; const ry = y2 + (y4 - y2) * t;
-                            ctx.moveTo(lx, ly); ctx.lineTo(rx, ry);
+                                // Interpolate Energy
+                                const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+                                const finalEnergy = lerp(et, eb, ty);
+                                const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
+                                const finalShock = lerp(st, sb, ty);
+
+                                const size = 0.5 + (finalEnergy + finalShock) * 2;
+                                ctx.moveTo(finalX, finalY);
+                                ctx.arc(finalX, finalY, size, 0, Math.PI * 2);
+                            }
                         }
                     }
                 }
             }
         });
-        ctx.stroke();
+        ctx.fill();
     };
 
     const renderVector = (rgb) => {
