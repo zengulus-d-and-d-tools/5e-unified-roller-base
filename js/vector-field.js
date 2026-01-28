@@ -106,73 +106,7 @@
 
     // NEBULA STATE (Optimized Cloud Layers)
     const nebulaParticles = [];
-    let cloudSprite = null;
 
-    const createCloudSprite = (r, g, b) => {
-        const size = 256;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        const half = size / 2;
-
-        // Base soft glow
-        const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-        grad.addColorStop(0, `rgba(${r},${g},${b}, 0.1)`);
-        grad.addColorStop(0.6, `rgba(${r},${g},${b}, 0.02)`);
-        grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        // "Noise" circles
-        // Draw many small, semi-transparent blobs clustered around the center
-        // to give a "fluffy" texture rather than a perfect sphere.
-        const noiseSteps = 40;
-        for (let i = 0; i < noiseSteps; i++) {
-            const rx = half + (Math.random() - 0.5) * size * 0.5;
-            const ry = half + (Math.random() - 0.5) * size * 0.5;
-            const dist = Math.hypot(rx - half, ry - half);
-
-            // Bias towards center
-            if (dist > half * 0.7) continue;
-
-            const rRad = (Math.random() * 30 + 10) * (1 - dist / half); // Smaller at edges
-            const alpha = (Math.random() * 0.05 + 0.01);
-
-            const nGrad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rRad);
-            nGrad.addColorStop(0, `rgba(${r},${g},${b}, ${alpha})`);
-            nGrad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
-
-            ctx.fillStyle = nGrad;
-            ctx.beginPath();
-            ctx.arc(rx, ry, rRad, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        return canvas;
-    };
-
-    const initNebula = () => {
-        nebulaParticles.length = 0;
-        // Current accent color
-        const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
-        cloudSprite = createCloudSprite(rgb[0], rgb[1], rgb[2]); // Re-generate sprite with accent color
-
-        const count = 60; // Few large particles for performance
-        for (let i = 0; i < count; i++) {
-            nebulaParticles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                vx: 0,
-                vy: 0,
-                radius: 100 + Math.random() * 200,
-                layer: 0.5 + Math.random() * 0.5, // Parallax depth (0.5 to 1.0)
-                alpha: Math.random(),
-                targetAlpha: Math.random() * 0.8 + 0.2, // NEW
-                rotation: Math.random() * Math.PI * 2
-            });
-        }
-    };
 
     // =========================================
     //             CORE FUNCTIONS
@@ -1217,16 +1151,79 @@
         ctx.fill(); ctx.stroke();
     };
 
+    // Generate a unique, stochastic cloud texture for every single particle
+    const generateCloudTexture = (r, g, b) => {
+        const size = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const half = size / 2;
+
+        // Base soft glow (randomized intensity)
+        const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, `rgba(${r},${g},${b}, ${0.1 + Math.random() * 0.05})`);
+        grad.addColorStop(0.6, `rgba(${r},${g},${b}, 0.02)`);
+        grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+
+        // "Noise" circles - Randomized count and spread
+        const noiseSteps = 30 + Math.random() * 30; // 30-60 blobs
+        for (let i = 0; i < noiseSteps; i++) {
+            const rx = half + (Math.random() - 0.5) * size * 0.6;
+            const ry = half + (Math.random() - 0.5) * size * 0.6;
+
+            const dist = Math.hypot(rx - half, ry - half);
+            if (dist > half * 0.75) continue;
+
+            const rRad = (Math.random() * 40 + 15) * (1 - dist / half);
+            const alpha = (Math.random() * 0.06 + 0.02);
+
+            const nGrad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rRad);
+            nGrad.addColorStop(0, `rgba(${r},${g},${b}, ${alpha})`);
+            nGrad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+
+            ctx.fillStyle = nGrad;
+            ctx.beginPath();
+            ctx.arc(rx, ry, rRad, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        return canvas;
+    };
+
+    const initNebula = () => {
+        nebulaParticles.length = 0;
+        const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
+
+        const count = 60;
+        for (let i = 0; i < count; i++) {
+            nebulaParticles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: 0,
+                vy: 0,
+                radius: 100 + Math.random() * 200,
+                layer: 0.5 + Math.random() * 0.5,
+                alpha: Math.random(),
+                targetAlpha: Math.random() * 0.8 + 0.2,
+                rotation: Math.random() * Math.PI * 2,
+                sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
+            });
+        }
+    };
+
     const spawnNebulaPulse = (x, y) => {
-        // 1. Spawn new dense clouds at click
+        const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
+
         // 1. Spawn new dense clouds in a ring around click (jittered)
         for (let i = 0; i < 12; i++) {
             const spawnAngle = Math.random() * Math.PI * 2;
-            const spawnDist = 100 + Math.random() * 80; // Ring
+            const spawnDist = 100 + Math.random() * 80;
             const sx = x + Math.cos(spawnAngle) * spawnDist;
             const sy = y + Math.sin(spawnAngle) * spawnDist;
 
-            const moveAngle = spawnAngle; // Move outwards
+            const moveAngle = spawnAngle;
             const speed = 1 + Math.random() * 3;
 
             nebulaParticles.push({
@@ -1234,14 +1231,15 @@
                 y: sy,
                 vx: Math.cos(moveAngle) * speed,
                 vy: Math.sin(moveAngle) * speed,
-                radius: 60 + Math.random() * 120, // Slightly bigger
+                radius: 60 + Math.random() * 120,
                 layer: 0.5 + Math.random() * 0.5,
                 alpha: 0,
-                targetAlpha: Math.random() * 0.5 + 0.5, // Brighter (min 0.5)
-                fadeInSpeed: 0.08, // Faster fade in
+                targetAlpha: Math.random() * 0.5 + 0.5,
+                fadeInSpeed: 0.08,
                 rotation: Math.random() * Math.PI * 2,
                 fading: false,
-                fadeCounter: 30
+                fadeCounter: 30,
+                sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
             });
         }
 
@@ -1253,15 +1251,15 @@
             if (dist < 400) {
                 const force = (400 - dist) / 400;
                 const angle = Math.atan2(dy, dx);
-                const pushStr = 15 * force; // Strong push
+                const pushStr = 15 * force;
                 p.vx += Math.cos(angle) * pushStr;
                 p.vy += Math.sin(angle) * pushStr;
             }
         });
     };
 
-    const renderNebula = (rgb) => {
-        if (!cloudSprite) initNebula();
+    const renderNebula = (rgbString) => {
+        if (nebulaParticles.length === 0) initNebula();
 
         ctx.globalCompositeOperation = 'screen';
 
@@ -1270,11 +1268,12 @@
         const rows = layer0.rows;
         const MAX_PARTICLES = 120;
         const TARGET_PARTICLES = 60;
+        const rgbVals = rgbString.split(',').map(n => parseInt(n.trim()));
 
-        // Replenish natural clouds if low (drifting in from edges)
+        // Replenish natural clouds if low
         if (nebulaParticles.length < TARGET_PARTICLES) {
-            if (Math.random() < 0.1) { // Throttle spawning
-                const edge = Math.floor(Math.random() * 4); // 0:T, 1:R, 2:B, 3:L
+            if (Math.random() < 0.1) {
+                const edge = Math.floor(Math.random() * 4);
                 let nx, ny, nvx, nvy;
                 switch (edge) {
                     case 0: nx = Math.random() * width; ny = -100; nvx = 0; nvy = 1; break;
@@ -1288,7 +1287,8 @@
                     layer: 0.5 + Math.random() * 0.5,
                     alpha: 0, targetAlpha: Math.random() * 0.6 + 0.4, fadeInSpeed: 0.01,
                     rotation: Math.random() * Math.PI * 2,
-                    fading: false, fadeCounter: 20
+                    fading: false, fadeCounter: 20,
+                    sprite: generateCloudTexture(rgbVals[0], rgbVals[1], rgbVals[2]) // Unique texture
                 });
             }
         }
@@ -1299,68 +1299,55 @@
             // --- Physics ---
             let cx = Math.floor((p.x + spacing) / spacing);
             let cy = Math.floor((p.y + spacing) / spacing);
-
-            // Clamp for grid lookup
             if (cx < 0) cx = 0; if (cx >= layer0.cols) cx = layer0.cols - 1;
             if (cy < 0) cy = 0; if (cy >= layer0.rows) cy = layer0.rows - 1;
 
             const idx = cx * rows + cy;
             const baseIdx = idx * 6;
 
-            // Flow 
             const fieldVx = layer0.rawNodes[baseIdx + 2];
             const fieldVy = layer0.rawNodes[baseIdx + 3];
             const energy = layer0.rawMeta[idx * 2];
 
-            p.vx += (fieldVx - p.vx) * 0.02; // Gentle drag
+            p.vx += (fieldVx - p.vx) * 0.02;
             p.vy += (fieldVy - p.vy) * 0.02;
 
             p.x += p.vx * p.layer;
             p.y += p.vy * p.layer;
 
-            // Natural Drift
             p.x += (Math.random() - 0.5) * 0.1;
             p.y += (Math.random() - 0.5) * 0.1;
 
+            p.rotation += (p.vx + p.vy) * 0.005;
+
             // --- Life Cycle ---
+            if (p.alpha < p.targetAlpha && !p.fading) p.alpha += p.fadeInSpeed || 0.01;
 
-            // Fade In
-            if (p.alpha < p.targetAlpha && !p.fading) {
-                p.alpha += p.fadeInSpeed || 0.01;
-            }
-
-            // Check Bounds
             const buffer = 250;
             const outOfBounds = (p.x < -buffer || p.x > width + buffer || p.y < -buffer || p.y > height + buffer);
-
-            // If out of bounds, fade out
-            // Also cap max particles by fading oldest/furthest? 
-            // Simplified: If off screen, die.
-            if (outOfBounds) {
-                p.fading = true;
-            }
-
-            // Check Cap
-            if (nebulaParticles.length > MAX_PARTICLES && !p.fading && Math.random() < 0.01) {
-                // Randomly thin out herd if we are wildly overpopulated
-                p.fading = true;
-            }
+            if (outOfBounds) p.fading = true;
+            if (nebulaParticles.length > MAX_PARTICLES && !p.fading && Math.random() < 0.01) p.fading = true;
 
             if (p.fading) {
                 p.fadeCounter--;
                 p.alpha *= 0.9;
                 if (p.fadeCounter <= 0 || p.alpha < 0.01) {
                     nebulaParticles.splice(i, 1);
-                    continue; // Next particle
+                    continue;
                 }
             }
 
             // Draw
             const size = p.radius * p.layer;
-            const finalAlpha = p.alpha * (0.8 + energy * 2.5); // Brighter base and energy reaction
+            const finalAlpha = p.alpha * (0.8 + energy * 2.5);
 
             ctx.globalAlpha = Math.min(1, Math.max(0, finalAlpha));
-            ctx.drawImage(cloudSprite, p.x - size / 2, p.y - size / 2, size, size);
+
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation);
+            if (p.sprite) ctx.drawImage(p.sprite, -size / 2, -size / 2, size, size);
+            ctx.restore();
         }
 
         ctx.globalAlpha = 1.0;
