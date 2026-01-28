@@ -509,12 +509,13 @@
         ctx.lineWidth = 1.5;
 
         // BOID CONSTANTS
-        const perception = 60;
-        const protection = 15;
-        const matching = 0.05;
-        const centering = 0.005; // Cohesion strength 
-        const avoid = 0.15;      // Separation strength (increased slightly)
-        const turn = 0.8;        // Mouse turn strength
+        // BOID CONSTANTS
+        const perception = 100;  // Wide view
+        const protection = 10;   // Low protection
+        const matching = 0.02;   // VERY low matching = slow turn alignment (high inertia)
+        const centering = 0.0005;// Extremely low centering = wide, swooping turns
+        const avoid = 0.02;      // Low avoidance
+        const turn = 0.05;       // VERY slow mouse turn = heavy object feel
 
         boids.forEach(b => {
             // 1. Separation / Alignment / Cohesion
@@ -610,7 +611,7 @@
             // History for trails
             if (!b.history) b.history = [];
             b.history.push({ x: b.x, y: b.y });
-            if (b.history.length > 20) b.history.shift(); // Trail length
+            if (b.history.length > 50) b.history.shift(); // Longer Trail length
 
             if (b.x < 0) { b.x = width; b.history = []; }
             if (b.x > width) { b.x = 0; b.history = []; }
