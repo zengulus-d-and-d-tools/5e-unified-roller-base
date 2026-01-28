@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player Dashboard</title>
+    <title>Task Force Dashboard</title>
     <style>
         :root {
             --bg: #0f0f13;
@@ -17,18 +17,6 @@
             --glass: blur(12px);
             --gold: #f1c40f;
             --danger: #ff6b6b;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         body {
@@ -46,6 +34,7 @@
             overflow-x: hidden;
         }
 
+        /* --- HEADER --- */
         .header-bar {
             position: fixed;
             top: 0;
@@ -55,137 +44,136 @@
             background: rgba(15, 15, 19, 0.95);
             border-bottom: 1px solid var(--border);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
+            justify-content: center;
             padding: 0 20px;
             z-index: 1000;
             backdrop-filter: var(--glass);
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
         }
 
+        .header-content {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
         .container {
             width: 100%;
-            max-width: 800px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            animation: fadeIn 0.5s ease-out;
+            max-width: 1200px;
             position: relative;
             z-index: 2;
         }
 
+        /* --- GRID --- */
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            width: 100%;
+        }
+
         .card {
             background: var(--card-bg);
-            padding: 24px;
+            padding: 20px;
             border-radius: 12px;
             border: 1px solid var(--border);
-            position: relative;
             backdrop-filter: blur(8px);
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s;
-        }
-
-        .grid-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .field-group {
+            transition: transform 0.2s, border-color 0.2s;
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-bottom: 20px;
+            gap: 15px;
         }
 
-        .mini-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #888;
-            font-weight: bold;
-            display: block;
-        }
-
-        input[type="text"],
-        input[type="number"],
-        textarea {
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            color: #fff;
-            padding: 12px;
-            border-radius: 6px;
-            width: 100%;
-            box-sizing: border-box;
-            font-size: 1rem;
-            font-family: inherit;
-            transition: 0.2s;
-        }
-
-        input:focus,
-        textarea:focus {
-            outline: none;
+        .card:hover {
             border-color: var(--accent);
-            box-shadow: 0 0 10px var(--accent-glow);
+            transform: translateY(-2px);
         }
 
-        .collapsible {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-
-        .collapsible-header {
-            padding: 15px;
-            cursor: pointer;
+        .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 5px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .stat-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: 0.2s;
+        }
+
+        .stat-box:hover {
+            border-color: var(--accent);
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
             font-weight: bold;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .stat-val {
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: #fff;
+            width: 100%;
+            background: transparent;
+            border: none;
+            text-align: center;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .stat-val:focus {
             color: var(--accent);
-            user-select: none;
-            transition: background 0.2s;
+            outline: none;
         }
 
-        .collapsible-header:hover {
+        .input-name {
+            background: transparent;
+            border: none;
+            color: var(--accent);
+            font-size: 1.1rem;
+            font-weight: 900;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .input-name:focus {
+            outline: none;
             background: rgba(255, 255, 255, 0.05);
-        }
-
-        .collapsible-content {
-            padding: 0 15px;
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out, padding 0.3s ease;
-        }
-
-        .collapsible.active .collapsible-content {
-            max-height: 1000px;
-            padding: 15px;
-        }
-
-        .collapsible-header::after {
-            content: '▼';
-            font-size: 0.8rem;
-            transition: transform 0.3s;
-        }
-
-        .collapsible.active .collapsible-header::after {
-            transform: rotate(180deg);
+            border-radius: 4px;
         }
 
         .btn {
             background: rgba(255, 255, 255, 0.05);
             color: var(--text);
             border: 1px solid var(--border);
-            padding: 10px 20px;
+            padding: 8px 14px;
             cursor: pointer;
             border-radius: 6px;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             transition: 0.2s;
             font-weight: 600;
-            text-decoration: none;
-            display: inline-block;
         }
 
         .btn:hover {
@@ -194,14 +182,30 @@
             color: #fff;
         }
 
-        h2 {
-            margin: 0 0 20px 0;
-            color: var(--accent);
-            text-transform: uppercase;
-            font-size: 1.1rem;
-            letter-spacing: 1px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 10px;
+        .btn-add {
+            background: var(--accent);
+            color: #000;
+            font-weight: bold;
+            border: none;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .btn-add:hover {
+            background: #fff;
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
+
+        .btn-del {
+            color: var(--danger);
+            border-color: transparent;
+            background: transparent;
+            font-size: 1.2rem;
+            padding: 0 5px;
+        }
+
+        .btn-del:hover {
+            color: #fff;
+            background: var(--danger);
         }
 
         canvas#vector-cloud {
@@ -213,12 +217,6 @@
             z-index: 0;
             pointer-events: none;
         }
-
-        @media (max-width: 600px) {
-            .grid-2 {
-                grid-template-columns: 1fr;
-            }
-        }
     </style>
 </head>
 
@@ -226,216 +224,143 @@
     <canvas id="vector-cloud"></canvas>
 
     <div class="header-bar">
-        <div>
-            <a href="tools.html" class="btn" style="padding: 6px 12px; margin-right: 10px;">&larr; Portal</a>
-            <a href="hub.html" class="btn" style="padding: 6px 12px;">Hub</a>
-        </div>
-        <div>
-            <span style="color:var(--text); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Player Dashboard</span>
-        </div>
-        <div style="width: 120px; text-align: right;">
-            <!-- Placeholder for alignment -->
+        <div class="header-content">
+            <div>
+                <a href="tools.html"
+                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
+                    Portal</a>
+                <a href="hub.html"
+                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">Hub</a>
+                <span style="color:#444;">|</span>
+                <span
+                    style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Task
+                    Force Dashboard</span>
+            </div>
+            <div>
+                <button class="btn btn-add" onclick="addPlayer()">+ Add Player</button>
+            </div>
         </div>
     </div>
 
     <div class="container">
-        <div class="card">
-            <h2>Character Identity</h2>
-            <div class="grid-2">
-                <div class="field-group">
-                    <span class="mini-label">Player Name</span>
-                    <input type="text" id="playerName" placeholder="Enter player name..." onchange="saveData()">
-                </div>
-                <div class="field-group">
-                    <span class="mini-label">Character Name</span>
-                    <input type="text" id="charName" placeholder="Enter character name..." onchange="saveData()">
-                </div>
-            </div>
+        <div class="player-grid" id="playerGrid">
+            <!-- Cards Injected Here -->
         </div>
-
-        <div class="card">
-            <h2>Essential Stats</h2>
-            <div class="grid-2">
-                <div class="field-group">
-                    <span class="mini-label">Armor Class (AC)</span>
-                    <input type="number" id="ac" placeholder="10" onchange="saveData()">
-                </div>
-                <div class="field-group">
-                    <span class="mini-label">Passive Perception</span>
-                    <input type="number" id="passivePerception" placeholder="10" onchange="saveData()">
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Character Details</h2>
-            
-            <div class="collapsible" id="colStrong">
-                <div class="collapsible-header" onclick="toggleCollapsible('colStrong')">Strong Points</div>
-                <div class="collapsible-content">
-                    <textarea id="strongPoints" rows="4" placeholder="What is your character good at?" onchange="saveData()"></textarea>
-                </div>
-            </div>
-
-            <div class="collapsible" id="colWeak">
-                <div class="collapsible-header" onclick="toggleCollapsible('colWeak')">Weak Points</div>
-                <div class="collapsible-content">
-                    <textarea id="weakPoints" rows="4" placeholder="What are your character's vulnerabilities?" onchange="saveData()"></textarea>
-                </div>
-            </div>
-
-            <div class="collapsible" id="colGoals">
-                <div class="collapsible-header" onclick="toggleCollapsible('colGoals')">Short & Long Term Goals</div>
-                <div class="collapsible-content">
-                    <textarea id="goals" rows="4" placeholder="What does your character want to achieve?" onchange="saveData()"></textarea>
-                </div>
-            </div>
+        <div id="emptyState" style="text-align: center; color: #666; margin-top: 50px; display: none;">
+            <h2>No Active Agents</h2>
+            <p>Add a player to begin monitoring.</p>
         </div>
     </div>
 
     <script>
-        const STORAGE_KEY = 'ravnicaPlayerDashboard';
+        const STORAGE_KEY = 'ravnicaHubV3_2';
+        let state = {
+            rep: {},
+            heat: 0,
+            players: [],
+            case: {}
+        };
 
-        function toggleCollapsible(id) {
-            document.getElementById(id).classList.toggle('active');
-        }
-
-        function saveData() {
-            const data = {
-                playerName: document.getElementById('playerName').value,
-                charName: document.getElementById('charName').value,
-                ac: document.getElementById('ac').value,
-                passivePerception: document.getElementById('passivePerception').value,
-                strongPoints: document.getElementById('strongPoints').value,
-                weakPoints: document.getElementById('weakPoints').value,
-                goals: document.getElementById('goals').value
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        }
-
-        function loadData() {
+        const loadState = () => {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved) {
-                const data = JSON.parse(saved);
-                document.getElementById('playerName').value = data.playerName || '';
-                document.getElementById('charName').value = data.charName || '';
-                document.getElementById('ac').value = data.ac || '';
-                document.getElementById('passivePerception').value = data.passivePerception || '';
-                document.getElementById('strongPoints').value = data.strongPoints || '';
-                document.getElementById('weakPoints').value = data.weakPoints || '';
-                document.getElementById('goals').value = data.goals || '';
+                try {
+                    state = JSON.parse(saved);
+                } catch (e) {
+                    console.error("Save Error", e);
+                }
             }
-        }
+            render();
+        };
 
-        window.onload = loadData;
+        const save = () => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        };
 
-        // --- ADVANCED VECTOR FIELD SCRIPT ---
-        (function () {
-            const canvas = document.getElementById('vector-cloud');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            let width, height;
-
-            const mouse = { x: -999, y: -999, active: false, down: false };
-            let lastScrollY = window.scrollY;
-            let scrollVelocity = 0;
-
-            const SPACING = 30;
-            const FIELD_RADIUS = 200;
-            let accentColor = '#4ecdc4';
-
-            const updateAccent = () => {
-                const style = getComputedStyle(document.documentElement);
-                accentColor = style.getPropertyValue('--accent').trim();
-            };
-
-            const resize = () => {
-                width = canvas.width = window.innerWidth;
-                height = canvas.height = window.innerHeight;
-                updateAccent();
-            };
-
-            window.addEventListener('resize', resize);
-            window.addEventListener('mousemove', e => {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
-                mouse.active = true;
+        const addPlayer = () => {
+            state.players.push({
+                name: "New Agent",
+                ac: 10,
+                hp: 10,
+                pp: 10,
+                dc: 10,
+                dp: 2,
+                projectClock: 0,
+                projectName: "",
+                projectReward: ""
             });
-            window.addEventListener('mousedown', () => mouse.down = true);
-            window.addEventListener('mouseup', () => mouse.down = false);
+            save();
+            render();
+        };
 
-            window.addEventListener('scroll', () => {
-                const currentY = window.scrollY;
-                const delta = currentY - lastScrollY;
-                scrollVelocity = delta;
-                lastScrollY = currentY;
+        const updatePlayer = (idx, field, val) => {
+            state.players[idx][field] = val;
+            save();
+        };
+
+        const deletePlayer = (idx) => {
+            if (confirm("Disavow this agent? (Delete Player)")) {
+                state.players.splice(idx, 1);
+                save();
+                render();
+            }
+        };
+
+        const render = () => {
+            const grid = document.getElementById('playerGrid');
+            const empty = document.getElementById('emptyState');
+            grid.innerHTML = '';
+
+            if (!state.players || state.players.length === 0) {
+                empty.style.display = 'block';
+                return;
+            }
+            empty.style.display = 'none';
+
+            state.players.forEach((p, i) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                <div class="card-header">
+                    <input type="text" class="input-name" value="${p.name || ''}" 
+                        onchange="updatePlayer(${i}, 'name', this.value)" placeholder="AGENT NAME">
+                    <button class="btn btn-del" onclick="deletePlayer(${i})">&times;</button>
+                </div>
+                
+                <div class="stat-grid">
+                    <div class="stat-box">
+                        <span class="stat-label">AC</span>
+                        <input type="number" class="stat-val" value="${p.ac || 0}" 
+                            onchange="updatePlayer(${i}, 'ac', parseInt(this.value))">
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Passive Perc</span>
+                        <input type="number" class="stat-val" value="${p.pp || 0}" 
+                            style="color: ${p.pp >= 15 ? 'var(--accent)' : 'inherit'}"
+                            onchange="updatePlayer(${i}, 'pp', parseInt(this.value))">
+                    </div>
+                    <div class="stat-box">
+                        <span class="stat-label">Save DC</span>
+                        <input type="number" class="stat-val" value="${p.dc || 0}" 
+                            onchange="updatePlayer(${i}, 'dc', parseInt(this.value))">
+                    </div>
+                </div>
+
+                <div class="stat-box" style="margin-top: 5px; border-color: ${p.hp < 10 ? 'var(--danger)' : 'transparent'}">
+                    <span class="stat-label" style="color:${p.hp < 10 ? 'var(--danger)' : '#888'}">Hit Points</span>
+                    <input type="text" class="stat-val" value="${p.hp || 0}" 
+                        onchange="updatePlayer(${i}, 'hp', this.value)" placeholder="Max/Curr">
+                </div>
+            `;
+                grid.appendChild(card);
             });
+        };
 
-            resize();
+        // Init
+        document.addEventListener('DOMContentLoaded', loadState);
 
-            const animate = () => {
-                ctx.clearRect(0, 0, width, height);
-                scrollVelocity *= 0.9;
-                updateAccent();
-
-                if (!mouse.active && Math.abs(scrollVelocity) < 0.1) {
-                    requestAnimationFrame(animate);
-                    return;
-                }
-
-                const startX = Math.floor((mouse.x - FIELD_RADIUS) / SPACING) * SPACING;
-                const endX = Math.floor((mouse.x + FIELD_RADIUS) / SPACING) * SPACING;
-                const startY = Math.floor((mouse.y - FIELD_RADIUS) / SPACING) * SPACING;
-                const endY = Math.floor((mouse.y + FIELD_RADIUS) / SPACING) * SPACING;
-
-                const time = Date.now();
-
-                for (let gx = startX; gx <= endX; gx += SPACING) {
-                    for (let gy = startY; gy <= endY; gy += SPACING) {
-                        const dx = gx - mouse.x;
-                        const dy = gy - mouse.y;
-                        const distSq = dx * dx + dy * dy;
-
-                        if (distSq > FIELD_RADIUS * FIELD_RADIUS) continue;
-
-                        const dist = Math.sqrt(distSq);
-                        let alpha = dist < 40 ? (dist / 40) : 1 - ((dist - 40) / (FIELD_RADIUS - 40));
-                        alpha = Math.max(0, Math.min(1, alpha));
-
-                        if (alpha <= 0.01) continue;
-
-                        let angle = Math.atan2(dy, dx);
-                        if (mouse.down) angle += Math.sin(time * 0.05 + gx + gy) * 0.5;
-
-                        const windForce = -scrollVelocity * 0.05;
-                        if (Math.abs(windForce) > 0.01) {
-                            const vx = Math.cos(angle);
-                            const vy = Math.sin(angle);
-                            angle = Math.atan2(vy + windForce, vx);
-                        }
-
-                        const length = 14 * alpha;
-                        const tipX = gx + Math.cos(angle) * length;
-                        const tipY = gy + Math.sin(angle) * length;
-                        const thickness = length * 0.2;
-                        const perpX = -Math.sin(angle) * thickness;
-                        const perpY = Math.cos(angle) * thickness;
-
-                        ctx.fillStyle = accentColor;
-                        ctx.globalAlpha = alpha * 0.8;
-                        ctx.beginPath();
-                        ctx.moveTo(gx + perpX, gy + perpY);
-                        ctx.lineTo(gx - perpX, gy - perpY);
-                        ctx.lineTo(tipX, tipY);
-                        ctx.fill();
-                    }
-                }
-                requestAnimationFrame(animate);
-            };
-
-            animate();
-        })();
     </script>
+    <script src="js/vector-field.js"></script>
 </body>
 
 </html>
