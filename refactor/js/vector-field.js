@@ -98,6 +98,7 @@
                 vx: (Math.random() - 0.5) * 4,
                 vy: (Math.random() - 0.5) * 4,
                 angle: Math.random() * Math.PI * 2,
+                wanderTheta: Math.random() * Math.PI * 2,
                 history: []
             });
         }
@@ -573,7 +574,7 @@
                     }
                 } else {
                     // ORBIT with No Click
-                    if (dist < 100) { // Reduced from 400
+                    if (dist < 150) { // Reduced from 400
                         // Go towards a ring at radius 120
                         const targetRadius = 120;
                         const diff = dist - targetRadius;
@@ -586,8 +587,22 @@
                         // Tangential spin
                         b.vx += -(dy / dist) * turn * 0.8;
                         b.vy += (dx / dist) * turn * 0.8;
+                    } else {
+                        // WANDER (Smooth Randomness) when mouse is far
+                        if (!b.wanderTheta) b.wanderTheta = 0;
+                        b.wanderTheta += (Math.random() - 0.5) * 0.2; // Slowly change direction
+                        const wanderStrength = 0.05;
+                        b.vx += Math.cos(b.wanderTheta) * wanderStrength;
+                        b.vy += Math.sin(b.wanderTheta) * wanderStrength;
                     }
                 }
+            } else {
+                // WANDER (Smooth Randomness) when mouse is missing
+                if (!b.wanderTheta) b.wanderTheta = 0;
+                b.wanderTheta += (Math.random() - 0.5) * 0.2;
+                const wanderStrength = 0.05;
+                b.vx += Math.cos(b.wanderTheta) * wanderStrength;
+                b.vy += Math.sin(b.wanderTheta) * wanderStrength;
             }
 
             // 3. Limit Speed (Reduced Further)
