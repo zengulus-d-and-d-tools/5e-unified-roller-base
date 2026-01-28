@@ -605,7 +605,8 @@
 
                     // Check for Detail (Greebling)
                     // 1. Deterministic visual hash (approx 15% of cells)
-                    const isGreeble = ((cx * 7 + cy * 11) % 7 === 0);
+                    // Fix: Avoid multiples of the modulus (7) to prevent row banding
+                    const isGreeble = ((cx * 3 + cy * 5) % 7 === 0);
                     // 2. Local Energy
                     const energy = e1;
                     const shock = s1;
