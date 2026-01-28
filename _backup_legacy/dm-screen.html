@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ravnica Task Force: GM Screen v3</title>
+    <meta name="theme-color" content="#1e1e1e">
+
+    <style>
+        :root {
+            --bg: #0f0f13;
+            --card-bg: rgba(30, 30, 35, 0.6);
+            --panel-bg: rgba(22, 22, 26, 0.8);
+            --accent: #4ecdc4;
+            --accent-glow: rgba(78, 205, 196, 0.4);
+            --accent-dim: rgba(78, 205, 196, 0.1);
+            --gold: #f1c40f;
+            --danger: #ff6b6b;
+            --text: #e0e0e0;
+            --text-muted: #888;
+            --border: rgba(255, 255, 255, 0.1);
+            --glass: blur(12px);
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            color: var(--text);
+            padding: 80px 0 50px;
+            /* Top padding for fixed header */
+            margin: 0;
+            overscroll-behavior-y: none;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* --- STICKY HEADER --- */
+        .header-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(15, 15, 19, 0.95);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            z-index: 1000;
+            backdrop-filter: var(--glass);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .header-title {
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: var(--accent);
+            text-transform: uppercase;
+            font-size: 1.1rem;
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .header-sub {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        /* --- LAYOUT --- */
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-sizing: border-box;
+            position: relative;
+            z-index: 2;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .section-title {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .section-title:hover {
+            color: var(--text);
+        }
+
+        /* --- BUTTONS --- */
+        button {
+            border: none;
+            outline: none;
+            cursor: pointer;
+            user-select: none;
+            font-family: inherit;
+        }
+
+        .btn-gen {
+            background: var(--accent);
+            color: #0f0f13;
+            padding: 14px;
+            border-radius: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.95rem;
+            width: 100%;
+            transition: all 0.2s;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .btn-gen:hover {
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-gen:active {
+            transform: scale(0.98);
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .grid-2-tight {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .btn-small {
+            background: rgba(40, 40, 45, 0.6);
+            color: #ccc;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: 1px solid var(--border);
+            width: 100%;
+            transition: 0.2s;
+        }
+
+        .btn-small:hover {
+            border-color: var(--accent);
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- OUTPUT BOXES --- */
+        .output-box {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 6px;
+            padding: 0;
+            border: 1px solid var(--border);
+            min-height: 40px;
+            display: none;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .output-box.active {
+            display: block;
+        }
+
+        /* Dispatch Grid (Street Scene) */
+        .dispatch-grid {
+            display: grid;
+            grid-template-columns: 110px 1fr;
+            font-size: 0.9rem;
+        }
+
+        .dispatch-row {
+            display: contents;
+        }
+
+        .dispatch-label {
+            background: rgba(255, 255, 255, 0.05);
+            color: #888;
+            padding: 10px 15px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+        }
+
+        .dispatch-val {
+            padding: 10px 15px;
+            color: #fff;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+        }
+
+        .dispatch-val.highlight {
+            color: var(--accent);
+            font-weight: bold;
+            text-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .dispatch-val.alert {
+            color: var(--danger);
+        }
+
+        .dispatch-row:last-child .dispatch-label,
+        .dispatch-row:last-child .dispatch-val {
+            border-bottom: none;
+        }
+
+        /* Texture Output (New) */
+        .texture-out {
+            padding: 15px;
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #ccc;
+        }
+
+        .hl-txt {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .hl-ctx {
+            color: var(--gold);
+        }
+
+        .hl-state {
+            color: #fff;
+            font-style: italic;
+            border-bottom: 1px dashed #555;
+        }
+
+        /* Generic Output Text */
+        .text-output {
+            padding: 15px;
+        }
+
+        .out-main {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 6px;
+            line-height: 1.4;
+        }
+
+        .out-sub {
+            font-size: 0.9rem;
+            color: #bbb;
+            font-style: italic;
+        }
+
+        .out-heat {
+            color: var(--danger);
+        }
+
+        .out-good {
+            color: var(--accent);
+        }
+
+        /* --- ACCORDION & REFERENCE TABLES --- */
+        .accordion-content {
+            display: none;
+            margin-top: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .accordion-content.open {
+            display: block;
+            animation: slideDown 0.2s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .ref-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .ref-table th {
+            text-align: left;
+            color: #777;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 15px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .ref-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border);
+            color: #ccc;
+            vertical-align: top;
+            line-height: 1.4;
+        }
+
+        .ref-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .ref-hl {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .clue-type {
+            font-weight: bold;
+            color: #666;
+            display: block;
+            font-size: 0.7rem;
+            margin-bottom: 3px;
+            letter-spacing: 0.5px;
+        }
+
+        canvas#vector-cloud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="header-bar">
+        <div style="display:flex; align-items:center; gap:20px;">
+            <a href="tools.html"
+                style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
+                Portal</a>
+            <div>
+                <div class="header-title">Task Force Command</div>
+                <div class="header-sub">Ravnica Procedural Engine v3</div>
+            </div>
+        </div>
+        <div style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">⚖️</div>
+    </div>
+
+    <div class="container">
+
+        <div class="card">
+            <div class="section-title" style="cursor: default;">The Street (Moment-to-Moment)</div>
+            <button class="btn-gen" onclick="genStreetScene()">Generate Incident</button>
+            <div class="output-box" id="out-street">
+                <div class="dispatch-grid" id="dispatch-content">
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title" style="cursor: default;">Scene Texture (Combinatoric)</div>
+            <div class="grid-2-tight" style="margin-bottom:6px;">
+                <button class="btn-small" onclick="genTexture('struct')">🧱 Structure</button>
+                <button class="btn-small" onclick="genTexture('guts')">⚙️ Infrastructure</button>
+            </div>
+            <div class="grid-2-tight">
+                <button class="btn-small" onclick="genTexture('debris')">🥡 Debris</button>
+                <button class="btn-small" onclick="genTexture('atmos')">💡 Atmosphere</button>
+            </div>
+            <div class="output-box" id="out-texture">
+                <div class="texture-out" id="texture-content"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title" style="cursor: default;">NPC Improvisation</div>
+            <button class="btn-small" onclick="genNPC()">👤 Generate NPC Want/Leverage</button>
+            <div class="output-box" id="out-npc">
+                <div class="text-output" id="npc-content"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title" onclick="toggleRef('clue-ref')">
+                <span>🔍 Clue Signatures (Quick Ref)</span>
+                <span>▼</span>
+            </div>
+            <div class="accordion-content" id="clue-ref">
+                <table class="ref-table">
+                    <thead>
+                        <tr>
+                            <th>Guild</th>
+                            <th>Signatures (Phys / Soc / Arc)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clue-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title" style="cursor: default;">Friction & Hazards</div>
+            <div class="grid-2">
+                <button class="btn-small" style="color:var(--danger); border-color: rgba(255, 107, 107, 0.3);"
+                    onclick="genHazard()">⚠️
+                    Hazard (2d6)</button>
+                <button class="btn-small" style="color:var(--gold); border-color: rgba(241, 196, 15, 0.3);"
+                    onclick="genSnag()">🚧 Snag
+                    (2d20)</button>
+            </div>
+            <div class="output-box" id="out-hazard">
+                <div class="text-output" id="hazard-content"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title" style="cursor: default;">Debrief Phase</div>
+            <button class="btn-small" onclick="genBroadsheet()">📰 Generate Broadsheet Headline</button>
+            <div class="output-box" id="out-paper">
+                <div class="text-output" id="paper-content"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="section-title" onclick="toggleRef('guild-ref')">
+                <span>🏦 Guild Jurisdictions</span>
+                <span>▼</span>
+            </div>
+            <div class="accordion-content" id="guild-ref">
+                <table class="ref-table">
+                    <thead>
+                        <tr>
+                            <th>Guild</th>
+                            <th>Jurisdiction</th>
+                            <th>Liaison Perk</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guild-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DATASETS ---
+
+        const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
+
+        const actions = {
+            "Azorius": ["Serving a subpoena", "Chanting a decree", "Erecting a barrier", "Drafting a report", "Managing a queue", "Debating a legalism"],
+            "Boros": ["Detaining a suspect", "Marching in formation", "Inspecting a weapon", "Recruiting civilians", "Setting an ambush", "Cleaning armor"],
+            "Dimir": ["Watching from a balcony", "Exchanging a dead-drop", "Erasing a memory", "Tailing the party", "Disguised as a beggar", "Melting into the crowd"],
+            "Golgari": ["Hauling rot-compost", "Farming wall-fungus", "Scouting sewer exits", "Trading 'undercity' secrets", "Laying a spore-trap", "Reanimating a pack-beast"],
+            "Gruul": ["Smashing a signpost", "Scavenging scrap", "Painting graffiti", "Challenging a passerby", "Reclaiming a ruin", "Building a bonfire"],
+            "Izzet": ["Testing a gauntlet", "Repairing a pipe", "Chasing an elemental", "Arguing over math", "Overloading a coil", "Measuring mana-leak"],
+            "Orzhov": ["Collecting a tithe", "Ghost-writing a contract", "Blessing a coin", "Extorting a merchant", "Escorting a spirit", "Repossessing furniture"],
+            "Rakdos": ["Performance busking", "Taunting the law", "Juggling flaming daggers", "Staging a riot-skit", "Setting off pyrotechnics", "Vandalizing a statue"],
+            "Selesnya": ["Preaching harmony", "Pruning a graft-tree", "Singing a choral hymn", "Offering free healing", "Distributing food", "Tending a garden-wall"],
+            "Simic": ["Cataloging a mutation", "Releasing a specimen", "Collecting fluid samples", "Adjusting a tank’s pH", "Grafting a limb", "Escaping a containment"],
+            "Env": ["Steam-vent rupture", "Falling masonry", "Heavy acid-rain", "Crowded transit-jam", "Unstable bridge", "Sudden magical fog"],
+            "Guildless": ["Pickpocketing a mark", "Begging for protection", "Loading a transit-cart", "Haggling over bread", "Moving a black-market crate", "Protesting guild-taxes"]
+        };
+
+        const whatsHappening = [
+            "The Clock Ticks (Deadline approaching)",
+            "Optics Disaster (Press/Crowd watching)",
+            "Collateral Risk (Fragile object nearby)",
+            "Bureaucratic Snag (Warrant demand)",
+            "Sudden Violence (Grudge boils over)",
+            "Information Leak (Secret shouted aloud)"
+        ];
+
+        // TEXTURE DATA ARRAYS
+        const txtStruct = {
+            a: ["A load-bearing pillar", "A decorative cornice", "A ventilation grate", "A window frame", "A floor tile", "A support beam", "A doorway arch", "A drainage gutter", "A service hatch", "A handrail", "A alcove/niche", "A ceiling vault", "A lighting fixture", "A baseboard", "A cable-run", "A stair tread", "A wall sconce", "A partition wall", "A water basin", "A facade relief"],
+            b: ["chipped limestone blocks", "oxidized copper sheeting", "heavy cast iron", "warped stained wood", "polished marble mosaic", "riveted Izzet-steel", "rough-hewn granite", "ceramic piping", "brittle rusted tin", "smooth cold brass", "plaster over brickwork", "reinforced concrete", "frosted glass globe", "rot-resistant fungal-wood", "exposed mana-coils", "slate worn smooth by use", "blackened wrought iron", "cheap plywood", "carved soapstone", "eroded stone"],
+            c: ["wrapped in makeshift grip-tape", "stained with dark soot patterns", "vibrating with a low hum", "painted over multiple times", "cracked down the center", "dripping condensation constantly", "covered in layers of old posters", "clogged with grey sludge", "welded shut long ago", "greasy to the touch", "smelling faintly of urine/bleach", "webbed with fine stress fractures", "flickering rhythmically (dying)", "scratched by claws or heavy boots", "buzzing with static discharge", "uneven and loose", "empty and filled with trash", "covered in hasty graffiti tags", "covered in a thick layer of dust", "missing large chunks"]
+        };
+
+        const txtGuts = {
+            a: ["A thick conduit pipe", "A bundle of wires", "A pneumatic tube", "A drainage sluice", "A pressure valve", "A chain-hoist", "A fuse box", "A ventilation fan", "A manhole cover", "A meter/gauge", "A structural clamp", "A waste bin", "A street lamp", "A gutter spout", "A control lever", "A glass insulator", "A pulley system", "A metal grate", "A boiler unit", "A cooling vent"],
+            b: ["transporting steam heat", "relaying magical signals", "carrying guild-mail", "managing waste flow", "controlling water pressure", "moving cargo", "distributing local power", "cycling stale air", "accessing the sewer", "measuring mana-flow", "reinforcing seismic stress", "collecting public refuse", "providing illumination", "collecting rain run-off", "operating machinery", "grounding arcane energy", "vertical transport", "blocking entry", "generating heat", "venting alchemical exhaust"],
+            c: ["hissing white vapor intermittently", "arcing blue sparks occasionally", "thumping loudly as items pass", "gurgling with thick liquid", "whistling a high-pitched note", "swinging slightly in a draft", "warm to the touch (overheating)", "clanking against its housing", "seeping a cold damp fog", "ticking loudly like a clock", "groaning under structural weight", "overflowing with refuse", "emitting a sickly yellow drone", "dripping rusty water", "rusted in the 'Open' position", "glowing with faint residual light", "creaking rhythmically", "rattling when walked upon", "smelling of burning dust", "venting acrid chemical air"]
+        };
+
+        const txtDebris = {
+            a: ["A half-eaten skewer", "A crumpled broadsheet", "A broken vial", "A torn cloak/fabric", "A pile of cigarette ends", "A lost tool (wrench)", "A child's toy", "A stack of flyers", "A coin pouch (empty)", "A heavy boot print", "A cryptic chalk mark", "A dead rat/vermin"],
+            b: ["kicked under a bench", "soaked in a puddle", "crushed into the dirt", "snagged on a nail", "heaped in a corner", "left on a ledge", "half-buried in mud", "wind-blown against a wall", "slit open on the ground", "dried in mud/clay", "scrawled on a door", "lying stiff near a vent"],
+            c: ["abandoned in a hurry", "from three days ago (old news)", "containing traces of something illicit", "showing signs of a struggle", "suggesting someone waited a long time", "suggesting workers left mid-job", "dropped by a passerby", "promoting political propaganda", "evidence of a pickpocket", "belonging to a large humanoid", "a thief's sign or hobo-code", "killed by poison or gas"]
+        };
+
+        const txtAtmos = {
+            a: ["Distant street lamps", "Bioluminescent moss", "Industrial floodlight", "Magical 'everflame'", "Moonlight", "Neon sign (Arcane)", "Furnace glow", "No direct source", "Hand-held lanterns", "Electrical arcing"],
+            b: ["filtered through grey smog", "dim and sickly green", "harsh and washing-out white", "warm but weak orange", "blocked by buildings (blue)", "garish and buzzing pink", "smoldering and hot red", "ambient brown city-haze", "swinging yellow light", "sharp and sudden blue-white"],
+            c: ["casting long stretching shadows", "pulsing slowly like a heartbeat", "blinking erratically", "flickering in a non-existent wind", "creating stark high-contrast silhouettes", "reflecting off wet surfaces", "illuminating dust motes in the air", "making depth perception difficult", "creating dancing shadows on walls", "strobing like a camera flash"]
+        };
+
+        const clueSigs = [
+            { g: "Azorius", p: "Stamped wax seals, blue ink", s: "Precise, condescending", a: "Geometric, rigid ley-lines" },
+            { g: "Boros", p: "Scorch marks, heavy boots", s: "Aggressive, duty-bound", a: "Radiant, flickering heat" },
+            { g: "Dimir", p: "Paper-shreds, damp soot", s: "Vague, shifting details", a: "Chilled air, memory-gaps" },
+            { g: "Golgari", p: "Moss, pungent rot, slime", s: "Laconic, fatalistic", a: "Necrotic residue, spores" },
+            { g: "Gruul", p: "Shattered stone, claw-marks", s: "Primal, blunt, guttural", a: "Wild, chaotic static" },
+            { g: "Izzet", p: "Melted glass, copper wire", s: "Rapid-fire, distracted", a: "Static electricity, ozone" },
+            { g: "Orzhov", p: "Gold leaf, incense ash", s: "Formal, transactional", a: "Ethereal, chain-like wisps" },
+            { g: "Rakdos", p: "Spilled wine, jagged metal", s: "Mocking, nihilistic", a: "Sulfur, crimson sparks" },
+            { g: "Selesnya", p: "Pollen, woven vines", s: "Calming, plural ('We')", a: "Harmonious, green hum" },
+            { g: "Simic", p: "Translucent fluid, scales", s: "Clinical, detached", a: "Fluorescent, biomorphic" }
+        ];
+
+        const npcs = [
+            { w: "Promotion (Climb hierarchy)", l: "Incriminating Logs (Graft proof)" },
+            { w: "Anonymity (Hide past)", l: "Safehouse Key (Neutral ground)" },
+            { w: "Debt Forgiveness (Orzhov contract)", l: "Encrypted Cipher (Unread msg)" },
+            { w: "Guild Transfer (Way out)", l: "Smuggled Goods (Contraband)" },
+            { w: "Protection (From rival)", l: "Eyewitness Account (Saw Incident)" },
+            { w: "Information (Rival plans)", l: "Guild Seal (Stolen signet)" },
+            { w: "Revenge (See rival disgraced)", l: "Blackmail Photo (Scandal)" },
+            { w: "Resource Access (Rare permit)", l: "Access Codes (Vault/Portal)" },
+            { w: "Family Safety (Hostage situation)", l: "Courier Schedule (Timing)" },
+            { w: "Political Cover (Avoid blame)", l: "Expert Knowledge (Bypass)" },
+            { w: "Pure Chaos (Burn it down)", l: "Explosive/Hazard (Fail-safe)" }
+        ];
+
+        const hazards = [
+            { roll: 2, name: "Izzet Arclight Grounding", eff: "1d6 Lightning dmg (DC 13 Dex). Metal armor = Disadv." },
+            { roll: 3, name: "Simic Overgrowth", eff: "Difficult terrain. Move > half speed = DC 12 Dex or Prone." },
+            { roll: 4, name: "Orzhov Tithe-Barrier", eff: "Pass: Pay 1 HD or 10gp. Else: Total Cover." },
+            { roll: 5, name: "Rakdos Crowd Surge", eff: "Start of round: Push 10ft (DC 13 Str negates)." },
+            { roll: 6, name: "Dimir Fog-Shroud", eff: "Heavily Obscured > 10ft. Disadv on Sight checks." },
+            { roll: 7, name: "Verticality: Crumbling Masonry", eff: "Take >10 dmg? Floor breaks. DC 12 Dex or fall 20ft." },
+            { roll: 8, name: "Golgari Spore Cloud", eff: "DC 12 Con or Poisoned 1 rnd. Stench attracts vermin." },
+            { roll: 9, name: "Azorius Suppression Field", eff: "Cast Lvl 1+ spell? DC 13 Conc check or fail." },
+            { roll: 10, name: "Gruul Rubble-Pile", eff: "High ground (+2 Ranged Atk), but primary target for Heat." },
+            { roll: 11, name: "Selesnya Pollen Burst", eff: "No Multiattack/Aggressive unless DC 12 Wis save." },
+            { roll: 12, name: "Boros Alarm-Beacon", eff: "Clock +1. Deafened w/in 30ft." }
+        ];
+
+        const snags = {
+            2: { n: "District-Wide Lockdown", e: "Hard Constraint: No entry without +2 Rep liaison." },
+            3: { n: "Planar Bleed", e: "Intangible. DC 15 Arcana or tool to phase in. (Clock +1)" },
+            4: { n: "Hostile Takeover", e: "Rival guild seized building. Stealth or Rep -1 to enter." },
+            5: { n: "Biological Quarantine", e: "sealed by bio-mages. DC 14 Con or protective gear." },
+            6: { n: "Witness is a Spirit", e: "Contractual Silence. Pay 100gp or Orzhov Favor." },
+            7: { n: "Active Riot", e: "Rakdos/Gruul outside. DC 14 Group Athletics to enter." },
+            8: { n: "Infrastructure Collapse", e: "Bridge/Transit down. (Clock +1) to find route." },
+            9: { n: "Conflicting Warrants", e: "Rival Task Force here. Social check or 'lose' their papers." },
+            10: { n: "The Tithe-Gate", e: "Entrance fee: 10gp or 1 Downtime Point per person." },
+            11: { n: "Arcane Static", e: "Magic unstable. Spells trigger Wild Magic Surge." },
+            12: { n: "Privacy Screen", e: "Dimir veil. Disadv on Social/Arcane inside." },
+            13: { n: "Mandatory Escort", e: "Boros Peacekeeper watches. Heat +1. Witness intimidated." },
+            14: { n: "Scheduled Demolition", e: "Set Piece: Building crumbles after 3 rounds." },
+            15: { n: "The Wrong Ink", e: "Warrant color wrong. DC 12 Social or (Clock +1)." },
+            16: { n: "Internal Audit", e: "Liaison watching. No Gold spending or Call-ins." },
+            17: { n: "Language Barrier", e: "Obscure dialect. Language or DC 13 Insight." },
+            18: { n: "Clerical Error", e: "Address off by one digit. DC 12 Deception or (Clock +1)." },
+            19: { n: "The Queue", e: "50 people waiting. Wait 4 hrs (Clock +1) or Cut Line (Heat +1)." },
+            20: { n: "The Boss is Out", e: "At summit. (Clock +1) or wait in lobby." },
+            21: { n: "Standard Bureaucracy", e: "Form 12-B. No penalty, but failure = Heat +1." },
+            22: { n: "Restricted Archive", e: "Building open, cabinet locked. DC 13 Thieves Tools." },
+            23: { n: "Shift Change", e: "Friendly guards left. New ones are Neutral (Rep 0)." },
+            24: { n: "Vocal-Only Policy", e: "Truth-Stone recording. Cannot lie (DC 14 Deception)." },
+            25: { n: "Cleaning Crew", e: "Golgari recycling scene. DC 13 Athletics to save clues." },
+            26: { n: "Press Ambush", e: "Reporter at exit. Social challenge or Heat +1." },
+            27: { n: "Guild Solidarity", e: "Staff refuse to talk to non-guild members. Disguise Kit." },
+            28: { n: "Equipment Check", e: "Weapons checked at door. Enter unarmed or sneak in." },
+            29: { n: "Mana-Drought", e: "No spell slots 2nd+ regained during rest here." },
+            30: { n: "Zonot Drainage", e: "Flooded. Difficult Terrain (Swimming)." },
+            31: { n: "Spore-Clog", e: "Fungus in locks. Str checks Disadvantage." },
+            32: { n: "Petty Grievance", e: "Clerk hates a PC. Rep -1 (Temp)." },
+            33: { n: "Selesnya Conclave", e: "Meditation circle blocks hall. Join (1hr) or Push (DC 14)." },
+            34: { n: "The Tail", e: "You were followed. 'Complication Scene' triggers on exit." },
+            35: { n: "Subpoenaed Evidence", e: "Item moved to Azorius Vault. Redirect Lead." },
+            36: { n: "Explosive Gas Leak", e: "Izzet chem. Fire = 3d6 explosion (DC 13 Dex)." },
+            37: { n: "Orzhov Foreclosure", e: "Building being disassembled by spirits. Gone in 2 hrs." },
+            38: { n: "High-Level Escort", e: "Bumped for Guildmaster. Wait (Clock +1) or Heat +1." },
+            39: { n: "Magical Interference", e: "Forget-Me-Not ward. DC 12 Wis every 10 min or forget goal." },
+            40: { n: "Divine Intervention", e: "Holy Ground. No violence/lying possible." }
+        };
+
+        const papers = [
+            { n: "The Tenth District Chronicle", t: "Sensationalist", e: "Heat +1 (Alarm)" },
+            { n: "The Azorius Gazette", t: "Legalistic", e: "Heat +1 (Internal Affairs)" },
+            { n: "The Gruul Rubble-Rant", t: "Anarchic", e: "No Change (Ignored)" },
+            { n: "The Izzet Inquiry", t: "Technical", e: "Heat -1 (If fast)" },
+            { n: "The Boros Banner", t: "Heroic", e: "Heat -1 (Public Trust)" },
+            { n: "The Orzhov Ledger", t: "Financial", e: "Heat -1 (If cheap)" }
+        ];
+
+        const guildRefs = [
+            { n: "Azorius", j: "Public/Warrant", b: "Legal Shield (Negate Heat)" },
+            { n: "Boros", j: "Military Escort", b: "Fireteam (2 Veterans)" },
+            { n: "Dimir", j: "Hidden/Archives", b: "Surveillance (Auto-Physical)" },
+            { n: "Golgari", j: "Sewer/Rot", b: "Forensics (Corpse Speak)" },
+            { n: "Gruul", j: "Ruins/None", b: "Local Guide (Ignore Terrain)" },
+            { n: "Izzet", j: "Labs/Safety", b: "Tech-Scan (Magic ID)" },
+            { n: "Orzhov", j: "Vaults/Tithe", b: "Bribe Fund (Auto-Social)" },
+            { n: "Rakdos", j: "Clubs/Perform", b: "Distraction (Remove NPC)" },
+            { n: "Selesnya", j: "Enclaves", b: "Healer (Short Rest)" },
+            { n: "Simic", j: "Bio-Vats", b: "Mutation Scan (Weakness)" }
+        ];
+
+        // --- LOGIC ---
+
+        function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+        function d(n) { return Math.floor(Math.random() * n) + 1; }
+
+        function setText(id, html) {
+            const box = document.getElementById(id);
+            const content = box.querySelector(id.includes('texture') ? '.texture-out' : '.text-output');
+            content.innerHTML = html;
+            box.classList.add('active');
+        }
+
+        function genStreetScene() {
+            const rollActor = d(12);
+            let actorName = "";
+            let actionList = [];
+
+            if (rollActor <= 10) {
+                actorName = guilds[rollActor - 1];
+                actionList = actions[actorName];
+            } else if (rollActor === 11) {
+                actorName = "Environment";
+                actionList = actions["Env"];
+            } else {
+                actorName = "Guildless";
+                actionList = actions["Guildless"];
+            }
+
+            const action = rand(actionList);
+            const compl = rand(whatsHappening);
+            const rollSource = d(12);
+            let sourceName = rollSource <= 10 ? guilds[rollSource - 1] : (rollSource === 11 ? "Hazard" : "Gang");
+
+            const box = document.getElementById('out-street');
+            box.classList.add('active');
+            const content = document.getElementById('dispatch-content');
+            content.innerHTML = `
+            <div class="dispatch-row"><div class="dispatch-label">Actor</div><div class="dispatch-val highlight">${actorName}</div></div>
+            <div class="dispatch-row"><div class="dispatch-label">Activity</div><div class="dispatch-val">${action}</div></div>
+            <div class="dispatch-row"><div class="dispatch-label">Conflict</div><div class="dispatch-val alert">${compl}</div></div>
+            <div class="dispatch-row"><div class="dispatch-label">Source</div><div class="dispatch-val">${sourceName}</div></div>
+        `;
+        }
+
+        function genTexture(type) {
+            let html = "";
+            if (type === 'struct') {
+                html = `<span class="hl-txt">${rand(txtStruct.a)}</span>, made of <span class="hl-ctx">${rand(txtStruct.b)}</span>, currently <span class="hl-state">${rand(txtStruct.c)}</span>.`;
+            } else if (type === 'guts') {
+                html = `<span class="hl-txt">${rand(txtGuts.a)}</span>, for <span class="hl-ctx">${rand(txtGuts.b)}</span>, currently <span class="hl-state">${rand(txtGuts.c)}</span>.`;
+            } else if (type === 'debris') {
+                html = `<span class="hl-txt">${rand(txtDebris.a)}</span>, found <span class="hl-ctx">${rand(txtDebris.b)}</span>, <span class="hl-state">${rand(txtDebris.c)}</span>.`;
+            } else if (type === 'atmos') {
+                html = `Light from <span class="hl-txt">${rand(txtAtmos.a)}</span>, which is <span class="hl-ctx">${rand(txtAtmos.b)}</span>, <span class="hl-state">${rand(txtAtmos.c)}</span>.`;
+            }
+            setText('out-texture', html);
+        }
+
+        function genNPC() {
+            const roll = d(6) + d(6) - 2;
+            const res = npcs[roll];
+            const g = rand(guilds);
+            setText('out-npc', `
+            <div class="out-main"><span style="color:var(--accent)">${g}</span> NPC</div>
+            <div style="margin-top:5px; font-size:0.9rem;"><strong>Wants:</strong> ${res.w}</div>
+            <div style="margin-top:2px; font-size:0.9rem;"><strong>Leverage:</strong> ${res.l}</div>
+        `);
+        }
+
+        function genHazard() {
+            const roll = d(6) + d(6);
+            const h = hazards.find(x => x.roll === roll);
+            setText('out-hazard', `
+            <div class="out-main out-heat">${h.name}</div>
+            <div class="out-sub">${h.eff}</div>
+        `);
+        }
+
+        function genSnag() {
+            const roll = d(20) + d(20);
+            let s = snags[roll] || snags[21];
+            setText('out-hazard', `
+            <div class="out-main out-heat">${s.n}</div>
+            <div class="out-sub">${s.e}</div>
+            <div class="out-sub" style="margin-top:4px;">Roll: ${roll}</div>
+        `);
+        }
+
+        function genBroadsheet() {
+            const roll = d(6) - 1;
+            const p = papers[roll];
+            const cls = p.e.includes("Heat +") ? "out-heat" : "out-good";
+            setText('out-paper', `
+            <div class="out-main">${p.n}</div>
+            <div class="out-sub">Tone: ${p.t}</div>
+            <div class="${cls}" style="font-weight:bold; font-size:0.8rem; margin-top:5px;">${p.e}</div>
+        `);
+        }
+
+        function toggleRef(id) {
+            const el = document.getElementById(id);
+            const body = el.querySelector('tbody');
+            if (body.innerHTML.trim() === "") {
+                if (id === 'clue-ref') {
+                    body.innerHTML = clueSigs.map(c => `
+                    <tr><td class="ref-hl">${c.g}</td><td><span class="clue-type">PHYSICAL:</span> ${c.p}<br><span class="clue-type" style="margin-top:4px;">SOCIAL:</span> ${c.s}<br><span class="clue-type" style="margin-top:4px; color:var(--accent-dim); text-shadow:0 0 1px var(--accent);">ARCANE:</span> ${c.a}</td></tr>
+                `).join('');
+                } else if (id === 'guild-ref') {
+                    body.innerHTML = guildRefs.map(g => `<tr><td class="ref-hl">${g.n}</td><td>${g.j}</td><td style="color:#fff;">${g.b}</td></tr>`).join('');
+                }
+            }
+            el.classList.toggle('open');
+        }
+
+        // --- EXCITED BACKGROUND FIELD SCRIPT ---
+        (function () {
+            const canvas = document.getElementById('vector-cloud');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width, height;
+
+            const mouse = { x: -999, y: -999, active: false, down: false };
+            let lastScrollY = window.scrollY;
+            let scrollVelocity = 0;
+
+            const SPACING = 30;
+            const FIELD_RADIUS = 200;
+            let accentColor = '#4ecdc4';
+
+            const updateAccent = () => {
+                const style = getComputedStyle(document.documentElement);
+                accentColor = style.getPropertyValue('--accent').trim();
+            };
+
+            const resize = () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                updateAccent();
+            };
+
+            window.addEventListener('resize', resize);
+            window.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+                mouse.active = true;
+            });
+            window.addEventListener('mousedown', () => mouse.down = true);
+            window.addEventListener('mouseup', () => mouse.down = false);
+            window.addEventListener('touchstart', e => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                mouse.active = true;
+                mouse.down = true;
+            });
+            window.addEventListener('touchmove', e => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            });
+            window.addEventListener('touchend', () => { mouse.active = false; mouse.down = false; });
+
+            window.addEventListener('scroll', () => {
+                const currentY = window.scrollY;
+                const delta = currentY - lastScrollY;
+                scrollVelocity = delta;
+                lastScrollY = currentY;
+            });
+
+            resize();
+
+            const animate = () => {
+                ctx.clearRect(0, 0, width, height);
+                scrollVelocity *= 0.9;
+
+                if (!mouse.active && Math.abs(scrollVelocity) < 0.1) {
+                    requestAnimationFrame(animate);
+                    return;
+                }
+
+                const startX = Math.floor((mouse.x - FIELD_RADIUS) / SPACING) * SPACING;
+                const endX = Math.floor((mouse.x + FIELD_RADIUS) / SPACING) * SPACING;
+                const startY = Math.floor((mouse.y - FIELD_RADIUS) / SPACING) * SPACING;
+                const endY = Math.floor((mouse.y + FIELD_RADIUS) / SPACING) * SPACING;
+
+                const time = Date.now();
+
+                for (let gx = startX; gx <= endX; gx += SPACING) {
+                    for (let gy = startY; gy <= endY; gy += SPACING) {
+                        const dx = gx - mouse.x;
+                        const dy = gy - mouse.y;
+                        const distSq = dx * dx + dy * dy;
+
+                        if (distSq > FIELD_RADIUS * FIELD_RADIUS) continue;
+
+                        const dist = Math.sqrt(distSq);
+
+                        let alpha = 0;
+                        if (dist < 40) {
+                            alpha = (dist / 40);
+                        } else {
+                            alpha = 1 - ((dist - 40) / (FIELD_RADIUS - 40));
+                        }
+                        alpha = Math.max(0, Math.min(1, alpha));
+
+                        if (alpha <= 0.01) continue;
+
+                        let angle = Math.atan2(dy, dx);
+
+                        if (mouse.down) angle += Math.sin(time * 0.05 + gx + gy) * 0.5;
+
+                        const windForce = -scrollVelocity * 0.05;
+                        if (Math.abs(windForce) > 0.01) {
+                            const vx = Math.cos(angle);
+                            const vy = Math.sin(angle);
+                            const nvx = vx;
+                            const nvy = vy + windForce;
+                            angle = Math.atan2(nvy, nvx);
+                        }
+
+                        const length = 14 * alpha;
+                        const tipX = gx + Math.cos(angle) * length;
+                        const tipY = gy + Math.sin(angle) * length;
+
+                        const thickness = length * 0.2;
+                        const perpX = -Math.sin(angle) * thickness;
+                        const perpY = Math.cos(angle) * thickness;
+
+                        ctx.fillStyle = accentColor;
+                        ctx.globalAlpha = alpha * 0.8;
+
+                        ctx.beginPath();
+                        ctx.moveTo(gx + perpX, gy + perpY);
+                        ctx.lineTo(gx - perpX, gy - perpY);
+                        ctx.lineTo(tipX, tipY);
+                        ctx.fill();
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            };
+
+            animate();
+        })();
+    </script>
+</body>
+
+</html>
