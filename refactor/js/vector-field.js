@@ -347,17 +347,26 @@
         }
     };
 
-    const drawLightning = (ctx, x1, y1, x2, y2, intensity) => {
+    const drawLightning = (ctx, x1, y1, x2, y2, displacement, iteration) => {
+        if (iteration <= 0) {
+            ctx.lineTo(x2, y2);
+            return;
+        }
         const midX = (x1 + x2) / 2;
         const midY = (y1 + y2) / 2;
-        // Jitter heavily based on intensity
-        const jitterMult = 35 * (1 + intensity);
-        const jitterX = (Math.random() - 0.5) * jitterMult;
-        const jitterY = (Math.random() - 0.5) * jitterMult;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const normalX = -dy;
+        const normalY = dx;
+        const len = Math.sqrt(dx * dx + dy * dy);
 
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(midX + jitterX, midY + jitterY);
-        ctx.lineTo(x2, y2);
+        // Jitter perpendicular to the line
+        const jitter = (Math.random() - 0.5) * displacement;
+        const midX_j = midX + (normalX / len) * jitter;
+        const midY_j = midY + (normalY / len) * jitter;
+
+        drawLightning(ctx, x1, y1, midX_j, midY_j, displacement / 2, iteration - 1);
+        drawLightning(ctx, midX_j, midY_j, x2, y2, displacement / 2, iteration - 1);
     };
 
     // --- RENDERERS ---
@@ -387,12 +396,19 @@
         // High contrast, jagged lines
         const { width, height } = canvas;
         ctx.lineJoin = 'miter';
+        ctx.lineCap = 'round';
 
         layers.forEach(layer => {
             const { cols, rows, rawMeta, rawNodes } = layer;
-            ctx.lineWidth = 1.0;
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = `rgba(${rgb}, 0.9)`;
+            ctx.shadowBlur = 20; // Stronger glow
+
+            // Randomly flash the whole field occasionally
+            if (Math.random() < 0.05) {
+                ctx.shadowColor = `rgba(255, 255, 255, 0.8)`;
+            } else {
+                ctx.shadowColor = `rgba(${rgb}, 0.8)`;
+            }
+
             ctx.beginPath();
 
             for (let cx = 0; cx < cols; cx++) {
@@ -408,46 +424,67 @@
                     if (mouse.x !== -999) {
                         const dx = x - mouse.x;
                         const dy = y - mouse.y;
-                        if (Math.abs(dx) < 80 && Math.abs(dy) < 80) { // Fast box check
+                        if (Math.abs(dx) < 150 && Math.abs(dy) < 150) { // Bigger box
                             const distSq = dx * dx + dy * dy;
-                            if (distSq < 6400) { // 80px radius
-                                energy += 1.0; // Artificial boost
+                            if (distSq < 22500) { // 150px radius
+                                energy += 2.0 * (1 - distSq / 22500); // Stronger boost
                             }
                         }
                     }
 
-                    if (shock > 0.05 || energy > 0.8) {
+                    if (shock > 0.05 || energy > 0.6) { // Lower threshold for more activity
                         const intensity = shock + (energy * 0.5);
 
                         // Dynamic color based on intensity
                         const alpha = Math.min(1, intensity);
-                        ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
 
-                        const isHot = (nIdx) => {
-                            let nShock = rawMeta[nIdx * 2 + 1];
-                            let nEnergy = rawMeta[nIdx * 2];
-                            // Apply same mouse boost
-                            const nx = rawNodes[nIdx * 6];
-                            const ny = rawNodes[nIdx * 6 + 1];
-                            if (mouse.x !== -999) {
-                                const dx = nx - mouse.x;
-                                const dy = ny - mouse.y;
-                                if (dx * dx + dy * dy < 6400) nEnergy += 1.0;
+                        // FLICKER: Randomly skip or boost alpha
+                        if (Math.random() > 0.2) {
+                            ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
+                            // Occasional white hot arcs
+                            if (intensity > 1.5 || Math.random() < 0.1) {
+                                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                                ctx.lineWidth = 2.0;
+                            } else {
+                                ctx.lineWidth = 1.0;
                             }
-                            return (nShock > 0.05 || nEnergy > 0.8);
-                        };
 
-                        // Connect to neighbors if they are also active
-                        if (cx < cols - 1) {
-                            const nIdx = idx + rows;
-                            if (isHot(nIdx)) {
-                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], intensity);
+                            const isHot = (nIdx) => {
+                                let nShock = rawMeta[nIdx * 2 + 1];
+                                let nEnergy = rawMeta[nIdx * 2];
+                                // Apply same mouse boost
+                                const nx = rawNodes[nIdx * 6];
+                                const ny = rawNodes[nIdx * 6 + 1];
+                                if (mouse.x !== -999) {
+                                    const dx = nx - mouse.x;
+                                    const dy = ny - mouse.y;
+                                    if (dx * dx + dy * dy < 22500) nEnergy += 2.0;
+                                }
+                                return (nShock > 0.05 || nEnergy > 0.6);
+                            };
+
+                            // Connect to neighbors
+                            const jitterVal = 10;
+                            const jx = () => (Math.random() - 0.5) * jitterVal;
+                            const jy = () => (Math.random() - 0.5) * jitterVal;
+
+                            if (cx < cols - 1) {
+                                const nIdx = idx + rows;
+                                if (isHot(nIdx)) {
+                                    const ex = rawNodes[nIdx * 6];
+                                    const ey = rawNodes[nIdx * 6 + 1];
+                                    ctx.moveTo(x + jx(), y + jy());
+                                    drawLightning(ctx, x + jx(), y + jy(), ex + jx(), ey + jy(), 60 * intensity, 3);
+                                }
                             }
-                        }
-                        if (cy < rows - 1) {
-                            const nIdx = idx + 1;
-                            if (isHot(nIdx)) {
-                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], intensity);
+                            if (cy < rows - 1) {
+                                const nIdx = idx + 1;
+                                if (isHot(nIdx)) {
+                                    const ex = rawNodes[nIdx * 6];
+                                    const ey = rawNodes[nIdx * 6 + 1];
+                                    ctx.moveTo(x + jx(), y + jy());
+                                    drawLightning(ctx, x + jx(), y + jy(), ex + jx(), ey + jy(), 60 * intensity, 3);
+                                }
                             }
                         }
                     }
@@ -455,6 +492,7 @@
             }
             ctx.stroke();
             ctx.shadowBlur = 0;
+            ctx.lineWidth = 1;
         });
     };
 
