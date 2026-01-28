@@ -319,11 +319,13 @@
     const drawLightning = (ctx, x1, y1, x2, y2, intensity) => {
         const midX = (x1 + x2) / 2;
         const midY = (y1 + y2) / 2;
-        // Jitter based on intensity
-        const jitter = (Math.random() - 0.5) * 20 * (intensity + 0.2);
+        // Jitter heavily based on intensity
+        const jitterMult = 35 * (1 + intensity);
+        const jitterX = (Math.random() - 0.5) * jitterMult;
+        const jitterY = (Math.random() - 0.5) * jitterMult;
 
         ctx.moveTo(x1, y1);
-        ctx.lineTo(midX + jitter, midY + jitter);
+        ctx.lineTo(midX + jitterX, midY + jitterY);
         ctx.lineTo(x2, y2);
     };
 
@@ -357,34 +359,38 @@
 
         layers.forEach(layer => {
             const { cols, rows, rawMeta, rawNodes } = layer;
-            ctx.strokeStyle = `rgba(${rgb}, 0.8)`;
-            ctx.lineWidth = 1.5;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = `rgba(${rgb}, 1)`;
+            ctx.lineWidth = 1.0;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = `rgba(${rgb}, 0.9)`;
             ctx.beginPath();
 
             for (let cx = 0; cx < cols; cx++) {
                 for (let cy = 0; cy < rows; cy++) {
                     const idx = cx * rows + cy;
-                    // Only draw if high energy
+                    // Higher threshold for "sparks"
                     const shock = rawMeta[idx * 2 + 1];
                     const energy = rawMeta[idx * 2];
 
-                    if (shock > 0.1 || energy > 0.5) {
+                    if (shock > 0.05 || energy > 0.8) {
                         const x = rawNodes[idx * 6];
                         const y = rawNodes[idx * 6 + 1];
+                        const intensity = shock + (energy * 0.5);
+
+                        // Dynamic color based on intensity
+                        const alpha = Math.min(1, intensity);
+                        ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
 
                         // Connect to neighbors if they are also active
                         if (cx < cols - 1) {
                             const nIdx = idx + rows;
-                            if (rawMeta[nIdx * 2 + 1] > 0.1 || rawMeta[nIdx * 2] > 0.5) {
-                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], shock);
+                            if (rawMeta[nIdx * 2 + 1] > 0.05 || rawMeta[nIdx * 2] > 0.8) {
+                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], intensity);
                             }
                         }
                         if (cy < rows - 1) {
                             const nIdx = idx + 1;
-                            if (rawMeta[nIdx * 2 + 1] > 0.1 || rawMeta[nIdx * 2] > 0.5) {
-                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], shock);
+                            if (rawMeta[nIdx * 2 + 1] > 0.05 || rawMeta[nIdx * 2] > 0.8) {
+                                drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], intensity);
                             }
                         }
                     }
@@ -450,12 +456,29 @@
                 const base = i * 6;
                 const x = l.rawNodes[base];
                 const y = l.rawNodes[base + 1];
-                const vx = l.rawNodes[base + 2];
-                const vy = l.rawNodes[base + 3];
+                let vx = l.rawNodes[base + 2];
+                let vy = l.rawNodes[base + 3];
+
+                // Mouse influence for BOIDS only
+                if (mouse.x !== -999) {
+                    const dx = x - mouse.x;
+                    const dy = y - mouse.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < 40000) { // 200px radius
+                        const dist = Math.sqrt(distSq);
+                        // Flee from mouse
+                        vx += (dx / dist) * 2.0;
+                        vy += (dy / dist) * 2.0;
+                    }
+                }
+
                 const shock = l.rawMeta[i * 2 + 1];
                 const mag = Math.hypot(vx, vy);
+
                 if (mag < 0.1 && shock < 0.1) continue;
+
                 const angle = Math.atan2(vy, vx);
+
                 ctx.save();
                 ctx.translate(x, y);
                 ctx.rotate(angle);
@@ -470,47 +493,95 @@
     };
 
     const renderTopo = (rgb) => {
-        // IMPROVED: Connection based isobars
-        ctx.strokeStyle = `rgba(${rgb}, 0.4)`;
-        ctx.lineWidth = 1.2;
+        // MARCHING SQUARES for continuous contours
+        ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
+        ctx.lineWidth = 1.0;
+
+        // Thresholds for elevation bands
+        const thresholds = [0.2, 0.4, 0.6, 0.8];
 
         layers.forEach(l => {
             const { cols, rows, rawMeta, rawNodes } = l;
-            // Bands: 0.2, 0.5, 0.8
-            const bands = [0.2, 0.5, 0.8];
 
-            ctx.beginPath();
-            for (let cx = 0; cx < cols; cx++) {
-                for (let cy = 0; cy < rows; cy++) {
-                    const idx = cx * rows + cy;
-                    const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1]; // energy+shock
+            // Helper to get energy at (cx, cy)
+            const getE = (cx, cy) => {
+                if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) return 0;
+                const idx = cx * rows + cy;
+                return rawMeta[idx * 2] + rawMeta[idx * 2 + 1]; // energy + shock
+            };
 
-                    // Check right
-                    if (cx < cols - 1) {
-                        const nIdx = (cx + 1) * rows + cy;
-                        const e2 = rawMeta[nIdx * 2] + rawMeta[nIdx * 2 + 1];
-                        // If both are within a band tolerance
-                        for (let band of bands) {
-                            if (Math.abs(e1 - band) < 0.1 && Math.abs(e2 - band) < 0.1) {
-                                ctx.moveTo(rawNodes[idx * 6], rawNodes[idx * 6 + 1]);
-                                ctx.lineTo(rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1]);
-                            }
-                        }
-                    }
-                    // Check down
-                    if (cy < rows - 1) {
-                        const nIdx = cx * rows + (cy + 1);
-                        const e2 = rawMeta[nIdx * 2] + rawMeta[nIdx * 2 + 1];
-                        for (let band of bands) {
-                            if (Math.abs(e1 - band) < 0.1 && Math.abs(e2 - band) < 0.1) {
-                                ctx.moveTo(rawNodes[idx * 6], rawNodes[idx * 6 + 1]);
-                                ctx.lineTo(rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1]);
-                            }
+            // Helper to interpolate position between two nodes based on energy
+            // For aesthetic simplicity, we just use midpoint (0.5) 
+            // or we could do linear interpolation for smoother curves.
+            // Let's do midpoint for "stylized" look, or linear for "accurate".
+            // Linear looks better.
+            const lerp = (v0, v1, t) => {
+                return (t - v0) / (v1 - v0);
+            };
+
+            for (let tVal of thresholds) {
+                ctx.beginPath();
+                for (let cx = 0; cx < cols - 1; cx++) {
+                    for (let cy = 0; cy < rows - 1; cy++) {
+                        // 4 corners
+                        const tl = getE(cx, cy);
+                        const tr = getE(cx + 1, cy);
+                        const br = getE(cx + 1, cy + 1);
+                        const bl = getE(cx, cy + 1);
+
+                        let idx = 0;
+                        if (tl >= tVal) idx |= 8;
+                        if (tr >= tVal) idx |= 4;
+                        if (br >= tVal) idx |= 2;
+                        if (bl >= tVal) idx |= 1;
+
+                        if (idx === 0 || idx === 15) continue;
+
+                        // Node positions
+                        const bIdx = (cx * rows + cy) * 6;
+                        const x = rawNodes[bIdx];
+                        const y = rawNodes[bIdx + 1];
+                        // Assume uniform grid spacing for cell size
+                        // We can just grab neighbor coords
+                        const bRight = ((cx + 1) * rows + cy) * 6;
+                        const xRight = rawNodes[bRight];
+                        const bDown = (cx * rows + (cy + 1)) * 6;
+                        const yDown = rawNodes[bDown + 1];
+
+                        // Midpoints (Top, Right, Bottom, Left)
+                        // Simple midpoint interpolation relative to cell corner (x,y)
+                        // A better way is using the generic marching squares lookup geometry
+                        // a = (x + lerp(tl, tr, tVal)*(xRight-x), y)
+                        // etc.
+
+                        // SIMPLIFIED GEOMETRY (midpoints) for performance/style
+                        const cellW = xRight - x;
+                        const cellH = yDown - y;
+                        const a = { x: x + cellW * 0.5, y: y }; // Top
+                        const b = { x: x + cellW, y: y + cellH * 0.5 }; // Right
+                        const c = { x: x + cellW * 0.5, y: y + cellH }; // Bottom
+                        const d = { x: x, y: y + cellH * 0.5 }; // Left
+
+                        switch (idx) {
+                            case 1: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                            case 2: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
+                            case 3: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
+                            case 4: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
+                            case 5: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                            case 6: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
+                            case 7: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
+                            case 8: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
+                            case 9: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
+                            case 10: ctx.moveTo(a.x, a.y); ctx.lineTo(d.x, d.y); ctx.moveTo(b.x, b.y); ctx.lineTo(c.x, c.y); break;
+                            case 11: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
+                            case 12: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
+                            case 13: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
+                            case 14: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
                         }
                     }
                 }
+                ctx.stroke();
             }
-            ctx.stroke();
         });
     };
 
@@ -546,7 +617,7 @@
     const renderConstellation = (rgb, activeShocks) => {
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
         ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
-        stars.forEach(s => {
+        stars.forEach((s, idx) => {
             // Mouse Repel
             if (mouse.x !== -999) {
                 const dx = s.x - mouse.x;
@@ -557,6 +628,30 @@
                     s.vy += (dy / d) * 0.5;
                 }
             }
+
+            // VOID DRIFT: Repel from neighbors to find empty space
+            // Sample a few random other stars to avoid O(N^2) every frame if N is large, 
+            // but N=120 is small enough for full check or partial check.
+            // Let's do a simple full check for best effect.
+            let crowdX = 0;
+            let crowdY = 0;
+            let count = 0;
+            stars.forEach((other, otherIdx) => {
+                if (idx === otherIdx) return;
+                const dx = s.x - other.x;
+                const dy = s.y - other.y;
+                const distSq = dx * dx + dy * dy;
+                if (distSq < 10000) { // 100px proximity
+                    const force = 50 / (distSq + 1);
+                    crowdX += dx * force;
+                    crowdY += dy * force;
+                    count++;
+                }
+            });
+            // Apply drift away from crowd
+            s.vx += crowdX * 0.05;
+            s.vy += crowdY * 0.05;
+
             // Shockwave Push
             if (activeShocks) {
                 shockwaves.forEach(wave => {
@@ -573,14 +668,15 @@
             }
 
             s.x += s.vx; s.y += s.vy;
-            s.vx *= 0.95; s.vy *= 0.95;
+            s.vx *= 0.96; s.vy *= 0.96; // slightly higher drag
 
             if (s.x < 0 || s.x > width) s.vx *= -1;
             if (s.y < 0 || s.y > height) s.vy *= -1;
 
-            if (Math.abs(s.vx) < 0.1) s.vx += (Math.random() - 0.5) * 0.01;
-            if (Math.abs(s.vy) < 0.1) s.vy += (Math.random() - 0.5) * 0.01;
+            if (Math.abs(s.vx) < 0.05) s.vx += (Math.random() - 0.5) * 0.05;
+            if (Math.abs(s.vy) < 0.05) s.vy += (Math.random() - 0.5) * 0.05;
         });
+
         ctx.beginPath();
         for (let i = 0; i < stars.length; i++) {
             const s1 = stars[i];
@@ -603,16 +699,20 @@
             const count = l.cols * l.rows;
             for (let i = 0; i < count; i += 4) {
                 const e = l.rawMeta[i * 2] + l.rawMeta[i * 2 + 1];
-                if (e > 0.2) {
+                if (e > 0.1) {
                     const base = i * 6;
                     const x = l.rawNodes[base];
                     const y = l.rawNodes[base + 1];
-                    const grad = ctx.createRadialGradient(x, y, 0, x, y, 30 + e * 50);
-                    grad.addColorStop(0, `rgba(${rgb}, ${0.1 * e})`);
+                    // Clamp radius so it doesn't explode infinitely
+                    const radius = 20 + Math.min(e, 3.0) * 40;
+                    const alpha = Math.min(1.0, e * 0.15); // Lower alpha mul
+
+                    const grad = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                    grad.addColorStop(0, `rgba(${rgb}, ${alpha})`);
                     grad.addColorStop(1, `rgba(${rgb}, 0)`);
                     ctx.fillStyle = grad;
                     ctx.beginPath();
-                    ctx.arc(x, y, 30 + e * 50, 0, Math.PI * 2);
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
                     ctx.fill();
                 }
             }
