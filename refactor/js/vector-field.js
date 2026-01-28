@@ -566,14 +566,14 @@
 
                 if (mouse.down) {
                     // FLEE on Click
-                    if (dist < 500) {
-                        const force = (500 - dist) / 500;
+                    if (dist < 300) { // Reduced from 500
+                        const force = (300 - dist) / 300;
                         b.vx += (dx / dist) * turn * 4.0 * force;
                         b.vy += (dy / dist) * turn * 4.0 * force;
                     }
                 } else {
                     // ORBIT with No Click
-                    if (dist < 400) {
+                    if (dist < 100) { // Reduced from 400
                         // Go towards a ring at radius 120
                         const targetRadius = 120;
                         const diff = dist - targetRadius;
@@ -584,8 +584,6 @@
                         b.vy -= (dy / dist) * diff * radialStrength * 0.1;
 
                         // Tangential spin
-                        // Direction depends on angle relative to mouse to encourage uniform flow? 
-                        // Or just one direction (clockwise)
                         b.vx += -(dy / dist) * turn * 0.8;
                         b.vy += (dx / dist) * turn * 0.8;
                     }
@@ -746,10 +744,26 @@
         ctx.beginPath();
         rainDrops.forEach(d => {
             d.y += d.vy;
+
+            // Calculate Deflection
+            let vx = 0;
+            if (mouse.x !== -999) {
+                const dx = d.x - mouse.x;
+                const dy = d.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+                // Mouse repel/wind
+                if (dist < 300) {
+                    vx += (dx / dist) * 10 * (1 - dist / 300);
+                }
+            }
+
             forces.forEach(f => {
                 const dist = Math.hypot(d.x - f.x, d.y - f.y);
-                if (dist < 200) d.x += (d.x - f.x) / dist * 5 * f.life;
+                if (dist < 200) vx += (d.x - f.x) / dist * 5 * f.life;
             });
+
+            d.x += vx;
+
             if (activeShocks) {
                 shockwaves.forEach(s => {
                     const dist = Math.hypot(d.x - s.x, d.y - s.y);
@@ -763,8 +777,10 @@
                 d.y = -d.len;
                 d.x = Math.random() * width;
             }
+
+            // Draw skewed line based on vx
             ctx.moveTo(d.x, d.y);
-            ctx.lineTo(d.x, d.y + d.len);
+            ctx.lineTo(d.x + vx * 2, d.y + d.len);
         });
         ctx.stroke();
     };
