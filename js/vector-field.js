@@ -1231,7 +1231,7 @@
                 y: sy,
                 vx: Math.cos(moveAngle) * speed,
                 vy: Math.sin(moveAngle) * speed,
-                radius: 60 + Math.random() * 120,
+                radius: 50 + Math.random() * 300, // Bio-organic variety (tiny to massive)
                 layer: 0.5 + Math.random() * 0.5,
                 alpha: 0,
                 targetAlpha: Math.random() * 0.5 + 0.5,
