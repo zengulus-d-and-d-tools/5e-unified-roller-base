@@ -1258,28 +1258,39 @@
     // =========================================
     //                 INIT
     // =========================================
-    // =========================================
-    //                 INIT
-    // =========================================
-    buildNodes();
-    updateAccent();
+    const init = () => {
+        buildNodes();
+        updateAccent();
 
-    // LOAD SAVED STYLE
-    const savedStyle = localStorage.getItem('vectorFieldStyle');
-    if (savedStyle) {
-        const idx = STYLES.findIndex(s => s.id === savedStyle);
-        if (idx !== -1) currentStyleIdx = idx;
+        // LOAD SAVED STYLE
+        const savedStyle = localStorage.getItem('vectorFieldStyle');
+        if (savedStyle) {
+            const idx = STYLES.findIndex(s => s.id === savedStyle);
+            if (idx !== -1) currentStyleIdx = idx;
+        }
+
+        // Set initial button text
+        const btn = document.getElementById('btn-bg-style');
+        if (btn) {
+            btn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
+        } else {
+            // Retry once if button not found yet (just in case)
+            setTimeout(() => {
+                const retryBtn = document.getElementById('btn-bg-style');
+                if (retryBtn) retryBtn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
+            }, 500);
+        }
+
+        if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
+        if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
+        if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
+
+        animate();
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
-
-    // Set initial button text
-    const btn = document.getElementById('btn-bg-style');
-    if (btn) {
-        btn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
-    }
-
-    if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
-    if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
-    if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
-
-    animate();
 })();
