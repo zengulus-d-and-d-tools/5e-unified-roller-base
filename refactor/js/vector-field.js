@@ -514,7 +514,7 @@
         const protection = 40;   // High protection = keep away from each other
         const matching = 0.05;   // Moderate alignment for swirling
         const centering = 0.0001;// Almost zero cohesion to prevent clumping
-        const avoid = 0.05;      // Moderate avoidance to respect protection radius
+        const avoid = 0.005;     // EXTREMELY gentle avoidance for slow adjustments
         const turn = 0.05;       // Slow turn
 
         boids.forEach(b => {
