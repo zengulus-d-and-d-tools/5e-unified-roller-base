@@ -18,9 +18,9 @@
         TENSION: 0.01,
         FRICTION: 0.9,
         SHOCK_WIDTH: 3,
-        SHOCK_AMPLITUDE: 2,
+        SHOCK_AMPLITUDE: 2.5,
         SHOCK_DURATION: 30,
-        SHOCK_THICKNESS: 7,
+        SHOCK_THICKNESS: 15,
         SHOCK_SPEED: 3,
         LAYERS: [
             { spacing: 20, radius: 260, drag: 0.15 },
@@ -242,21 +242,9 @@
             }
 
             // 2. BATCH DRAWING
-            // Reset batch counts
-            const BUCKETS = 11; // 0-9 for alpha 0.05-0.5, 10 for shockwave
-            // We use an array of arrays for buckets, but to avoid GC we can use big typed array and segment offsets?
-            // Actually, simplest JS way without complex alloc management is array of arrays that we clear.
-            // But we wanted to avoid GC.
-            // Let's use the typed array `batchCoords`.
-            // We need to track current index for each bucket.
-            // Since we don't know exact distribution, we might overlap.
-            // Safer: Just iterate twice? Or sort?
-            // Fastest: Array of regular arrays, but reuse them?
-            // Let's stick to simplest optimization: Standard array push is fast enough if we don't recreate objects.
-            // But we want to batch stroke() calls.
+            // Increase BUCKETS to 21 (0-20 = 0.0 to 1.0 alpha in 0.05 steps)
+            const BUCKETS = 21;
 
-            // Reset bucket counters using a flat array approach?
-            // Let's use Array of Arrays but clear length.
             if (!layer.buckets) {
                 layer.buckets = Array.from({ length: BUCKETS }, () => []);
                 layer.shockBucket = [];
@@ -278,13 +266,13 @@
                 }
             }
 
-            // Draw Standard Buckets
+            // Draw Standard Buckets (Fine Lines)
             ctx.lineWidth = 0.8;
             for (let b = 1; b < BUCKETS; b++) {
                 const segmentList = layer.buckets[b];
                 if (segmentList.length === 0) continue;
 
-                const alpha = b * 0.05; // 0.05, 0.10, ... 0.50
+                const alpha = b * 0.05; // 0.05 ... 1.0
                 ctx.strokeStyle = baseColor + alpha + ")";
 
                 ctx.beginPath();
@@ -295,7 +283,7 @@
                 ctx.stroke();
             }
 
-            // Draw Shockwaves
+            // Draw Shockwaves (Thick Lines)
             if (layer.shockBucket.length > 0) {
                 ctx.strokeStyle = shockColorStr;
                 ctx.lineWidth = CONFIG.SHOCK_WIDTH;
@@ -304,21 +292,6 @@
                     ctx.moveTo(layer.shockBucket[i], layer.shockBucket[i + 1]);
                     ctx.lineTo(layer.shockBucket[i + 2], layer.shockBucket[i + 3]);
                 }
-                ctx.globalAlpha = 1; // Shock bucket uses its own color string but alpha is tricky if variable
-                // Actually shockwave alpha varies by intensity...
-                // So batching shockwaves is harder. 
-                // Fallback: Draw shockwaves individually or batch by intensity?
-                // For now, simplify: Assume shockwaves are high alpha or use globalAlpha = 1 and let color handle it?
-                // The original code used globalAlpha = intensity.
-                // Revert to individual stroke for shockwaves to maintain look, or batch top 10%?
-                // Let's draw shockwaves individually for fidelity as they are rare.
-                // Wait, processConnection pushed to shockBucket.
-                // Let's redraw shockBucket carefully.
-                // Actually, let's just stick to the loops inside processConnection for shockwaves to avoid storage?
-                // No, we already stored coords.
-                // Let's assume max intensity for batch or just stroke immediately?
-                // BETTER: Just dont batch shockwaves significantly or just use a high alpha.
-                // Optimized compromise: Draw all shock segments at 0.8 alpha.
                 ctx.stroke();
             }
         });
@@ -337,43 +310,33 @@
         const x2 = rawNodes[base2];
         const y2 = rawNodes[base2 + 1];
 
-        // Shockwave check
+        // 1. Calculate Intensities
         const s1 = rawMeta[i1 * 2 + 1];
         const s2 = rawMeta[i2 * 2 + 1];
         const avgShock = (s1 + s2) * 0.5;
 
-        if (avgShock > 0.05) {
-            // High priority draw
-            shockBucket.push(x1, y1, x2, y2);
-            return; // Don't draw normal line on top
-        }
-
         // Visibility Check
-        if (activity < 0.01) return; // optimization
+        if (activity < 0.01 && avgShock < 0.01) return; // optimization
 
-        // Mouse Proximity (Optimization: skip sqrt if obvious)
-        const midX = (x1 + x2) * 0.5;
-        const midY = (y1 + y2) * 0.5;
-        const dx = midX - mouse.x;
-        const dy = midY - mouse.y;
-
-        // Approx Visibility
-        let mouseVis = 0;
-        // if (dx*dx + dy*dy < CONFIG.MOUSE_RADIUS_SQ) ... // Mouse radius is 0 in config so skip
-
-        // Movement Trail
         const e1 = rawMeta[i1 * 2];
         const e2 = rawMeta[i2 * 2];
         const moveVis = (e1 + e2) * CONFIG.TRAIL_SENSITIVITY;
 
-        // Final Visibility
-        const combinedVis = moveVis * activity; // simplified since mouseVis is 0
+        // 2. Blend Components
+        // Shock intensity is added to movement trail for a combined alpha
+        const combinedAlpha = (moveVis * activity) + avgShock;
 
-        if (combinedVis > CONFIG.VISIBILITY_CUTOFF) {
-            // Bucketize: 0.0 - 0.5 mapped to 0-10
-            let bucketIdx = Math.floor(Math.min(0.5, combinedVis) * 20); // *20 means 0.05 steps
-            if (bucketIdx > 0) {
-                buckets[bucketIdx].push(x1, y1, x2, y2);
+        if (combinedAlpha > CONFIG.VISIBILITY_CUTOFF) {
+            // 3. Bucketize for Drawing
+            // If very intense, move to thick "shock" bucket for visual weight
+            if (combinedAlpha > 0.8) {
+                shockBucket.push(x1, y1, x2, y2);
+            } else {
+                // Otherwise use standard fine-line buckets (0.05 steps from 0.05 to 1.0)
+                let bucketIdx = Math.floor(Math.min(1.0, combinedAlpha) * 20);
+                if (bucketIdx > 0) {
+                    buckets[bucketIdx].push(x1, y1, x2, y2);
+                }
             }
         }
     };
