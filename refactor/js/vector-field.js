@@ -510,12 +510,12 @@
 
         // BOID CONSTANTS
         // BOID CONSTANTS
-        const perception = 100;  // Wide view
-        const protection = 10;   // Low protection
-        const matching = 0.02;   // VERY low matching = slow turn alignment (high inertia)
-        const centering = 0.0005;// Extremely low centering = wide, swooping turns
-        const avoid = 0.02;      // Low avoidance
-        const turn = 0.05;       // VERY slow mouse turn = heavy object feel
+        const perception = 80;   // View range
+        const protection = 40;   // High protection = keep away from each other
+        const matching = 0.05;   // Moderate alignment for swirling
+        const centering = 0.0001;// Almost zero cohesion to prevent clumping
+        const avoid = 0.05;      // Moderate avoidance to respect protection radius
+        const turn = 0.05;       // Slow turn
 
         boids.forEach(b => {
             // 1. Separation / Alignment / Cohesion
