@@ -30,6 +30,38 @@ const SEGMENT_LENGTH = 18;
 const STIFFNESS = 0.5;
 const POINTS_COUNT = 9;
 
+// Cache for node metrics to avoid DOM thrashing in physics loop
+// Map<id, {x, y, w, h}>
+const nodeCache = new Map();
+
+function updateNodeCache(id) {
+    const el = document.getElementById(id);
+    if (!el) {
+        nodeCache.delete(id);
+        return;
+    }
+    // CAUTION: Assumes styles (left/top) match the visual usage.
+    // getPortPos used offsetLeft/Top which are relative to container.
+    nodeCache.set(id, {
+        x: el.offsetLeft,
+        y: el.offsetTop,
+        w: el.offsetWidth,
+        h: el.offsetHeight
+    });
+}
+
+function rebuildNodeCache() {
+    nodeCache.clear();
+    document.querySelectorAll('.node').forEach(el => {
+        nodeCache.set(el.id, {
+            x: el.offsetLeft,
+            y: el.offsetTop,
+            w: el.offsetWidth,
+            h: el.offsetHeight
+        });
+    });
+}
+
 // --- INITIALIZATION ---
 window.onload = () => {
     resizeCanvas();
@@ -176,7 +208,8 @@ document.body.addEventListener('drop', (e) => {
     if (type) {
         // Drop coordinates are screen. Need World.
         const worldPos = screenToWorld(e.clientX, e.clientY);
-        createNode(type, worldPos.x, worldPos.y);
+        const el = createNode(type, worldPos.x, worldPos.y);
+        updateNodeCache(el.id);
         saveBoard();
     }
 });
@@ -189,13 +222,20 @@ function physicsLoop() {
 }
 
 function updatePhysics() {
-    connections.forEach(conn => {
-        const n1 = document.getElementById(conn.from);
-        const n2 = document.getElementById(conn.to);
-        if (!n1 || !n2) return;
+    const missingNodes = new Set();
 
-        const p1 = getPortPos(n1, conn.fromPort);
-        const p2 = getPortPos(n2, conn.toPort);
+    connections.forEach(conn => {
+        // Use cached metrics instead of DOM
+        const c1 = nodeCache.get(conn.from);
+        const c2 = nodeCache.get(conn.to);
+
+        if (!c1) missingNodes.add(conn.from);
+        if (!c2) missingNodes.add(conn.to);
+
+        if (!c1 || !c2) return;
+
+        const p1 = getPortPos(c1, conn.fromPort);
+        const p2 = getPortPos(c2, conn.toPort);
 
         if (!conn.points || conn.points.length !== POINTS_COUNT) {
             conn.points = [];
@@ -247,22 +287,22 @@ function updatePhysics() {
             }
         }
     });
+
+    // Lazy recover missing nodes (e.g. if created outside normal flow)
+    if (missingNodes.size > 0) {
+        missingNodes.forEach(id => updateNodeCache(id));
+    }
 }
 
 // IMPORTANT: getPortPos needs to return WORLD coordinates because nodes are transformed relative to 0,0 WORLD, 
 // BUT getBoundingClientRect returns SCREEN coordinates.
 // Since the container is transformed, its local coordinates are World coords.
-// node.offsetLeft/Top is relative to container (World).
-// But we need exact edge. 
-// Standard node is 150x80 (or auto). 
-// Safer to use node.offsetLeft + width.
-function getPortPos(nodeEl, port) {
-    // We use offsetLeft/Top because they are relative to the Container (World Space)
-    // CAUTION: styles applied transform on container, so offset props are correct in local space.
-    const left = nodeEl.offsetLeft;
-    const top = nodeEl.offsetTop;
-    const width = nodeEl.offsetWidth;
-    const height = nodeEl.offsetHeight;
+// nodeData is from cache {x, y, w, h}
+function getPortPos(nodeData, port) {
+    const left = nodeData.x;
+    const top = nodeData.y;
+    const width = nodeData.w;
+    const height = nodeData.h;
 
     if (port === 'top') return { x: left + width / 2, y: top };
     if (port === 'bottom') return { x: left + width / 2, y: top + height };
@@ -321,6 +361,8 @@ function createNode(type, x, y, id = null, content = {}) {
 
     container.appendChild(nodeEl);
 
+    updateNodeCache(nodeId);
+
     if (!id) {
         nodes.push({ id: nodeId, type, x: x - 75, y: y - 40 });
     }
@@ -354,6 +396,15 @@ document.addEventListener('mousemove', (e) => {
             nodeData.x = x;
             nodeData.y = y;
         }
+
+        // Fast update cache for physics
+        const cache = nodeCache.get(draggedNode.id);
+        if (cache) {
+            cache.x = x;
+            cache.y = y;
+        } else {
+            updateNodeCache(draggedNode.id);
+        }
     }
     if (isConnecting) {
         // Track current mouse in World Space
@@ -364,6 +415,7 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', (e) => {
     if (draggedNode) {
+        updateNodeCache(draggedNode.id); // Ensure final sync
         draggedNode = null;
         saveBoard();
     }
@@ -424,15 +476,18 @@ function drawConnections() {
 
     if (isConnecting) {
         ctx.beginPath();
-        const startEl = document.getElementById(connectStart.id);
-        const startPos = getPortPos(startEl, connectStart.port);
-        ctx.moveTo(startPos.x, startPos.y);
-        ctx.lineTo(connectStart.currentX, connectStart.currentY);
-        ctx.strokeStyle = '#f1c40f';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        // Use cache for start point
+        const cache = nodeCache.get(connectStart.id);
+        if (cache) {
+            const startPos = getPortPos(cache, connectStart.port);
+            ctx.moveTo(startPos.x, startPos.y);
+            ctx.lineTo(connectStart.currentX, connectStart.currentY);
+            ctx.strokeStyle = '#f1c40f';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
     }
 
     ctx.lineWidth = 2;
@@ -737,6 +792,7 @@ function editTargetNode() {
                 title.contentEditable = false;
                 body.contentEditable = false;
                 el.classList.remove('editing');
+                updateNodeCache(id); // Re-measure size in case it changed
                 saveBoard();
             };
 
@@ -773,6 +829,7 @@ function deleteTargetNode() {
     if (id) {
         const el = document.getElementById(id);
         if (el) el.remove();
+        nodeCache.delete(id); // Remove from cache
 
         const removedConns = connections.filter(c => c.from === id || c.to === id);
 
@@ -802,6 +859,7 @@ function saveBoard() {
         name: document.getElementById('caseName').innerText,
         nodes: currentNodes,
         connections: connections.map(c => ({
+            id: c.id,
             from: c.from, to: c.to,
             fromPort: c.fromPort, toPort: c.toPort,
             label: c.label,
@@ -820,13 +878,22 @@ function loadBoard() {
         document.getElementById('caseName').innerText = data.name || "UNNAMED";
 
         connections = data.connections || [];
-        connections.forEach(c => c.points = []);
+        connections.forEach((c, index) => {
+            c.points = [];
+            // Backwards compatibility: Assign ID if missing (from old saves)
+            if (!c.id) {
+                c.id = 'conn_' + Date.now() + '_' + index;
+            }
+        });
 
         nodes = data.nodes || [];
         container.innerHTML = '';
         labelContainer.innerHTML = '';
+
+        nodeCache.clear();
         nodes.forEach(n => {
-            createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
+            const el = createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
+            updateNodeCache(n.id);
         });
     }
 }
