@@ -18,7 +18,7 @@
         TENSION: 0.01,
         FRICTION: 0.9,
         SHOCK_WIDTH: 3,
-        SHOCK_AMPLITUDE: 2.5,
+        SHOCK_AMPLITUDE: 1,
         SHOCK_DURATION: 60,
         SHOCK_THICKNESS: 15,
         SHOCK_SPEED: 1,
@@ -155,6 +155,9 @@
         if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
     };
 
+    // Force resize on load to ensure boids init correctly
+    setTimeout(resize, 100);
+
     const spawnShockwave = (x, y) => {
         shockwaves.push({
             x, y, radius: 0, age: 0,
@@ -183,8 +186,11 @@
         const btn = document.getElementById('btn-bg-style');
         if (btn) btn.innerText = "🌌 " + s.label;
 
+        localStorage.setItem('vectorFieldStyle', s.id);
+
         if (s.id === 'RAIN') initRain();
         if (s.id === 'CONSTELLATION') initConstellation();
+        if (s.id === 'BOIDS') initBoids();
     };
 
     // =========================================
@@ -585,16 +591,16 @@
                 }
             }
 
-            // 3. Limit Speed (Reduced)
+            // 3. Limit Speed (Reduced Further)
             const speed = Math.hypot(b.vx, b.vy);
-            const lim = 3.5; // Slower
+            const lim = 2.0; // Very calm
             if (speed > lim) {
                 b.vx = (b.vx / speed) * lim;
                 b.vy = (b.vy / speed) * lim;
             }
-            if (speed < 1.5) { // Min speed
-                b.vx = (b.vx / speed) * 1.5;
-                b.vy = (b.vy / speed) * 1.5;
+            if (speed < 0.5) { // Min speed
+                b.vx = (b.vx / speed) * 0.5;
+                b.vy = (b.vy / speed) * 0.5;
             }
 
             // 4. Update Position & Wrap
@@ -624,16 +630,17 @@
                 ctx.stroke();
             }
 
-            // Draw Head
+            // Draw Head (Kite Shape)
             const angle = Math.atan2(b.vy, b.vx);
             ctx.fillStyle = `rgba(${rgb}, 0.9)`;
             ctx.save();
             ctx.translate(b.x, b.y);
             ctx.rotate(angle);
             ctx.beginPath();
-            ctx.moveTo(8, 0);
-            ctx.lineTo(-4, 3);
-            ctx.lineTo(-4, -3);
+            ctx.moveTo(15, 0);   // Nose
+            ctx.lineTo(-8, 6);   // Wing L
+            ctx.lineTo(-4, 0);   // Tail notch
+            ctx.lineTo(-8, -6);  // Wing R
             ctx.fill();
             ctx.restore();
         });
@@ -914,23 +921,28 @@
     // =========================================
     //                 INIT
     // =========================================
+    // =========================================
+    //                 INIT
+    // =========================================
     buildNodes();
     updateAccent();
+
+    // LOAD SAVED STYLE
+    const savedStyle = localStorage.getItem('vectorFieldStyle');
+    if (savedStyle) {
+        const idx = STYLES.findIndex(s => s.id === savedStyle);
+        if (idx !== -1) currentStyleIdx = idx;
+    }
+
+    // Set initial button text
+    const btn = document.getElementById('btn-bg-style');
+    if (btn) {
+        btn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
+    }
+
     if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
     if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
     if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
-
-    // Fallback hook for style cycling
-    // (Since we couldn't easily locate the cycle function in this large file via grep)
-    const btn = document.getElementById('bg-style-btn');
-    if (btn) {
-        btn.addEventListener('click', () => {
-            // cycleStyle likely runs on click too. We wait a tick for index to update.
-            requestAnimationFrame(() => {
-                if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
-            });
-        });
-    }
 
     animate();
 })();
