@@ -37,7 +37,7 @@
     const forces = [];
     const shockwaves = [];
     let activity = 0;
-    const mouse = { x: -999, y: -999, prevX: -999, prevY: -999 };
+    const mouse = { x: -999, y: -999, prevX: -999, prevY: -999, down: false };
     let currentAccentRGB = "78, 205, 196";
 
     // STYLES
@@ -82,6 +82,22 @@
                 vx: (Math.random() - 0.5) * 1,
                 vy: (Math.random() - 0.5) * 1,
                 radius: 1.5 + Math.random()
+            });
+        }
+    };
+
+    // BOIDS STATE (True Simulation)
+    const boids = [];
+    const initBoids = () => {
+        boids.length = 0;
+        const count = 80;
+        for (let i = 0; i < count; i++) {
+            boids.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                angle: Math.random() * Math.PI * 2
             });
         }
     };
@@ -135,6 +151,7 @@
         updateAccent();
         if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
         if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
+        if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
     };
 
     const spawnShockwave = (x, y) => {
@@ -180,13 +197,19 @@
         mouse.prevX = mouse.x = e.clientX;
         mouse.prevY = mouse.y = e.clientY;
     });
-    window.addEventListener('mousedown', e => spawnShockwave(e.clientX, e.clientY));
+    window.addEventListener('mousedown', e => {
+        spawnShockwave(e.clientX, e.clientY);
+        mouse.down = true;
+    });
+    window.addEventListener('mouseup', () => mouse.down = false);
     window.addEventListener('touchstart', e => {
         const touch = e.touches[0];
         spawnShockwave(touch.clientX, touch.clientY);
         mouse.prevX = mouse.x = touch.clientX;
         mouse.prevY = mouse.y = touch.clientY;
+        mouse.down = true;
     });
+    window.addEventListener('touchend', () => mouse.down = false);
 
     // =========================================
     //          PHYSICS & RENDERING
@@ -367,29 +390,55 @@
             for (let cx = 0; cx < cols; cx++) {
                 for (let cy = 0; cy < rows; cy++) {
                     const idx = cx * rows + cy;
+                    const x = rawNodes[idx * 6];
+                    const y = rawNodes[idx * 6 + 1];
                     // Higher threshold for "sparks"
-                    const shock = rawMeta[idx * 2 + 1];
-                    const energy = rawMeta[idx * 2];
+                    let shock = rawMeta[idx * 2 + 1];
+                    let energy = rawMeta[idx * 2];
+
+                    // SPARK BRUSH: Boost energy near mouse
+                    if (mouse.x !== -999) {
+                        const dx = x - mouse.x;
+                        const dy = y - mouse.y;
+                        if (Math.abs(dx) < 80 && Math.abs(dy) < 80) { // Fast box check
+                            const distSq = dx * dx + dy * dy;
+                            if (distSq < 6400) { // 80px radius
+                                energy += 1.0; // Artificial boost
+                            }
+                        }
+                    }
 
                     if (shock > 0.05 || energy > 0.8) {
-                        const x = rawNodes[idx * 6];
-                        const y = rawNodes[idx * 6 + 1];
                         const intensity = shock + (energy * 0.5);
 
                         // Dynamic color based on intensity
                         const alpha = Math.min(1, intensity);
                         ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
 
+                        const isHot = (nIdx) => {
+                            let nShock = rawMeta[nIdx * 2 + 1];
+                            let nEnergy = rawMeta[nIdx * 2];
+                            // Apply same mouse boost
+                            const nx = rawNodes[nIdx * 6];
+                            const ny = rawNodes[nIdx * 6 + 1];
+                            if (mouse.x !== -999) {
+                                const dx = nx - mouse.x;
+                                const dy = ny - mouse.y;
+                                if (dx * dx + dy * dy < 6400) nEnergy += 1.0;
+                            }
+                            return (nShock > 0.05 || nEnergy > 0.8);
+                        };
+
                         // Connect to neighbors if they are also active
                         if (cx < cols - 1) {
                             const nIdx = idx + rows;
-                            if (rawMeta[nIdx * 2 + 1] > 0.05 || rawMeta[nIdx * 2] > 0.8) {
+                            if (isHot(nIdx)) {
                                 drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], intensity);
                             }
                         }
                         if (cy < rows - 1) {
                             const nIdx = idx + 1;
-                            if (rawMeta[nIdx * 2 + 1] > 0.05 || rawMeta[nIdx * 2] > 0.8) {
+                            if (isHot(nIdx)) {
                                 drawLightning(ctx, x, y, rawNodes[nIdx * 6], rawNodes[nIdx * 6 + 1], intensity);
                             }
                         }
@@ -450,45 +499,119 @@
 
     const renderBoids = (rgb) => {
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-        layers.forEach(l => {
-            const count = l.cols * l.rows;
-            for (let i = 0; i < count; i++) {
-                const base = i * 6;
-                const x = l.rawNodes[base];
-                const y = l.rawNodes[base + 1];
-                let vx = l.rawNodes[base + 2];
-                let vy = l.rawNodes[base + 3];
+        ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
 
-                // Mouse influence for BOIDS only
-                if (mouse.x !== -999) {
-                    const dx = x - mouse.x;
-                    const dy = y - mouse.y;
-                    const distSq = dx * dx + dy * dy;
-                    if (distSq < 40000) { // 200px radius
-                        const dist = Math.sqrt(distSq);
-                        // Flee from mouse
-                        vx += (dx / dist) * 2.0;
-                        vy += (dy / dist) * 2.0;
+        // BOID CONSTANTS
+        const perception = 60;
+        const protection = 15;
+        const matching = 0.05;
+        const centering = 0.005; // Cohesion strength 
+        const avoid = 0.1;      // Separation strength
+        const turn = 0.5;       // Mouse turn strength
+
+        boids.forEach(b => {
+            // 1. Separation / Alignment / Cohesion
+            let avgVX = 0, avgVY = 0;
+            let avgX = 0, avgY = 0;
+            let count = 0;
+            let closeDX = 0, closeDY = 0;
+
+            boids.forEach(other => {
+                const dx = b.x - other.x;
+                const dy = b.y - other.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > 0 && dist < perception) {
+                    // Alignment
+                    avgVX += other.vx;
+                    avgVY += other.vy;
+                    // Cohesion
+                    avgX += other.x;
+                    avgY += other.y;
+                    count++;
+
+                    // Separation
+                    if (dist < protection) {
+                        closeDX += dx;
+                        closeDY += dy;
                     }
                 }
+            });
 
-                const shock = l.rawMeta[i * 2 + 1];
-                const mag = Math.hypot(vx, vy);
-
-                if (mag < 0.1 && shock < 0.1) continue;
-
-                const angle = Math.atan2(vy, vx);
-
-                ctx.save();
-                ctx.translate(x, y);
-                ctx.rotate(angle);
-                ctx.beginPath();
-                ctx.moveTo(5, 0);
-                ctx.lineTo(-3, 3);
-                ctx.lineTo(-3, -3);
-                ctx.fill();
-                ctx.restore();
+            if (count > 0) {
+                // Alignment
+                b.vx += (avgVX / count - b.vx) * matching;
+                b.vy += (avgVY / count - b.vy) * matching;
+                // Cohesion
+                b.vx += ((avgX / count) - b.x) * centering;
+                b.vy += ((avgY / count) - b.y) * centering;
             }
+            // Separation (avoid crowding)
+            b.vx += closeDX * avoid;
+            b.vy += closeDY * avoid;
+
+            // 2. Mouse Interaction
+            if (mouse.x !== -999) {
+                const dx = b.x - mouse.x;
+                const dy = b.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+
+                if (mouse.down) {
+                    // FLEE on Click
+                    if (dist < 400) {
+                        b.vx += (dx / dist) * turn * 3.0;
+                        b.vy += (dy / dist) * turn * 3.0;
+                    }
+                } else {
+                    // SEEK/ORBIT normally
+                    if (dist < 300) {
+                        b.vx -= (dx / dist) * turn * 0.2; // Gentle seek
+                        b.vy -= (dy / dist) * turn * 0.2;
+
+                        // Swirl/Don't overlap
+                        if (dist < 80) {
+                            b.vx += (dx / dist) * turn * 1.5;
+                            b.vy += (dy / dist) * turn * 1.5;
+                            // Add tangential force for swirl
+                            b.vx += -(dy / dist) * turn * 2.0;
+                            b.vy += (dx / dist) * turn * 2.0;
+                        }
+                    }
+                }
+            }
+
+            // 3. Limit Speed
+            const speed = Math.hypot(b.vx, b.vy);
+            const lim = 5;
+            if (speed > lim) {
+                b.vx = (b.vx / speed) * lim;
+                b.vy = (b.vy / speed) * lim;
+            }
+            if (speed < 2.0) { // Min speed
+                b.vx = (b.vx / speed) * 2.0;
+                b.vy = (b.vy / speed) * 2.0;
+            }
+
+            // 4. Update Position & Wrap
+            b.x += b.vx;
+            b.y += b.vy;
+
+            if (b.x < 0) b.x = width;
+            if (b.x > width) b.x = 0;
+            if (b.y < 0) b.y = height;
+            if (b.y > height) b.y = 0;
+
+            // 5. Render
+            const angle = Math.atan2(b.vy, b.vx);
+            ctx.save();
+            ctx.translate(b.x, b.y);
+            ctx.rotate(angle);
+            ctx.beginPath();
+            ctx.moveTo(10, 0);
+            ctx.lineTo(-6, 5);
+            ctx.lineTo(-6, -5);
+            ctx.fill();
+            ctx.restore();
         });
     };
 
@@ -771,6 +894,19 @@
     updateAccent();
     if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
     if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
+    if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
+
+    // Fallback hook for style cycling
+    // (Since we couldn't easily locate the cycle function in this large file via grep)
+    const btn = document.getElementById('bg-style-btn');
+    if (btn) {
+        btn.addEventListener('click', () => {
+            // cycleStyle likely runs on click too. We wait a tick for index to update.
+            requestAnimationFrame(() => {
+                if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
+            });
+        });
+    }
 
     animate();
 })();
