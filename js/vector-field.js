@@ -104,6 +104,49 @@
         }
     };
 
+    // NEBULA STATE (Optimized Cloud Layers)
+    const nebulaParticles = [];
+    let cloudSprite = null;
+
+    const createCloudSprite = (r, g, b) => {
+        const size = 256;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const half = size / 2;
+
+        const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+        grad.addColorStop(0, `rgba(${r},${g},${b}, 0.2)`);
+        grad.addColorStop(0.4, `rgba(${r},${g},${b}, 0.05)`);
+        grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        return canvas;
+    };
+
+    const initNebula = () => {
+        nebulaParticles.length = 0;
+        // Current accent color
+        const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
+        cloudSprite = createCloudSprite(rgb[0], rgb[1], rgb[2]); // Re-generate sprite with accent color
+
+        const count = 60; // Few large particles for performance
+        for (let i = 0; i < count; i++) {
+            nebulaParticles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: 0,
+                vy: 0,
+                radius: 100 + Math.random() * 200,
+                layer: 0.5 + Math.random() * 0.5, // Parallax depth (0.5 to 1.0)
+                alpha: Math.random(),
+                rotation: Math.random() * Math.PI * 2
+            });
+        }
+    };
+
     // =========================================
     //             CORE FUNCTIONS
     // =========================================
@@ -154,6 +197,7 @@
         if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
         if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
         if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
+        if (STYLES[currentStyleIdx].id === 'NEBULA') initNebula();
     };
 
     // Force resize on load to ensure boids init correctly
@@ -192,6 +236,7 @@
         if (s.id === 'RAIN') initRain();
         if (s.id === 'CONSTELLATION') initConstellation();
         if (s.id === 'BOIDS') initBoids();
+        if (s.id === 'NEBULA') initNebula();
     };
 
     // =========================================
@@ -1143,71 +1188,85 @@
     };
 
     const renderNebula = (rgb) => {
-        ctx.globalCompositeOperation = 'lighter';
+        // Optimized Sprite-Based Cloud Rendering
+        if (!cloudSprite) initNebula();
 
-        const STEPS = 2; // 2x subdivision
+        ctx.globalCompositeOperation = 'screen';
 
-        layers.forEach(l => {
-            const { cols, rows, rawNodes, rawMeta } = l;
+        const layer0 = layers[0];
+        const spacing = layer0.spacing;
+        const rows = layer0.rows;
 
-            for (let cx = 0; cx < cols - 1; cx++) {
-                for (let cy = 0; cy < rows - 1; cy++) {
-                    const idx = cx * rows + cy;
-                    const right = idx + rows;
-                    const down = idx + 1;
-                    const diag = idx + rows + 1;
+        nebulaParticles.forEach(p => {
+            // 1. Physically react to Vector Grid
+            // Sample velocity from grid at particle position
+            // Since grid is uniform, we can calculate index
+            // Grid Coords (approx)
+            // x = -spacing + cx * spacing
+            // cx = (x + spacing) / spacing
 
-                    // Node Data
-                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
-                    const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1];
+            let cx = Math.floor((p.x + spacing) / spacing);
+            let cy = Math.floor((p.y + spacing) / spacing);
 
-                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                    const e2 = rawMeta[right * 2] + rawMeta[right * 2 + 1];
+            // Clamp
+            if (cx < 0) cx = 0; if (cx >= layer0.cols) cx = layer0.cols - 1;
+            if (cy < 0) cy = 0; if (cy >= layer0.rows) cy = layer0.rows - 1;
 
-                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                    const e3 = rawMeta[down * 2] + rawMeta[down * 2 + 1];
+            const idx = cx * rows + cy;
+            const baseIdx = idx * 6;
 
-                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
-                    const e4 = rawMeta[diag * 2] + rawMeta[diag * 2 + 1];
+            // Get Flow Velocity from Vector Field Physics
+            const fieldVx = layer0.rawNodes[baseIdx + 2];
+            const fieldVy = layer0.rawNodes[baseIdx + 3];
+            const energy = layer0.rawMeta[idx * 2]; // 'Energy' of the cell
 
-                    const lerp = (a, b, t) => a + (b - a) * t;
+            // Apply forces to particle
+            // p.vx += fieldVx * 0.1;
+            // p.vy += fieldVy * 0.1; 
+            // Better: Interpolate velocity
+            p.vx += (fieldVx - p.vx) * 0.05;
+            p.vy += (fieldVy - p.vy) * 0.05;
 
-                    // Skip empty quads
-                    if (e1 < 0.1 && e2 < 0.1 && e3 < 0.1 && e4 < 0.1) continue;
-
-                    for (let sx = 0; sx < STEPS; sx++) {
-                        for (let sy = 0; sy < STEPS; sy++) {
-                            const tx = sx / STEPS;
-                            const ty = sy / STEPS;
-
-                            // Interpolate Position
-                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
-                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
-                            const finalX = lerp(xt, xb, ty);
-                            const finalY = lerp(yt, yb, ty);
-
-                            // Interpolate Energy
-                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
-                            const finalEnergy = lerp(et, eb, ty);
-
-                            if (finalEnergy > 0.1) {
-                                // Clamp radius so it doesn't explode infinitely
-                                const radius = 10 + Math.min(finalEnergy, 3.0) * 20; // Smaller radius for density
-                                const alpha = Math.min(1.0, finalEnergy * 0.15);
-
-                                const grad = ctx.createRadialGradient(finalX, finalY, 0, finalX, finalY, radius);
-                                grad.addColorStop(0, `rgba(${rgb}, ${alpha})`);
-                                grad.addColorStop(1, `rgba(${rgb}, 0)`);
-                                ctx.fillStyle = grad;
-                                ctx.beginPath();
-                                ctx.arc(finalX, finalY, radius, 0, Math.PI * 2);
-                                ctx.fill();
-                            }
-                        }
-                    }
+            // Mouse Interaction (Wind)
+            if (mouse.x !== -999) {
+                const dx = p.x - mouse.x;
+                const dy = p.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < 300) {
+                    const push = (300 - dist) / 300;
+                    p.vx += (dx / dist) * push * 0.5;
+                    p.vy += (dy / dist) * push * 0.5;
+                    p.radius += 1; // Puff up
                 }
             }
+
+            // Apply Movement
+            p.x += p.vx * p.layer; // Parallax
+            p.y += p.vy * p.layer;
+
+            // Natural Drift
+            p.x += (Math.random() - 0.5) * 0.1;
+            p.y += (Math.random() - 0.5) * 0.1;
+
+            // Wrap
+            if (p.x < -200) p.x = width + 200;
+            if (p.x > width + 200) p.x = -200;
+            if (p.y < -200) p.y = height + 200;
+            if (p.y > height + 200) p.y = -200;
+
+            // Decay Radius back to normal
+            if (p.radius > 300) p.radius *= 0.99;
+            if (p.radius < 100) p.radius += 0.5;
+
+            // Draw
+            const size = p.radius * p.layer;
+            const opacity = p.alpha * (0.5 + energy * 2.0); // Glow if energy is high
+
+            ctx.globalAlpha = Math.min(1, opacity);
+            ctx.drawImage(cloudSprite, p.x - size / 2, p.y - size / 2, size, size);
         });
+
+        ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
     };
 
