@@ -402,8 +402,8 @@
             const { cols, rows, rawMeta, rawNodes } = layer;
             ctx.shadowBlur = 20; // Stronger glow
 
-            // Randomly flash the whole field occasionally
-            if (Math.random() < 0.05) {
+            // Randomly flash the whole field occasionally, but ONLY if active
+            if (activity > 0.01 && Math.random() < 0.05) {
                 ctx.shadowColor = `rgba(255, 255, 255, 0.8)`;
             } else {
                 ctx.shadowColor = `rgba(${rgb}, 0.8)`;
@@ -420,53 +420,42 @@
                     let shock = rawMeta[idx * 2 + 1];
                     let energy = rawMeta[idx * 2];
 
-                    // SPARK BRUSH: Boost energy near mouse
-                    if (mouse.x !== -999) {
-                        const dx = x - mouse.x;
-                        const dy = y - mouse.y;
-                        if (Math.abs(dx) < 150 && Math.abs(dy) < 150) { // Bigger box
-                            const distSq = dx * dx + dy * dy;
-                            if (distSq < 22500) { // 150px radius
-                                energy += 2.0 * (1 - distSq / 22500); // Stronger boost
-                            }
-                        }
-                    }
+                    // SPARK BRUSH: Removed static boost. 
+                    // Now relies entirely on physics (movement/shocks).
 
-                    if (shock > 0.05 || energy > 0.6) { // Lower threshold for more activity
+                    if (shock > 0.1 || energy > 0.85) { // MUCH Higher threshold for sparsity
                         const intensity = shock + (energy * 0.5);
-
-                        // Dynamic color based on intensity
                         const alpha = Math.min(1, intensity);
 
-                        // FLICKER: Randomly skip or boost alpha
-                        if (Math.random() > 0.2) {
+                        // FLICKER & CULL: Only draw ~40% of potential arcs for that "clean" look
+                        if (Math.random() > 0.6) {
+                            ctx.beginPath(); // New path for per-bolt styling if needed, but we batch for perf
+                            // Actually, to support variable thickness we need separate strokes or complex batching.
+                            // For performance, let's just stick to one thickness per batch? 
+                            // No, user wants thick bolts. Let's do it right: Per-bolt stroke for quality, try to optimize later.
+
                             ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
-                            // Occasional white hot arcs
-                            if (intensity > 1.5 || Math.random() < 0.1) {
+                            ctx.lineWidth = 1.5 + (intensity * 2.0); // Variable thickness: 1.5 to ~5.0
+                            if (intensity > 1.2) {
                                 ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-                                ctx.lineWidth = 2.0;
+                                ctx.lineWidth += 1;
+                                ctx.shadowColor = `rgba(255, 255, 255, 1.0)`;
                             } else {
-                                ctx.lineWidth = 1.0;
+                                ctx.shadowColor = `rgba(${rgb}, 0.8)`;
                             }
 
                             const isHot = (nIdx) => {
                                 let nShock = rawMeta[nIdx * 2 + 1];
                                 let nEnergy = rawMeta[nIdx * 2];
-                                // Apply same mouse boost
-                                const nx = rawNodes[nIdx * 6];
-                                const ny = rawNodes[nIdx * 6 + 1];
-                                if (mouse.x !== -999) {
-                                    const dx = nx - mouse.x;
-                                    const dy = ny - mouse.y;
-                                    if (dx * dx + dy * dy < 22500) nEnergy += 2.0;
-                                }
-                                return (nShock > 0.05 || nEnergy > 0.6);
+                                return (nShock > 0.1 || nEnergy > 0.85); // Match new threshold
                             };
 
-                            // Connect to neighbors
-                            const jitterVal = 10;
+                            // Connect to neighbors with Jitter
+                            const jitterVal = 15; // Increased jitter
                             const jx = () => (Math.random() - 0.5) * jitterVal;
                             const jy = () => (Math.random() - 0.5) * jitterVal;
+
+                            let drawn = false;
 
                             if (cx < cols - 1) {
                                 const nIdx = idx + rows;
@@ -475,25 +464,28 @@
                                     const ey = rawNodes[nIdx * 6 + 1];
                                     ctx.moveTo(x + jx(), y + jy());
                                     drawLightning(ctx, x + jx(), y + jy(), ex + jx(), ey + jy(), 60 * intensity, 3);
+                                    drawn = true;
                                 }
                             }
-                            if (cy < rows - 1) {
+                            if (!drawn && cy < rows - 1) { // Prefer one connection per node to reduce mesh effect
                                 const nIdx = idx + 1;
                                 if (isHot(nIdx)) {
                                     const ex = rawNodes[nIdx * 6];
                                     const ey = rawNodes[nIdx * 6 + 1];
                                     ctx.moveTo(x + jx(), y + jy());
                                     drawLightning(ctx, x + jx(), y + jy(), ex + jx(), ey + jy(), 60 * intensity, 3);
+                                    drawn = true;
                                 }
                             }
+
+                            if (drawn) ctx.stroke();
                         }
                     }
                 }
             }
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            ctx.lineWidth = 1;
         });
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 1;
     };
 
     const renderGrid = (rgb) => {
