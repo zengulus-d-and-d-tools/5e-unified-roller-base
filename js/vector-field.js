@@ -1193,22 +1193,29 @@
 
     const spawnNebulaPulse = (x, y) => {
         // 1. Spawn new dense clouds at click
-        for (let i = 0; i < 8; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 2 + Math.random() * 5;
+        // 1. Spawn new dense clouds in a ring around click (jittered)
+        for (let i = 0; i < 12; i++) {
+            const spawnAngle = Math.random() * Math.PI * 2;
+            const spawnDist = 100 + Math.random() * 80; // Ring
+            const sx = x + Math.cos(spawnAngle) * spawnDist;
+            const sy = y + Math.sin(spawnAngle) * spawnDist;
+
+            const moveAngle = spawnAngle; // Move outwards
+            const speed = 1 + Math.random() * 3;
+
             nebulaParticles.push({
-                x: x,
-                y: y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                radius: 50 + Math.random() * 100,
+                x: sx,
+                y: sy,
+                vx: Math.cos(moveAngle) * speed,
+                vy: Math.sin(moveAngle) * speed,
+                radius: 60 + Math.random() * 120, // Slightly bigger
                 layer: 0.5 + Math.random() * 0.5,
-                alpha: 0, // Fade in
-                targetAlpha: Math.random() * 0.8 + 0.2,
-                fadeInSpeed: 0.05,
+                alpha: 0,
+                targetAlpha: Math.random() * 0.5 + 0.5, // Brighter (min 0.5)
+                fadeInSpeed: 0.08, // Faster fade in
                 rotation: Math.random() * Math.PI * 2,
                 fading: false,
-                fadeCounter: 20
+                fadeCounter: 30
             });
         }
 
@@ -1253,7 +1260,7 @@
                     x: nx, y: ny, vx: nvx, vy: nvy,
                     radius: 100 + Math.random() * 200,
                     layer: 0.5 + Math.random() * 0.5,
-                    alpha: 0, targetAlpha: Math.random(), fadeInSpeed: 0.01,
+                    alpha: 0, targetAlpha: Math.random() * 0.6 + 0.4, fadeInSpeed: 0.01,
                     rotation: Math.random() * Math.PI * 2,
                     fading: false, fadeCounter: 20
                 });
@@ -1324,7 +1331,7 @@
 
             // Draw
             const size = p.radius * p.layer;
-            const finalAlpha = p.alpha * (0.5 + energy * 2.0);
+            const finalAlpha = p.alpha * (0.8 + energy * 2.5); // Brighter base and energy reaction
 
             ctx.globalAlpha = Math.min(1, Math.max(0, finalAlpha));
             ctx.drawImage(cloudSprite, p.x - size / 2, p.y - size / 2, size, size);
