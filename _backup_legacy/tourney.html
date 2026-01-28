@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Bracket v6.0</title>
+    <style>
+        :root {
+            --bg: #0f0f13;
+            --panel: rgba(30, 30, 35, 0.8);
+            --node-bg: rgba(30, 30, 35, 0.9);
+            --node-hover: #303030;
+            --accent: #4ecdc4;
+            --accent-glow: rgba(78, 205, 196, 0.4);
+            --gold: #f1c40f;
+            --text: #e0e0e0;
+            --line: #666;
+            --node-h: 44px;
+            --glass: blur(12px);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            color: var(--text);
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* TOOLBAR */
+        #toolbar {
+            height: 60px;
+            background: rgba(15, 15, 19, 0.95);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+            backdrop-filter: var(--glass);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: #aaa;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: 0.2s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            border-color: var(--accent);
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-p {
+            background: var(--accent);
+            color: #0f0f13;
+            border: none;
+            font-weight: 900;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .btn-p:hover {
+            background: #fff;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* MAIN STAGE */
+        #stage {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            /* Let body bg show through */
+            z-index: 1;
+        }
+
+        #bracket-root {
+            position: relative;
+            /* Context for SVG */
+            display: flex;
+            flex-direction: column;
+            gap: 60px;
+            align-items: center;
+            padding: 50px;
+            transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* SVG LAYER */
+        #connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        path {
+            fill: none;
+            stroke: var(--line);
+            stroke-width: 2px;
+            transition: d 0.3s ease;
+            filter: drop-shadow(0 0 2px #000);
+        }
+
+        /* LAYOUT CONTAINERS */
+        .wb-container,
+        .lb-container {
+            display: flex;
+            gap: 50px;
+            justify-content: center;
+            z-index: 1;
+        }
+
+        .side-block {
+            display: flex;
+            gap: 50px;
+        }
+
+        .round-col {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            min-width: 150px;
+            position: relative;
+        }
+
+        .col-header {
+            position: absolute;
+            top: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: #777;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* NODES */
+        .node {
+            height: var(--node-h);
+            background: var(--node-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 2;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            border-color: var(--accent);
+            z-index: 10;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+            background: #25252b;
+        }
+
+        .node-id {
+            position: absolute;
+            top: -10px;
+            right: 0;
+            font-size: 0.6rem;
+            font-weight: bold;
+            color: #aaa;
+            background: #000;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid #333;
+        }
+
+        .p-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 10px;
+            font-size: 0.75rem;
+        }
+
+        .p-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+            color: #bbb;
+        }
+
+        .p-sc {
+            font-weight: bold;
+            color: #555;
+            width: 15px;
+            text-align: right;
+        }
+
+        .win .p-name {
+            color: var(--accent);
+            font-weight: bold;
+            text-shadow: 0 0 5px var(--accent-glow);
+        }
+
+        .win .p-sc {
+            color: var(--accent);
+        }
+
+        .lose .p-name {
+            text-decoration: line-through;
+            opacity: 0.4;
+        }
+
+        /* CENTER STACK */
+        .center-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 180px;
+            gap: 10px;
+            z-index: 1;
+        }
+
+        .gf-node {
+            border: 1px solid var(--gold);
+            box-shadow: 0 0 20px rgba(241, 196, 15, 0.2);
+            height: 52px;
+            width: 100%;
+            margin-bottom: 20px;
+            background: rgba(40, 40, 30, 0.8);
+        }
+
+        .final-node {
+            border: 1px solid var(--accent);
+            height: 50px;
+            width: 100%;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .lb-final-node {
+            border: 1px solid #666;
+            width: 100%;
+        }
+
+        .label {
+            font-size: 0.7rem;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        /* MODAL */
+        #setup-modal,
+        #score-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
+        }
+
+        .active {
+            display: flex !important;
+        }
+
+        .modal-box {
+            background: #1a1a20;
+            border: 1px solid var(--border);
+            padding: 30px;
+            border-radius: 12px;
+            width: 360px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+
+        .modal-box h3 {
+            text-align: center;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 12px;
+            box-sizing: border-box;
+            font-family: monospace;
+            border-radius: 6px;
+            resize: vertical;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .score-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            margin-bottom: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        .sc-inp {
+            width: 50px;
+            text-align: center;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .btn-adj {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid #333;
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: 0.2s;
+        }
+
+        .btn-adj:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #aaa;
+        }
+
+        canvas#vector-cloud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div id="setup-modal" class="active">
+        <div class="modal-box">
+            <h3 style="margin-top:0; color:var(--accent)">Dynamic Setup</h3>
+            <textarea id="pInput" placeholder="Names (4-64 supported)..."></textarea>
+            <div style="display:flex; justify-content:space-between; margin-top:20px; align-items: center;">
+                <label style="color:#aaa; font-size:0.9rem; display:flex; align-items:center; cursor: pointer;">
+                    <input type="checkbox" id="chkRand" checked style="margin-right: 8px;"> Randomize
+                </label>
+                <button class="btn-p" onclick="generate()" style="padding: 10px 20px;">GENERATE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toolbar">
+        <div style="display:flex; align-items:center; gap:20px;">
+            <a href="tools.html"
+                style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
+                Portal</a>
+            <div style="font-weight:900; color:var(--accent); letter-spacing: 1px;">UNIFIED <span
+                    style="color:#fff; opacity:0.5;">v6.0</span></div>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="autoFit()">Auto-Fit</button>
+            <button class="btn" onclick="reset()">New Bracket</button>
+        </div>
+    </div>
+
+    <div id="stage">
+        <div id="bracket-root">
+            <svg id="connections"></svg>
+        </div>
+    </div>
+
+    <div id="score-modal">
+        <div class="modal-box">
+            <h3 style="margin-top:0; margin-bottom: 20px; color:#fff; font-size: 1rem;">Report Score</h3>
+            <div class="score-row">
+                <span id="mP1"
+                    style="font-weight:bold; max-width:140px; overflow:hidden; text-overflow: ellipsis;">P1</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button class="btn-adj" onclick="mod(-1, 1)">-</button>
+                    <input id="sP1" class="sc-inp" readonly value="0">
+                    <button class="btn-adj" onclick="mod(1, 1)">+</button>
+                </div>
+            </div>
+            <div class="score-row">
+                <span id="mP2"
+                    style="font-weight:bold; max-width:140px; overflow:hidden; text-overflow: ellipsis;">P2</span>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button class="btn-adj" onclick="mod(-1, 2)">-</button>
+                    <input id="sP2" class="sc-inp" readonly value="0">
+                    <button class="btn-adj" onclick="mod(1, 2)">+</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:15px; margin-top:25px;">
+                <button class="btn" style="flex:1; border-color: #555;" onclick="closeScore()">Cancel</button>
+                <button class="btn-p" style="flex:1" onclick="saveScore()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = { matches: [], active: false, meta: {} };
+        let curId = null;
+
+        // --- GENERATOR (Same logic as v5, creates data structure) ---
+        function generate() {
+            const txt = document.getElementById('pInput').value.trim();
+            let names = txt.split('\n').map(x => x.trim()).filter(x => x);
+            if (names.length < 3) return alert("Need 3+ players.");
+            if (document.getElementById('chkRand').checked) names.sort(() => Math.random() - 0.5);
+
+            const size = Math.pow(2, Math.ceil(Math.log2(names.length)));
+            const seeds = [];
+            for (let i = 0; i < size; i++) seeds.push(names[i] || "BYE");
+
+            const wbRounds = Math.log2(size);
+            const lbRounds = (wbRounds - 1) * 2;
+            const matches = [];
+            let wbLayer = [];
+
+            // WB Gen
+            let r1Ids = [];
+            for (let i = 0; i < size / 2; i++) {
+                const id = `w1_${i}`;
+                const side = i < (size / 4) ? 'left' : 'right';
+                matches.push({ id, type: 'wb', r: 1, side, p1: seeds[i * 2], p2: seeds[i * 2 + 1], s1: 0, s2: 0, win: null });
+                r1Ids.push(id);
+            }
+            wbLayer.push(r1Ids);
+
+            for (let r = 2; r <= wbRounds; r++) {
+                let rIds = [];
+                let count = size / Math.pow(2, r);
+                for (let i = 0; i < count; i++) {
+                    const id = `w${r}_${i}`;
+                    let side = count > 1 ? (i < (count / 2) ? 'left' : 'right') : 'center';
+                    matches.push({ id, type: 'wb', r: r, side, p1: null, p2: null, s1: 0, s2: 0, win: null });
+                    rIds.push(id);
+                    link(matches, wbLayer[r - 2][i * 2], id, 1);
+                    link(matches, wbLayer[r - 2][i * 2 + 1], id, 2);
+                }
+                wbLayer.push(rIds);
+            }
+            const wfId = wbLayer[wbLayer.length - 1][0];
+
+            // LB Gen
+            let lbLayer = [];
+            let l1Ids = [];
+            for (let i = 0; i < size / 4; i++) {
+                const id = `l1_${i}`;
+                const side = i < (size / 8) ? 'left' : 'right';
+                matches.push({ id, type: 'lb', r: 1, side, p1: null, p2: null, s1: 0, s2: 0, win: null });
+                l1Ids.push(id);
+                linkLose(matches, wbLayer[0][i * 2], id, 1);
+                linkLose(matches, wbLayer[0][i * 2 + 1], id, 2);
+            }
+            lbLayer.push(l1Ids);
+
+            for (let r = 2; r <= lbRounds; r++) {
+                let rIds = [];
+                let prevCount = lbLayer[r - 2].length;
+                let isDrop = (r % 2 === 0);
+                let count = isDrop ? prevCount : prevCount / 2;
+
+                for (let i = 0; i < count; i++) {
+                    const id = `l${r}_${i}`;
+                    let side = count > 1 ? (i < (count / 2) ? 'left' : 'right') : 'center';
+                    matches.push({ id, type: 'lb', r: r, side, p1: null, p2: null, s1: 0, s2: 0, win: null });
+                    rIds.push(id);
+
+                    if (isDrop) {
+                        link(matches, lbLayer[r - 2][i], id, 1);
+                        let wbDropR = (r / 2);
+                        linkLose(matches, wbLayer[wbDropR][i], id, 2);
+                    } else {
+                        link(matches, lbLayer[r - 2][i * 2], id, 1);
+                        link(matches, lbLayer[r - 2][i * 2 + 1], id, 2);
+                    }
+                }
+                lbLayer.push(rIds);
+            }
+            const lfId = lbLayer[lbLayer.length - 1][0];
+
+            // GF
+            const gfId = 'gf';
+            matches.push({ id: gfId, type: 'gf', r: 99, side: 'center', p1: null, p2: null, s1: 0, s2: 0, win: null });
+            link(matches, wfId, gfId, 1);
+            link(matches, lfId, gfId, 2);
+
+            data.matches = matches;
+            data.meta = { wbRounds, lbRounds };
+            data.active = true;
+            save();
+            render();
+            advanceByes();
+            document.getElementById('setup-modal').classList.remove('active');
+        }
+
+        // --- RENDERER ---
+        function render() {
+            if (!data.active) return;
+            const root = document.getElementById('bracket-root');
+            // Keep SVG, clear rest
+            const svg = document.getElementById('connections');
+            root.innerHTML = '';
+            root.appendChild(svg);
+
+            // Containers
+            const wbCont = mk('div', 'wb-container');
+            const lbCont = mk('div', 'lb-container');
+
+            // WB Layout
+            const wbLeft = mk('div', 'side-block left');
+            for (let r = 1; r < data.meta.wbRounds; r++) wbLeft.appendChild(createCol('wb', r, 'left'));
+
+            const wbRight = mk('div', 'side-block right');
+            for (let r = data.meta.wbRounds - 1; r >= 1; r--) wbRight.appendChild(createCol('wb', r, 'right'));
+
+            // Center
+            const center = mk('div', 'center-stack');
+            center.innerHTML = `<div class="label" style="color:var(--gold)">GRAND FINALS</div><div id="slot-gf" style="width:100%"></div>`;
+
+            const wfMatches = data.matches.filter(m => m.type === 'wb' && m.side === 'center');
+            wfMatches.forEach(m => {
+                center.innerHTML += `<div class="label" style="color:var(--accent); margin-top:15px">WINNERS FINAL</div>`;
+                center.appendChild(createNode(m, 'final-node'));
+            });
+
+            const lbCenterMatches = data.matches.filter(m => m.type === 'lb' && m.side === 'center').sort((a, b) => b.r - a.r);
+            if (lbCenterMatches.length) center.innerHTML += `<div class="label" style="color:#777; margin-top:20px">L-FINALS</div>`;
+            lbCenterMatches.forEach(m => center.appendChild(createNode(m, 'lb-final-node')));
+
+            // Render GF into slot
+            const gfM = data.matches.find(m => m.type === 'gf');
+            if (gfM) center.querySelector('#slot-gf').appendChild(createNode(gfM, 'gf-node'));
+
+            wbCont.append(wbLeft, center, wbRight);
+
+            // LB Layout
+            const lbLeft = mk('div', 'side-block left');
+            for (let r = 1; r <= data.meta.lbRounds; r++) {
+                if (data.matches.some(m => m.type === 'lb' && m.r === r && m.side === 'left'))
+                    lbLeft.appendChild(createCol('lb', r, 'left'));
+            }
+
+            const lbRight = mk('div', 'side-block right');
+            for (let r = data.meta.lbRounds; r >= 1; r--) {
+                if (data.matches.some(m => m.type === 'lb' && m.r === r && m.side === 'right'))
+                    lbRight.appendChild(createCol('lb', r, 'right'));
+            }
+
+            // Invisible spacer for LB center gap
+            const lbSpacer = mk('div', 'center-stack');
+            lbSpacer.style.visibility = 'hidden';
+            lbCont.append(lbLeft, lbSpacer, lbRight);
+
+            root.append(wbCont, lbCont);
+
+            // Wait for DOM layout then Draw Lines
+            setTimeout(() => { autoFit(); drawLines(); }, 50);
+        }
+
+        function createCol(type, r, side) {
+            const d = mk('div', 'round-col');
+            const count = data.matches.filter(m => m.type === 'wb' && m.r === 1).length;
+            let h = (count / 2) * 80;
+            if (type === 'lb') h = h * 0.8;
+            d.style.height = Math.max(200, h) + 'px';
+            d.innerHTML = `<div class="col-header">${type === 'wb' ? 'R' : 'L'}${r}</div>`;
+
+            data.matches.filter(m => m.type === type && m.r === r && m.side === side)
+                .forEach(m => d.appendChild(createNode(m)));
+            return d;
+        }
+
+        function createNode(m, ex = '') {
+            const el = mk('div', 'node ' + ex);
+            el.id = `node-${m.id}`; // Crucial for SVG linking
+            el.onclick = () => openScore(m.id);
+            const p1c = m.win === 1 ? 'win' : (m.win === 2 ? 'lose' : '');
+            const p2c = m.win === 2 ? 'win' : (m.win === 1 ? 'lose' : '');
+            let sid = m.id.split('_')[1];
+            if (m.type === 'gf') sid = '';
+            el.innerHTML = `${sid ? `<div class="node-id">${parseInt(sid) + 1}</div>` : ''}
+            <div class="p-row ${p1c}"><div class="p-name">${m.p1 || '-'}</div><div class="p-sc">${m.s1}</div></div>
+            <div class="p-row ${p2c}"><div class="p-name">${m.p2 || '-'}</div><div class="p-sc">${m.s2}</div></div>`;
+            return el;
+        }
+
+        // --- SVG DRAWER (The Magic) ---
+        function drawLines() {
+            const svg = document.getElementById('connections');
+            svg.innerHTML = ''; // Clear lines
+            const rootRect = document.getElementById('bracket-root').getBoundingClientRect();
+
+            // Helper to get relative coords
+            const getPt = (id, side) => {
+                const el = document.getElementById(`node-${id}`);
+                if (!el) return null;
+                const r = el.getBoundingClientRect();
+                // Scale correction
+                const scale = rootRect.width / document.getElementById('bracket-root').offsetWidth;
+
+                const relY = (r.top - rootRect.top + r.height / 2) / scale;
+                const relLeft = (r.left - rootRect.left) / scale;
+                const relRight = (r.right - rootRect.left) / scale;
+
+                return { x: side === 'left' ? relLeft : relRight, y: relY };
+            };
+
+            data.matches.forEach(m => {
+                if (m.nextWin) drawPath(m.id, m.nextWin, m.side, false);
+                if (m.nextLose) drawPath(m.id, m.nextLose, m.side, true);
+            });
+
+            function drawPath(srcId, dstId, srcSide, isLoserDrop) {
+                // Logic to determine sides
+                let startSide = 'right';
+                let endSide = 'left';
+
+                // If we are in the Right Bracket, flow is reversed (Left output)
+                if (srcSide === 'right') startSide = 'left';
+
+                // Drop lines usually come from bottom or side? stick to side.
+                if (srcSide === 'right' && isLoserDrop) startSide = 'left'; // Consistently output inward
+
+                // Destination Input Side
+                const dstM = data.matches.find(x => x.id === dstId);
+                if (dstM.side === 'right') endSide = 'right';
+
+                const p1 = getPt(srcId, startSide);
+                const p2 = getPt(dstId, endSide);
+
+                if (!p1 || !p2) return;
+
+                // ELBOW PATH GENERATION
+                let d = '';
+                const midX = (p1.x + p2.x) / 2;
+
+                // Simple Elbow
+                d = `M ${p1.x} ${p1.y} L ${midX} ${p1.y} L ${midX} ${p2.y} L ${p2.x} ${p2.y}`;
+
+                // Dashed line for loser drops
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', d);
+                if (isLoserDrop) {
+                    path.style.strokeDasharray = "5,5";
+                    path.style.opacity = "0.4";
+                }
+                svg.appendChild(path);
+            }
+        }
+
+        // --- STANDARD UTILS ---
+        function mk(tag, cls) { const e = document.createElement(tag); e.className = cls; return e; }
+        function link(arr, s, d, sl) { let x = arr.find(z => z.id === s); if (x) { x.nextWin = d; x.winSlot = sl; } }
+        function linkLose(arr, s, d, sl) { let x = arr.find(z => z.id === s); if (x) { x.nextLose = d; x.loseSlot = sl; } }
+
+        function openScore(id) {
+            curId = id; const m = data.matches.find(x => x.id === id); if (!m.p1 || !m.p2) return;
+            document.getElementById('mP1').innerText = m.p1; document.getElementById('mP2').innerText = m.p2;
+            document.getElementById('sP1').value = m.s1; document.getElementById('sP2').value = m.s2;
+            document.getElementById('score-modal').classList.add('active');
+        }
+        function closeScore() { document.getElementById('score-modal').classList.remove('active'); curId = null; }
+        function mod(d, p) { const el = document.getElementById(p === 1 ? 'sP1' : 'sP2'); el.value = Math.max(0, parseInt(el.value) + d); }
+        function saveScore() {
+            const m = data.matches.find(x => x.id === curId); const s1 = parseInt(document.getElementById('sP1').value); const s2 = parseInt(document.getElementById('sP2').value);
+            if (s1 === s2) return alert("No draws");
+            m.s1 = s1; m.s2 = s2; m.win = s1 > s2 ? 1 : 2;
+            const w = m.win === 1 ? m.p1 : m.p2; const l = m.win === 1 ? m.p2 : m.p1;
+            if (m.nextWin) update(m.nextWin, m.winSlot, w);
+            if (m.nextLose) update(m.nextLose, m.loseSlot, l);
+            save(); render(); advanceByes(); closeScore();
+        }
+        function update(id, sl, n) { const x = data.matches.find(z => z.id === id); if (x) { if (sl === 1) x.p1 = n; else x.p2 = n; x.win = null; x.s1 = 0; x.s2 = 0; } }
+        function advanceByes() {
+            let d = false; data.matches.forEach(m => {
+                if (!m.win && (m.p1 === 'BYE' || m.p2 === 'BYE')) {
+                    m.s1 = m.p2 === 'BYE' ? 1 : 0; m.s2 = m.p1 === 'BYE' ? 1 : 0; m.win = m.p2 === 'BYE' ? 1 : 2;
+                    const w = m.win === 1 ? m.p1 : m.p2;
+                    if (m.nextWin) update(m.nextWin, m.winSlot, w);
+                    if (m.nextLose) update(m.nextLose, m.loseSlot, 'BYE');
+                    d = true;
+                }
+            });
+            if (d) { save(); render(); }
+        }
+        function autoFit() {
+            const r = document.getElementById('bracket-root'); r.style.transform = 'scale(1)';
+            const w = r.scrollWidth + 100; const h = r.scrollHeight + 50;
+            const sc = Math.min(window.innerWidth / w, window.innerHeight / h, 1);
+            r.style.transform = `scale(${sc})`;
+        }
+        function save() { localStorage.setItem('uni_v6', JSON.stringify(data)); }
+        function reset() { if (confirm("Clear?")) { localStorage.removeItem('uni_v6'); location.reload(); } }
+
+        // Init
+        const s = localStorage.getItem('uni_v6');
+        if (s) { data = JSON.parse(s); if (data.active) { document.getElementById('setup-modal').classList.remove('active'); render(); } }
+        window.addEventListener('resize', () => { autoFit(); drawLines(); });
+
+        // --- EXCITED BACKGROUND FIELD SCRIPT (Optimized for performance) ---
+        (function () {
+            const canvas = document.getElementById('vector-cloud');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width, height;
+
+            const mouse = { x: -999, y: -999, active: false, down: false };
+            let lastScrollY = window.scrollY;
+            let scrollVelocity = 0;
+
+            const SPACING = 30;
+            const FIELD_RADIUS = 200;
+            let accentColor = '#4ecdc4';
+
+            const updateAccent = () => {
+                const style = getComputedStyle(document.documentElement);
+                accentColor = style.getPropertyValue('--accent').trim();
+            };
+
+            const resize = () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                updateAccent();
+            };
+
+            window.addEventListener('resize', resize);
+            window.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+                mouse.active = true;
+            });
+            window.addEventListener('mousedown', () => mouse.down = true);
+            window.addEventListener('mouseup', () => mouse.down = false);
+            window.addEventListener('touchstart', e => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                mouse.active = true;
+                mouse.down = true;
+            });
+            window.addEventListener('touchmove', e => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            });
+            window.addEventListener('touchend', () => { mouse.active = false; mouse.down = false; });
+
+            window.addEventListener('scroll', () => {
+                const currentY = window.scrollY;
+                const delta = currentY - lastScrollY;
+                scrollVelocity = delta;
+                lastScrollY = currentY;
+            });
+
+            resize();
+
+            const animate = () => {
+                ctx.clearRect(0, 0, width, height);
+                scrollVelocity *= 0.9;
+
+                if (!mouse.active && Math.abs(scrollVelocity) < 0.1) {
+                    requestAnimationFrame(animate);
+                    return;
+                }
+
+                const startX = Math.floor((mouse.x - FIELD_RADIUS) / SPACING) * SPACING;
+                const endX = Math.floor((mouse.x + FIELD_RADIUS) / SPACING) * SPACING;
+                const startY = Math.floor((mouse.y - FIELD_RADIUS) / SPACING) * SPACING;
+                const endY = Math.floor((mouse.y + FIELD_RADIUS) / SPACING) * SPACING;
+
+                const time = Date.now();
+
+                for (let gx = startX; gx <= endX; gx += SPACING) {
+                    for (let gy = startY; gy <= endY; gy += SPACING) {
+                        const dx = gx - mouse.x;
+                        const dy = gy - mouse.y;
+                        const distSq = dx * dx + dy * dy;
+
+                        if (distSq > FIELD_RADIUS * FIELD_RADIUS) continue;
+
+                        const dist = Math.sqrt(distSq);
+
+                        let alpha = 0;
+                        if (dist < 40) {
+                            alpha = (dist / 40);
+                        } else {
+                            alpha = 1 - ((dist - 40) / (FIELD_RADIUS - 40));
+                        }
+                        alpha = Math.max(0, Math.min(1, alpha));
+
+                        if (alpha <= 0.01) continue;
+
+                        let angle = Math.atan2(dy, dx);
+
+                        if (mouse.down) angle += Math.sin(time * 0.05 + gx + gy) * 0.5;
+
+                        const windForce = -scrollVelocity * 0.05;
+                        if (Math.abs(windForce) > 0.01) {
+                            const vx = Math.cos(angle);
+                            const vy = Math.sin(angle);
+                            const nvx = vx;
+                            const nvy = vy + windForce;
+                            angle = Math.atan2(nvy, nvx);
+                        }
+
+                        const length = 14 * alpha;
+                        const tipX = gx + Math.cos(angle) * length;
+                        const tipY = gy + Math.sin(angle) * length;
+
+                        const thickness = length * 0.2;
+                        const perpX = -Math.sin(angle) * thickness;
+                        const perpY = Math.cos(angle) * thickness;
+
+                        ctx.fillStyle = accentColor;
+                        ctx.globalAlpha = alpha * 0.8;
+
+                        ctx.beginPath();
+                        ctx.moveTo(gx + perpX, gy + perpY);
+                        ctx.lineTo(gx - perpX, gy - perpY);
+                        ctx.lineTo(tipX, tipY);
+                        ctx.fill();
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            };
+
+            animate();
+        })();
+    </script>
+</body>
+
+</html>

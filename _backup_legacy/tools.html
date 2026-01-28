@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ravnica DM Portal</title>
+    <style>
+        :root {
+            --bg: #0f0f13;
+            --card-bg: rgba(30, 30, 35, 0.6);
+            --accent: #4ecdc4;
+            --accent-glow: rgba(78, 205, 196, 0.4);
+            --text: #e0e0e0;
+            --border: rgba(255, 255, 255, 0.1);
+            --glass: blur(12px);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            color: var(--text);
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            overscroll-behavior-y: none;
+            overflow-x: hidden;
+        }
+
+        h1 {
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 50px;
+            font-size: 1.8rem;
+            text-align: center;
+            text-shadow: 0 0 15px var(--accent-glow);
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            width: 100%;
+            max-width: 1100px;
+            animation: fadeIn 0.6s ease-out;
+            position: relative;
+            z-index: 2;
+            /* Above canvas */
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 30px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            height: 100%;
+            box-sizing: border-box;
+            backdrop-filter: blur(8px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent);
+            background: rgba(40, 40, 45, 0.8);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .card:hover::before {
+            opacity: 1;
+        }
+
+        .icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.5));
+            transition: 0.3s;
+        }
+
+        .card:hover .icon {
+            transform: scale(1.1);
+        }
+
+        .title {
+            font-weight: 900;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            color: #fff;
+            letter-spacing: 0.5px;
+        }
+
+        .desc {
+            font-size: 0.9rem;
+            color: #aaa;
+            line-height: 1.5;
+        }
+
+        canvas#vector-cloud {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <h1>Forbidden DM Protocols</h1>
+
+    <div class="grid">
+        <a href="hub.html">
+            <div class="card">
+                <div class="icon">🏘️</div>
+                <div class="title">Main Hub</div>
+                <div class="desc">Campaign state, reputation tracking, player roster, and case prep.</div>
+            </div>
+        </a>
+
+        <a href="gm.html">
+            <div class="card">
+                <div class="icon">⚔️</div>
+                <div class="title">Combat Dashboard</div>
+                <div class="desc">Initiative tracker, HP management, dice roller, and loot tables.</div>
+            </div>
+        </a>
+
+        <a href="dm-screen.html">
+            <div class="card">
+                <div class="icon">📽️</div>
+                <div class="title">Narrative Screen</div>
+                <div class="desc">Street scenes, atmospheric texture, NPC quirks, and quick references.</div>
+            </div>
+        </a>
+
+        <a href="clue.html">
+            <div class="card">
+                <div class="icon">🔍</div>
+                <div class="title">Clue Generator</div>
+                <div class="desc">Procedural mystery intersection generator (Signal vs Noise).</div>
+            </div>
+        </a>
+
+        <a href="tourney.html">
+            <div class="card">
+                <div class="icon">🏆</div>
+                <div class="title">Tournament Bracket</div>
+                <div class="desc">Dynamic SVG bracket for competitions and duals.</div>
+            </div>
+        </a>
+    </div>
+
+    <script>
+        // --- ADVANCED VECTOR FIELD SCRIPT ---
+        (function () {
+            const canvas = document.getElementById('vector-cloud');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width, height;
+
+            const mouse = { x: -999, y: -999, active: false, down: false };
+            let lastScrollY = window.scrollY;
+            let scrollVelocity = 0;
+
+            // Grid config
+            const SPACING = 30;
+            const FIELD_RADIUS = 200;
+
+            // Dynamic Color
+            let accentColor = '#4ecdc4';
+
+            const updateAccent = () => {
+                const style = getComputedStyle(document.documentElement);
+                accentColor = style.getPropertyValue('--accent').trim();
+            };
+
+            const resize = () => {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+                updateAccent();
+            };
+
+            window.addEventListener('resize', resize);
+            window.addEventListener('mousemove', e => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+                mouse.active = true;
+            });
+            window.addEventListener('mousedown', () => mouse.down = true);
+            window.addEventListener('mouseup', () => mouse.down = false);
+
+            window.addEventListener('touchstart', e => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+                mouse.active = true;
+                mouse.down = true;
+            });
+            window.addEventListener('touchmove', e => {
+                mouse.x = e.touches[0].clientX;
+                mouse.y = e.touches[0].clientY;
+            });
+            window.addEventListener('touchend', () => { mouse.active = false; mouse.down = false; });
+
+            // Scroll tracking
+            window.addEventListener('scroll', () => {
+                const currentY = window.scrollY;
+                const delta = currentY - lastScrollY;
+                scrollVelocity = delta; // Simple velocity
+                lastScrollY = currentY;
+            });
+
+            resize();
+
+            const animate = () => {
+                ctx.clearRect(0, 0, width, height);
+                // Decay scroll velocity
+                scrollVelocity *= 0.9;
+
+                updateAccent();
+
+                if (!mouse.active && Math.abs(scrollVelocity) < 0.1) {
+                    requestAnimationFrame(animate);
+                    return;
+                }
+
+                const startX = Math.floor((mouse.x - FIELD_RADIUS) / SPACING) * SPACING;
+                const endX = Math.floor((mouse.x + FIELD_RADIUS) / SPACING) * SPACING;
+                const startY = Math.floor((mouse.y - FIELD_RADIUS) / SPACING) * SPACING;
+                const endY = Math.floor((mouse.y + FIELD_RADIUS) / SPACING) * SPACING;
+
+                const time = Date.now();
+
+                for (let gx = startX; gx <= endX; gx += SPACING) {
+                    for (let gy = startY; gy <= endY; gy += SPACING) {
+                        const dx = gx - mouse.x;
+                        const dy = gy - mouse.y;
+                        const distSq = dx * dx + dy * dy;
+
+                        if (distSq > FIELD_RADIUS * FIELD_RADIUS) continue;
+
+                        const dist = Math.sqrt(distSq);
+
+                        // Smooth Fade Logic
+                        let alpha = 0;
+                        if (dist < 40) {
+                            alpha = (dist / 40); // 0 to 1 as we move away from center
+                        } else {
+                            alpha = 1 - ((dist - 40) / (FIELD_RADIUS - 40)); // 1 to 0
+                        }
+                        alpha = Math.max(0, Math.min(1, alpha));
+
+                        if (alpha <= 0.01) continue;
+
+                        // Vector Calculation
+                        let angle = Math.atan2(dy, dx);
+
+                        // Click Wiggle
+                        if (mouse.down) {
+                            // Chaotic jitter
+                            angle += Math.sin(time * 0.05 + gx + gy) * 0.5;
+                        }
+
+                        // Scroll Buffet
+                        const windForce = -scrollVelocity * 0.05;
+                        if (Math.abs(windForce) > 0.01) {
+                            const vx = Math.cos(angle);
+                            const vy = Math.sin(angle);
+                            const nvx = vx;
+                            const nvy = vy + windForce;
+                            angle = Math.atan2(nvy, nvx);
+                        }
+
+                        const length = 14 * alpha;
+
+                        // Render
+                        const tipX = gx + Math.cos(angle) * length;
+                        const tipY = gy + Math.sin(angle) * length;
+
+                        const thickness = length * 0.2;
+                        const perpX = -Math.sin(angle) * thickness;
+                        const perpY = Math.cos(angle) * thickness;
+
+                        ctx.fillStyle = accentColor;
+                        ctx.globalAlpha = alpha * 0.8;
+
+                        ctx.beginPath();
+                        ctx.moveTo(gx + perpX, gy + perpY);
+                        ctx.lineTo(gx - perpX, gy - perpY);
+                        ctx.lineTo(tipX, tipY);
+                        ctx.fill();
+                    }
+                }
+
+                requestAnimationFrame(animate);
+            };
+
+            animate();
+        })();
+    </script>
+</body>
+
+</html>

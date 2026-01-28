@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Force Hub v3.3</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+
     <style>
         :root {
             --bg: #0f0f13;
@@ -272,372 +275,98 @@
     <canvas id="vector-cloud"></canvas>
 
     <div class="header-bar">
-        <div class="header-content">
-            <div>
-                <a href="tools.html"
-                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
-                    Portal</a>
-                <a href="player-dashboard.html"
-                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">Dashboard</a>
-                <span style="color:#444;">|</span>
-                <span
-                    style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Task
-                    Force Hub</span>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn" onclick="exportData()" style="font-size:0.75rem;">💾 Export</button>
-                <button class="btn" onclick="importData()" style="font-size:0.75rem;">📂 Import</button>
-            </div>
+        <div>
+            <a href="tools.html"
+                style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
+                Portal</a>
+            <span style="color:#444;">|</span>
+            <span
+                style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Task
+                Force Hub</span>
         </div>
-    </div>
-
-    <div class="container">
-        <div class="card">
-            <h2>Case Prep: One-Page Template</h2>
-            <div class="case-grid">
-                <div class="case-field"><span class="mini-label">Title / Logline</span><input type="text" id="caseTitle"
-                        onchange="saveCase()"></div>
-                <div class="case-field"><span class="mini-label">Guilds in Conflict</span><input type="text"
-                        id="caseGuilds" onchange="saveCase()"></div>
-                <div class="case-field"><span class="mini-label">Antagonist Objective</span><textarea id="caseGoal"
-                        rows="2" onchange="saveCase()"></textarea></div>
-                <div class="case-field"><span class="mini-label">Clock (0-6 Events)</span><textarea id="caseClock"
-                        rows="2" placeholder="At 2/4/6..." onchange="saveCase()"></textarea></div>
-            </div>
-            <div class="case-grid">
-                <div class="case-field"><span class="mini-label">Obstacles (Legal & Physical)</span><textarea
-                        id="caseObstacles" onchange="saveCase()"></textarea></div>
-                <div class="case-field"><span class="mini-label">Set Piece (Terrain + Timer)</span><textarea
-                        id="caseSetPiece" onchange="saveCase()"></textarea></div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Global Status</h2>
-            <div class="grid-5" id="repGrid"></div>
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span class="mini-label">Task Force Heat (0-6)</span>
-                    <div>
-                        <button class="btn" onclick="modHeat(-1)">-</button>
-                        <span id="heatVal"
-                            style="font-weight: 900; color: var(--danger); font-size: 1.2rem; margin: 0 10px;">0</span>
-                        <button class="btn" onclick="modHeat(1)">+</button>
-                    </div>
-                </div>
-                <div id="heatMeter"
-                    style="height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; display: flex; border: 1px solid var(--border);">
-                    <div id="heatFill"
-                        style="height: 100%; background: var(--danger); transition: 0.4s; box-shadow: 0 0 10px var(--danger);">
-                    </div>
-                </div>
-                <p id="heatWarning"
-                    style="font-size: 0.75rem; color: var(--danger); margin-top: 8px; font-weight: bold; min-height: 1rem;">
-                </p>
-            </div>
-        </div>
-
-        <div class="card">
-            <h2>Player Roster <button class="btn" onclick="addPlayer()">+ Add Player</button></h2>
-            <div id="rosterList"></div>
-            <div style="margin-top: 20px; text-align: center; display: flex; gap: 10px; justify-content: center;">
-                <button class="btn-dp" onclick="grantWeeklyDP()" style="padding: 12px 24px; border-radius: 8px;">End
-                    Case: Grant +2 DP</button>
-                <button class="btn btn-danger" onclick="resetAll()">⚠ Reset Hub</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
-        // Rewards converted to a datalist for suggestions while allowing free text
-        const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
-
-        let state = {
-            rep: { Azorius: 0, Boros: 0, Dimir: 0, Golgari: 0, Gruul: 0, Izzet: 0, Orzhov: 0, Rakdos: 0, Selesnya: 0, Simic: 0 },
-            heat: 0,
-            players: [],
-            case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
-        };
-
-        function loadState() {
-            try {
-                const saved = localStorage.getItem('ravnicaHubV3_2');
-                if (saved) state = JSON.parse(saved);
-            } catch (e) { console.error("Corrupted Save", e); }
-        }
-
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "ravnica_hub_backup_" + new Date().toISOString().slice(0, 10) + ".json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'application/json';
-            input.onchange = e => {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = event => {
-                    try {
-                        const loaded = JSON.parse(event.target.result);
-                        if (confirm("Overwrite current data with imported file?")) {
-                            state = loaded;
-                            save();
-                            alert("Data imported successfully!");
-                        }
-                    } catch (err) {
-                        alert("Invalid JSON file");
-                    }
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        }
-
-        function save() {
-            localStorage.setItem('ravnicaHubV3_2', JSON.stringify(state));
-            render();
-        }
-
-        function saveCase() {
-            state.case.title = document.getElementById('caseTitle').value;
-            state.case.guilds = document.getElementById('caseGuilds').value;
-            state.case.goal = document.getElementById('caseGoal').value;
-            state.case.clock = document.getElementById('caseClock').value;
-            state.case.obstacles = document.getElementById('caseObstacles').value;
-            state.case.setPiece = document.getElementById('caseSetPiece').value;
-            save();
-        }
-
-        function resetAll() { if (confirm("Reset everything?")) { localStorage.removeItem('ravnicaHubV3_2'); location.reload(); } }
-        function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, state.rep[g] + amt)); save(); }
-        function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
-
-        function addPlayer() {
-            state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
-            save();
-        }
-
-        function modDP(idx, amt) { state.players[idx].dp = Math.max(0, Math.min(4, state.players[idx].dp + amt)); save(); }
-        function grantWeeklyDP() { state.players.forEach(p => p.dp = Math.min(4, p.dp + 2)); save(); }
-        function modClock(idx, amt) { state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt)); save(); }
-
-        function updatePlayer(idx, field, val) { state.players[idx][field] = val; save(); }
-
-        function render() {
-            // Render Case Info
-            document.getElementById('caseTitle').value = state.case.title || "";
-            document.getElementById('caseGuilds').value = state.case.guilds || "";
-            document.getElementById('caseGoal').value = state.case.goal || "";
-            document.getElementById('caseClock').value = state.case.clock || "";
-            document.getElementById('caseObstacles').value = state.case.obstacles || "";
-            document.getElementById('caseSetPiece').value = state.case.setPiece || "";
-
-            // Shared Status
-            document.getElementById('repGrid').innerHTML = guilds.map(g => `
-            <div style="text-align:center; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,0.3);">
-                <div class="mini-label" style="font-size:0.6rem;">${g}</div>
-                <div style="font-size:1.2rem; font-weight:900; color:${state.rep[g] > 0 ? '#2ecc71' : state.rep[g] < 0 ? '#ff6b6b' : '#666'}">${state.rep[g] > 0 ? '+' : ''}${state.rep[g]}</div>
-                <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
-                    <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
-                    <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
-                </div>
-            </div>
-        `).join('');
-
-            document.getElementById('heatVal').innerText = state.heat;
-            document.getElementById('heatFill').style.width = (state.heat / 6 * 100) + '%';
-
-            let warn = "";
-            if (state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated.";
-            else if (state.heat >= 3) warn = "WARNING: Complication Scene triggered.";
-            document.getElementById('heatWarning').innerText = warn;
-
-            // Player List
-            document.getElementById('rosterList').innerHTML = state.players.map((p, i) => `
-            <div class="player-row">
+        <div style="display:flex; gap:10px;">
+            <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()" style="font-size:0.75rem;">🌌 BG:
+                Field</button>
+            <button class="btn" onclick="exportData()" style="font-size:0.75rem;">💾 Export</button>
+            <button class="btn" onclick="importData()" style="font-size:0.75rem;">📂 Import</button>
+            <div class="header-content">
                 <div>
-                    <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
-                    <div class="dp-counter" style="margin-top:12px;">${p.dp} DP</div>
-                    <div style="display:flex; justify-content:center; gap:5px; margin-top:8px;">
-                        <button class="btn" onclick="modDP(${i},-1)">Spend</button>
-                        <button class="btn" onclick="modDP(${i},1)">Add</button>
-                    </div>
+                    <a href="tools.html"
+                        style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
+                        Portal</a>
+                    <a href="player-dashboard.html"
+                        style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">Dashboard</a>
+                    <span style="color:#444;">|</span>
+                    <span
+                        style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Task
+                        Force Hub</span>
                 </div>
-                <div style="grid-column: span 2;">
-                    <span class="mini-label">Active Project Clock (4 Segments)</span>
-                    <input type="text" placeholder="Project Name (e.g., Learn Draconic)..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
-                    <div style="display:flex; gap:10px;">
-                        <input type="text" list="reward-options" placeholder="Reward Goal..." value="${p.projectReward}" onchange="updatePlayer(${i}, 'projectReward', this.value)" style="flex:2;">
-                        <datalist id="reward-options">
-                            ${projectRewards.map(r => `<option value="${r}">`).join('')}
-                        </datalist>
-                        <div class="clock-container" style="flex:1; justify-content:flex-end;">
-                            ${[1, 2, 3, 4].map(s => `<div class="clock-seg ${p.projectClock >= s ? 'filled' : ''}"></div>`).join('')}
-                            <button class="btn" onclick="modClock(${i},1)" style="margin-left:8px;">+</button>
-                            <button class="btn" onclick="modClock(${i},-1)">-</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" onclick="exportData()" style="font-size:0.75rem;">💾 Export</button>
+                    <button class="btn" onclick="importData()" style="font-size:0.75rem;">📂 Import</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="card">
+                <h2>Case Prep: One-Page Template</h2>
+                <div class="case-grid">
+                    <div class="case-field"><span class="mini-label">Title / Logline</span><input type="text"
+                            id="caseTitle" onchange="saveCase()"></div>
+                    <div class="case-field"><span class="mini-label">Guilds in Conflict</span><input type="text"
+                            id="caseGuilds" onchange="saveCase()"></div>
+                    <div class="case-field"><span class="mini-label">Antagonist Objective</span><textarea id="caseGoal"
+                            rows="2" onchange="saveCase()"></textarea></div>
+                    <div class="case-field"><span class="mini-label">Clock (0-6 Events)</span><textarea id="caseClock"
+                            rows="2" placeholder="At 2/4/6..." onchange="saveCase()"></textarea></div>
+                </div>
+                <div class="case-grid">
+                    <div class="case-field"><span class="mini-label">Obstacles (Legal & Physical)</span><textarea
+                            id="caseObstacles" onchange="saveCase()"></textarea></div>
+                    <div class="case-field"><span class="mini-label">Set Piece (Terrain + Timer)</span><textarea
+                            id="caseSetPiece" onchange="saveCase()"></textarea></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Global Status</h2>
+                <div class="grid-5" id="repGrid"></div>
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border);">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span class="mini-label">Task Force Heat (0-6)</span>
+                        <div>
+                            <button class="btn" onclick="modHeat(-1)">-</button>
+                            <span id="heatVal"
+                                style="font-weight: 900; color: var(--danger); font-size: 1.2rem; margin: 0 10px;">0</span>
+                            <button class="btn" onclick="modHeat(1)">+</button>
                         </div>
                     </div>
+                    <div id="heatMeter"
+                        style="height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; display: flex; border: 1px solid var(--border);">
+                        <div id="heatFill"
+                            style="height: 100%; background: var(--danger); transition: 0.4s; box-shadow: 0 0 10px var(--danger);">
+                        </div>
+                    </div>
+                    <p id="heatWarning"
+                        style="font-size: 0.75rem; color: var(--danger); margin-top: 8px; font-weight: bold; min-height: 1rem;">
+                    </p>
                 </div>
-                <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Delete?')){state.players.splice(${i},1); save();}">&times;</button>
             </div>
-        `).join('');
-        }
 
-        loadState(); render();
-
-        // --- ADVANCED VECTOR FIELD SCRIPT ---
-        (function () {
-            const canvas = document.getElementById('vector-cloud');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            let width, height;
-
-            const mouse = { x: -999, y: -999, active: false, down: false };
-            let lastScrollY = window.scrollY;
-            let scrollVelocity = 0;
-
-            // Grid config
-            const SPACING = 30;
-            const FIELD_RADIUS = 200;
-
-            // Dynamic Color
-            let accentColor = '#4ecdc4';
-
-            const updateAccent = () => {
-                const style = getComputedStyle(document.documentElement);
-                accentColor = style.getPropertyValue('--accent').trim();
-            };
-
-            const resize = () => {
-                width = canvas.width = window.innerWidth;
-                height = canvas.height = window.innerHeight;
-                updateAccent();
-            };
-
-            window.addEventListener('resize', resize);
-            window.addEventListener('mousemove', e => {
-                mouse.x = e.clientX;
-                mouse.y = e.clientY;
-                mouse.active = true;
-            });
-            window.addEventListener('mousedown', () => mouse.down = true);
-            window.addEventListener('mouseup', () => mouse.down = false);
-
-            window.addEventListener('touchstart', e => {
-                mouse.x = e.touches[0].clientX;
-                mouse.y = e.touches[0].clientY;
-                mouse.active = true;
-                mouse.down = true;
-            });
-            window.addEventListener('touchmove', e => {
-                mouse.x = e.touches[0].clientX;
-                mouse.y = e.touches[0].clientY;
-            });
-            window.addEventListener('touchend', () => { mouse.active = false; mouse.down = false; });
-
-            // Scroll tracking
-            window.addEventListener('scroll', () => {
-                const currentY = window.scrollY;
-                const delta = currentY - lastScrollY;
-                scrollVelocity = delta; // Simple velocity
-                lastScrollY = currentY;
-            });
-
-            resize();
-
-            const animate = () => {
-                ctx.clearRect(0, 0, width, height);
-                // Decay scroll velocity
-                scrollVelocity *= 0.9;
-
-                updateAccent();
-
-                if (!mouse.active && Math.abs(scrollVelocity) < 0.1) {
-                    requestAnimationFrame(animate);
-                    return;
-                }
-
-                const startX = Math.floor((mouse.x - FIELD_RADIUS) / SPACING) * SPACING;
-                const endX = Math.floor((mouse.x + FIELD_RADIUS) / SPACING) * SPACING;
-                const startY = Math.floor((mouse.y - FIELD_RADIUS) / SPACING) * SPACING;
-                const endY = Math.floor((mouse.y + FIELD_RADIUS) / SPACING) * SPACING;
-
-                const time = Date.now();
-
-                for (let gx = startX; gx <= endX; gx += SPACING) {
-                    for (let gy = startY; gy <= endY; gy += SPACING) {
-                        const dx = gx - mouse.x;
-                        const dy = gy - mouse.y;
-                        const distSq = dx * dx + dy * dy;
-
-                        if (distSq > FIELD_RADIUS * FIELD_RADIUS) continue;
-
-                        const dist = Math.sqrt(distSq);
-
-                        // Smooth Fade Logic
-                        let alpha = 0;
-                        if (dist < 40) {
-                            alpha = (dist / 40);
-                        } else {
-                            alpha = 1 - ((dist - 40) / (FIELD_RADIUS - 40));
-                        }
-                        alpha = Math.max(0, Math.min(1, alpha));
-
-                        if (alpha <= 0.01) continue;
-
-                        // Vector Calculation
-                        let angle = Math.atan2(dy, dx);
-
-                        // Click Wiggle
-                        if (mouse.down) {
-                            angle += Math.sin(time * 0.05 + gx + gy) * 0.5;
-                        }
-
-                        // Scroll Buffet
-                        const windForce = -scrollVelocity * 0.05;
-                        if (Math.abs(windForce) > 0.01) {
-                            const vx = Math.cos(angle);
-                            const vy = Math.sin(angle);
-                            const nvx = vx;
-                            const nvy = vy + windForce;
-                            angle = Math.atan2(nvy, nvx);
-                        }
-
-                        const length = 14 * alpha;
-
-                        // Render
-                        const tipX = gx + Math.cos(angle) * length;
-                        const tipY = gy + Math.sin(angle) * length;
-
-                        const thickness = length * 0.2;
-                        const perpX = -Math.sin(angle) * thickness;
-                        const perpY = Math.cos(angle) * thickness;
-
-                        ctx.fillStyle = accentColor;
-                        ctx.globalAlpha = alpha * 0.8;
-
-                        ctx.beginPath();
-                        ctx.moveTo(gx + perpX, gy + perpY);
-                        ctx.lineTo(gx - perpX, gy - perpY);
-                        ctx.lineTo(tipX, tipY);
-                        ctx.fill();
-                    }
-                }
-
-                requestAnimationFrame(animate);
-            };
-
-            animate();
-        })();
-    </script>
+            <div class="card">
+                <h2>Player Roster <button class="btn" onclick="addPlayer()">+ Add Player</button></h2>
+                <div id="rosterList"></div>
+                <div style="margin-top: 20px; text-align: center; display: flex; gap: 10px; justify-content: center;">
+                    <button class="btn-dp" onclick="grantWeeklyDP()" style="padding: 12px 24px; border-radius: 8px;">End
+                        Case: Grant +2 DP</button>
+                    <button class="btn btn-danger" onclick="resetAll()">⚠ Reset Hub</button>
+                </div>
+            </div>
+        </div>
+        <script src="js/hub.js"></script>
+        <script src="js/vector-field.js"></script>
 </body>
 
 </html>

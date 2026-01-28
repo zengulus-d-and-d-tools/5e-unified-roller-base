@@ -1,0 +1,550 @@
+/* Board Specific Styles */
+body {
+    overflow: hidden;
+    cursor: grab;
+    user-select: none;
+    /* Improve drag experience */
+}
+
+body:active {
+    cursor: grabbing;
+}
+
+#connection-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#board-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 20;
+    transform-origin: 0 0;
+    pointer-events: none;
+    /* Let clicks pass through to canvas/labels */
+}
+
+#string-label-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 15;
+    transform-origin: 0 0;
+    pointer-events: none;
+}
+
+/* --- HEADER --- */
+.header-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 50px;
+    background: linear-gradient(to bottom, rgba(15, 15, 19, 0.95), rgba(15, 15, 19, 0));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-sizing: border-box;
+    z-index: 100;
+    pointer-events: none;
+    transition: opacity 0.3s;
+}
+
+/* Hide UI when focused? Optional, but keeping visible for now */
+.header-overlay>* {
+    pointer-events: auto;
+}
+
+.back-link {
+    color: #888;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 0.9rem;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 5px 10px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+}
+
+.board-title {
+    color: var(--text);
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 1.2rem;
+    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+#caseName {
+    border-bottom: 1px dashed #666;
+    padding: 0 5px;
+    color: var(--accent);
+}
+
+.board-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-tool {
+    background: rgba(50, 50, 50, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ccc;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: 0.2s;
+}
+
+.btn-tool:hover {
+    background: var(--accent);
+    color: #000;
+}
+
+/* --- TOOLBAR --- */
+#toolbar-toggle {
+    position: fixed;
+    bottom: 110px;
+    /* Sits above toolbar */
+    left: 20px;
+    z-index: 101;
+    background: rgba(30, 30, 35, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 5px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: #888;
+    backdrop-filter: blur(4px);
+    transition: 0.3s;
+    text-transform: uppercase;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+#toolbar-toggle:hover {
+    color: #fff;
+    background: var(--accent);
+}
+
+.toolbar-scroll-wrapper {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    /* Left Aligned */
+    right: 20px;
+    transform: none;
+    z-index: 100;
+    overflow-x: auto;
+    border-radius: 12px;
+    scrollbar-width: none;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.27), opacity 0.3s;
+    pointer-events: auto;
+    width: fit-content;
+    max-width: calc(100% - 40px);
+}
+
+.toolbar-hidden {
+    transform: translateY(150px);
+    pointer-events: none;
+    opacity: 0;
+}
+
+.toolbar-scroll-wrapper::-webkit-scrollbar {
+    display: none;
+}
+
+.toolbar {
+    background: rgba(30, 30, 35, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    gap: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+
+.tool-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.divider {
+    width: 1px;
+    background: rgba(255, 255, 255, 0.1);
+    height: 40px;
+}
+
+.tool-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: grab;
+    width: 50px;
+    padding: 5px;
+    border-radius: 8px;
+    transition: 0.2s;
+}
+
+.tool-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.tool-item .icon {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.tool-item .label {
+    font-size: 0.6rem;
+    color: #aaa;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+/* --- NODES --- */
+.node {
+    position: absolute;
+    min-width: 150px;
+    min-height: 80px;
+    background: rgba(30, 30, 35, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    cursor: grab;
+    z-index: 20;
+    transition: box-shadow 0.2s, transform 0.1s, border-color 0.2s, filter 0.5s, opacity 0.5s;
+    pointer-events: auto;
+    /* Re-enable interaction */
+}
+
+.node:active {
+    cursor: grabbing;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+}
+
+/* Node Text Content */
+.node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 5px;
+    margin-bottom: 5px;
+}
+
+.node-title {
+    font-weight: bold;
+    color: var(--text);
+    outline: none;
+    min-width: 50px;
+    font-size: 0.9rem;
+    cursor: text;
+}
+
+.node-icon {
+    font-size: 1.2rem;
+    opacity: 0.7;
+}
+
+.node-body {
+    font-size: 0.8rem;
+    color: #ccc;
+    outline: none;
+    min-height: 30px;
+    line-height: 1.4;
+    cursor: text;
+}
+
+/* --- GUILD STYLES --- */
+.type-person {
+    border-left: 4px solid var(--accent-atk);
+}
+
+.type-location {
+    border-left: 4px solid var(--gold);
+}
+
+.type-clue {
+    border-left: 4px solid var(--res-bar);
+}
+
+.type-note {
+    border-left: 4px solid #999;
+    background: rgba(255, 255, 200, 0.15);
+    color: #fff;
+}
+
+/* Guild Colors (Approx) */
+.type-azorius {
+    border-left: 4px solid #0984e3;
+    box-shadow: 0 2px 10px rgba(9, 132, 227, 0.1);
+}
+
+.type-boros {
+    border-left: 4px solid #d63031;
+    box-shadow: 0 2px 10px rgba(214, 48, 49, 0.1);
+}
+
+.type-dimir {
+    border-left: 4px solid #2d3436;
+    box-shadow: 0 2px 10px rgba(45, 52, 54, 0.3);
+    border-color: #74b9ff;
+}
+
+.type-golgari {
+    border-left: 4px solid #00b894;
+    box-shadow: 0 2px 10px rgba(0, 184, 148, 0.1);
+}
+
+.type-gruul {
+    border-left: 4px solid #e17055;
+    box-shadow: 0 2px 10px rgba(225, 112, 85, 0.1);
+}
+
+.type-izzet {
+    border-left: 4px solid #fd79a8;
+    border-right: 4px solid #0984e3;
+    box-shadow: 0 2px 10px rgba(253, 121, 168, 0.1);
+}
+
+/* Dual Color Special */
+.type-orzhov {
+    border-left: 4px solid #b2bec3;
+    box-shadow: 0 2px 10px rgba(178, 190, 195, 0.1);
+}
+
+.type-rakdos {
+    border-left: 4px solid #c0392b;
+    background: rgba(30, 0, 0, 0.7);
+}
+
+.type-selesnya {
+    border-left: 4px solid #badc58;
+    box-shadow: 0 2px 10px rgba(186, 220, 88, 0.1);
+}
+
+.type-simic {
+    border-left: 4px solid #00cec9;
+    box-shadow: 0 2px 10px rgba(0, 206, 201, 0.1);
+}
+
+
+/* --- CONNECTION PORTS --- */
+.port {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #555;
+    border: 1px solid #aaa;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s, transform 0.2s;
+    cursor: crosshair;
+    z-index: 25;
+}
+
+.node:hover .port {
+    opacity: 0.6;
+}
+
+.port:hover {
+    opacity: 1;
+    transform: scale(1.3);
+    background: var(--accent);
+}
+
+.port.top {
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.port.bottom {
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.port.left {
+    left: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.port.right {
+    right: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+
+/* --- EDITING STATE --- */
+.node.editing {
+    border-color: var(--gold);
+    box-shadow: 0 0 15px var(--gold);
+    background: rgba(40, 40, 45, 0.9);
+    cursor: text;
+}
+
+.node.editing .node-title,
+.node.editing .node-body {
+    outline: 1px dashed rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+
+/* --- STRING LABELS --- */
+.string-label {
+    position: absolute;
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 0.7rem;
+    padding: 2px;
+    border-radius: 4px;
+    pointer-events: auto;
+    cursor: move;
+    transform: translate(-50%, -50%);
+    min-width: 40px;
+    /* Base width */
+    width: max-content;
+    /* Allow growing */
+    max-width: 250px;
+    /* Cap width */
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    z-index: 50;
+}
+
+.string-label:focus-within {
+    outline: 2px solid var(--gold);
+    z-index: 60;
+}
+
+.label-input {
+    background: rgba(0, 0, 0, 0.2);
+    border: none;
+    color: inherit;
+    min-width: 20px;
+    width: auto;
+    min-height: 14px;
+    text-align: center;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+    pointer-events: auto;
+    white-space: pre-wrap;
+    overflow: hidden;
+    padding: 2px 5px;
+    border-radius: 2px;
+    cursor: text;
+    display: inline-block;
+    word-break: break-word;
+    flex-grow: 1;
+    /* Grow to fill flex parent */
+}
+
+.arrow-btn {
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 2px;
+    opacity: 0.6;
+    font-size: 0.7rem;
+    user-select: none;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.arrow-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.arrow-btn.active {
+    color: var(--gold);
+    opacity: 1;
+    font-weight: bold;
+}
+
+
+/* --- FOCUS MODE & BLUR --- */
+.node.blurred {
+    filter: blur(4px) grayscale(0.8);
+    opacity: 0.3;
+}
+
+.node.focused {
+    z-index: 100;
+    filter: none;
+    opacity: 1;
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.1), 0 0 0 2px var(--accent);
+    transform: scale(1.02);
+}
+
+/* Also blur other elements when focus is active */
+body.focus-active #connection-layer {
+    opacity: 0.8;
+    /* Dim strings slightly, but we handle string opacity in JS draw loop mostly */
+}
+
+body.focus-active .toolbar-scroll-wrapper,
+body.focus-active .header-overlay {
+    opacity: 0.2;
+    filter: blur(2px);
+    pointer-events: none;
+}
+
+
+/* --- CONTEXT MENU --- */
+.context-menu {
+    position: absolute;
+    display: none;
+    background: #2a2a2a;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 5px 0;
+    width: 150px;
+    z-index: 1000;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+}
+
+.menu-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #eee;
+}
+
+.menu-item.delete:hover {
+    background: var(--danger);
+    color: #fff;
+}
