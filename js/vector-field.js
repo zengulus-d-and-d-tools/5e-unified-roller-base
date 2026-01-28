@@ -116,13 +116,39 @@
         const ctx = canvas.getContext('2d');
         const half = size / 2;
 
+        // Base soft glow
         const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-        grad.addColorStop(0, `rgba(${r},${g},${b}, 0.2)`);
-        grad.addColorStop(0.4, `rgba(${r},${g},${b}, 0.05)`);
+        grad.addColorStop(0, `rgba(${r},${g},${b}, 0.1)`);
+        grad.addColorStop(0.6, `rgba(${r},${g},${b}, 0.02)`);
         grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
-
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, size, size);
+
+        // "Noise" circles
+        // Draw many small, semi-transparent blobs clustered around the center
+        // to give a "fluffy" texture rather than a perfect sphere.
+        const noiseSteps = 40;
+        for (let i = 0; i < noiseSteps; i++) {
+            const rx = half + (Math.random() - 0.5) * size * 0.5;
+            const ry = half + (Math.random() - 0.5) * size * 0.5;
+            const dist = Math.hypot(rx - half, ry - half);
+
+            // Bias towards center
+            if (dist > half * 0.7) continue;
+
+            const rRad = (Math.random() * 30 + 10) * (1 - dist / half); // Smaller at edges
+            const alpha = (Math.random() * 0.05 + 0.01);
+
+            const nGrad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rRad);
+            nGrad.addColorStop(0, `rgba(${r},${g},${b}, ${alpha})`);
+            nGrad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+
+            ctx.fillStyle = nGrad;
+            ctx.beginPath();
+            ctx.arc(rx, ry, rRad, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         return canvas;
     };
 
