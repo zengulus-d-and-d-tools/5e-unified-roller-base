@@ -142,6 +142,7 @@
                 radius: 100 + Math.random() * 200,
                 layer: 0.5 + Math.random() * 0.5, // Parallax depth (0.5 to 1.0)
                 alpha: Math.random(),
+                targetAlpha: Math.random() * 0.8 + 0.2, // NEW
                 rotation: Math.random() * Math.PI * 2
             });
         }
@@ -252,6 +253,9 @@
     });
     window.addEventListener('mousedown', e => {
         spawnShockwave(e.clientX, e.clientY);
+        if (STYLES[currentStyleIdx].id === 'NEBULA') {
+            spawnNebulaPulse(e.clientX, e.clientY);
+        }
         mouse.down = true;
     });
     window.addEventListener('mouseup', () => mouse.down = false);
@@ -1187,8 +1191,43 @@
         ctx.fill(); ctx.stroke();
     };
 
+    const spawnNebulaPulse = (x, y) => {
+        // 1. Spawn new dense clouds at click
+        for (let i = 0; i < 8; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 5;
+            nebulaParticles.push({
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                radius: 50 + Math.random() * 100,
+                layer: 0.5 + Math.random() * 0.5,
+                alpha: 0, // Fade in
+                targetAlpha: Math.random() * 0.8 + 0.2,
+                fadeInSpeed: 0.05,
+                rotation: Math.random() * Math.PI * 2,
+                fading: false,
+                fadeCounter: 20
+            });
+        }
+
+        // 2. Push existing clouds away
+        nebulaParticles.forEach(p => {
+            const dx = p.x - x;
+            const dy = p.y - y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 400) {
+                const force = (400 - dist) / 400;
+                const angle = Math.atan2(dy, dx);
+                const pushStr = 15 * force; // Strong push
+                p.vx += Math.cos(angle) * pushStr;
+                p.vy += Math.sin(angle) * pushStr;
+            }
+        });
+    };
+
     const renderNebula = (rgb) => {
-        // Optimized Sprite-Based Cloud Rendering
         if (!cloudSprite) initNebula();
 
         ctx.globalCompositeOperation = 'screen';
@@ -1196,75 +1235,100 @@
         const layer0 = layers[0];
         const spacing = layer0.spacing;
         const rows = layer0.rows;
+        const MAX_PARTICLES = 120;
+        const TARGET_PARTICLES = 60;
 
-        nebulaParticles.forEach(p => {
-            // 1. Physically react to Vector Grid
-            // Sample velocity from grid at particle position
-            // Since grid is uniform, we can calculate index
-            // Grid Coords (approx)
-            // x = -spacing + cx * spacing
-            // cx = (x + spacing) / spacing
+        // Replenish natural clouds if low (drifting in from edges)
+        if (nebulaParticles.length < TARGET_PARTICLES) {
+            if (Math.random() < 0.1) { // Throttle spawning
+                const edge = Math.floor(Math.random() * 4); // 0:T, 1:R, 2:B, 3:L
+                let nx, ny, nvx, nvy;
+                switch (edge) {
+                    case 0: nx = Math.random() * width; ny = -100; nvx = 0; nvy = 1; break;
+                    case 1: nx = width + 100; ny = Math.random() * height; nvx = -1; nvy = 0; break;
+                    case 2: nx = Math.random() * width; ny = height + 100; nvx = 0; nvy = -1; break;
+                    case 3: nx = -100; ny = Math.random() * height; nvx = 1; nvy = 0; break;
+                }
+                nebulaParticles.push({
+                    x: nx, y: ny, vx: nvx, vy: nvy,
+                    radius: 100 + Math.random() * 200,
+                    layer: 0.5 + Math.random() * 0.5,
+                    alpha: 0, targetAlpha: Math.random(), fadeInSpeed: 0.01,
+                    rotation: Math.random() * Math.PI * 2,
+                    fading: false, fadeCounter: 20
+                });
+            }
+        }
 
+        for (let i = nebulaParticles.length - 1; i >= 0; i--) {
+            const p = nebulaParticles[i];
+
+            // --- Physics ---
             let cx = Math.floor((p.x + spacing) / spacing);
             let cy = Math.floor((p.y + spacing) / spacing);
 
-            // Clamp
+            // Clamp for grid lookup
             if (cx < 0) cx = 0; if (cx >= layer0.cols) cx = layer0.cols - 1;
             if (cy < 0) cy = 0; if (cy >= layer0.rows) cy = layer0.rows - 1;
 
             const idx = cx * rows + cy;
             const baseIdx = idx * 6;
 
-            // Get Flow Velocity from Vector Field Physics
+            // Flow 
             const fieldVx = layer0.rawNodes[baseIdx + 2];
             const fieldVy = layer0.rawNodes[baseIdx + 3];
-            const energy = layer0.rawMeta[idx * 2]; // 'Energy' of the cell
+            const energy = layer0.rawMeta[idx * 2];
 
-            // Apply forces to particle
-            // p.vx += fieldVx * 0.1;
-            // p.vy += fieldVy * 0.1; 
-            // Better: Interpolate velocity
-            p.vx += (fieldVx - p.vx) * 0.05;
-            p.vy += (fieldVy - p.vy) * 0.05;
+            p.vx += (fieldVx - p.vx) * 0.02; // Gentle drag
+            p.vy += (fieldVy - p.vy) * 0.02;
 
-            // Mouse Interaction (Wind)
-            if (mouse.x !== -999) {
-                const dx = p.x - mouse.x;
-                const dy = p.y - mouse.y;
-                const dist = Math.hypot(dx, dy);
-                if (dist < 300) {
-                    const push = (300 - dist) / 300;
-                    p.vx += (dx / dist) * push * 0.5;
-                    p.vy += (dy / dist) * push * 0.5;
-                    p.radius += 1; // Puff up
-                }
-            }
-
-            // Apply Movement
-            p.x += p.vx * p.layer; // Parallax
+            p.x += p.vx * p.layer;
             p.y += p.vy * p.layer;
 
             // Natural Drift
             p.x += (Math.random() - 0.5) * 0.1;
             p.y += (Math.random() - 0.5) * 0.1;
 
-            // Wrap
-            if (p.x < -200) p.x = width + 200;
-            if (p.x > width + 200) p.x = -200;
-            if (p.y < -200) p.y = height + 200;
-            if (p.y > height + 200) p.y = -200;
+            // --- Life Cycle ---
 
-            // Decay Radius back to normal
-            if (p.radius > 300) p.radius *= 0.99;
-            if (p.radius < 100) p.radius += 0.5;
+            // Fade In
+            if (p.alpha < p.targetAlpha && !p.fading) {
+                p.alpha += p.fadeInSpeed || 0.01;
+            }
+
+            // Check Bounds
+            const buffer = 250;
+            const outOfBounds = (p.x < -buffer || p.x > width + buffer || p.y < -buffer || p.y > height + buffer);
+
+            // If out of bounds, fade out
+            // Also cap max particles by fading oldest/furthest? 
+            // Simplified: If off screen, die.
+            if (outOfBounds) {
+                p.fading = true;
+            }
+
+            // Check Cap
+            if (nebulaParticles.length > MAX_PARTICLES && !p.fading && Math.random() < 0.01) {
+                // Randomly thin out herd if we are wildly overpopulated
+                p.fading = true;
+            }
+
+            if (p.fading) {
+                p.fadeCounter--;
+                p.alpha *= 0.9;
+                if (p.fadeCounter <= 0 || p.alpha < 0.01) {
+                    nebulaParticles.splice(i, 1);
+                    continue; // Next particle
+                }
+            }
 
             // Draw
             const size = p.radius * p.layer;
-            const opacity = p.alpha * (0.5 + energy * 2.0); // Glow if energy is high
+            const finalAlpha = p.alpha * (0.5 + energy * 2.0);
 
-            ctx.globalAlpha = Math.min(1, opacity);
+            ctx.globalAlpha = Math.min(1, Math.max(0, finalAlpha));
             ctx.drawImage(cloudSprite, p.x - size / 2, p.y - size / 2, size, size);
-        });
+        }
 
         ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
