@@ -594,33 +594,24 @@
                     const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
                     const e1 = rawMeta[idx * 2]; const s1 = rawMeta[idx * 2 + 1];
 
-                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                    const e2 = rawMeta[right * 2]; const s2 = rawMeta[right * 2 + 1];
-
-                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                    const e3 = rawMeta[down * 2]; const s3 = rawMeta[down * 2 + 1];
-
-                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
-                    const e4 = rawMeta[diag * 2]; const s4 = rawMeta[diag * 2 + 1];
-
-                    // Check for Detail (Greebling)
-                    // 1. Deterministic visual hash (approx 15% of cells)
-                    // Fix: Avoid multiples of the modulus (7) to prevent row banding
-                    const isGreeble = ((cx * 3 + cy * 5) % 7 === 0);
+                    // Check for Activation
                     // 2. Local Energy
-                    const energy = e1;
-                    const shock = s1;
-                    const isActive = (energy > 0.1 || shock > 0.05);
+                    const isActive = (e1 > 0.05 || s1 > 0.05);
 
-                    // Base Grid Points (Always draw corners if active or greeble)
-                    if (s1 > 0.01 || e1 > 0.01 || isGreeble) {
+                    // Base Grid Points (Always draw corners if active)
+                    if (s1 > 0.01 || e1 > 0.01) {
                         const size = 1.5 + (e1 + s1) * 3;
                         ctx.rect(x1 - size / 2, y1 - size / 2, size, size);
-                    } else if (e1 > 0.01) {
-                        ctx.rect(x1 - 1, y1 - 1, 2, 2);
+                    } else if (e1 > 0.005) {
+                        // Very faint dots for low energy presence
+                        ctx.rect(x1 - 1, y1 - 1, 1.5, 1.5);
                     }
 
-                    if (isGreeble || isActive) {
+                    if (isActive) {
+                        const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                        const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                        const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+
                         const lerp = (a, b, t) => a + (b - a) * t;
 
                         // Internal Subdivision (Bilinear Interpolation)
@@ -637,6 +628,9 @@
                                 const finalY = lerp(yt, yb, ty);
 
                                 // Interpolate Energy
+                                const e2 = rawMeta[right * 2]; const e3 = rawMeta[down * 2]; const e4 = rawMeta[diag * 2];
+                                const s2 = rawMeta[right * 2 + 1]; const s3 = rawMeta[down * 2 + 1]; const s4 = rawMeta[diag * 2 + 1];
+
                                 const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
                                 const finalEnergy = lerp(et, eb, ty);
                                 const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
