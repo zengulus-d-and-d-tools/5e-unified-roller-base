@@ -750,11 +750,12 @@
         ctx.stroke();
     };
 
+    let callMinCount = 0;
+
     const renderBoids = (rgb) => {
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
         ctx.lineWidth = 1.5;
 
-        // BOID CONSTANTS
         // BOID CONSTANTS
         const perception = 80;   // View range
         const protection = 40;   // High protection = keep away from each other
@@ -763,7 +764,43 @@
         const avoid = 0.005;     // EXTREMELY gentle avoidance for slow adjustments
         const turn = 0.05;       // Slow turn
 
-        boids.forEach(b => {
+        // Pre-calculate "Called" boids if mouse is down
+        let calledSet = new Set();
+        if (mouse.down && mouse.x !== -999) {
+            // Assign stable random min count if not set
+            if (callMinCount === 0) {
+                callMinCount = 4 + Math.floor(Math.random() * 5); // 4 to 8
+            }
+
+            // Calculate distances
+            const withDist = boids.map((b, i) => ({
+                idx: i,
+                dist: Math.hypot(b.x - mouse.x, b.y - mouse.y)
+            }));
+
+            // Sort by distance
+            withDist.sort((a, b) => a.dist - b.dist);
+
+            // Select active: either within 250px OR nearest [callMinCount]
+            let count = 0;
+            // First count valid range
+            for (let i = 0; i < withDist.length; i++) {
+                if (withDist[i].dist < 250) count++;
+                else break;
+            }
+            // Ensure min [callMinCount]
+            if (count < callMinCount) count = callMinCount;
+            if (count > withDist.length) count = withDist.length;
+
+            for (let i = 0; i < count; i++) {
+                calledSet.add(withDist[i].idx);
+            }
+        } else {
+            // Reset when mouse released
+            callMinCount = 0;
+        }
+
+        boids.forEach((b, index) => {
             // 1. Separation / Alignment / Cohesion
             let avgVX = 0, avgVY = 0;
             let avgX = 0, avgY = 0;
@@ -810,32 +847,37 @@
                 const dy = b.y - mouse.y;
                 const dist = Math.hypot(dx, dy);
 
-                if (mouse.down) {
-                    // FLEE on Click
-                    if (dist < 300) { // Reduced from 500
-                        const force = (300 - dist) / 300;
-                        b.vx += (dx / dist) * turn * 4.0 * force;
-                        b.vy += (dy / dist) * turn * 4.0 * force;
-                    }
+                if (mouse.down && calledSet.has(index)) {
+                    // CALL & ORBIT (Selected Boids Only)
+                    const targetRadius = 140;
+                    const diff = dist - targetRadius;
+
+                    // Stronger pull for selected boids
+                    const pullStrength = 0.02;
+                    b.vx -= (dx / dist) * diff * pullStrength;
+                    b.vy -= (dy / dist) * diff * pullStrength;
+
+                    const spinStrength = 0.6;
+                    b.vx += -(dy / dist) * spinStrength;
+                    b.vy += (dx / dist) * spinStrength;
+
                 } else {
-                    // ORBIT with No Click
-                    if (dist < 150) { // Reduced from 400
-                        // Go towards a ring at radius 120
+                    // ORBIT with No Click (or non-selected boids)
+                    // Only orbit if VERY close naturally (150px)
+                    if (dist < 150) {
                         const targetRadius = 120;
                         const diff = dist - targetRadius;
                         const radialStrength = 0.05;
 
-                        // Push in or out to reach radius
                         b.vx -= (dx / dist) * diff * radialStrength * 0.1;
                         b.vy -= (dy / dist) * diff * radialStrength * 0.1;
 
-                        // Tangential spin
                         b.vx += -(dy / dist) * turn * 0.8;
                         b.vy += (dx / dist) * turn * 0.8;
                     } else {
-                        // WANDER (Smooth Randomness) when mouse is far
+                        // WANDER
                         if (!b.wanderTheta) b.wanderTheta = 0;
-                        b.wanderTheta += (Math.random() - 0.5) * 0.2; // Slowly change direction
+                        b.wanderTheta += (Math.random() - 0.5) * 0.2;
                         const wanderStrength = 0.05;
                         b.vx += Math.cos(b.wanderTheta) * wanderStrength;
                         b.vy += Math.sin(b.wanderTheta) * wanderStrength;
