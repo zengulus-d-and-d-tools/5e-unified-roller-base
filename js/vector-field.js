@@ -18,10 +18,10 @@
         TENSION: 0.01,
         FRICTION: 0.9,
         SHOCK_WIDTH: 3,
-        SHOCK_AMPLITUDE: 1,
-        SHOCK_DURATION: 60,
-        SHOCK_THICKNESS: 15,
-        SHOCK_SPEED: 1,
+        SHOCK_AMPLITUDE: 0.5,
+        SHOCK_DURATION: 30,
+        SHOCK_THICKNESS: 1,
+        SHOCK_SPEED: 2,
         LAYERS: [
             { spacing: 30, radius: 260, drag: 0.15 },
             { spacing: 20, radius: 180, drag: 0.075 }
