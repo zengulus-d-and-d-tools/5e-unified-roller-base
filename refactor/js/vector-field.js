@@ -19,9 +19,9 @@
         FRICTION: 0.9,
         SHOCK_WIDTH: 3,
         SHOCK_AMPLITUDE: 2.5,
-        SHOCK_DURATION: 30,
+        SHOCK_DURATION: 60,
         SHOCK_THICKNESS: 15,
-        SHOCK_SPEED: 2,
+        SHOCK_SPEED: 1,
         LAYERS: [
             { spacing: 20, radius: 260, drag: 0.15 },
             { spacing: 10, radius: 180, drag: 0.075 }
@@ -97,7 +97,8 @@
                 y: Math.random() * height,
                 vx: (Math.random() - 0.5) * 4,
                 vy: (Math.random() - 0.5) * 4,
-                angle: Math.random() * Math.PI * 2
+                angle: Math.random() * Math.PI * 2,
+                history: []
             });
         }
     };
@@ -499,15 +500,15 @@
 
     const renderBoids = (rgb) => {
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-        ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
+        ctx.lineWidth = 1.5;
 
         // BOID CONSTANTS
         const perception = 60;
         const protection = 15;
         const matching = 0.05;
         const centering = 0.005; // Cohesion strength 
-        const avoid = 0.1;      // Separation strength
-        const turn = 0.5;       // Mouse turn strength
+        const avoid = 0.15;      // Separation strength (increased slightly)
+        const turn = 0.8;        // Mouse turn strength
 
         boids.forEach(b => {
             // 1. Separation / Alignment / Cohesion
@@ -558,58 +559,81 @@
 
                 if (mouse.down) {
                     // FLEE on Click
-                    if (dist < 400) {
-                        b.vx += (dx / dist) * turn * 3.0;
-                        b.vy += (dy / dist) * turn * 3.0;
+                    if (dist < 500) {
+                        const force = (500 - dist) / 500;
+                        b.vx += (dx / dist) * turn * 4.0 * force;
+                        b.vy += (dy / dist) * turn * 4.0 * force;
                     }
                 } else {
-                    // SEEK/ORBIT normally
-                    if (dist < 300) {
-                        b.vx -= (dx / dist) * turn * 0.2; // Gentle seek
-                        b.vy -= (dy / dist) * turn * 0.2;
+                    // ORBIT with No Click
+                    if (dist < 400) {
+                        // Go towards a ring at radius 120
+                        const targetRadius = 120;
+                        const diff = dist - targetRadius;
+                        const radialStrength = 0.05;
 
-                        // Swirl/Don't overlap
-                        if (dist < 80) {
-                            b.vx += (dx / dist) * turn * 1.5;
-                            b.vy += (dy / dist) * turn * 1.5;
-                            // Add tangential force for swirl
-                            b.vx += -(dy / dist) * turn * 2.0;
-                            b.vy += (dx / dist) * turn * 2.0;
-                        }
+                        // Push in or out to reach radius
+                        b.vx -= (dx / dist) * diff * radialStrength * 0.1;
+                        b.vy -= (dy / dist) * diff * radialStrength * 0.1;
+
+                        // Tangential spin
+                        // Direction depends on angle relative to mouse to encourage uniform flow? 
+                        // Or just one direction (clockwise)
+                        b.vx += -(dy / dist) * turn * 0.8;
+                        b.vy += (dx / dist) * turn * 0.8;
                     }
                 }
             }
 
-            // 3. Limit Speed
+            // 3. Limit Speed (Reduced)
             const speed = Math.hypot(b.vx, b.vy);
-            const lim = 5;
+            const lim = 3.5; // Slower
             if (speed > lim) {
                 b.vx = (b.vx / speed) * lim;
                 b.vy = (b.vy / speed) * lim;
             }
-            if (speed < 2.0) { // Min speed
-                b.vx = (b.vx / speed) * 2.0;
-                b.vy = (b.vy / speed) * 2.0;
+            if (speed < 1.5) { // Min speed
+                b.vx = (b.vx / speed) * 1.5;
+                b.vy = (b.vy / speed) * 1.5;
             }
 
             // 4. Update Position & Wrap
             b.x += b.vx;
             b.y += b.vy;
 
-            if (b.x < 0) b.x = width;
-            if (b.x > width) b.x = 0;
-            if (b.y < 0) b.y = height;
-            if (b.y > height) b.y = 0;
+            // History for trails
+            if (!b.history) b.history = [];
+            b.history.push({ x: b.x, y: b.y });
+            if (b.history.length > 20) b.history.shift(); // Trail length
+
+            if (b.x < 0) { b.x = width; b.history = []; }
+            if (b.x > width) { b.x = 0; b.history = []; }
+            if (b.y < 0) { b.y = height; b.history = []; }
+            if (b.y > height) { b.y = 0; b.history = []; }
 
             // 5. Render
+            // Draw Trail
+            if (b.history.length > 1) {
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
+                ctx.lineWidth = 2; // Faint trail
+                ctx.moveTo(b.history[0].x, b.history[0].y);
+                for (let i = 1; i < b.history.length; i++) {
+                    ctx.lineTo(b.history[i].x, b.history[i].y);
+                }
+                ctx.stroke();
+            }
+
+            // Draw Head
             const angle = Math.atan2(b.vy, b.vx);
+            ctx.fillStyle = `rgba(${rgb}, 0.9)`;
             ctx.save();
             ctx.translate(b.x, b.y);
             ctx.rotate(angle);
             ctx.beginPath();
-            ctx.moveTo(10, 0);
-            ctx.lineTo(-6, 5);
-            ctx.lineTo(-6, -5);
+            ctx.moveTo(8, 0);
+            ctx.lineTo(-4, 3);
+            ctx.lineTo(-4, -3);
             ctx.fill();
             ctx.restore();
         });

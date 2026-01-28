@@ -21,6 +21,8 @@
                     data-mode="norm">- </button><button class="adv-btn" onclick="setMode('adv')"
                     data-mode="adv">ADV</button></div><button id="btnSecret" class="secret-btn" onclick="toggleSecret()"
                 title="Secret Roll (Discord Spoilers)">👁️</button>
+            <button id="btn-bg-style" onclick="cycleBgStyle()" class="secret-btn"
+                style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🌌 BG</button>
             <div class="misc-wrapper"><span class="misc-label">Misc</span><input type="text" id="globalMisc"
                     placeholder="+0 or 1d4"></div>
         </div>
@@ -315,7 +317,7 @@
         </div>
     </div>
 
-<!-- CHARACTER CREATOR MODAL -->
+    <!-- CHARACTER CREATOR MODAL -->
     <div class="modal-overlay" id="charCreatorModal">
         <div class="modal-content">
             <div class="modal-header"><span>✨ New Character</span><span onclick="closeCharCreator()"
@@ -454,4 +456,5 @@
     <script src="js/index.js"></script>
     <script src="js/vector-field.js"></script>
 </body>
+
 </html>
