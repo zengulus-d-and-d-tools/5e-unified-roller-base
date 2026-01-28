@@ -1318,6 +1318,32 @@
             p.x += (Math.random() - 0.5) * 0.1;
             p.y += (Math.random() - 0.5) * 0.1;
 
+            // Space-Filling Drift (Repel from neighbors)
+            let driftX = 0;
+            let driftY = 0;
+            // Iterate all to find neighbors (N is small enough < 150)
+            for (let j = 0; j < nebulaParticles.length; j++) {
+                if (i === j) continue;
+                const other = nebulaParticles[j];
+                const dx = p.x - other.x;
+                const dy = p.y - other.y;
+                const distSq = dx * dx + dy * dy;
+
+                // If too close, push away gently
+                // Cloud radius is ~100-200, so check overlap
+                if (distSq < 90000) { // 300px range
+                    const dist = Math.sqrt(distSq);
+                    const force = (300 - dist) / 300; // 1.0 at center, 0.0 at 300px
+                    driftX += (dx / dist) * force * 0.05;
+                    driftY += (dy / dist) * force * 0.05;
+                }
+            }
+
+            p.vx += driftX;
+            p.vy += driftY;
+            p.vx *= 0.98; // Dampen
+            p.vy *= 0.98;
+
             p.rotation += (p.vx + p.vy) * 0.005;
 
             // --- Life Cycle ---
