@@ -319,7 +319,7 @@
 
                             // Apply radial force
                             if (dist > 1) {
-                                const push = intensity * -5.0; // Invert direction: Strong Attraction (Down/Dent)
+                                const push = intensity * -2.0; // Invert direction: Strong Attraction (Down/Dent)
                                 vx += (dx / dist) * push;
                                 vy += (dy / dist) * push;
                             }
