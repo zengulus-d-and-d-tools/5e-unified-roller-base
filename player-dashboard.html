@@ -239,6 +239,10 @@
             <div style="display:flex; gap:10px;">
                 <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()" style="font-size:0.75rem;">🌌 BG:
                     Field</button>
+                <button class="btn" onclick="triggerAccentPicker()" style="font-size:0.75rem;">🎨 Color</button>
+                <input type="color" id="accent-picker-input"
+                    style="visibility:hidden; width:0; height:0; position:absolute;"
+                    onchange="setAccentColor(this.value)">
                 <button class="btn btn-add" onclick="addPlayer()">+ Add Player</button>
             </div>
         </div>

@@ -35,6 +35,9 @@
                     style="color:#fff; opacity:0.5;">v6.0</span></div>
         </div>
         <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="triggerAccentPicker()">🎨 Color</button>
+            <input type="color" id="accent-picker-input"
+                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
             <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
             <button class="btn" onclick="autoFit()">Auto-Fit</button>
             <button class="btn" onclick="reset()">New Bracket</button>

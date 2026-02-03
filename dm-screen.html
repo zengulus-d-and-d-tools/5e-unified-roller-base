@@ -26,6 +26,11 @@
             </div>
         </div>
         <div style="display:flex; align-items:center; gap:20px;">
+            <button class="btn-tool" onclick="triggerAccentPicker()"
+                style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🎨
+                Color</button>
+            <input type="color" id="accent-picker-input"
+                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
             <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
                 style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🌌
                 BG: Field</button>

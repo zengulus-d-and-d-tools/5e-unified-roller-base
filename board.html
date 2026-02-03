@@ -25,6 +25,9 @@
             <button class="btn-tool" onclick="exportBoard()">📤 Export</button>
             <button class="btn-tool" onclick="importBoard()">📥 Import</button>
             <button class="btn-tool" onclick="clearBoard()">🗑️ Clear</button>
+            <button class="btn-tool" onclick="triggerAccentPicker()">🎨 Color</button>
+            <input type="color" id="accent-picker-input"
+                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
             <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
         </div>
     </div>

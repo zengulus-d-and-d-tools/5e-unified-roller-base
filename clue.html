@@ -23,9 +23,16 @@
                 style="color:var(--text); font-weight:900; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Intersection
                 Gen</span>
         </div>
-        <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
-            style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🌌
-            BG: Field</button>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-tool" onclick="triggerAccentPicker()"
+                style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🎨
+                Color</button>
+            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
+                style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🌌
+                BG: Field</button>
+            <input type="color" id="accent-picker-input"
+                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
+        </div>
     </div>
 
     <div class="clue-container">

@@ -23,6 +23,10 @@
                 title="Secret Roll (Discord Spoilers)">👁️</button>
             <button id="btn-bg-style" onclick="cycleBgStyle()" class="secret-btn"
                 style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🌌 BG</button>
+            <button class="secret-btn" onclick="triggerAccentPicker()"
+                style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🎨</button>
+            <input type="color" id="accent-picker-input"
+                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
             <div class="misc-wrapper"><span class="misc-label">Misc</span><input type="text" id="globalMisc"
                     placeholder="+0 or 1d4"></div>
         </div>

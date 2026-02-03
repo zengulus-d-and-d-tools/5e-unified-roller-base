@@ -18,9 +18,15 @@
         <div class="nav-item active" onclick="switchTab('tracker')">Tracker</div>
         <div class="nav-item" onclick="switchTab('roller')">Roller</div>
         <div class="nav-item" onclick="switchTab('ref')">Ref & Loot</div>
-        <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
-            style="margin-left:auto; background:none; border:none; color:#888; cursor:pointer; font-size:0.9rem; padding-right:15px;">🌌
-            BG: Field</button>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:10px; padding-right:15px;">
+            <button class="btn-tool" onclick="triggerAccentPicker()"
+                style="background:none; border:none; color:#888; cursor:pointer; font-size:0.9rem;">🎨 Color</button>
+            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
+                style="background:none; border:none; color:#888; cursor:pointer; font-size:0.9rem;">🌌
+                BG: Field</button>
+            <input type="color" id="accent-picker-input"
+                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
+        </div>
     </div>
 
     <div id="tab-tracker" class="container active">

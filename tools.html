@@ -16,9 +16,16 @@
     <div class="tools-container">
         <div class="header-overlay">
             <h1>Forbidden DM Protocols</h1>
-            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
-                style="position:absolute; right:20px; top:20px; z-index:100; cursor:pointer;"
-                onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">🌌 BG: Field</button>
+            <div style="position:absolute; right:20px; top:20px; z-index:100; display:flex; gap:10px;">
+                <button class="btn-tool" onclick="triggerAccentPicker()" style="cursor:pointer; font-size:0.9rem;"
+                    onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">🎨 Color</button>
+                <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
+                    style="cursor:pointer; font-size:0.9rem;" onmouseover="this.style.opacity=1"
+                    onmouseout="this.style.opacity=0.8">🌌 BG: Field</button>
+                <input type="color" id="accent-picker-input"
+                    style="visibility:hidden; width:0; height:0; position:absolute;"
+                    onchange="setAccentColor(this.value)">
+            </div>
         </div>
 
         <div class="grid">

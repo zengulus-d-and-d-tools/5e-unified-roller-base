@@ -112,7 +112,9 @@
     //             CORE FUNCTIONS
     // =========================================
     const hexToRgb = (hex) => {
-        const bigint = parseInt(hex.slice(1), 16);
+        if (!hex) return "78, 205, 196"; // Default
+        const clean = hex.startsWith('#') ? hex.slice(1) : hex;
+        const bigint = parseInt(clean, 16);
         return `${(bigint >> 16) & 255}, ${(bigint >> 8) & 255}, ${bigint & 255}`;
     };
 
@@ -200,6 +202,38 @@
         if (s.id === 'NEBULA') initNebula();
     };
 
+    // --- ACCENT COLOR SYSTEM ---
+    window.triggerAccentPicker = () => {
+        const input = document.getElementById('accent-picker-input');
+        if (input) input.click();
+    };
+
+    window.setAccentColor = (hex) => {
+        // 1. Update variables
+        const root = document.documentElement;
+        const rgb = hexToRgb(hex);
+
+        root.style.setProperty('--accent', hex);
+        root.style.setProperty('--accent-glow', `rgba(${rgb}, 0.4)`);
+
+        // Update local state
+        currentAccentRGB = rgb;
+        localStorage.setItem('accentColor', hex);
+
+        // Update Button Text color if needed? No, let standard CSS handle it.
+        // But we should update the picker value to match
+        const input = document.getElementById('accent-picker-input');
+        if (input && input.value !== hex) input.value = hex;
+    };
+
+    const initAccent = () => {
+        const saved = localStorage.getItem('accentColor');
+        if (saved) {
+            setAccentColor(saved);
+        }
+    };
+    initAccent();
+
     // =========================================
     //            EVENT LISTENERS
     // =========================================
@@ -284,7 +318,7 @@
 
                             // Apply radial force
                             if (dist > 1) {
-                                const push = intensity * 2.0; // Force scalar
+                                const push = intensity * -2.0; // Invert direction: Attraction (Down) instead of Repulsion (Up)
                                 vx += (dx / dist) * push;
                                 vy += (dy / dist) * push;
                             }
