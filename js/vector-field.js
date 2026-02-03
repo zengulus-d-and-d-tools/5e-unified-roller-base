@@ -209,9 +209,13 @@
     const addForce = (x, y, dx, dy) => {
         const magSq = dx * dx + dy * dy;
         if (magSq < 0.25) return;
-        // Amplify force for "greater disturbance"
-        // 3.0 multiplier makes the trail much stronger
-        forces.push({ x, y, vx: dx * 3.0, vy: dy * 3.0, life: 1 });
+
+        // Clamp max force to avoid grid explosion
+        const maxV = 50;
+        const cvx = Math.max(-maxV, Math.min(maxV, dx));
+        const cvy = Math.max(-maxV, Math.min(maxV, dy));
+
+        forces.push({ x, y, vx: cvx, vy: cvy, life: 1 });
         if (forces.length > 15) forces.shift();
         activity = 1;
     };
@@ -256,9 +260,9 @@
                 const lerpX = mouse.prevX + distX * t;
                 const lerpY = mouse.prevY + distY * t;
 
-                // Force scales with speed (dist per frame)
-                // 3.0 multiplier maintained for strength
-                addForce(lerpX, lerpY, distX * 3.0, distY * 3.0);
+                // Force scales with speed but much gentler
+                // Reduced from 3.0 to 0.5 to prevent explosion
+                addForce(lerpX, lerpY, distX * 0.5, distY * 0.5);
             }
         }
         mouse.prevX = mouse.x = e.clientX;
@@ -312,11 +316,12 @@
                     for (let f of forces) {
                         const dx = baseX - f.x; const dy = baseY - f.y;
                         const distSq = dx * dx + dy * dy;
-                        if (distSq < 3600) { // 60px radius (smaller than click 75px)
+                        if (distSq < 3600) { // 60px radius
                             const dist = Math.sqrt(distSq);
                             const falloff = 1 - (dist / 60);
                             // Keep denominator safe but consistent
-                            const influence = f.life * drag * DRAG_FACTOR * falloff / (distSq + 100);
+                            // Squared falloff to ensure it vanishes at edge
+                            const influence = f.life * drag * DRAG_FACTOR * falloff * falloff / (distSq + 100);
                             targetX += f.vx * influence; targetY += f.vy * influence;
                         }
                     }
