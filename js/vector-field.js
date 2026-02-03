@@ -247,21 +247,27 @@
         mouse.prevY = mouse.y = e.clientY;
     });
     window.addEventListener('mousedown', e => {
-        spawnShockwave(e.clientX, e.clientY);
+        // Continuous force handles interaction now, shockwave on release
         if (STYLES[currentStyleIdx].id === 'NEBULA') {
             spawnNebulaPulse(e.clientX, e.clientY);
         }
         mouse.down = true;
     });
-    window.addEventListener('mouseup', () => mouse.down = false);
+    window.addEventListener('mouseup', e => {
+        spawnShockwave(mouse.x, mouse.y); // Ripple on release
+        mouse.down = false;
+    });
     window.addEventListener('touchstart', e => {
         const touch = e.touches[0];
-        spawnShockwave(touch.clientX, touch.clientY);
+        // spawnShockwave(touch.clientX, touch.clientY); // Removed
         mouse.prevX = mouse.x = touch.clientX;
         mouse.prevY = mouse.y = touch.clientY;
         mouse.down = true;
     });
-    window.addEventListener('touchend', () => mouse.down = false);
+    window.addEventListener('touchend', () => {
+        spawnShockwave(mouse.x, mouse.y); // Ripple on release
+        mouse.down = false;
+    });
 
     // =========================================
     //          PHYSICS & RENDERING
@@ -270,6 +276,8 @@
         activity *= 0.99;
         if (activeForces) activity = Math.max(activity, 0.8);
         if (activeShocks) activity = 1;
+        if (mouse.down) activity = 1; // Keep active while holding
+
 
         layers.forEach(layer => {
             const { rawNodes, rawMeta, cols, rows, drag } = layer;
@@ -296,6 +304,22 @@
                     vy += (baseY - y) * CONFIG.TENSION;
                 }
 
+                if (mouse.down) {
+                    const dx = x - mouse.x;
+                    const dy = y - mouse.y;
+                    const distSq = dx * dx + dy * dy;
+                    if (distSq < 1000 * 1000) { // Range limit
+                        const dist = Math.sqrt(distSq);
+                        if (dist > 1) {
+                            // Continuous depressive force (Attraction)
+                            const damping = dist / (dist + 50); // Stronger damping at close range
+                            const strength = -5.0 * damping;
+                            vx += (dx / dist) * strength;
+                            vy += (dy / dist) * strength;
+                        }
+                    }
+                }
+
                 vx *= CONFIG.FRICTION; vy *= CONFIG.FRICTION;
 
                 // SHOCKWAVE PHYSICAL PUSH
@@ -319,7 +343,9 @@
 
                             // Apply radial force
                             if (dist > 1) {
-                                const push = intensity * -2.0; // Invert direction: Strong Attraction (Down/Dent)
+                                // Hyperbolic damping to prevent crossover at close range
+                                const damping = dist / (dist + 20);
+                                const push = intensity * -2.0 * damping;
                                 vx += (dx / dist) * push;
                                 vy += (dy / dist) * push;
                             }
@@ -778,6 +804,13 @@
                                 // Draw Arrow
                                 ctx.moveTo(finalX, finalY);
                                 ctx.lineTo(x2, y2);
+
+                                // Arrowhead
+                                const headLen = 4;
+                                ctx.moveTo(x2, y2);
+                                ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+                                ctx.moveTo(x2, y2);
+                                ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
                             }
                         }
                     }
