@@ -209,7 +209,9 @@
     const addForce = (x, y, dx, dy) => {
         const magSq = dx * dx + dy * dy;
         if (magSq < 0.25) return;
-        forces.push({ x, y, vx: dx, vy: dy, life: 1 });
+        // Amplify force for "greater disturbance"
+        // 3.0 multiplier makes the trail much stronger
+        forces.push({ x, y, vx: dx * 3.0, vy: dy * 3.0, life: 1 });
         if (forces.length > 15) forces.shift();
         activity = 1;
     };
@@ -241,7 +243,23 @@
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', e => {
         if (mouse.prevX !== -999) {
-            addForce(e.clientX, e.clientY, e.clientX - mouse.prevX, e.clientY - mouse.prevY);
+            const distX = e.clientX - mouse.prevX;
+            const distY = e.clientY - mouse.prevY;
+            const dist = Math.hypot(distX, distY);
+
+            // Interpolate to fill gaps for smooth trail
+            // Step size ~15px (half-grid)
+            const steps = Math.ceil(dist / 15);
+
+            for (let i = 0; i < steps; i++) {
+                const t = (i + 1) / steps;
+                const lerpX = mouse.prevX + distX * t;
+                const lerpY = mouse.prevY + distY * t;
+
+                // Force scales with speed (dist per frame)
+                // 3.0 multiplier maintained for strength
+                addForce(lerpX, lerpY, distX * 3.0, distY * 3.0);
+            }
         }
         mouse.prevX = mouse.x = e.clientX;
         mouse.prevY = mouse.y = e.clientY;
@@ -293,9 +311,14 @@
                     let targetX = baseX; let targetY = baseY;
                     for (let f of forces) {
                         const dx = baseX - f.x; const dy = baseY - f.y;
-                        const distSq = dx * dx + dy * dy + 400;
-                        const influence = f.life * drag * DRAG_FACTOR / distSq;
-                        targetX += f.vx * influence; targetY += f.vy * influence;
+                        const distSq = dx * dx + dy * dy;
+                        if (distSq < 3600) { // 60px radius (smaller than click 75px)
+                            const dist = Math.sqrt(distSq);
+                            const falloff = 1 - (dist / 60);
+                            // Keep denominator safe but consistent
+                            const influence = f.life * drag * DRAG_FACTOR * falloff / (distSq + 100);
+                            targetX += f.vx * influence; targetY += f.vy * influence;
+                        }
                     }
                     vx += (targetX - x) * CONFIG.TENSION;
                     vy += (targetY - y) * CONFIG.TENSION;
@@ -403,26 +426,42 @@
         }
     };
 
-    const drawLightning = (ctx, x1, y1, x2, y2, displacement, iteration) => {
+    const drawLightning = (ctx, x1, y1, x2, y2, displacement, iteration, startW, endW) => {
         if (iteration <= 0) {
+            ctx.beginPath();
+            ctx.lineWidth = (startW + endW) * 0.5;
+            ctx.moveTo(x1, y1);
             ctx.lineTo(x2, y2);
+            ctx.stroke();
             return;
         }
-        const midX = (x1 + x2) / 2;
-        const midY = (y1 + y2) / 2;
+
+        // Random split point for chaos (0.3 to 0.7)
+        const t = 0.3 + Math.random() * 0.4;
+        const midX = x1 + (x2 - x1) * t;
+        const midY = y1 + (y2 - y1) * t;
+
         const dx = x2 - x1;
         const dy = y2 - y1;
         const normalX = -dy;
         const normalY = dx;
         const len = Math.sqrt(dx * dx + dy * dy);
 
-        // Jitter perpendicular to the line
         const jitter = (Math.random() - 0.5) * displacement;
         const midX_j = midX + (normalX / len) * jitter;
         const midY_j = midY + (normalY / len) * jitter;
 
-        drawLightning(ctx, x1, y1, midX_j, midY_j, displacement / 2, iteration - 1);
-        drawLightning(ctx, midX_j, midY_j, x2, y2, displacement / 2, iteration - 1);
+        const midW = startW + (endW - startW) * t;
+
+        drawLightning(ctx, x1, y1, midX_j, midY_j, displacement * 0.7, iteration - 1, startW, midW);
+        drawLightning(ctx, midX_j, midY_j, x2, y2, displacement * 0.7, iteration - 1, midW, endW);
+
+        // Occasional branch?
+        if (Math.random() < 0.3 && iteration > 1) {
+            const branchX = midX_j + (Math.random() - 0.5) * len * 0.5;
+            const branchY = midY_j + (Math.random() - 0.5) * len * 0.5;
+            drawLightning(ctx, midX_j, midY_j, branchX, branchY, displacement * 0.5, iteration - 1, midW * 0.7, 0);
+        }
     };
 
     // --- RENDERERS ---
@@ -635,11 +674,9 @@
                                     const ex = finalX + Math.cos(angle) * len;
                                     const ey = finalY + Math.sin(angle) * len;
 
-                                    ctx.moveTo(finalX, finalY);
-                                    // Draw lightning towards estimated end point
-                                    drawLightning(ctx, finalX, finalY, ex, ey, 15 * intensity, 3);
-                                    ctx.stroke();
-                                    ctx.beginPath(); // Reset
+                                    // Tapering lightning with chaos
+                                    drawLightning(ctx, finalX, finalY, ex, ey, 25 * intensity, 4, 2.5 * intensity, 0.1);
+                                    // ctx.stroke() handled inside drawLightning
                                 }
                             }
                         }
