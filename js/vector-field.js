@@ -562,16 +562,20 @@
 
                     // Node Data
                     const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                    const vx1 = rawNodes[idx * 6 + 2]; const vy1 = rawNodes[idx * 6 + 3];
                     const s1 = rawMeta[idx * 2 + 1]; const e1 = rawMeta[idx * 2];
 
                     const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                    const s2 = rawMeta[right * 2 + 1]; const e2 = rawMeta[right * 2]; // Right
+                    const vx2 = rawNodes[right * 6 + 2]; const vy2 = rawNodes[right * 6 + 3];
+                    const s2 = rawMeta[right * 2 + 1]; const e2 = rawMeta[right * 2];
 
                     const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                    const s3 = rawMeta[down * 2 + 1]; const e3 = rawMeta[down * 2]; // Down
+                    const vx3 = rawNodes[down * 6 + 2]; const vy3 = rawNodes[down * 6 + 3];
+                    const s3 = rawMeta[down * 2 + 1]; const e3 = rawMeta[down * 2];
 
                     const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
-                    const s4 = rawMeta[diag * 2 + 1]; const e4 = rawMeta[diag * 2]; // Diag
+                    const vx4 = rawNodes[diag * 6 + 2]; const vy4 = rawNodes[diag * 6 + 3];
+                    const s4 = rawMeta[diag * 2 + 1]; const e4 = rawMeta[diag * 2];
 
                     const lerp = (a, b, t) => a + (b - a) * t;
 
@@ -586,6 +590,12 @@
                             const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
                             const finalX = lerp(xt, xb, ty);
                             const finalY = lerp(yt, yb, ty);
+
+                            // Interpolate Velocity
+                            const vxt = lerp(vx1, vx2, tx); const vyt = lerp(vy1, vy2, tx);
+                            const vxb = lerp(vx3, vx4, tx); const vyb = lerp(vy3, vy4, tx);
+                            const finalVX = lerp(vxt, vxb, ty);
+                            const finalVY = lerp(vyt, vyb, ty);
 
                             // Interpolate Energy/Shock
                             const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
@@ -610,23 +620,24 @@
                                         ctx.shadowColor = `rgba(${rgb}, 0.8)`;
                                     }
 
-                                    // Neighbors?
-                                    // Just connect to random jitter point for arc look
-                                    const jitterVal = 15;
-                                    const jx = () => (Math.random() - 0.5) * jitterVal;
-                                    const jy = () => (Math.random() - 0.5) * jitterVal;
+                                    // Determine Direction from Velocity
+                                    let angle;
+                                    const mag = Math.hypot(finalVX, finalVY);
 
-                                    // Connect to virtual neighbor (right side) effectively
-                                    // We approximate neighbor by just jumping step size
-                                    const stepX = (x2 - x1) / STEPS;
-                                    const stepY = (x3 - x1) / STEPS; // approx
+                                    if (mag > 0.1) {
+                                        angle = Math.atan2(finalVY, finalVX);
+                                    } else {
+                                        // Fallback to random if no velocity (unlikely if energy is high)
+                                        angle = Math.random() * Math.PI * 2;
+                                    }
 
-                                    const ex = finalX + stepX + jx();
-                                    const ey = finalY + stepY + jy(); // vague direction
+                                    const len = 30 * intensity; // Length of bolt
+                                    const ex = finalX + Math.cos(angle) * len;
+                                    const ey = finalY + Math.sin(angle) * len;
 
-                                    ctx.moveTo(finalX + jx(), finalY + jy());
-                                    // Make bolt slightly longer to bridge gaps
-                                    drawLightning(ctx, finalX + jx(), finalY + jy(), ex, ey, 40 * intensity, 3);
+                                    ctx.moveTo(finalX, finalY);
+                                    // Draw lightning towards estimated end point
+                                    drawLightning(ctx, finalX, finalY, ex, ey, 15 * intensity, 3);
                                     ctx.stroke();
                                     ctx.beginPath(); // Reset
                                 }
