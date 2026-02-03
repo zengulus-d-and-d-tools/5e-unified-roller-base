@@ -679,9 +679,14 @@
                                     const ex = finalX + Math.cos(angle) * len;
                                     const ey = finalY + Math.sin(angle) * len;
 
-                                    // Tapering lightning with chaos
-                                    drawLightning(ctx, finalX, finalY, ex, ey, 25 * intensity, 4, 2.5 * intensity, 0.1);
-                                    // ctx.stroke() handled inside drawLightning
+                                    // Optimized single-path drawing
+                                    ctx.moveTo(finalX, finalY);
+                                    drawLightning(ctx, finalX, finalY, ex, ey, 25 * intensity, 4);
+
+                                    // Single stroke for performance
+                                    ctx.lineWidth = 1.5 + (intensity * 2.0);
+                                    ctx.stroke();
+                                    ctx.beginPath(); // Reset for next bolt
                                 }
                             }
                         }
