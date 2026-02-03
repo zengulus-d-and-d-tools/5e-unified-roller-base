@@ -308,14 +308,14 @@
                     const dx = x - mouse.x;
                     const dy = y - mouse.y;
                     const distSq = dx * dx + dy * dy;
-                    const range = 100;
+                    const range = 75;
                     if (distSq < range * range) {
                         const dist = Math.sqrt(distSq);
                         if (dist > 1) {
                             // Continuous depressive force (Attraction)
                             const falloff = 1 - (dist / range);
                             const damping = dist / (dist + 50);
-                            const strength = -5.0 * damping * falloff * falloff; // Squared falloff for smoother curve
+                            const strength = -2.0 * damping * falloff * falloff; // Squared falloff for smoother curve
                             vx += (dx / dist) * strength;
                             vy += (dy / dist) * strength;
                         }
