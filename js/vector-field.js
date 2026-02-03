@@ -578,54 +578,292 @@
     };
 
     const renderElectric = (rgb) => {
-        // High contrast, jagged lines
         const { width, height } = canvas;
-        ctx.lineJoin = 'miter';
+        ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
+        ctx.fillStyle = `rgba(${rgb}, 0.8)`; // For polygon fill
 
-        const STEPS = 2; // 2x subdivision
+        // Helper: Generate points for a lightning bolt
+        const getBoltPoints = (x1, y1, x2, y2, displace) => {
+            const points = [{ x: x1, y: y1 }];
+            const stack = [{ x1, y1, x2, y2, disp: displace, depth: 4 }];
 
-        layers.forEach(layer => {
-            const { cols, rows, rawMeta, rawNodes } = layer;
-            ctx.shadowBlur = 20;
+            // Iterative to avoid recursion issues
+            // Actually, recursive generation for points is fine and easier to write quickly
+            // Let's use a local recursive helper
+            const addSegment = (pList, ax, ay, bx, by, d, iter) => {
+                if (iter <= 0) {
+                    pList.push({ x: bx, y: by });
+                    return;
+                }
+                const t = 0.3 + Math.random() * 0.4;
+                const midX = ax + (bx - ax) * t;
+                const midY = ay + (by - ay) * t;
 
-            if (activity > 0.01 && Math.random() < 0.05) {
-                ctx.shadowColor = `rgba(255, 255, 255, 0.8)`;
-            } else {
-                ctx.shadowColor = `rgba(${rgb}, 0.8)`;
-            }
+                const dx = bx - ax;
+                const dy = by - ay;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const nx = -dy / len;
+                const ny = dx / len;
 
+                const j = (Math.random() - 0.5) * d;
+                const mx = midX + nx * j;
+                const my = midY + ny * j;
+
+                addSegment(pList, ax, ay, mx, my, d * 0.6, iter - 1);
+                addSegment(pList, mx, my, bx, by, d * 0.6, iter - 1);
+            };
+
+            addSegment(points, x1, y1, x2, y2, displace, 4);
+            return points;
+        };
+
+        // Helper: Draw Tapered Polygon
+        const drawPoly = (points, w) => {
+            if (points.length < 2) return;
             ctx.beginPath();
+            // Forward
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                const t = i / (points.length - 1);
+                const cw = w * (1 - t);
+                // Simple normal expansion approximation
+                // For true normal, we need neighbours. 
+                // Fast hack: just expand circle? No, poly strip.
+                // Let's assume direction from prev or next.
+                let dx = 0, dy = 0;
+                if (i < points.length - 1) {
+                    dx = points[i + 1].x - p.x;
+                    dy = points[i + 1].y - p.y;
+                } else {
+                    dx = p.x - points[i - 1].x;
+                    dy = p.y - points[i - 1].y;
+                }
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                const nx = -dy / len;
+                const ny = dx / len;
+                ctx.lineTo(p.x + nx * cw, p.y + ny * cw);
+            }
+            // Backward
+            for (let i = points.length - 1; i >= 0; i--) {
+                const p = points[i];
+                const t = i / (points.length - 1);
+                const cw = w * (1 - t);
+                // Re-calc normal (inefficient but safe)
+                let dx = 0, dy = 0;
+                if (i < points.length - 1) {
+                    dx = points[i + 1].x - p.x;
+                    dy = points[i + 1].y - p.y;
+                } else {
+                    dx = p.x - points[i - 1].x;
+                    dy = p.y - points[i - 1].y;
+                }
+                const len = Math.sqrt(dx * dx + dy * dy) || 1;
+                const nx = -dy / len;
+                const ny = dx / len;
+                ctx.lineTo(p.x - nx * cw, p.y - ny * cw);
+            }
+            ctx.closePath();
+            ctx.fill();
+        };
 
-            for (let cx = 0; cx < cols - 1; cx++) {
-                for (let cy = 0; cy < rows - 1; cy++) {
-                    const idx = cx * rows + cy;
-                    const right = idx + rows;
-                    const down = idx + 1;
-                    const diag = idx + rows + 1;
+        // 1. Mouse Interaction (Trailing Bolt)
+        if (!mouse.down && mouse.prevX !== -999) {
+            const dx = mouse.x - mouse.prevX;
+            const dy = mouse.y - mouse.prevY;
+            const speed = Math.hypot(dx, dy);
+            if (speed > 2) {
+                // Draw trailing bolt
+                const angle = Math.atan2(dy, dx) + Math.PI; // Opposite to movement
+                const len = 50 + speed * 2;
+                const ex = mouse.x + Math.cos(angle) * len + (Math.random() - 0.5) * 20;
+                const ey = mouse.y + Math.sin(angle) * len + (Math.random() - 0.5) * 20;
 
-                    // Node Data
-                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
-                    const vx1 = rawNodes[idx * 6 + 2]; const vy1 = rawNodes[idx * 6 + 3];
-                    const s1 = rawMeta[idx * 2 + 1]; const e1 = rawMeta[idx * 2];
+                const pts = getBoltPoints(mouse.x, mouse.y, ex, ey, 20);
+                drawPoly(pts, 2 + speed * 0.1);
+            }
+        }
 
+        // 2. Mouse Hold / Click (Chaotic Bolt)
+        if (mouse.down) {
+            // 1 major chaotic bolt + maybe 1 smaller one
+            for (let i = 0; i < 2; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const len = 100 + Math.random() * 100;
+                const ex = mouse.x + Math.cos(angle) * len;
+                const ey = mouse.y + Math.sin(angle) * len;
+
+                const pts = getBoltPoints(mouse.x, mouse.y, ex, ey, 30);
+                drawPoly(pts, 4);
+            }
+        }
+
+        // 3. Shockwaves (Radiating Bolts)
+        shockwaves.forEach(s => {
+            // 1 random bolt per shockwave to keep it light
+            if (Math.random() < 0.5) {
+                const angle = Math.random() * Math.PI * 2;
+                const len = s.radius * 0.8;
+                const sx = s.x + Math.cos(angle) * (s.radius * 0.2); // Start slightly offset
+                const sy = s.y + Math.sin(angle) * (s.radius * 0.2);
+                const ex = s.x + Math.cos(angle) * len;
+                const ey = s.y + Math.sin(angle) * len;
+
+                const pts = getBoltPoints(sx, sy, ex, ey, 20);
+                drawPoly(pts, 2);
+            }
+        });
+    };
+    const right = idx + rows;
+    const down = idx + 1;
+    const diag = idx + rows + 1;
+
+    // Node Data
+    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+    const vx1 = rawNodes[idx * 6 + 2]; const vy1 = rawNodes[idx * 6 + 3];
+    const s1 = rawMeta[idx * 2 + 1]; const e1 = rawMeta[idx * 2];
+
+    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+    const vx2 = rawNodes[right * 6 + 2]; const vy2 = rawNodes[right * 6 + 3];
+    const s2 = rawMeta[right * 2 + 1]; const e2 = rawMeta[right * 2];
+
+    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+    const vx3 = rawNodes[down * 6 + 2]; const vy3 = rawNodes[down * 6 + 3];
+    const s3 = rawMeta[down * 2 + 1]; const e3 = rawMeta[down * 2];
+
+    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+    const vx4 = rawNodes[diag * 6 + 2]; const vy4 = rawNodes[diag * 6 + 3];
+    const s4 = rawMeta[diag * 2 + 1]; const e4 = rawMeta[diag * 2];
+
+    const lerp = (a, b, t) => a + (b - a) * t;
+
+    // Subdivide
+    for (let sx = 0; sx < STEPS; sx++) {
+        for (let sy = 0; sy < STEPS; sy++) {
+            const tx = sx / STEPS;
+            const ty = sy / STEPS;
+
+            // Interpolate Position
+            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+            const finalX = lerp(xt, xb, ty);
+            const finalY = lerp(yt, yb, ty);
+
+            // Interpolate Velocity
+            const vxt = lerp(vx1, vx2, tx); const vyt = lerp(vy1, vy2, tx);
+            const vxb = lerp(vx3, vx4, tx); const vyb = lerp(vy3, vy4, tx);
+            const finalVX = lerp(vxt, vxb, ty);
+            const finalVY = lerp(vyt, vyb, ty);
+
+            // Interpolate Energy/Shock
+            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+            const finalEnergy = lerp(et, eb, ty);
+
+            const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
+            const finalShock = lerp(st, sb, ty);
+
+            // Logic
+            if (finalShock > 0.1 || finalEnergy > 0.85) {
+                const intensity = finalShock + (finalEnergy * 0.5);
+                const alpha = Math.min(1, intensity);
+
+                if (Math.random() > 0.6) {
+                    ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
+                    ctx.lineWidth = 1.5 + (intensity * 2.0);
+                    if (intensity > 1.2) {
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+                        ctx.lineWidth += 1;
+                        ctx.shadowColor = `rgba(255, 255, 255, 1.0)`;
+                    } else {
+                        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
+                    }
+
+                    // Determine Direction from Velocity
+                    let angle;
+                    const mag = Math.hypot(finalVX, finalVY);
+
+                    if (mag > 0.1) {
+                        angle = Math.atan2(finalVY, finalVX);
+                    } else {
+                        // Fallback to random if no velocity (unlikely if energy is high)
+                        angle = Math.random() * Math.PI * 2;
+                    }
+
+                    const len = 30 * intensity; // Length of bolt
+                    const ex = finalX + Math.cos(angle) * len;
+                    const ey = finalY + Math.sin(angle) * len;
+
+                    // Optimized single-path drawing
+                    ctx.moveTo(finalX, finalY);
+                    drawLightning(ctx, finalX, finalY, ex, ey, 25 * intensity, 4);
+
+                    // Single stroke for performance
+                    ctx.lineWidth = 1.5 + (intensity * 2.0);
+                    ctx.stroke();
+                    ctx.beginPath(); // Reset for next bolt
+                }
+            }
+        }
+    }
+}
+            }
+ctx.shadowBlur = 0;
+ctx.lineWidth = 1;
+        });
+    };
+
+const renderGrid = (rgb) => {
+    ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+    ctx.beginPath();
+
+    // OPTIMIZATION: 3x subdivision is visually sufficient (9 dots/cell) vs 4x (16 dots/cell)
+    const STEPS = 3;
+
+    layers.forEach(layer => {
+        const { cols, rows, rawNodes, rawMeta } = layer;
+
+        // OPTIMIZATION: Batching
+        // HTML5 Canvas struggles with paths containing thousands of sub-paths.
+        // We flush the path every column to keep performance high.
+        ctx.beginPath();
+
+        for (let cx = 0; cx < cols - 1; cx++) {
+            for (let cy = 0; cy < rows - 1; cy++) {
+                const idx = cx * rows + cy;
+                const right = idx + rows;
+                const down = idx + 1;
+                const diag = idx + rows + 1;
+
+                // Node Data
+                const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                const e1 = rawMeta[idx * 2]; const s1 = rawMeta[idx * 2 + 1];
+
+                // Check for Activation
+                // 2. Local Energy
+                const isActive = (e1 > 0.05 || s1 > 0.05);
+
+                // Base Grid Points (Always draw corners if active)
+                if (s1 > 0.01 || e1 > 0.01) {
+                    const size = 1.5 + (e1 + s1) * 3;
+                    ctx.rect(x1 - size / 2, y1 - size / 2, size, size);
+                } else if (e1 > 0.005) {
+                    // Very faint dots for low energy presence
+                    ctx.rect(x1 - 1, y1 - 1, 1.5, 1.5);
+                }
+
+                if (isActive) {
                     const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                    const vx2 = rawNodes[right * 6 + 2]; const vy2 = rawNodes[right * 6 + 3];
-                    const s2 = rawMeta[right * 2 + 1]; const e2 = rawMeta[right * 2];
-
                     const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                    const vx3 = rawNodes[down * 6 + 2]; const vy3 = rawNodes[down * 6 + 3];
-                    const s3 = rawMeta[down * 2 + 1]; const e3 = rawMeta[down * 2];
-
                     const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
-                    const vx4 = rawNodes[diag * 6 + 2]; const vy4 = rawNodes[diag * 6 + 3];
-                    const s4 = rawMeta[diag * 2 + 1]; const e4 = rawMeta[diag * 2];
 
                     const lerp = (a, b, t) => a + (b - a) * t;
 
-                    // Subdivide
+                    // Internal Subdivision (Bilinear Interpolation)
                     for (let sx = 0; sx < STEPS; sx++) {
                         for (let sy = 0; sy < STEPS; sy++) {
+                            if (sx === 0 && sy === 0) continue; // Skip TL
                             const tx = sx / STEPS;
                             const ty = sy / STEPS;
 
@@ -635,1003 +873,881 @@
                             const finalX = lerp(xt, xb, ty);
                             const finalY = lerp(yt, yb, ty);
 
-                            // Interpolate Velocity
-                            const vxt = lerp(vx1, vx2, tx); const vyt = lerp(vy1, vy2, tx);
-                            const vxb = lerp(vx3, vx4, tx); const vyb = lerp(vy3, vy4, tx);
-                            const finalVX = lerp(vxt, vxb, ty);
-                            const finalVY = lerp(vyt, vyb, ty);
+                            // Interpolate Energy
+                            const e2 = rawMeta[right * 2]; const e3 = rawMeta[down * 2]; const e4 = rawMeta[diag * 2];
+                            const s2 = rawMeta[right * 2 + 1]; const s3 = rawMeta[down * 2 + 1]; const s4 = rawMeta[diag * 2 + 1];
 
-                            // Interpolate Energy/Shock
                             const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
                             const finalEnergy = lerp(et, eb, ty);
-
                             const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
                             const finalShock = lerp(st, sb, ty);
 
-                            // Logic
-                            if (finalShock > 0.1 || finalEnergy > 0.85) {
-                                const intensity = finalShock + (finalEnergy * 0.5);
-                                const alpha = Math.min(1, intensity);
-
-                                if (Math.random() > 0.6) {
-                                    ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
-                                    ctx.lineWidth = 1.5 + (intensity * 2.0);
-                                    if (intensity > 1.2) {
-                                        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-                                        ctx.lineWidth += 1;
-                                        ctx.shadowColor = `rgba(255, 255, 255, 1.0)`;
-                                    } else {
-                                        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
-                                    }
-
-                                    // Determine Direction from Velocity
-                                    let angle;
-                                    const mag = Math.hypot(finalVX, finalVY);
-
-                                    if (mag > 0.1) {
-                                        angle = Math.atan2(finalVY, finalVX);
-                                    } else {
-                                        // Fallback to random if no velocity (unlikely if energy is high)
-                                        angle = Math.random() * Math.PI * 2;
-                                    }
-
-                                    const len = 30 * intensity; // Length of bolt
-                                    const ex = finalX + Math.cos(angle) * len;
-                                    const ey = finalY + Math.sin(angle) * len;
-
-                                    // Optimized single-path drawing
-                                    ctx.moveTo(finalX, finalY);
-                                    drawLightning(ctx, finalX, finalY, ex, ey, 25 * intensity, 4);
-
-                                    // Single stroke for performance
-                                    ctx.lineWidth = 1.5 + (intensity * 2.0);
-                                    ctx.stroke();
-                                    ctx.beginPath(); // Reset for next bolt
-                                }
-                            }
+                            // Energy = Larger (Activity)
+                            // Shock  = Smaller (Recession/Dent)
+                            const size = Math.max(0.5, 1 + (finalEnergy * 2) - (finalShock * 2.5));
+                            ctx.rect(finalX - size / 2, finalY - size / 2, size, size);
                         }
                     }
                 }
             }
-            ctx.shadowBlur = 0;
-            ctx.lineWidth = 1;
-        });
-    };
-
-    const renderGrid = (rgb) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-        ctx.beginPath();
-
-        // OPTIMIZATION: 3x subdivision is visually sufficient (9 dots/cell) vs 4x (16 dots/cell)
-        const STEPS = 3;
-
-        layers.forEach(layer => {
-            const { cols, rows, rawNodes, rawMeta } = layer;
-
-            // OPTIMIZATION: Batching
-            // HTML5 Canvas struggles with paths containing thousands of sub-paths.
-            // We flush the path every column to keep performance high.
+            // FLUSH PATH PER COLUMN
+            // This keeps the command buffer small and responsive.
+            ctx.fill();
             ctx.beginPath();
+        }
+    });
+    ctx.fill();
+};
 
-            for (let cx = 0; cx < cols - 1; cx++) {
-                for (let cy = 0; cy < rows - 1; cy++) {
-                    const idx = cx * rows + cy;
-                    const right = idx + rows;
-                    const down = idx + 1;
-                    const diag = idx + rows + 1;
+const renderVector = (rgb) => {
+    ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
 
-                    // Node Data
-                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
-                    const e1 = rawMeta[idx * 2]; const s1 = rawMeta[idx * 2 + 1];
+    const STEPS = 2; // 2x subdivision = 15px virtual resolution
 
-                    // Check for Activation
-                    // 2. Local Energy
-                    const isActive = (e1 > 0.05 || s1 > 0.05);
+    layers.forEach(l => {
+        const { cols, rows, rawNodes, rawMeta } = l;
+        // Iterate cols-1, rows-1 to allow interpolation
+        for (let cx = 0; cx < cols - 1; cx++) {
+            for (let cy = 0; cy < rows - 1; cy++) {
+                const idx = cx * rows + cy;
+                const right = idx + rows;
+                const down = idx + 1;
+                const diag = idx + rows + 1;
 
-                    // Base Grid Points (Always draw corners if active)
-                    if (s1 > 0.01 || e1 > 0.01) {
-                        const size = 1.5 + (e1 + s1) * 3;
-                        ctx.rect(x1 - size / 2, y1 - size / 2, size, size);
-                    } else if (e1 > 0.005) {
-                        // Very faint dots for low energy presence
-                        ctx.rect(x1 - 1, y1 - 1, 1.5, 1.5);
-                    }
+                // Node Data (Position & Velocity)
+                const base = idx * 6;
+                const x = rawNodes[base]; const y = rawNodes[base + 1];
+                const vx = rawNodes[base + 2]; const vy = rawNodes[base + 3];
 
-                    if (isActive) {
-                        const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                        const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                        const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                const baseR = right * 6;
+                const vxR = rawNodes[baseR + 2]; const vyR = rawNodes[baseR + 3];
+                const xR = rawNodes[baseR]; const yR = rawNodes[baseR + 1];
+
+                const baseD = down * 6;
+                const vxD = rawNodes[baseD + 2]; const vyD = rawNodes[baseD + 3];
+                const xD = rawNodes[baseD]; const yD = rawNodes[baseD + 1]; // Typo fix: yD comes from baseD? No, uniform grid. 
+                // Actually, rawNodes contains x,y. Let's trust rawNodes.
+
+                const baseDD = diag * 6;
+                const vxDD = rawNodes[baseDD + 2]; const vyDD = rawNodes[baseDD + 3];
+
+
+                // Subdivide
+                for (let sx = 0; sx < STEPS; sx++) {
+                    for (let sy = 0; sy < STEPS; sy++) {
+                        const tx = sx / STEPS;
+                        const ty = sy / STEPS;
+
+                        // Bilinear Interpolation of Velocity and Position!
+                        // Simple approx: Lerp X, then Lerp Y
+                        // V_top = Lerp(vx, vxR, tx)
+                        // V_bot = Lerp(vxD, vxDD, tx)
+                        // V = Lerp(V_top, V_bot, ty)
 
                         const lerp = (a, b, t) => a + (b - a) * t;
 
-                        // Internal Subdivision (Bilinear Interpolation)
-                        for (let sx = 0; sx < STEPS; sx++) {
-                            for (let sy = 0; sy < STEPS; sy++) {
-                                if (sx === 0 && sy === 0) continue; // Skip TL
-                                const tx = sx / STEPS;
-                                const ty = sy / STEPS;
+                        const vxt = lerp(vx, vxR, tx);
+                        const vyt = lerp(vy, vyR, tx);
+                        const vxb = lerp(vxD, vxDD, tx);
+                        const vyb = lerp(vyD, vyDD, tx);
 
-                                // Interpolate Position
-                                const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
-                                const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
-                                const finalX = lerp(xt, xb, ty);
-                                const finalY = lerp(yt, yb, ty);
+                        const finalVX = lerp(vxt, vxb, ty);
+                        const finalVY = lerp(vyt, vyb, ty);
 
-                                // Interpolate Energy
-                                const e2 = rawMeta[right * 2]; const e3 = rawMeta[down * 2]; const e4 = rawMeta[diag * 2];
-                                const s2 = rawMeta[right * 2 + 1]; const s3 = rawMeta[down * 2 + 1]; const s4 = rawMeta[diag * 2 + 1];
+                        // Position Interpolation relative to cell
+                        // Grid is roughly uniform, but nodes move? 
+                        // Wait, nodes move in this simulation (x += vx). 
+                        // So we MUST interpolate x,y from the 4 corners.
+                        const xt = lerp(x, xR, tx);
+                        const yt = lerp(y, yR, tx); // Top row x,y? y is same? No, nodes move.
+                        const xb = lerp(xD, rawNodes[baseDD], tx); // rawNodes[baseDD] is xDD
+                        const yb = lerp(yD, rawNodes[baseDD + 1], tx); // yDD
 
-                                const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
-                                const finalEnergy = lerp(et, eb, ty);
-                                const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
-                                const finalShock = lerp(st, sb, ty);
+                        const finalX = lerp(xt, xb, ty);
+                        const finalY = lerp(yt, yb, ty);
 
-                                // Energy = Larger (Activity)
-                                // Shock  = Smaller (Recession/Dent)
-                                const size = Math.max(0.5, 1 + (finalEnergy * 2) - (finalShock * 2.5));
-                                ctx.rect(finalX - size / 2, finalY - size / 2, size, size);
-                            }
-                        }
-                    }
-                }
-                // FLUSH PATH PER COLUMN
-                // This keeps the command buffer small and responsive.
-                ctx.fill();
-                ctx.beginPath();
-            }
-        });
-        ctx.fill();
-    };
+                        const mag = Math.hypot(finalVX, finalVY);
+                        const shock = rawMeta[idx * 2 + 1]; // Just use TL shock for now, or interp? Interp is overkill.
 
-    const renderVector = (rgb) => {
-        ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
+                        if (mag > 0.1 || shock > 0.1) {
+                            const len = 5 + mag * 10 + shock * 20;
+                            const angle = Math.atan2(finalVY, finalVX);
+                            const x2 = finalX + Math.cos(angle) * len;
+                            const y2 = finalY + Math.sin(angle) * len;
 
-        const STEPS = 2; // 2x subdivision = 15px virtual resolution
+                            // Draw Arrow
+                            ctx.moveTo(finalX, finalY);
+                            ctx.lineTo(x2, y2);
 
-        layers.forEach(l => {
-            const { cols, rows, rawNodes, rawMeta } = l;
-            // Iterate cols-1, rows-1 to allow interpolation
-            for (let cx = 0; cx < cols - 1; cx++) {
-                for (let cy = 0; cy < rows - 1; cy++) {
-                    const idx = cx * rows + cy;
-                    const right = idx + rows;
-                    const down = idx + 1;
-                    const diag = idx + rows + 1;
-
-                    // Node Data (Position & Velocity)
-                    const base = idx * 6;
-                    const x = rawNodes[base]; const y = rawNodes[base + 1];
-                    const vx = rawNodes[base + 2]; const vy = rawNodes[base + 3];
-
-                    const baseR = right * 6;
-                    const vxR = rawNodes[baseR + 2]; const vyR = rawNodes[baseR + 3];
-                    const xR = rawNodes[baseR]; const yR = rawNodes[baseR + 1];
-
-                    const baseD = down * 6;
-                    const vxD = rawNodes[baseD + 2]; const vyD = rawNodes[baseD + 3];
-                    const xD = rawNodes[baseD]; const yD = rawNodes[baseD + 1]; // Typo fix: yD comes from baseD? No, uniform grid. 
-                    // Actually, rawNodes contains x,y. Let's trust rawNodes.
-
-                    const baseDD = diag * 6;
-                    const vxDD = rawNodes[baseDD + 2]; const vyDD = rawNodes[baseDD + 3];
-
-
-                    // Subdivide
-                    for (let sx = 0; sx < STEPS; sx++) {
-                        for (let sy = 0; sy < STEPS; sy++) {
-                            const tx = sx / STEPS;
-                            const ty = sy / STEPS;
-
-                            // Bilinear Interpolation of Velocity and Position!
-                            // Simple approx: Lerp X, then Lerp Y
-                            // V_top = Lerp(vx, vxR, tx)
-                            // V_bot = Lerp(vxD, vxDD, tx)
-                            // V = Lerp(V_top, V_bot, ty)
-
-                            const lerp = (a, b, t) => a + (b - a) * t;
-
-                            const vxt = lerp(vx, vxR, tx);
-                            const vyt = lerp(vy, vyR, tx);
-                            const vxb = lerp(vxD, vxDD, tx);
-                            const vyb = lerp(vyD, vyDD, tx);
-
-                            const finalVX = lerp(vxt, vxb, ty);
-                            const finalVY = lerp(vyt, vyb, ty);
-
-                            // Position Interpolation relative to cell
-                            // Grid is roughly uniform, but nodes move? 
-                            // Wait, nodes move in this simulation (x += vx). 
-                            // So we MUST interpolate x,y from the 4 corners.
-                            const xt = lerp(x, xR, tx);
-                            const yt = lerp(y, yR, tx); // Top row x,y? y is same? No, nodes move.
-                            const xb = lerp(xD, rawNodes[baseDD], tx); // rawNodes[baseDD] is xDD
-                            const yb = lerp(yD, rawNodes[baseDD + 1], tx); // yDD
-
-                            const finalX = lerp(xt, xb, ty);
-                            const finalY = lerp(yt, yb, ty);
-
-                            const mag = Math.hypot(finalVX, finalVY);
-                            const shock = rawMeta[idx * 2 + 1]; // Just use TL shock for now, or interp? Interp is overkill.
-
-                            if (mag > 0.1 || shock > 0.1) {
-                                const len = 5 + mag * 10 + shock * 20;
-                                const angle = Math.atan2(finalVY, finalVX);
-                                const x2 = finalX + Math.cos(angle) * len;
-                                const y2 = finalY + Math.sin(angle) * len;
-
-                                // Draw Arrow
-                                ctx.moveTo(finalX, finalY);
-                                ctx.lineTo(x2, y2);
-
-                                // Arrowhead
-                                const headLen = 4;
-                                ctx.moveTo(x2, y2);
-                                ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
-                                ctx.moveTo(x2, y2);
-                                ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
-                            }
+                            // Arrowhead
+                            const headLen = 4;
+                            ctx.moveTo(x2, y2);
+                            ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+                            ctx.moveTo(x2, y2);
+                            ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
                         }
                     }
                 }
             }
+        }
+    });
+    ctx.stroke();
+};
+
+let callMinCount = 0;
+
+const renderBoids = (rgb) => {
+    ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+    ctx.lineWidth = 1.5;
+
+    // BOID CONSTANTS
+    const perception = 80;   // View range
+    const protection = 40;   // High protection = keep away from each other
+    const matching = 0.05;   // Moderate alignment for swirling
+    const centering = 0.0001;// Almost zero cohesion to prevent clumping
+    const avoid = 0.005;     // EXTREMELY gentle avoidance for slow adjustments
+    const turn = 0.05;       // Slow turn
+
+    // Pre-calculate "Called" boids if mouse is down
+    let calledSet = new Set();
+    if (mouse.down && mouse.x !== -999) {
+        // Assign stable random min count if not set
+        if (callMinCount === 0) {
+            callMinCount = 4 + Math.floor(Math.random() * 5); // 4 to 8
+        }
+
+        // Calculate distances
+        const withDist = boids.map((b, i) => ({
+            idx: i,
+            dist: Math.hypot(b.x - mouse.x, b.y - mouse.y)
+        }));
+
+        // Sort by distance
+        withDist.sort((a, b) => a.dist - b.dist);
+
+        // Select active: either within 250px OR nearest [callMinCount]
+        let count = 0;
+        // First count valid range
+        for (let i = 0; i < withDist.length; i++) {
+            if (withDist[i].dist < 250) count++;
+            else break;
+        }
+        // Ensure min [callMinCount]
+        if (count < callMinCount) count = callMinCount;
+        if (count > withDist.length) count = withDist.length;
+
+        for (let i = 0; i < count; i++) {
+            calledSet.add(withDist[i].idx);
+        }
+    } else {
+        // Reset when mouse released
+        callMinCount = 0;
+    }
+
+    boids.forEach((b, index) => {
+        // 1. Separation / Alignment / Cohesion
+        let avgVX = 0, avgVY = 0;
+        let avgX = 0, avgY = 0;
+        let count = 0;
+        let closeDX = 0, closeDY = 0;
+
+        boids.forEach(other => {
+            const dx = b.x - other.x;
+            const dy = b.y - other.y;
+            const dist = Math.hypot(dx, dy);
+
+            if (dist > 0 && dist < perception) {
+                // Alignment
+                avgVX += other.vx;
+                avgVY += other.vy;
+                // Cohesion
+                avgX += other.x;
+                avgY += other.y;
+                count++;
+
+                // Separation
+                if (dist < protection) {
+                    closeDX += dx;
+                    closeDY += dy;
+                }
+            }
         });
-        ctx.stroke();
-    };
 
-    let callMinCount = 0;
+        if (count > 0) {
+            // Alignment
+            b.vx += (avgVX / count - b.vx) * matching;
+            b.vy += (avgVY / count - b.vy) * matching;
+            // Cohesion
+            b.vx += ((avgX / count) - b.x) * centering;
+            b.vy += ((avgY / count) - b.y) * centering;
+        }
+        // Separation (avoid crowding)
+        b.vx += closeDX * avoid;
+        b.vy += closeDY * avoid;
 
-    const renderBoids = (rgb) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-        ctx.lineWidth = 1.5;
+        // 2. Mouse Interaction
+        if (mouse.x !== -999) {
+            const dx = b.x - mouse.x;
+            const dy = b.y - mouse.y;
+            const dist = Math.hypot(dx, dy);
 
-        // BOID CONSTANTS
-        const perception = 80;   // View range
-        const protection = 40;   // High protection = keep away from each other
-        const matching = 0.05;   // Moderate alignment for swirling
-        const centering = 0.0001;// Almost zero cohesion to prevent clumping
-        const avoid = 0.005;     // EXTREMELY gentle avoidance for slow adjustments
-        const turn = 0.05;       // Slow turn
+            if (mouse.down && calledSet.has(index)) {
+                // CALL & ORBIT (Selected Boids Only)
+                const targetRadius = 140;
+                const diff = dist - targetRadius;
 
-        // Pre-calculate "Called" boids if mouse is down
-        let calledSet = new Set();
-        if (mouse.down && mouse.x !== -999) {
-            // Assign stable random min count if not set
-            if (callMinCount === 0) {
-                callMinCount = 4 + Math.floor(Math.random() * 5); // 4 to 8
-            }
+                // Stronger pull for selected boids
+                const pullStrength = 0.02;
+                b.vx -= (dx / dist) * diff * pullStrength;
+                b.vy -= (dy / dist) * diff * pullStrength;
 
-            // Calculate distances
-            const withDist = boids.map((b, i) => ({
-                idx: i,
-                dist: Math.hypot(b.x - mouse.x, b.y - mouse.y)
-            }));
+                const spinStrength = 0.6;
+                b.vx += -(dy / dist) * spinStrength;
+                b.vy += (dx / dist) * spinStrength;
 
-            // Sort by distance
-            withDist.sort((a, b) => a.dist - b.dist);
+            } else {
+                // ORBIT with No Click (or non-selected boids)
+                // Only orbit if VERY close naturally (150px)
+                if (dist < 150) {
+                    const targetRadius = 120;
+                    const diff = dist - targetRadius;
+                    const radialStrength = 0.05;
 
-            // Select active: either within 250px OR nearest [callMinCount]
-            let count = 0;
-            // First count valid range
-            for (let i = 0; i < withDist.length; i++) {
-                if (withDist[i].dist < 250) count++;
-                else break;
-            }
-            // Ensure min [callMinCount]
-            if (count < callMinCount) count = callMinCount;
-            if (count > withDist.length) count = withDist.length;
+                    b.vx -= (dx / dist) * diff * radialStrength * 0.1;
+                    b.vy -= (dy / dist) * diff * radialStrength * 0.1;
 
-            for (let i = 0; i < count; i++) {
-                calledSet.add(withDist[i].idx);
+                    b.vx += -(dy / dist) * turn * 0.8;
+                    b.vy += (dx / dist) * turn * 0.8;
+                } else {
+                    // WANDER
+                    if (!b.wanderTheta) b.wanderTheta = 0;
+                    b.wanderTheta += (Math.random() - 0.5) * 0.2;
+                    const wanderStrength = 0.05;
+                    b.vx += Math.cos(b.wanderTheta) * wanderStrength;
+                    b.vy += Math.sin(b.wanderTheta) * wanderStrength;
+                }
             }
         } else {
-            // Reset when mouse released
-            callMinCount = 0;
+            // WANDER (Smooth Randomness) when mouse is missing
+            if (!b.wanderTheta) b.wanderTheta = 0;
+            b.wanderTheta += (Math.random() - 0.5) * 0.2;
+            const wanderStrength = 0.05;
+            b.vx += Math.cos(b.wanderTheta) * wanderStrength;
+            b.vy += Math.sin(b.wanderTheta) * wanderStrength;
         }
 
-        boids.forEach((b, index) => {
-            // 1. Separation / Alignment / Cohesion
-            let avgVX = 0, avgVY = 0;
-            let avgX = 0, avgY = 0;
-            let count = 0;
-            let closeDX = 0, closeDY = 0;
+        // 3. Limit Speed (Reduced Further)
+        const speed = Math.hypot(b.vx, b.vy);
+        const lim = 2.0; // Very calm
+        if (speed > lim) {
+            b.vx = (b.vx / speed) * lim;
+            b.vy = (b.vy / speed) * lim;
+        }
+        if (speed < 0.5) { // Min speed
+            b.vx = (b.vx / speed) * 0.5;
+            b.vy = (b.vy / speed) * 0.5;
+        }
 
-            boids.forEach(other => {
-                const dx = b.x - other.x;
-                const dy = b.y - other.y;
-                const dist = Math.hypot(dx, dy);
+        // 4. Update Position & Wrap
+        b.x += b.vx;
+        b.y += b.vy;
 
-                if (dist > 0 && dist < perception) {
-                    // Alignment
-                    avgVX += other.vx;
-                    avgVY += other.vy;
-                    // Cohesion
-                    avgX += other.x;
-                    avgY += other.y;
-                    count++;
+        // History for trails
+        if (!b.history) b.history = [];
+        b.history.push({ x: b.x, y: b.y });
+        if (b.history.length > 50) b.history.shift(); // Longer Trail length
 
-                    // Separation
-                    if (dist < protection) {
-                        closeDX += dx;
-                        closeDY += dy;
-                    }
-                }
-            });
+        if (b.x < 0) { b.x = width; b.history = []; }
+        if (b.x > width) { b.x = 0; b.history = []; }
+        if (b.y < 0) { b.y = height; b.history = []; }
+        if (b.y > height) { b.y = 0; b.history = []; }
 
-            if (count > 0) {
-                // Alignment
-                b.vx += (avgVX / count - b.vx) * matching;
-                b.vy += (avgVY / count - b.vy) * matching;
-                // Cohesion
-                b.vx += ((avgX / count) - b.x) * centering;
-                b.vy += ((avgY / count) - b.y) * centering;
-            }
-            // Separation (avoid crowding)
-            b.vx += closeDX * avoid;
-            b.vy += closeDY * avoid;
-
-            // 2. Mouse Interaction
-            if (mouse.x !== -999) {
-                const dx = b.x - mouse.x;
-                const dy = b.y - mouse.y;
-                const dist = Math.hypot(dx, dy);
-
-                if (mouse.down && calledSet.has(index)) {
-                    // CALL & ORBIT (Selected Boids Only)
-                    const targetRadius = 140;
-                    const diff = dist - targetRadius;
-
-                    // Stronger pull for selected boids
-                    const pullStrength = 0.02;
-                    b.vx -= (dx / dist) * diff * pullStrength;
-                    b.vy -= (dy / dist) * diff * pullStrength;
-
-                    const spinStrength = 0.6;
-                    b.vx += -(dy / dist) * spinStrength;
-                    b.vy += (dx / dist) * spinStrength;
-
-                } else {
-                    // ORBIT with No Click (or non-selected boids)
-                    // Only orbit if VERY close naturally (150px)
-                    if (dist < 150) {
-                        const targetRadius = 120;
-                        const diff = dist - targetRadius;
-                        const radialStrength = 0.05;
-
-                        b.vx -= (dx / dist) * diff * radialStrength * 0.1;
-                        b.vy -= (dy / dist) * diff * radialStrength * 0.1;
-
-                        b.vx += -(dy / dist) * turn * 0.8;
-                        b.vy += (dx / dist) * turn * 0.8;
-                    } else {
-                        // WANDER
-                        if (!b.wanderTheta) b.wanderTheta = 0;
-                        b.wanderTheta += (Math.random() - 0.5) * 0.2;
-                        const wanderStrength = 0.05;
-                        b.vx += Math.cos(b.wanderTheta) * wanderStrength;
-                        b.vy += Math.sin(b.wanderTheta) * wanderStrength;
-                    }
-                }
-            } else {
-                // WANDER (Smooth Randomness) when mouse is missing
-                if (!b.wanderTheta) b.wanderTheta = 0;
-                b.wanderTheta += (Math.random() - 0.5) * 0.2;
-                const wanderStrength = 0.05;
-                b.vx += Math.cos(b.wanderTheta) * wanderStrength;
-                b.vy += Math.sin(b.wanderTheta) * wanderStrength;
-            }
-
-            // 3. Limit Speed (Reduced Further)
-            const speed = Math.hypot(b.vx, b.vy);
-            const lim = 2.0; // Very calm
-            if (speed > lim) {
-                b.vx = (b.vx / speed) * lim;
-                b.vy = (b.vy / speed) * lim;
-            }
-            if (speed < 0.5) { // Min speed
-                b.vx = (b.vx / speed) * 0.5;
-                b.vy = (b.vy / speed) * 0.5;
-            }
-
-            // 4. Update Position & Wrap
-            b.x += b.vx;
-            b.y += b.vy;
-
-            // History for trails
-            if (!b.history) b.history = [];
-            b.history.push({ x: b.x, y: b.y });
-            if (b.history.length > 50) b.history.shift(); // Longer Trail length
-
-            if (b.x < 0) { b.x = width; b.history = []; }
-            if (b.x > width) { b.x = 0; b.history = []; }
-            if (b.y < 0) { b.y = height; b.history = []; }
-            if (b.y > height) { b.y = 0; b.history = []; }
-
-            // 5. Render
-            // Draw Trail
-            if (b.history.length > 1) {
-                ctx.beginPath();
-                ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
-                ctx.lineWidth = 2; // Faint trail
-                ctx.moveTo(b.history[0].x, b.history[0].y);
-                for (let i = 1; i < b.history.length; i++) {
-                    ctx.lineTo(b.history[i].x, b.history[i].y);
-                }
-                ctx.stroke();
-            }
-
-            // Draw Head (Kite Shape)
-            const angle = Math.atan2(b.vy, b.vx);
-            ctx.fillStyle = `rgba(${rgb}, 0.9)`;
-            ctx.save();
-            ctx.translate(b.x, b.y);
-            ctx.rotate(angle);
+        // 5. Render
+        // Draw Trail
+        if (b.history.length > 1) {
             ctx.beginPath();
-            ctx.moveTo(15, 0);   // Nose
-            ctx.lineTo(-8, 6);   // Wing L
-            ctx.lineTo(-4, 0);   // Tail notch
-            ctx.lineTo(-8, -6);  // Wing R
-            ctx.fill();
-            ctx.restore();
-        });
-    };
+            ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
+            ctx.lineWidth = 2; // Faint trail
+            ctx.moveTo(b.history[0].x, b.history[0].y);
+            for (let i = 1; i < b.history.length; i++) {
+                ctx.lineTo(b.history[i].x, b.history[i].y);
+            }
+            ctx.stroke();
+        }
 
-    const renderTopo = (rgb) => {
-        // MARCHING SQUARES for continuous contours
-        ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
-        ctx.lineWidth = 1.0;
+        // Draw Head (Kite Shape)
+        const angle = Math.atan2(b.vy, b.vx);
+        ctx.fillStyle = `rgba(${rgb}, 0.9)`;
+        ctx.save();
+        ctx.translate(b.x, b.y);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        ctx.moveTo(15, 0);   // Nose
+        ctx.lineTo(-8, 6);   // Wing L
+        ctx.lineTo(-4, 0);   // Tail notch
+        ctx.lineTo(-8, -6);  // Wing R
+        ctx.fill();
+        ctx.restore();
+    });
+};
 
-        // Thresholds
-        const thresholds = [0.2, 0.4, 0.6, 0.8];
-        const STEPS = 2; // 2x subdivision
+const renderTopo = (rgb) => {
+    // MARCHING SQUARES for continuous contours
+    ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
+    ctx.lineWidth = 1.0;
 
-        layers.forEach(l => {
-            const { cols, rows, rawMeta, rawNodes } = l;
+    // Thresholds
+    const thresholds = [0.2, 0.4, 0.6, 0.8];
+    const STEPS = 2; // 2x subdivision
 
-            // Helper Lerp
-            const lerp = (a, b, t) => a + (b - a) * t;
+    layers.forEach(l => {
+        const { cols, rows, rawMeta, rawNodes } = l;
 
-            // Iterate Quads
-            for (let cx = 0; cx < cols - 1; cx++) {
-                for (let cy = 0; cy < rows - 1; cy++) {
-                    const idx = cx * rows + cy;
-                    const right = idx + rows;
-                    const down = idx + 1;
-                    const diag = idx + rows + 1;
+        // Helper Lerp
+        const lerp = (a, b, t) => a + (b - a) * t;
 
-                    // Corner Data
-                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
-                    const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1];
+        // Iterate Quads
+        for (let cx = 0; cx < cols - 1; cx++) {
+            for (let cy = 0; cy < rows - 1; cy++) {
+                const idx = cx * rows + cy;
+                const right = idx + rows;
+                const down = idx + 1;
+                const diag = idx + rows + 1;
 
-                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                    const e2 = rawMeta[right * 2] + rawMeta[right * 2 + 1];
+                // Corner Data
+                const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
+                const e1 = rawMeta[idx * 2] + rawMeta[idx * 2 + 1];
 
-                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                    const e3 = rawMeta[down * 2] + rawMeta[down * 2 + 1];
+                const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
+                const e2 = rawMeta[right * 2] + rawMeta[right * 2 + 1];
 
-                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
-                    const e4 = rawMeta[diag * 2] + rawMeta[diag * 2 + 1];
+                const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
+                const e3 = rawMeta[down * 2] + rawMeta[down * 2 + 1];
 
-                    // Subdivide
-                    for (let sx = 0; sx < STEPS; sx++) {
-                        for (let sy = 0; sy < STEPS; sy++) {
-                            const tx = sx / STEPS;
-                            const ty = sy / STEPS;
-                            const step = 1 / STEPS;
+                const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                const e4 = rawMeta[diag * 2] + rawMeta[diag * 2 + 1];
 
-                            // 1. Calculate Virtual Corners
-                            // Top Left (current)
-                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
-                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
-                            const vx = lerp(xt, xb, ty);
-                            const vy = lerp(yt, yb, ty);
-                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
-                            const ve = lerp(et, eb, ty);
+                // Subdivide
+                for (let sx = 0; sx < STEPS; sx++) {
+                    for (let sy = 0; sy < STEPS; sy++) {
+                        const tx = sx / STEPS;
+                        const ty = sy / STEPS;
+                        const step = 1 / STEPS;
 
-                            // Right
-                            const txR = tx + step;
-                            const xtR = lerp(x1, x2, txR); const ytR = lerp(y1, y2, txR);
-                            const xbR = lerp(x3, x4, txR); const ybR = lerp(y3, y4, txR);
-                            const vxR = lerp(xtR, xbR, ty);
-                            const vyR = lerp(ytR, ybR, ty);
-                            const etR = lerp(e1, e2, txR); const ebR = lerp(e3, e4, txR);
-                            const veR = lerp(etR, ebR, ty);
+                        // 1. Calculate Virtual Corners
+                        // Top Left (current)
+                        const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
+                        const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
+                        const vx = lerp(xt, xb, ty);
+                        const vy = lerp(yt, yb, ty);
+                        const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
+                        const ve = lerp(et, eb, ty);
 
-                            // Bottom
-                            const tyD = ty + step;
-                            const xtD = lerp(x1, x2, tx); const ytD = lerp(y1, y2, tx);
-                            const xbD = lerp(x3, x4, tx); const ybD = lerp(y3, y4, tx);
-                            const vxD = lerp(xtD, xbD, tyD);
-                            const vyD = lerp(ytD, ybD, tyD);
-                            const etD = lerp(e1, e2, tx); const ebD = lerp(e3, e4, tx);
-                            const veD = lerp(etD, ebD, tyD);
+                        // Right
+                        const txR = tx + step;
+                        const xtR = lerp(x1, x2, txR); const ytR = lerp(y1, y2, txR);
+                        const xbR = lerp(x3, x4, txR); const ybR = lerp(y3, y4, txR);
+                        const vxR = lerp(xtR, xbR, ty);
+                        const vyR = lerp(ytR, ybR, ty);
+                        const etR = lerp(e1, e2, txR); const ebR = lerp(e3, e4, txR);
+                        const veR = lerp(etR, ebR, ty);
 
-                            // Bottom Right
-                            const vxDD = lerp(xtR, xbR, tyD);
-                            const vyDD = lerp(ytR, ybR, tyD);
-                            const veDD = lerp(etR, ebR, tyD);
+                        // Bottom
+                        const tyD = ty + step;
+                        const xtD = lerp(x1, x2, tx); const ytD = lerp(y1, y2, tx);
+                        const xbD = lerp(x3, x4, tx); const ybD = lerp(y3, y4, tx);
+                        const vxD = lerp(xtD, xbD, tyD);
+                        const vyD = lerp(ytD, ybD, tyD);
+                        const etD = lerp(e1, e2, tx); const ebD = lerp(e3, e4, tx);
+                        const veD = lerp(etD, ebD, tyD);
 
-                            // 2. Marching Squares on Virtual Cell
-                            for (let tVal of thresholds) {
-                                let cIdx = 0;
-                                if (ve >= tVal) cIdx |= 8;    // TL
-                                if (veR >= tVal) cIdx |= 4;   // TR
-                                if (veDD >= tVal) cIdx |= 2;  // BR
-                                if (veD >= tVal) cIdx |= 1;   // BL
+                        // Bottom Right
+                        const vxDD = lerp(xtR, xbR, tyD);
+                        const vyDD = lerp(ytR, ybR, tyD);
+                        const veDD = lerp(etR, ebR, tyD);
 
-                                if (cIdx === 0 || cIdx === 15) continue;
+                        // 2. Marching Squares on Virtual Cell
+                        for (let tVal of thresholds) {
+                            let cIdx = 0;
+                            if (ve >= tVal) cIdx |= 8;    // TL
+                            if (veR >= tVal) cIdx |= 4;   // TR
+                            if (veDD >= tVal) cIdx |= 2;  // BR
+                            if (veD >= tVal) cIdx |= 1;   // BL
 
-                                // Geometry
-                                const cellW = vxR - vx;
-                                const cellH = vxD - vx; // approx using x difference? No, vxD.x matches vx.x approx?
-                                // Better:
-                                const a = { x: (vx + vxR) * 0.5, y: (vy + vyR) * 0.5 }; // Top Mid
-                                const b = { x: (vxR + vxDD) * 0.5, y: (vyR + vyDD) * 0.5 }; // Right Mid
-                                const c = { x: (vxD + vxDD) * 0.5, y: (vyD + vyDD) * 0.5 }; // Bot Mid
-                                const d = { x: (vx + vxD) * 0.5, y: (vy + vyD) * 0.5 }; // Left Mid
+                            if (cIdx === 0 || cIdx === 15) continue;
 
-                                ctx.beginPath();
-                                switch (cIdx) {
-                                    case 1: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
-                                    case 2: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
-                                    case 3: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
-                                    case 4: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
-                                    case 5: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
-                                    case 6: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
-                                    case 7: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
-                                    case 8: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
-                                    case 9: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
-                                    case 10: ctx.moveTo(a.x, a.y); ctx.lineTo(d.x, d.y); ctx.moveTo(b.x, b.y); ctx.lineTo(c.x, c.y); break;
-                                    case 11: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
-                                    case 12: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
-                                    case 13: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
-                                    case 14: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
-                                }
-                                ctx.stroke();
+                            // Geometry
+                            const cellW = vxR - vx;
+                            const cellH = vxD - vx; // approx using x difference? No, vxD.x matches vx.x approx?
+                            // Better:
+                            const a = { x: (vx + vxR) * 0.5, y: (vy + vyR) * 0.5 }; // Top Mid
+                            const b = { x: (vxR + vxDD) * 0.5, y: (vyR + vyDD) * 0.5 }; // Right Mid
+                            const c = { x: (vxD + vxDD) * 0.5, y: (vyD + vyDD) * 0.5 }; // Bot Mid
+                            const d = { x: (vx + vxD) * 0.5, y: (vy + vyD) * 0.5 }; // Left Mid
+
+                            ctx.beginPath();
+                            switch (cIdx) {
+                                case 1: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                                case 2: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
+                                case 3: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
+                                case 4: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
+                                case 5: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
+                                case 6: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
+                                case 7: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
+                                case 8: ctx.moveTo(d.x, d.y); ctx.lineTo(a.x, a.y); break;
+                                case 9: ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); break;
+                                case 10: ctx.moveTo(a.x, a.y); ctx.lineTo(d.x, d.y); ctx.moveTo(b.x, b.y); ctx.lineTo(c.x, c.y); break;
+                                case 11: ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); break;
+                                case 12: ctx.moveTo(d.x, d.y); ctx.lineTo(b.x, b.y); break;
+                                case 13: ctx.moveTo(c.x, c.y); ctx.lineTo(b.x, b.y); break;
+                                case 14: ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); break;
                             }
+                            ctx.stroke();
                         }
                     }
                 }
             }
+        }
+    });
+};
+
+const renderRain = (rgb, activeShocks) => {
+    ctx.strokeStyle = `rgba(${rgb}, 0.4)`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    rainDrops.forEach(d => {
+        d.y += d.vy;
+
+        // Calculate Deflection
+        let vx = 0;
+        if (mouse.x !== -999) {
+            const dx = d.x - mouse.x;
+            const dy = d.y - mouse.y;
+            const dist = Math.hypot(dx, dy);
+            // Mouse repel/wind
+            if (dist < 300) {
+                vx += (dx / dist) * 10 * (1 - dist / 300);
+            }
+        }
+
+        forces.forEach(f => {
+            const dist = Math.hypot(d.x - f.x, d.y - f.y);
+            if (dist < 200) vx += (d.x - f.x) / dist * 5 * f.life;
         });
-    };
 
-    const renderRain = (rgb, activeShocks) => {
-        ctx.strokeStyle = `rgba(${rgb}, 0.4)`;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        rainDrops.forEach(d => {
-            d.y += d.vy;
+        d.x += vx;
 
-            // Calculate Deflection
-            let vx = 0;
-            if (mouse.x !== -999) {
-                const dx = d.x - mouse.x;
-                const dy = d.y - mouse.y;
-                const dist = Math.hypot(dx, dy);
-                // Mouse repel/wind
-                if (dist < 300) {
-                    vx += (dx / dist) * 10 * (1 - dist / 300);
+        if (activeShocks) {
+            shockwaves.forEach(s => {
+                const dist = Math.hypot(d.x - s.x, d.y - s.y);
+                if (Math.abs(dist - s.radius) < s.thickness + 10) {
+                    d.y -= 5;
+                    d.x += (Math.random() - 0.5) * 10;
                 }
-            }
-
-            forces.forEach(f => {
-                const dist = Math.hypot(d.x - f.x, d.y - f.y);
-                if (dist < 200) vx += (d.x - f.x) / dist * 5 * f.life;
             });
+        }
+        if (d.y > height) {
+            d.y = -d.len;
+            d.x = Math.random() * width;
+        }
 
-            d.x += vx;
+        // Draw skewed line based on vx
+        ctx.moveTo(d.x, d.y);
+        ctx.lineTo(d.x + vx * 2, d.y + d.len);
+    });
+    ctx.stroke();
+};
 
-            if (activeShocks) {
-                shockwaves.forEach(s => {
-                    const dist = Math.hypot(d.x - s.x, d.y - s.y);
-                    if (Math.abs(dist - s.radius) < s.thickness + 10) {
-                        d.y -= 5;
-                        d.x += (Math.random() - 0.5) * 10;
-                    }
-                });
+const renderConstellation = (rgb, activeShocks) => {
+    ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+    ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
+    stars.forEach((s, idx) => {
+        // Mouse Repel
+        if (mouse.x !== -999) {
+            const dx = s.x - mouse.x;
+            const dy = s.y - mouse.y;
+            const d = Math.hypot(dx, dy);
+            if (d < 150) {
+                s.vx += (dx / d) * 0.5;
+                s.vy += (dy / d) * 0.5;
             }
-            if (d.y > height) {
-                d.y = -d.len;
-                d.x = Math.random() * width;
-            }
+        }
 
-            // Draw skewed line based on vx
-            ctx.moveTo(d.x, d.y);
-            ctx.lineTo(d.x + vx * 2, d.y + d.len);
+        // VOID DRIFT: Repel from neighbors to find empty space
+        // Sample a few random other stars to avoid O(N^2) every frame if N is large, 
+        // but N=120 is small enough for full check or partial check.
+        // Let's do a simple full check for best effect.
+        let crowdX = 0;
+        let crowdY = 0;
+        let count = 0;
+        stars.forEach((other, otherIdx) => {
+            if (idx === otherIdx) return;
+            const dx = s.x - other.x;
+            const dy = s.y - other.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < 10000) { // 100px proximity
+                const force = 50 / (distSq + 1);
+                crowdX += dx * force;
+                crowdY += dy * force;
+                count++;
+            }
         });
-        ctx.stroke();
-    };
+        // Apply drift away from crowd
+        s.vx += crowdX * 0.05;
+        s.vy += crowdY * 0.05;
 
-    const renderConstellation = (rgb, activeShocks) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-        ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
-        stars.forEach((s, idx) => {
-            // Mouse Repel
-            if (mouse.x !== -999) {
-                const dx = s.x - mouse.x;
-                const dy = s.y - mouse.y;
+        // Shockwave Push
+        if (activeShocks) {
+            shockwaves.forEach(wave => {
+                const dx = s.x - wave.x;
+                const dy = s.y - wave.y;
                 const d = Math.hypot(dx, dy);
-                if (d < 150) {
-                    s.vx += (dx / d) * 0.5;
-                    s.vy += (dy / d) * 0.5;
-                }
-            }
-
-            // VOID DRIFT: Repel from neighbors to find empty space
-            // Sample a few random other stars to avoid O(N^2) every frame if N is large, 
-            // but N=120 is small enough for full check or partial check.
-            // Let's do a simple full check for best effect.
-            let crowdX = 0;
-            let crowdY = 0;
-            let count = 0;
-            stars.forEach((other, otherIdx) => {
-                if (idx === otherIdx) return;
-                const dx = s.x - other.x;
-                const dy = s.y - other.y;
-                const distSq = dx * dx + dy * dy;
-                if (distSq < 10000) { // 100px proximity
-                    const force = 50 / (distSq + 1);
-                    crowdX += dx * force;
-                    crowdY += dy * force;
-                    count++;
+                const distFromWave = Math.abs(d - wave.radius);
+                if (distFromWave < wave.thickness * 2) {
+                    const push = wave.amplitude * 0.5;
+                    s.vx += (dx / d) * push;
+                    s.vy += (dy / d) * push;
                 }
             });
-            // Apply drift away from crowd
-            s.vx += crowdX * 0.05;
-            s.vy += crowdY * 0.05;
+        }
 
-            // Shockwave Push
-            if (activeShocks) {
-                shockwaves.forEach(wave => {
-                    const dx = s.x - wave.x;
-                    const dy = s.y - wave.y;
-                    const d = Math.hypot(dx, dy);
-                    const distFromWave = Math.abs(d - wave.radius);
-                    if (distFromWave < wave.thickness * 2) {
-                        const push = wave.amplitude * 0.5;
-                        s.vx += (dx / d) * push;
-                        s.vy += (dy / d) * push;
-                    }
-                });
+        s.x += s.vx; s.y += s.vy;
+        s.vx *= 0.96; s.vy *= 0.96; // slightly higher drag
+
+        if (s.x < 0 || s.x > width) s.vx *= -1;
+        if (s.y < 0 || s.y > height) s.vy *= -1;
+
+        if (Math.abs(s.vx) < 0.05) s.vx += (Math.random() - 0.5) * 0.05;
+        if (Math.abs(s.vy) < 0.05) s.vy += (Math.random() - 0.5) * 0.05;
+    });
+
+    ctx.beginPath();
+    for (let i = 0; i < stars.length; i++) {
+        const s1 = stars[i];
+        ctx.moveTo(s1.x, s1.y);
+        ctx.arc(s1.x, s1.y, 1.5, 0, Math.PI * 2);
+        for (let j = i + 1; j < stars.length; j++) {
+            const s2 = stars[j];
+            const dx = s1.x - s2.x; const dy = s1.y - s2.y;
+            if (dx * dx + dy * dy < 22500) {
+                ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y);
             }
+        }
+    }
+    ctx.fill(); ctx.stroke();
+};
 
-            s.x += s.vx; s.y += s.vy;
-            s.vx *= 0.96; s.vy *= 0.96; // slightly higher drag
+// Generate a unique, stochastic cloud texture for every single particle
+const generateCloudTexture = (r, g, b) => {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const half = size / 2;
 
-            if (s.x < 0 || s.x > width) s.vx *= -1;
-            if (s.y < 0 || s.y > height) s.vy *= -1;
+    // Base soft glow (randomized intensity)
+    const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+    grad.addColorStop(0, `rgba(${r},${g},${b}, ${0.1 + Math.random() * 0.05})`);
+    grad.addColorStop(0.6, `rgba(${r},${g},${b}, 0.02)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
 
-            if (Math.abs(s.vx) < 0.05) s.vx += (Math.random() - 0.5) * 0.05;
-            if (Math.abs(s.vy) < 0.05) s.vy += (Math.random() - 0.5) * 0.05;
-        });
+    // "Noise" circles - Randomized count and spread
+    const noiseSteps = 30 + Math.random() * 30; // 30-60 blobs
+    for (let i = 0; i < noiseSteps; i++) {
+        const rx = half + (Math.random() - 0.5) * size * 0.6;
+        const ry = half + (Math.random() - 0.5) * size * 0.6;
 
+        const dist = Math.hypot(rx - half, ry - half);
+        if (dist > half * 0.75) continue;
+
+        const rRad = (Math.random() * 40 + 15) * (1 - dist / half);
+        const alpha = (Math.random() * 0.06 + 0.02);
+
+        const nGrad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rRad);
+        nGrad.addColorStop(0, `rgba(${r},${g},${b}, ${alpha})`);
+        nGrad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
+
+        ctx.fillStyle = nGrad;
         ctx.beginPath();
-        for (let i = 0; i < stars.length; i++) {
-            const s1 = stars[i];
-            ctx.moveTo(s1.x, s1.y);
-            ctx.arc(s1.x, s1.y, 1.5, 0, Math.PI * 2);
-            for (let j = i + 1; j < stars.length; j++) {
-                const s2 = stars[j];
-                const dx = s1.x - s2.x; const dy = s1.y - s2.y;
-                if (dx * dx + dy * dy < 22500) {
-                    ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y);
-                }
+        ctx.arc(rx, ry, rRad, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    return canvas;
+};
+
+const initNebula = () => {
+    nebulaParticles.length = 0;
+    const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
+
+    const count = 60;
+    for (let i = 0; i < count; i++) {
+        nebulaParticles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: 0,
+            vy: 0,
+            radius: 100 + Math.random() * 200,
+            layer: 0.5 + Math.random() * 0.5,
+            alpha: Math.random(),
+            targetAlpha: Math.random() * 0.8 + 0.2,
+            rotation: Math.random() * Math.PI * 2,
+            sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
+        });
+    }
+};
+
+const spawnNebulaPulse = (x, y) => {
+    const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
+
+    // 1. Spawn new dense clouds in a ring around click (jittered)
+    for (let i = 0; i < 12; i++) {
+        const spawnAngle = Math.random() * Math.PI * 2;
+        const spawnDist = 100 + Math.random() * 80;
+        const sx = x + Math.cos(spawnAngle) * spawnDist;
+        const sy = y + Math.sin(spawnAngle) * spawnDist;
+
+        const moveAngle = spawnAngle;
+        const speed = 1 + Math.random() * 3;
+
+        nebulaParticles.push({
+            x: sx,
+            y: sy,
+            vx: Math.cos(moveAngle) * speed,
+            vy: Math.sin(moveAngle) * speed,
+            radius: 50 + Math.random() * 300, // Bio-organic variety (tiny to massive)
+            layer: 0.5 + Math.random() * 0.5,
+            alpha: 0,
+            targetAlpha: Math.random() * 0.5 + 0.5,
+            fadeInSpeed: 0.08,
+            rotation: Math.random() * Math.PI * 2,
+            fading: false,
+            fadeCounter: 30,
+            sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
+        });
+    }
+
+    // 2. Push existing clouds away
+    nebulaParticles.forEach(p => {
+        const dx = p.x - x;
+        const dy = p.y - y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 400) {
+            const force = (400 - dist) / 400;
+            const angle = Math.atan2(dy, dx);
+            const pushStr = 15 * force;
+            p.vx += Math.cos(angle) * pushStr;
+            p.vy += Math.sin(angle) * pushStr;
+        }
+    });
+};
+
+const renderNebula = (rgbString) => {
+    if (nebulaParticles.length === 0) initNebula();
+
+    ctx.globalCompositeOperation = 'screen';
+
+    const layer0 = layers[0];
+    const spacing = layer0.spacing;
+    const rows = layer0.rows;
+    const MAX_PARTICLES = 120;
+    const TARGET_PARTICLES = 60;
+    const rgbVals = rgbString.split(',').map(n => parseInt(n.trim()));
+
+    // Replenish natural clouds if low
+    if (nebulaParticles.length < TARGET_PARTICLES) {
+        if (Math.random() < 0.1) {
+            const edge = Math.floor(Math.random() * 4);
+            let nx, ny, nvx, nvy;
+            switch (edge) {
+                case 0: nx = Math.random() * width; ny = -100; nvx = 0; nvy = 1; break;
+                case 1: nx = width + 100; ny = Math.random() * height; nvx = -1; nvy = 0; break;
+                case 2: nx = Math.random() * width; ny = height + 100; nvx = 0; nvy = -1; break;
+                case 3: nx = -100; ny = Math.random() * height; nvx = 1; nvy = 0; break;
             }
-        }
-        ctx.fill(); ctx.stroke();
-    };
-
-    // Generate a unique, stochastic cloud texture for every single particle
-    const generateCloudTexture = (r, g, b) => {
-        const size = 256;
-        const canvas = document.createElement('canvas');
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext('2d');
-        const half = size / 2;
-
-        // Base soft glow (randomized intensity)
-        const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
-        grad.addColorStop(0, `rgba(${r},${g},${b}, ${0.1 + Math.random() * 0.05})`);
-        grad.addColorStop(0.6, `rgba(${r},${g},${b}, 0.02)`);
-        grad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, size, size);
-
-        // "Noise" circles - Randomized count and spread
-        const noiseSteps = 30 + Math.random() * 30; // 30-60 blobs
-        for (let i = 0; i < noiseSteps; i++) {
-            const rx = half + (Math.random() - 0.5) * size * 0.6;
-            const ry = half + (Math.random() - 0.5) * size * 0.6;
-
-            const dist = Math.hypot(rx - half, ry - half);
-            if (dist > half * 0.75) continue;
-
-            const rRad = (Math.random() * 40 + 15) * (1 - dist / half);
-            const alpha = (Math.random() * 0.06 + 0.02);
-
-            const nGrad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rRad);
-            nGrad.addColorStop(0, `rgba(${r},${g},${b}, ${alpha})`);
-            nGrad.addColorStop(1, `rgba(${r},${g},${b}, 0)`);
-
-            ctx.fillStyle = nGrad;
-            ctx.beginPath();
-            ctx.arc(rx, ry, rRad, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        return canvas;
-    };
-
-    const initNebula = () => {
-        nebulaParticles.length = 0;
-        const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
-
-        const count = 60;
-        for (let i = 0; i < count; i++) {
             nebulaParticles.push({
-                x: Math.random() * width,
-                y: Math.random() * height,
-                vx: 0,
-                vy: 0,
+                x: nx, y: ny, vx: nvx, vy: nvy,
                 radius: 100 + Math.random() * 200,
                 layer: 0.5 + Math.random() * 0.5,
-                alpha: Math.random(),
-                targetAlpha: Math.random() * 0.8 + 0.2,
+                alpha: 0, targetAlpha: Math.random() * 0.6 + 0.4, fadeInSpeed: 0.01,
                 rotation: Math.random() * Math.PI * 2,
-                sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
+                fading: false, fadeCounter: 20,
+                sprite: generateCloudTexture(rgbVals[0], rgbVals[1], rgbVals[2]) // Unique texture
             });
         }
-    };
-
-    const spawnNebulaPulse = (x, y) => {
-        const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
-
-        // 1. Spawn new dense clouds in a ring around click (jittered)
-        for (let i = 0; i < 12; i++) {
-            const spawnAngle = Math.random() * Math.PI * 2;
-            const spawnDist = 100 + Math.random() * 80;
-            const sx = x + Math.cos(spawnAngle) * spawnDist;
-            const sy = y + Math.sin(spawnAngle) * spawnDist;
-
-            const moveAngle = spawnAngle;
-            const speed = 1 + Math.random() * 3;
-
-            nebulaParticles.push({
-                x: sx,
-                y: sy,
-                vx: Math.cos(moveAngle) * speed,
-                vy: Math.sin(moveAngle) * speed,
-                radius: 50 + Math.random() * 300, // Bio-organic variety (tiny to massive)
-                layer: 0.5 + Math.random() * 0.5,
-                alpha: 0,
-                targetAlpha: Math.random() * 0.5 + 0.5,
-                fadeInSpeed: 0.08,
-                rotation: Math.random() * Math.PI * 2,
-                fading: false,
-                fadeCounter: 30,
-                sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
-            });
-        }
-
-        // 2. Push existing clouds away
-        nebulaParticles.forEach(p => {
-            const dx = p.x - x;
-            const dy = p.y - y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < 400) {
-                const force = (400 - dist) / 400;
-                const angle = Math.atan2(dy, dx);
-                const pushStr = 15 * force;
-                p.vx += Math.cos(angle) * pushStr;
-                p.vy += Math.sin(angle) * pushStr;
-            }
-        });
-    };
-
-    const renderNebula = (rgbString) => {
-        if (nebulaParticles.length === 0) initNebula();
-
-        ctx.globalCompositeOperation = 'screen';
-
-        const layer0 = layers[0];
-        const spacing = layer0.spacing;
-        const rows = layer0.rows;
-        const MAX_PARTICLES = 120;
-        const TARGET_PARTICLES = 60;
-        const rgbVals = rgbString.split(',').map(n => parseInt(n.trim()));
-
-        // Replenish natural clouds if low
-        if (nebulaParticles.length < TARGET_PARTICLES) {
-            if (Math.random() < 0.1) {
-                const edge = Math.floor(Math.random() * 4);
-                let nx, ny, nvx, nvy;
-                switch (edge) {
-                    case 0: nx = Math.random() * width; ny = -100; nvx = 0; nvy = 1; break;
-                    case 1: nx = width + 100; ny = Math.random() * height; nvx = -1; nvy = 0; break;
-                    case 2: nx = Math.random() * width; ny = height + 100; nvx = 0; nvy = -1; break;
-                    case 3: nx = -100; ny = Math.random() * height; nvx = 1; nvy = 0; break;
-                }
-                nebulaParticles.push({
-                    x: nx, y: ny, vx: nvx, vy: nvy,
-                    radius: 100 + Math.random() * 200,
-                    layer: 0.5 + Math.random() * 0.5,
-                    alpha: 0, targetAlpha: Math.random() * 0.6 + 0.4, fadeInSpeed: 0.01,
-                    rotation: Math.random() * Math.PI * 2,
-                    fading: false, fadeCounter: 20,
-                    sprite: generateCloudTexture(rgbVals[0], rgbVals[1], rgbVals[2]) // Unique texture
-                });
-            }
-        }
-
-        for (let i = nebulaParticles.length - 1; i >= 0; i--) {
-            const p = nebulaParticles[i];
-
-            // --- Physics ---
-            let cx = Math.floor((p.x + spacing) / spacing);
-            let cy = Math.floor((p.y + spacing) / spacing);
-            if (cx < 0) cx = 0; if (cx >= layer0.cols) cx = layer0.cols - 1;
-            if (cy < 0) cy = 0; if (cy >= layer0.rows) cy = layer0.rows - 1;
-
-            const idx = cx * rows + cy;
-            const baseIdx = idx * 6;
-
-            const fieldVx = layer0.rawNodes[baseIdx + 2];
-            const fieldVy = layer0.rawNodes[baseIdx + 3];
-            const energy = layer0.rawMeta[idx * 2];
-
-            p.vx += (fieldVx - p.vx) * 0.02;
-            p.vy += (fieldVy - p.vy) * 0.02;
-
-            p.x += p.vx * p.layer;
-            p.y += p.vy * p.layer;
-
-            p.x += (Math.random() - 0.5) * 0.1;
-            p.y += (Math.random() - 0.5) * 0.1;
-
-            // Space-Filling Drift (Repel from neighbors)
-            let driftX = 0;
-            let driftY = 0;
-            // Iterate all to find neighbors (N is small enough < 150)
-            for (let j = 0; j < nebulaParticles.length; j++) {
-                if (i === j) continue;
-                const other = nebulaParticles[j];
-                const dx = p.x - other.x;
-                const dy = p.y - other.y;
-                const distSq = dx * dx + dy * dy;
-
-                // If too close, push away gently
-                // Cloud radius is ~100-200, so check overlap
-                if (distSq < 90000) { // 300px range
-                    const dist = Math.sqrt(distSq);
-                    const force = (300 - dist) / 300; // 1.0 at center, 0.0 at 300px
-                    driftX += (dx / dist) * force * 0.05;
-                    driftY += (dy / dist) * force * 0.05;
-                }
-            }
-
-            p.vx += driftX;
-            p.vy += driftY;
-            p.vx *= 0.98; // Dampen
-            p.vy *= 0.98;
-
-            p.rotation += (p.vx + p.vy) * 0.005;
-
-            // --- Life Cycle ---
-            if (p.alpha < p.targetAlpha && !p.fading) p.alpha += p.fadeInSpeed || 0.01;
-
-            const buffer = 250;
-            const outOfBounds = (p.x < -buffer || p.x > width + buffer || p.y < -buffer || p.y > height + buffer);
-            if (outOfBounds) p.fading = true;
-            if (nebulaParticles.length > MAX_PARTICLES && !p.fading && Math.random() < 0.01) p.fading = true;
-
-            if (p.fading) {
-                p.fadeCounter--;
-                p.alpha *= 0.9;
-                if (p.fadeCounter <= 0 || p.alpha < 0.01) {
-                    nebulaParticles.splice(i, 1);
-                    continue;
-                }
-            }
-
-            // Draw
-            const size = p.radius * p.layer;
-            const finalAlpha = p.alpha * (0.8 + energy * 2.5);
-
-            ctx.globalAlpha = Math.min(1, Math.max(0, finalAlpha));
-
-            ctx.save();
-            ctx.translate(p.x, p.y);
-            ctx.rotate(p.rotation);
-            if (p.sprite) ctx.drawImage(p.sprite, -size / 2, -size / 2, size, size);
-            ctx.restore();
-        }
-
-        ctx.globalAlpha = 1.0;
-        ctx.globalCompositeOperation = 'source-over';
-    };
-
-    const animate = () => {
-        ctx.clearRect(0, 0, width, height);
-
-        const currentStyle = STYLES[currentStyleIdx].id;
-        if (currentStyle === 'OFF') {
-            requestAnimationFrame(animate);
-            return;
-        }
-
-        let activeForces = false;
-        for (let i = forces.length - 1; i >= 0; i--) {
-            forces[i].life *= 0.85;
-            if (forces[i].life < 0.01) forces.splice(i, 1);
-            else activeForces = true;
-        }
-
-        let activeShocks = false;
-        for (let i = shockwaves.length - 1; i >= 0; i--) {
-            const s = shockwaves[i];
-            s.radius += CONFIG.SHOCK_SPEED;
-            s.age++;
-            if (s.age >= s.maxAge) shockwaves.splice(i, 1);
-            else activeShocks = true;
-        }
-
-        updateVectorPhysics(activeForces, activeShocks);
-
-        const accent = currentAccentRGB;
-        switch (currentStyle) {
-            case 'FIELD': renderField(accent); break;
-            case 'GRID': renderGrid(accent); break;
-            case 'VECTOR': renderVector(accent); break;
-            case 'BOIDS': renderBoids(accent); break;
-            case 'TOPO': renderTopo(accent); break;
-            case 'RAIN': renderRain(accent, activeShocks); break;
-            case 'CONSTELLATION': renderConstellation(accent, activeShocks); break;
-            case 'NEBULA': renderNebula(accent); break;
-            case 'ELECTRIC': renderElectric(accent); break;
-            case 'NEURAL': renderElectric(accent); break; // Fallback
-        }
-
-        requestAnimationFrame(animate);
-    };
-
-    // =========================================
-    //                 INIT
-    // =========================================
-    const init = () => {
-        buildNodes();
-        updateAccent();
-
-        // LOAD SAVED STYLE
-        const savedStyle = localStorage.getItem('vectorFieldStyle');
-        if (savedStyle) {
-            const idx = STYLES.findIndex(s => s.id === savedStyle);
-            if (idx !== -1) currentStyleIdx = idx;
-        }
-
-        // Set initial button text
-        const btn = document.getElementById('btn-bg-style');
-        if (btn) {
-            btn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
-        } else {
-            // Retry once if button not found yet (just in case)
-            setTimeout(() => {
-                const retryBtn = document.getElementById('btn-bg-style');
-                if (retryBtn) retryBtn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
-            }, 500);
-        }
-
-        if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
-        if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
-        if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
-
-        animate();
-    };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
     }
-})();
+
+    for (let i = nebulaParticles.length - 1; i >= 0; i--) {
+        const p = nebulaParticles[i];
+
+        // --- Physics ---
+        let cx = Math.floor((p.x + spacing) / spacing);
+        let cy = Math.floor((p.y + spacing) / spacing);
+        if (cx < 0) cx = 0; if (cx >= layer0.cols) cx = layer0.cols - 1;
+        if (cy < 0) cy = 0; if (cy >= layer0.rows) cy = layer0.rows - 1;
+
+        const idx = cx * rows + cy;
+        const baseIdx = idx * 6;
+
+        const fieldVx = layer0.rawNodes[baseIdx + 2];
+        const fieldVy = layer0.rawNodes[baseIdx + 3];
+        const energy = layer0.rawMeta[idx * 2];
+
+        p.vx += (fieldVx - p.vx) * 0.02;
+        p.vy += (fieldVy - p.vy) * 0.02;
+
+        p.x += p.vx * p.layer;
+        p.y += p.vy * p.layer;
+
+        p.x += (Math.random() - 0.5) * 0.1;
+        p.y += (Math.random() - 0.5) * 0.1;
+
+        // Space-Filling Drift (Repel from neighbors)
+        let driftX = 0;
+        let driftY = 0;
+        // Iterate all to find neighbors (N is small enough < 150)
+        for (let j = 0; j < nebulaParticles.length; j++) {
+            if (i === j) continue;
+            const other = nebulaParticles[j];
+            const dx = p.x - other.x;
+            const dy = p.y - other.y;
+            const distSq = dx * dx + dy * dy;
+
+            // If too close, push away gently
+            // Cloud radius is ~100-200, so check overlap
+            if (distSq < 90000) { // 300px range
+                const dist = Math.sqrt(distSq);
+                const force = (300 - dist) / 300; // 1.0 at center, 0.0 at 300px
+                driftX += (dx / dist) * force * 0.05;
+                driftY += (dy / dist) * force * 0.05;
+            }
+        }
+
+        p.vx += driftX;
+        p.vy += driftY;
+        p.vx *= 0.98; // Dampen
+        p.vy *= 0.98;
+
+        p.rotation += (p.vx + p.vy) * 0.005;
+
+        // --- Life Cycle ---
+        if (p.alpha < p.targetAlpha && !p.fading) p.alpha += p.fadeInSpeed || 0.01;
+
+        const buffer = 250;
+        const outOfBounds = (p.x < -buffer || p.x > width + buffer || p.y < -buffer || p.y > height + buffer);
+        if (outOfBounds) p.fading = true;
+        if (nebulaParticles.length > MAX_PARTICLES && !p.fading && Math.random() < 0.01) p.fading = true;
+
+        if (p.fading) {
+            p.fadeCounter--;
+            p.alpha *= 0.9;
+            if (p.fadeCounter <= 0 || p.alpha < 0.01) {
+                nebulaParticles.splice(i, 1);
+                continue;
+            }
+        }
+
+        // Draw
+        const size = p.radius * p.layer;
+        const finalAlpha = p.alpha * (0.8 + energy * 2.5);
+
+        ctx.globalAlpha = Math.min(1, Math.max(0, finalAlpha));
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        if (p.sprite) ctx.drawImage(p.sprite, -size / 2, -size / 2, size, size);
+        ctx.restore();
+    }
+
+    ctx.globalAlpha = 1.0;
+    ctx.globalCompositeOperation = 'source-over';
+};
+
+const animate = () => {
+    ctx.clearRect(0, 0, width, height);
+
+    const currentStyle = STYLES[currentStyleIdx].id;
+    if (currentStyle === 'OFF') {
+        requestAnimationFrame(animate);
+        return;
+    }
+
+    let activeForces = false;
+    for (let i = forces.length - 1; i >= 0; i--) {
+        forces[i].life *= 0.85;
+        if (forces[i].life < 0.01) forces.splice(i, 1);
+        else activeForces = true;
+    }
+
+    let activeShocks = false;
+    for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const s = shockwaves[i];
+        s.radius += CONFIG.SHOCK_SPEED;
+        s.age++;
+        if (s.age >= s.maxAge) shockwaves.splice(i, 1);
+        else activeShocks = true;
+    }
+
+    updateVectorPhysics(activeForces, activeShocks);
+
+    const accent = currentAccentRGB;
+    switch (currentStyle) {
+        case 'FIELD': renderField(accent); break;
+        case 'GRID': renderGrid(accent); break;
+        case 'VECTOR': renderVector(accent); break;
+        case 'BOIDS': renderBoids(accent); break;
+        case 'TOPO': renderTopo(accent); break;
+        case 'RAIN': renderRain(accent, activeShocks); break;
+        case 'CONSTELLATION': renderConstellation(accent, activeShocks); break;
+        case 'NEBULA': renderNebula(accent); break;
+        case 'ELECTRIC': renderElectric(accent); break;
+        case 'NEURAL': renderElectric(accent); break; // Fallback
+    }
+
+    requestAnimationFrame(animate);
+};
+
+// =========================================
+//                 INIT
+// =========================================
+const init = () => {
+    buildNodes();
+    updateAccent();
+
+    // LOAD SAVED STYLE
+    const savedStyle = localStorage.getItem('vectorFieldStyle');
+    if (savedStyle) {
+        const idx = STYLES.findIndex(s => s.id === savedStyle);
+        if (idx !== -1) currentStyleIdx = idx;
+    }
+
+    // Set initial button text
+    const btn = document.getElementById('btn-bg-style');
+    if (btn) {
+        btn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
+    } else {
+        // Retry once if button not found yet (just in case)
+        setTimeout(() => {
+            const retryBtn = document.getElementById('btn-bg-style');
+            if (retryBtn) retryBtn.innerText = "🌌 " + STYLES[currentStyleIdx].label;
+        }, 500);
+    }
+
+    if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
+    if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
+    if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
+
+    animate();
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
+}
+}) ();
