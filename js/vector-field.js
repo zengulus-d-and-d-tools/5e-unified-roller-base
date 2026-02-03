@@ -1,4 +1,37 @@
 (() => {
+    // --- UTILS & GLOBAL STATE (Defined before Canvas Check) ---
+    const hexToRgb = (hex) => {
+        if (!hex) return "78, 205, 196";
+        const clean = hex.startsWith('#') ? hex.slice(1) : hex;
+        const bigint = parseInt(clean, 16);
+        return `${(bigint >> 16) & 255}, ${(bigint >> 8) & 255}, ${bigint & 255}`;
+    };
+
+    let currentAccentRGB = "78, 205, 196";
+
+    window.triggerAccentPicker = () => {
+        const input = document.getElementById('accent-picker-input');
+        if (input) input.click();
+    };
+
+    window.setAccentColor = (hex) => {
+        const root = document.documentElement;
+        const rgb = hexToRgb(hex);
+        root.style.setProperty('--accent', hex);
+        root.style.setProperty('--accent-glow', `rgba(${rgb}, 0.4)`);
+        currentAccentRGB = rgb;
+        localStorage.setItem('accentColor', hex);
+        const input = document.getElementById('accent-picker-input');
+        if (input && input.value !== hex) input.value = hex;
+    };
+
+    const initAccent = () => {
+        const saved = localStorage.getItem('accentColor');
+        if (saved) setAccentColor(saved);
+    };
+    try { initAccent(); } catch (e) { console.warn(e); }
+
+    // --- CANVAS INIT ---
     const canvas = document.getElementById('vector-cloud');
     if (!canvas) return;
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -38,7 +71,7 @@
     const shockwaves = [];
     let activity = 0;
     const mouse = { x: -999, y: -999, prevX: -999, prevY: -999, down: false };
-    let currentAccentRGB = "78, 205, 196";
+    // currentAccentRGB defined at top
 
     // STYLES
     const STYLES = [
@@ -111,12 +144,8 @@
     // =========================================
     //             CORE FUNCTIONS
     // =========================================
-    const hexToRgb = (hex) => {
-        if (!hex) return "78, 205, 196"; // Default
-        const clean = hex.startsWith('#') ? hex.slice(1) : hex;
-        const bigint = parseInt(clean, 16);
-        return `${(bigint >> 16) & 255}, ${(bigint >> 8) & 255}, ${bigint & 255}`;
-    };
+    // hexToRgb defined at top
+
 
     const updateAccent = () => {
         const style = getComputedStyle(document.documentElement);
@@ -203,36 +232,8 @@
     };
 
     // --- ACCENT COLOR SYSTEM ---
-    window.triggerAccentPicker = () => {
-        const input = document.getElementById('accent-picker-input');
-        if (input) input.click();
-    };
+    // Moved to top of file
 
-    window.setAccentColor = (hex) => {
-        // 1. Update variables
-        const root = document.documentElement;
-        const rgb = hexToRgb(hex);
-
-        root.style.setProperty('--accent', hex);
-        root.style.setProperty('--accent-glow', `rgba(${rgb}, 0.4)`);
-
-        // Update local state
-        currentAccentRGB = rgb;
-        localStorage.setItem('accentColor', hex);
-
-        // Update Button Text color if needed? No, let standard CSS handle it.
-        // But we should update the picker value to match
-        const input = document.getElementById('accent-picker-input');
-        if (input && input.value !== hex) input.value = hex;
-    };
-
-    const initAccent = () => {
-        const saved = localStorage.getItem('accentColor');
-        if (saved) {
-            setAccentColor(saved);
-        }
-    };
-    initAccent();
 
     // =========================================
     //            EVENT LISTENERS
@@ -318,7 +319,7 @@
 
                             // Apply radial force
                             if (dist > 1) {
-                                const push = intensity * -2.0; // Invert direction: Attraction (Down) instead of Repulsion (Up)
+                                const push = intensity * -5.0; // Invert direction: Strong Attraction (Down/Dent)
                                 vx += (dx / dist) * push;
                                 vy += (dy / dist) * push;
                             }
@@ -364,7 +365,7 @@
         // Shock bucket
         if (shockBucket.length > 0) {
             ctx.strokeStyle = shockColorStr;
-            ctx.lineWidth = 2; // Hardcoded shock width
+            ctx.lineWidth = 0.5; // Thin lines = Stretched/Tight/Receding
             ctx.beginPath();
             for (let i = 0; i < shockBucket.length; i += 4) {
                 ctx.moveTo(shockBucket[i], shockBucket[i + 1]);
@@ -679,7 +680,9 @@
                                 const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
                                 const finalShock = lerp(st, sb, ty);
 
-                                const size = 1 + (finalEnergy * 2 + finalShock * 3);
+                                // Energy = Larger (Activity)
+                                // Shock  = Smaller (Recession/Dent)
+                                const size = Math.max(0.5, 1 + (finalEnergy * 2) - (finalShock * 2.5));
                                 ctx.rect(finalX - size / 2, finalY - size / 2, size, size);
                             }
                         }
