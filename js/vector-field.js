@@ -258,7 +258,9 @@
                 radius: 1.5 + Math.random(),
                 hOff: (Math.random() - 0.5) * 0.1,
                 sOff: (Math.random() - 0.5) * 0.1,
-                lOff: (Math.random() - 0.5) * 0.1
+                lOff: (Math.random() - 0.5) * 0.1,
+                twinklePhase: Math.random() * Math.PI * 2,
+                twinkleSpeed: 0.02 + Math.random() * 0.05
             });
         }
     };
@@ -385,6 +387,7 @@
 
         // FIX: Clear physics state to prevent lag spike when switching styles (especially to Field)
         hardReset();
+        resize(); // Force resize to clear all buffers/state completely
     };
 
     const hardReset = () => {
@@ -1593,30 +1596,63 @@
             if (Math.abs(s.vy) < 0.05) s.vy += (Math.random() - 0.5) * 0.05;
         });
 
-        // 1. Draw Lines (Batch)
-        ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
+        // 1. Draw Lines (Batched for performance)
+        ctx.strokeStyle = `rgba(${rgb}, 0.15)`; // Faint lines
+        ctx.lineWidth = 0.8;
         ctx.beginPath();
         for (let i = 0; i < stars.length; i++) {
             const s1 = stars[i];
+
+            // Movement logic inside render for efficiency? 
+            // Ideally should be in update, but for now we keep it here as per previous structure.
+            s1.x += s1.vx; s1.y += s1.vy;
+            if (s1.x < 0) s1.x = width; if (s1.x > width) s1.x = 0;
+            if (s1.y < 0) s1.y = height; if (s1.y > height) s1.y = 0;
+
             for (let j = i + 1; j < stars.length; j++) {
                 const s2 = stars[j];
                 const dx = s1.x - s2.x; const dy = s1.y - s2.y;
-                if (dx * dx + dy * dy < 22500) {
+                if (dx * dx + dy * dy < 22500) { // 150*150
                     ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y);
                 }
             }
         }
         ctx.stroke();
 
-        // 2. Draw Stars (Individual)
-        for (let i = 0; i < stars.length; i++) {
-            const s = stars[i];
+        // 2. Draw Stars (Individual Twinkle & Shape)
+        const time = Date.now();
+
+        stars.forEach((s) => {
+            // Mouse Interaction (Push)
+            if (mouse.x !== -999) {
+                const dx = s.x - mouse.x; const dy = s.y - mouse.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 150) {
+                    const force = (150 - dist) / 150;
+                    s.vx += (dx / dist) * force * 0.2;
+                    s.vy += (dy / dist) * force * 0.2;
+                }
+            }
+
+            // Twinkle Logic
+            // Sine wave -1 to 1 -> map to 0.4 to 1.0 opacity
+            const twinkle = Math.sin(time * s.twinkleSpeed + s.twinklePhase);
+            const alpha = 0.4 + (twinkle + 1) * 0.3; // 0.4 to 1.0 roughly
+            const size = s.radius * (0.8 + (twinkle + 1) * 0.2); // slight size pulse
+
+            // Color
             const starColor = applyOffset(rgb, s.hOff, s.sOff, s.lOff);
-            ctx.fillStyle = `rgba(${starColor}, 0.8)`;
+            ctx.fillStyle = `rgba(${starColor}, ${alpha})`;
+
+            // Draw Star Shape (Diamond / 4-point)
             ctx.beginPath();
-            ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2);
+            ctx.moveTo(s.x, s.y - size * 1.5); // Top
+            ctx.lineTo(s.x + size, s.y);       // Right
+            ctx.lineTo(s.x, s.y + size * 1.5); // Bottom
+            ctx.lineTo(s.x - size, s.y);       // Left
+            ctx.closePath();
             ctx.fill();
-        }
+        });
     };
 
     // Generate a unique, stochastic cloud texture for every single particle
