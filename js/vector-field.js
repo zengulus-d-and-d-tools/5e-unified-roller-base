@@ -7,6 +7,67 @@
         return `${(bigint >> 16) & 255}, ${(bigint >> 8) & 255}, ${bigint & 255}`;
     };
 
+    // --- COLOR UTILS ---
+    const rgbToHsl = (r, g, b) => {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+
+        if (max === min) {
+            h = s = 0; // achromatic
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        return [h, s, l];
+    };
+
+    const hslToRgb = (h, s, l) => {
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l; // achromatic
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+        return `${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}`;
+    };
+
+    const applyOffset = (rgbStr, hOff, sOff, lOff) => {
+        const [r, g, b] = rgbStr.split(',').map(n => parseInt(n.trim()));
+        const [h, s, l] = rgbToHsl(r, g, b);
+        let newH = (h + hOff) % 1;
+        if (newH < 0) newH += 1;
+        const newS = Math.max(0, Math.min(1, s + sOff));
+        const newL = Math.max(0, Math.min(1, l + lOff));
+        return hslToRgb(newH, newS, newL);
+    };
+
+    const getAnimatedColor = (rgbStr) => {
+        const time = Date.now() * 0.001;
+        const hOff = Math.sin(time * 0.5) * 0.05; // +/- 5% hue
+        const sOff = Math.sin(time * 0.7 + 100) * 0.05; // +/- 5% sat
+        const lOff = Math.sin(time * 0.3 + 200) * 0.05; // +/- 5% light
+        return applyOffset(rgbStr, hOff, sOff, lOff);
+    };
+
     let currentAccentRGB = "78, 205, 196";
 
     window.triggerAccentPicker = () => {
@@ -119,7 +180,10 @@
                 x: Math.random() * width,
                 y: Math.random() * height,
                 vy: 5 + Math.random() * 5,
-                len: 10 + Math.random() * 20
+                len: 10 + Math.random() * 20,
+                hOff: (Math.random() - 0.5) * 0.1,
+                sOff: (Math.random() - 0.5) * 0.1,
+                lOff: (Math.random() - 0.5) * 0.1
             });
         }
     };
@@ -135,7 +199,10 @@
                 y: Math.random() * height,
                 vx: (Math.random() - 0.5) * 1,
                 vy: (Math.random() - 0.5) * 1,
-                radius: 1.5 + Math.random()
+                radius: 1.5 + Math.random(),
+                hOff: (Math.random() - 0.5) * 0.1,
+                sOff: (Math.random() - 0.5) * 0.1,
+                lOff: (Math.random() - 0.5) * 0.1
             });
         }
     };
@@ -153,7 +220,10 @@
                 vy: (Math.random() - 0.5) * 4,
                 angle: Math.random() * Math.PI * 2,
                 wanderTheta: Math.random() * Math.PI * 2,
-                history: []
+                history: [],
+                hOff: (Math.random() - 0.5) * 0.1,
+                sOff: (Math.random() - 0.5) * 0.1,
+                lOff: (Math.random() - 0.5) * 0.1
             });
         }
     };
@@ -662,8 +732,6 @@
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.shadowBlur = 15;
-        // Batching: Set common styles once if possible, but alpha varies.
-        // We will group by alpha if we really want to optimize, but just avoiding object creation is the big win.
 
         // --- BOLT GENERATION (Using Pool) ---
         const spawnBolt = (x1, y1, x2, y2, life, thickness, targetObj = null) => {
@@ -680,7 +748,8 @@
             bolt.active = true;
             bolt.life = life;
             bolt.maxLife = life;
-            bolt.color = rgb;
+            // Generate varied color for this bolt
+            bolt.color = applyOffset(rgb, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1);
             bolt.target = targetObj;
             bolt.pathCount = 0;
 
@@ -715,10 +784,8 @@
                     const dy = p2y - p1y;
                     const midX = (p1x + p2x) / 2;
                     const midY = (p1y + p2y) / 2;
-                    // Fast Approx Dist (we don't need exact sqrt for jitter direction, but we need it for normalization)
-                    // Math.sqrt is fine here.
-                    const len = Math.sqrt(dx * dx + dy * dy);
 
+                    const len = Math.sqrt(dx * dx + dy * dy);
                     const nx = -dy / len;
                     const ny = dx / len;
 
@@ -736,18 +803,10 @@
                             const branchLen = len * (0.5 + Math.random() * 0.5);
                             const ex = mx + Math.cos(branchAngle) * branchLen;
                             const ey = my + Math.sin(branchAngle) * branchLen;
-
-                            // Start new path for branch
-                            generateSegments(mx, my, ex, ey, disp, iteration - 1);
-                            // Note: original recursion passed width * 0.6. 
-                            // My simple recursion above doesn't support changing width easily for sub-branches 
-                            // properly without passing it down. 
-                            // But wait, the original code created a NEW PATH for the branch.
-                            // So calling generateSegments recursively is correct.
+                            generateSegments(mx, my, ex, ey, disp, width * 0.5, iteration - 1);
                         }
                     }
                 };
-
                 recurse(ax, ay, bx, by, displace, iteration);
             };
 
@@ -787,9 +846,6 @@
         }
 
         // --- RENDER ---
-        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-
         // Iterate Pool
         for (let i = 0; i < MAX_BOLTS; i++) {
             const bolt = boltPool[i];
@@ -803,11 +859,8 @@
 
             // Anchor logic
             if (bolt.target && bolt.pathCount > 0) {
-                // Main path is usually the first one? recursion does depth first.
-                // In my generator, the first call creates the first path.
                 const mainPath = bolt.paths[0];
                 if (mainPath.count >= 2) {
-                    // points[0], points[1] is x,y
                     mainPath.points[0] += (bolt.target.x - mainPath.points[0]) * 0.5;
                     mainPath.points[1] += (bolt.target.y - mainPath.points[1]) * 0.5;
                 }
@@ -816,7 +869,8 @@
             const alpha = bolt.life / bolt.maxLife;
             ctx.globalAlpha = alpha;
             ctx.shadowBlur = 10 * alpha;
-            ctx.strokeStyle = `rgba(${rgb}, ${alpha})`; // Use strokeStyle for stroke()
+            ctx.shadowColor = `rgba(${bolt.color}, 0.8)`;
+            ctx.strokeStyle = `rgba(${bolt.color}, ${alpha})`;
 
             for (let p = 0; p < bolt.pathCount; p++) {
                 const path = bolt.paths[p];
@@ -1020,7 +1074,7 @@
     let callMinCount = 0;
 
     const renderBoids = (rgb) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+        // ctx.fillStyle = ... // Removed
         ctx.lineWidth = 1.5;
 
         // BOID CONSTANTS
@@ -1186,10 +1240,12 @@
             if (b.y > height) { b.y = 0; b.history = []; }
 
             // 5. Render
+            const boidColor = applyOffset(rgb, b.hOff, b.sOff, b.lOff);
+
             // Draw Trail
             if (b.history.length > 1) {
                 ctx.beginPath();
-                ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
+                ctx.strokeStyle = `rgba(${boidColor}, 0.2)`;
                 ctx.lineWidth = 2; // Faint trail
                 ctx.moveTo(b.history[0].x, b.history[0].y);
                 for (let i = 1; i < b.history.length; i++) {
@@ -1200,7 +1256,7 @@
 
             // Draw Head (Kite Shape)
             const angle = Math.atan2(b.vy, b.vx);
-            ctx.fillStyle = `rgba(${rgb}, 0.9)`;
+            ctx.fillStyle = `rgba(${boidColor}, 0.9)`;
             ctx.save();
             ctx.translate(b.x, b.y);
             ctx.rotate(angle);
@@ -1335,9 +1391,9 @@
     };
 
     const renderRain = (rgb, activeShocks) => {
-        ctx.strokeStyle = `rgba(${rgb}, 0.4)`;
+        // ctx.strokeStyle removed
         ctx.lineWidth = 1;
-        ctx.beginPath();
+
         rainDrops.forEach(d => {
             d.y += d.vy;
 
@@ -1375,15 +1431,17 @@
             }
 
             // Draw skewed line based on vx
+            const dropColor = applyOffset(rgb, d.hOff, d.sOff, d.lOff);
+            ctx.strokeStyle = `rgba(${dropColor}, 0.4)`;
+            ctx.beginPath();
             ctx.moveTo(d.x, d.y);
             ctx.lineTo(d.x + vx * 2, d.y + d.len);
+            ctx.stroke();
         });
-        ctx.stroke();
     };
 
     const renderConstellation = (rgb, activeShocks) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
-        ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
+        // stars.forEach loop for physics
         stars.forEach((s, idx) => {
             // Mouse Repel
             if (mouse.x !== -999) {
@@ -1396,10 +1454,7 @@
                 }
             }
 
-            // VOID DRIFT: Repel from neighbors to find empty space
-            // Sample a few random other stars to avoid O(N^2) every frame if N is large, 
-            // but N=120 is small enough for full check or partial check.
-            // Let's do a simple full check for best effect.
+            // VOID DRIFT
             let crowdX = 0;
             let crowdY = 0;
             let count = 0;
@@ -1415,7 +1470,6 @@
                     count++;
                 }
             });
-            // Apply drift away from crowd
             s.vx += crowdX * 0.05;
             s.vy += crowdY * 0.05;
 
@@ -1435,7 +1489,7 @@
             }
 
             s.x += s.vx; s.y += s.vy;
-            s.vx *= 0.96; s.vy *= 0.96; // slightly higher drag
+            s.vx *= 0.96; s.vy *= 0.96;
 
             if (s.x < 0 || s.x > width) s.vx *= -1;
             if (s.y < 0 || s.y > height) s.vy *= -1;
@@ -1444,11 +1498,11 @@
             if (Math.abs(s.vy) < 0.05) s.vy += (Math.random() - 0.5) * 0.05;
         });
 
+        // 1. Draw Lines (Batch)
+        ctx.strokeStyle = `rgba(${rgb}, 0.2)`;
         ctx.beginPath();
         for (let i = 0; i < stars.length; i++) {
             const s1 = stars[i];
-            ctx.moveTo(s1.x, s1.y);
-            ctx.arc(s1.x, s1.y, 1.5, 0, Math.PI * 2);
             for (let j = i + 1; j < stars.length; j++) {
                 const s2 = stars[j];
                 const dx = s1.x - s2.x; const dy = s1.y - s2.y;
@@ -1457,7 +1511,17 @@
                 }
             }
         }
-        ctx.fill(); ctx.stroke();
+        ctx.stroke();
+
+        // 2. Draw Stars (Individual)
+        for (let i = 0; i < stars.length; i++) {
+            const s = stars[i];
+            const starColor = applyOffset(rgb, s.hOff, s.sOff, s.lOff);
+            ctx.fillStyle = `rgba(${starColor}, 0.8)`;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
     };
 
     // Generate a unique, stochastic cloud texture for every single particle
@@ -1506,8 +1570,11 @@
     // Pre-generate nebula sprites to avoid runtime lag
     const initNebulaSprites = (r, g, b) => {
         cloudSpritePool.length = 0;
+        const baseRgb = `${r},${g},${b}`;
         for (let i = 0; i < 20; i++) {
-            cloudSpritePool.push(generateCloudTexture(r, g, b));
+            const variant = applyOffset(baseRgb, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1);
+            const [vr, vg, vb] = variant.split(',').map(n => parseInt(n.trim()));
+            cloudSpritePool.push(generateCloudTexture(vr, vg, vb));
         }
     };
 
@@ -1735,7 +1802,12 @@
         // --- IDLE SLEEP REMOVED (User Request) ---
         // Consistent FPS preferred over idle efficiency for this application.
 
-        const accent = currentAccentRGB;
+        let accent = currentAccentRGB;
+        // Animated variance for Field-likes (Breathing effect)
+        if (['FIELD', 'GRID', 'VECTOR', 'TOPO'].includes(currentStyle)) {
+            accent = getAnimatedColor(currentAccentRGB);
+        }
+
         switch (currentStyle) {
             case 'FIELD': renderField(accent); break;
             case 'GRID': renderGrid(accent); break;
