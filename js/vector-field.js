@@ -722,7 +722,7 @@
         drawLightning(ctx, midX_j, midY_j, x2, y2, displacement * 0.7, iteration - 1, midW, endW);
 
         // Occasional branch?
-        if (Math.random() < 0.3 && iteration > 1) {
+        if (Math.random() < 0.4 && iteration > 1) {
             const branchX = midX_j + (Math.random() - 0.5) * len * 0.5;
             const branchY = midY_j + (Math.random() - 0.5) * len * 0.5;
             drawLightning(ctx, midX_j, midY_j, branchX, branchY, displacement * 0.5, iteration - 1, midW * 0.7, 0);
@@ -969,7 +969,7 @@
         // --- SPAWN LOGIC ---
         if (mouse.down) {
             // EXPLOSION: Center (0,0) -> Out
-            const count = 3;
+            const count = 2;
             for (let k = 0; k < count; k++) {
                 const pt = getLocalPerimeter();
                 // End is at perimeter
