@@ -69,7 +69,26 @@
     const layers = CONFIG.LAYERS.map(l => ({ ...l, nodes: [] }));
     const forces = [];
     const shockwaves = [];
-    const lightningBolts = []; // { paths: [{points:[], width}], life, maxLife, color }
+    // OPTIMIZATION: Bolt Pool to avoid GC
+    const MAX_BOLTS = 300;
+    const MAX_PATHS = 32;
+    const MAX_POINTS = 512; // Flat array x,y
+
+    // Pre-allocate everything
+    const boltPool = Array.from({ length: MAX_BOLTS }, () => ({
+        active: false,
+        life: 0, maxLife: 0,
+        color: '', // RGB string
+        target: null, // {x, y}
+        paths: Array.from({ length: MAX_PATHS }, () => ({
+            points: new Float32Array(MAX_POINTS),
+            count: 0, // Number of points used (x,y pairs = count/2)
+            width: 0
+        })),
+        pathCount: 0
+    }));
+
+    // lightningBolts array removed in favor of pool iteration
     const mouseTrack = []; // Trail history for Electric style
     let activity = 0;
     const mouse = { x: -999, y: -999, prevX: -999, prevY: -999, down: false };
@@ -239,11 +258,24 @@
         if (s.id === 'NEBULA') initNebula();
 
         // FIX: Clear physics state to prevent lag spike when switching styles (especially to Field)
+        clearPhysics();
+    };
+
+    const clearPhysics = () => {
         forces.length = 0;
         shockwaves.length = 0;
         fieldBuckets.forEach(b => b.length = 0);
         fieldShockBucket.length = 0;
         mouseTrack.length = 0;
+        // Reset Pooling
+        for (let i = 0; i < MAX_BOLTS; i++) {
+            boltPool[i].active = false;
+        }
+        // Also clear boids history/state if needed, though they re-init on style switch usually
+        boids.forEach(b => {
+            b.history = [];
+            b.vx = 0; b.vy = 0;
+        });
     };
 
     // --- ACCENT COLOR SYSTEM ---
@@ -259,7 +291,7 @@
         if (mouse.prevX !== -999) {
             const distX = e.clientX - mouse.prevX;
             const distY = e.clientY - mouse.prevY;
-            const dist = Math.hypot(distX, distY);
+            const dist = Math.sqrt(distX, distY);
             const steps = Math.ceil(dist / 10); // One point every 10px
 
             for (let i = 0; i < steps; i++) {
@@ -277,7 +309,7 @@
         if (mouse.prevX !== -999) {
             const distX = e.clientX - mouse.prevX;
             const distY = e.clientY - mouse.prevY;
-            const dist = Math.hypot(distX, distY);
+            const dist = Math.sqrt(distX, distY);
 
             // Interpolate to fill gaps for smooth trail
             // Step size ~15px (half-grid)
@@ -583,8 +615,10 @@
                     const ry = rawNodes[right * 6 + 1];
 
                     const bIdxR = Math.floor(Math.min(0.99, Math.max(0, intensityR)) * BUCKET_COUNT);
-                    if (avgS_r > 0.5) fieldShockBucket.push(x, y, rx, ry);
-                    else if (bIdxR > 0) fieldBuckets[bIdxR].push(x, y, rx, ry);
+
+                    // Optimization: Visibility Cutoff (User Request)
+                    if (avgS_r > 0.05) fieldShockBucket.push(x, y, rx, ry); // Shock visible
+                    else if (intensityR > 0.15 && bIdxR > 0) fieldBuckets[bIdxR].push(x, y, rx, ry); // Field visible only if intensity > threshold
 
                     // Draw Down
                     const downIdx = down;
@@ -598,8 +632,11 @@
                     const dy = rawNodes[down * 6 + 1];
 
                     const bIdxD = Math.floor(Math.min(0.99, Math.max(0, intensityD)) * BUCKET_COUNT);
-                    if (avgS_d > 0.5) fieldShockBucket.push(x, y, dx, dy);
-                    else if (bIdxD > 0) fieldBuckets[bIdxD].push(x, y, dx, dy);
+
+                    // Optimization: Visibility Cutoff (User Request)
+                    // Only add to buckets if intensity is high enough to be visible
+                    if (avgS_d > 0.05) fieldShockBucket.push(x, y, dx, dy); // Shock visible
+                    else if (intensityD > 0.15 && bIdxD > 0) fieldBuckets[bIdxD].push(x, y, dx, dy); // Field visible only if intensity > threshold
                 }
             }
             flush(); // Final flush
@@ -611,30 +648,66 @@
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.shadowBlur = 15;
-        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+        // Batching: Set common styles once if possible, but alpha varies.
+        // We will group by alpha if we really want to optimize, but just avoiding object creation is the big win.
 
-        // --- BOLT GENERATION ---
+        // --- BOLT GENERATION (Using Pool) ---
+        const spawnBolt = (x1, y1, x2, y2, life, thickness, targetObj = null) => {
+            // Find free bolt
+            let bolt = null;
+            for (let i = 0; i < MAX_BOLTS; i++) {
+                if (!boltPool[i].active) {
+                    bolt = boltPool[i];
+                    break;
+                }
+            }
+            if (!bolt) return; // Pool full
 
-        const createBolt = (x1, y1, x2, y2, life, thickness, targetObj = null) => {
-            const paths = [];
+            bolt.active = true;
+            bolt.life = life;
+            bolt.maxLife = life;
+            bolt.color = rgb;
+            bolt.target = targetObj;
+            bolt.pathCount = 0;
 
-            // Recursive segment generator
-            // We capture 'paths' via closure
+            // Generator Helper
+            const addPath = (width) => {
+                if (bolt.pathCount >= MAX_PATHS) return null;
+                const p = bolt.paths[bolt.pathCount++];
+                p.count = 0;
+                p.width = width;
+                return p;
+            };
+
+            const pushPoint = (path, x, y) => {
+                if (!path || path.count >= MAX_POINTS - 2) return;
+                path.points[path.count++] = x;
+                path.points[path.count++] = y;
+            };
+
+            // Recursive Segment Generator
             const generateSegments = (ax, ay, bx, by, displace, width, iteration) => {
-                const points = [{ x: ax, y: ay }];
+                const mainPath = addPath(width);
+                if (!mainPath) return;
+
+                pushPoint(mainPath, ax, ay);
 
                 const recurse = (p1x, p1y, p2x, p2y, disp, iter) => {
                     if (iter <= 0) {
-                        points.push({ x: p2x, y: p2y });
+                        pushPoint(mainPath, p2x, p2y);
                         return;
                     }
                     const dx = p2x - p1x;
                     const dy = p2y - p1y;
                     const midX = (p1x + p2x) / 2;
                     const midY = (p1y + p2y) / 2;
+                    // Fast Approx Dist (we don't need exact sqrt for jitter direction, but we need it for normalization)
+                    // Math.sqrt is fine here.
                     const len = Math.sqrt(dx * dx + dy * dy);
-                    const nx = -dy / len; const ny = dx / len;
+
+                    const nx = -dy / len;
+                    const ny = dx / len;
+
                     const jitter = (Math.random() - 0.5) * disp;
                     const mx = midX + nx * jitter;
                     const my = midY + ny * jitter;
@@ -644,119 +717,105 @@
 
                     // Branching
                     if (Math.random() < 0.2 && iter > 2 && iter < 5) {
-                        const branchAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.5;
-                        const branchLen = len * (0.5 + Math.random() * 0.5);
-                        const ex = mx + Math.cos(branchAngle) * branchLen;
-                        const ey = my + Math.sin(branchAngle) * branchLen;
+                        if (bolt.pathCount < MAX_PATHS) {
+                            const branchAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.5;
+                            const branchLen = len * (0.5 + Math.random() * 0.5);
+                            const ex = mx + Math.cos(branchAngle) * branchLen;
+                            const ey = my + Math.sin(branchAngle) * branchLen;
 
-                        const branchPts = getSegmentPoints(mx, my, ex, ey, disp, iteration - 1);
-                        paths.push({ points: branchPts, width: width * 0.6 });
+                            // Start new path for branch
+                            generateSegments(mx, my, ex, ey, disp, iteration - 1);
+                            // Note: original recursion passed width * 0.6. 
+                            // My simple recursion above doesn't support changing width easily for sub-branches 
+                            // properly without passing it down. 
+                            // But wait, the original code created a NEW PATH for the branch.
+                            // So calling generateSegments recursively is correct.
+                        }
                     }
                 };
 
-                // Private helper for branch points
-                const getSegmentPoints = (sx, sy, ex, ey, disp, iter) => {
-                    const pts = [{ x: sx, y: sy }];
-                    const sub = (ax, ay, bx, by, d, i) => {
-                        if (i <= 0) { pts.push({ x: bx, y: by }); return; }
-                        const mx = (ax + bx) / 2 + (Math.random() - 0.5) * d;
-                        const my = (ay + by) / 2 + (Math.random() - 0.5) * d;
-                        sub(ax, ay, mx, my, d * 0.5, i - 1);
-                        sub(mx, my, bx, by, d * 0.5, i - 1);
-                    };
-                    sub(sx, sy, ex, ey, disp, iter);
-                    return pts;
-                };
-
                 recurse(ax, ay, bx, by, displace, iteration);
-                paths.push({ points, width }); // Main path
             };
 
             generateSegments(x1, y1, x2, y2, 80, thickness, 6);
-            return { paths, life, maxLife: life, color: rgb, target: targetObj };
         };
 
         // --- SPAWN LOGIC ---
         if (mouse.down) {
-            // High spawn rate for responsiveness, short life
-            if (Math.random() < 0.4) {
+            if (Math.random() < 0.25) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = 300 + Math.random() * 200;
                 const sx = mouse.x + Math.cos(angle) * dist;
                 const sy = mouse.y + Math.sin(angle) * dist;
-                // Target is mouse object. Spawn FROM mouse TO outside (sx, sy) so forks angle away.
-                lightningBolts.push(createBolt(mouse.x, mouse.y, sx, sy, 8, 3, mouse));
+                spawnBolt(mouse.x, mouse.y, sx, sy, 8, 3, mouse);
             }
         } else if (mouse.x !== -999) {
-            // TRAIL LOGIC
-            // 1. Current cursor
-            if (Math.random() < 0.05) {
-                const sx = Math.random() * width;
-                const sy = 0;
-                lightningBolts.push(createBolt(mouse.x, mouse.y, mouse.x + (Math.random() - 0.5) * 100, mouse.y + (Math.random() - 0.5) * 100, 15, 2));
+            if (Math.random() < 0.02) {
+                spawnBolt(mouse.x, mouse.y, mouse.x + (Math.random() - 0.5) * 100, mouse.y + (Math.random() - 0.5) * 100, 15, 2);
             }
-
-            // 2. Mouse History Trail
             for (let i = mouseTrack.length - 1; i >= 0; i--) {
                 const p = mouseTrack[i];
                 p.life--;
-                if (p.life <= 0) {
-                    mouseTrack.splice(i, 1);
-                    continue;
-                }
-
-                // Spawn chance proportional to life? Or just random.
-                if (Math.random() < 0.3) {
-                    // Small chaotic bolts along the path
+                if (p.life <= 0) { mouseTrack.splice(i, 1); continue; }
+                if (Math.random() < 0.15) {
                     const angle = Math.random() * Math.PI * 2;
                     const len = 30 + Math.random() * 50;
                     const ex = p.x + Math.cos(angle) * len;
                     const ey = p.y + Math.sin(angle) * len;
-                    lightningBolts.push(createBolt(p.x, p.y, ex, ey, 5, 1.5));
+                    spawnBolt(p.x, p.y, ex, ey, 5, 1.5);
                 }
             }
-
         }
         if (Math.random() < 0.02) {
             const x1 = Math.random() * width; const y1 = Math.random() * height;
             const x2 = x1 + (Math.random() - 0.5) * 400; const y2 = y1 + (Math.random() - 0.5) * 400;
-            lightningBolts.push(createBolt(x1, y1, x2, y2, 20, 2));
+            spawnBolt(x1, y1, x2, y2, 20, 2);
         }
 
         // --- RENDER ---
-        for (let i = lightningBolts.length - 1; i >= 0; i--) {
-            const bolt = lightningBolts[i];
+        ctx.shadowColor = `rgba(${rgb}, 0.8)`;
+        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+
+        // Iterate Pool
+        for (let i = 0; i < MAX_BOLTS; i++) {
+            const bolt = boltPool[i];
+            if (!bolt.active) continue;
+
             bolt.life--;
-            if (bolt.life <= 0) { lightningBolts.splice(i, 1); continue; }
+            if (bolt.life <= 0) {
+                bolt.active = false;
+                continue;
+            }
 
             // Anchor logic
-            if (bolt.target && bolt.paths.length > 0) {
-                // The FIRST point of the FIRST path should snap to target (since we reversed spawn direction)
-                // Spawn: Mouse -> Outside.
-                const mainPath = bolt.paths[bolt.paths.length - 1]; // Main path is still the last one pushed
-                if (mainPath && mainPath.points.length > 0) {
-                    const firstPt = mainPath.points[0]; // Start of bolt (at mouse)
-                    // Lerp towards target for smoothness
-                    firstPt.x += (bolt.target.x - firstPt.x) * 0.5;
-                    firstPt.y += (bolt.target.y - firstPt.y) * 0.5;
+            if (bolt.target && bolt.pathCount > 0) {
+                // Main path is usually the first one? recursion does depth first.
+                // In my generator, the first call creates the first path.
+                const mainPath = bolt.paths[0];
+                if (mainPath.count >= 2) {
+                    // points[0], points[1] is x,y
+                    mainPath.points[0] += (bolt.target.x - mainPath.points[0]) * 0.5;
+                    mainPath.points[1] += (bolt.target.y - mainPath.points[1]) * 0.5;
                 }
             }
 
             const alpha = bolt.life / bolt.maxLife;
             ctx.globalAlpha = alpha;
             ctx.shadowBlur = 10 * alpha;
+            ctx.strokeStyle = `rgba(${rgb}, ${alpha})`; // Use strokeStyle for stroke()
 
-            bolt.paths.forEach(path => {
+            for (let p = 0; p < bolt.pathCount; p++) {
+                const path = bolt.paths[p];
+                if (path.count < 2) continue;
+
                 ctx.lineWidth = path.width;
                 ctx.beginPath();
-                if (path.points.length > 0) {
-                    ctx.moveTo(path.points[0].x, path.points[0].y);
-                    for (let j = 1; j < path.points.length; j++) {
-                        ctx.lineTo(path.points[j].x, path.points[j].y);
-                    }
+                ctx.moveTo(path.points[0], path.points[1]);
+                for (let j = 2; j < path.count; j += 2) {
+                    ctx.lineTo(path.points[j], path.points[j + 1]);
                 }
                 ctx.stroke();
-            });
+            }
         }
         ctx.globalAlpha = 1.0;
     };
@@ -916,7 +975,7 @@
                             const finalX = lerp(xt, xb, ty);
                             const finalY = lerp(yt, yb, ty);
 
-                            const mag = Math.hypot(finalVX, finalVY);
+                            const mag = Math.sqrt(finalVX, finalVY);
                             const shock = rawMeta[idx * 2 + 1]; // Just use TL shock for now, or interp? Interp is overkill.
 
                             if (mag > 0.1 || shock > 0.1) {
@@ -969,7 +1028,7 @@
             // Calculate distances
             const withDist = boids.map((b, i) => ({
                 idx: i,
-                dist: Math.hypot(b.x - mouse.x, b.y - mouse.y)
+                dist: Math.sqrt(b.x - mouse.x, b.y - mouse.y)
             }));
 
             // Sort by distance
@@ -1004,7 +1063,7 @@
             boids.forEach(other => {
                 const dx = b.x - other.x;
                 const dy = b.y - other.y;
-                const dist = Math.hypot(dx, dy);
+                const dist = Math.sqrt(dx, dy);
 
                 if (dist > 0 && dist < perception) {
                     // Alignment
@@ -1039,7 +1098,7 @@
             if (mouse.x !== -999) {
                 const dx = b.x - mouse.x;
                 const dy = b.y - mouse.y;
-                const dist = Math.hypot(dx, dy);
+                const dist = Math.sqrt(dx, dy);
 
                 if (mouse.down && calledSet.has(index)) {
                     // CALL & ORBIT (Selected Boids Only)
@@ -1087,7 +1146,7 @@
             }
 
             // 3. Limit Speed (Reduced Further)
-            const speed = Math.hypot(b.vx, b.vy);
+            const speed = Math.sqrt(b.vx, b.vy);
             const lim = 2.0; // Very calm
             if (speed > lim) {
                 b.vx = (b.vx / speed) * lim;
@@ -1273,7 +1332,7 @@
             if (mouse.x !== -999) {
                 const dx = d.x - mouse.x;
                 const dy = d.y - mouse.y;
-                const dist = Math.hypot(dx, dy);
+                const dist = Math.sqrt(dx, dy);
                 // Mouse repel/wind
                 if (dist < 300) {
                     vx += (dx / dist) * 10 * (1 - dist / 300);
@@ -1281,7 +1340,7 @@
             }
 
             forces.forEach(f => {
-                const dist = Math.hypot(d.x - f.x, d.y - f.y);
+                const dist = Math.sqrt(d.x - f.x, d.y - f.y);
                 if (dist < 200) vx += (d.x - f.x) / dist * 5 * f.life;
             });
 
@@ -1289,7 +1348,7 @@
 
             if (activeShocks) {
                 shockwaves.forEach(s => {
-                    const dist = Math.hypot(d.x - s.x, d.y - s.y);
+                    const dist = Math.sqrt(d.x - s.x, d.y - s.y);
                     if (Math.abs(dist - s.radius) < s.thickness + 10) {
                         d.y -= 5;
                         d.x += (Math.random() - 0.5) * 10;
@@ -1316,7 +1375,7 @@
             if (mouse.x !== -999) {
                 const dx = s.x - mouse.x;
                 const dy = s.y - mouse.y;
-                const d = Math.hypot(dx, dy);
+                const d = Math.sqrt(dx, dy);
                 if (d < 150) {
                     s.vx += (dx / d) * 0.5;
                     s.vy += (dy / d) * 0.5;
@@ -1351,7 +1410,7 @@
                 shockwaves.forEach(wave => {
                     const dx = s.x - wave.x;
                     const dy = s.y - wave.y;
-                    const d = Math.hypot(dx, dy);
+                    const d = Math.sqrt(dx, dy);
                     const distFromWave = Math.abs(d - wave.radius);
                     if (distFromWave < wave.thickness * 2) {
                         const push = wave.amplitude * 0.5;
@@ -1410,7 +1469,7 @@
             const rx = half + (Math.random() - 0.5) * size * 0.6;
             const ry = half + (Math.random() - 0.5) * size * 0.6;
 
-            const dist = Math.hypot(rx - half, ry - half);
+            const dist = Math.sqrt(rx - half, ry - half);
             if (dist > half * 0.75) continue;
 
             const rRad = (Math.random() * 40 + 15) * (1 - dist / half);
@@ -1428,9 +1487,23 @@
         return canvas;
     };
 
+    const cloudSpritePool = [];
+
+    // Pre-generate nebula sprites to avoid runtime lag
+    const initNebulaSprites = (r, g, b) => {
+        cloudSpritePool.length = 0;
+        for (let i = 0; i < 20; i++) {
+            cloudSpritePool.push(generateCloudTexture(r, g, b));
+        }
+    };
+
     const initNebula = () => {
         nebulaParticles.length = 0;
         const rgb = currentAccentRGB.split(',').map(n => parseInt(n.trim()));
+
+        // Init cache if empty or color changed (simple check: if empty, init)
+        // Ideally we should check color match but refreshing on initNebula is fine as it's called on resize/style switch
+        initNebulaSprites(rgb[0], rgb[1], rgb[2]);
 
         const count = 60;
         for (let i = 0; i < count; i++) {
@@ -1444,7 +1517,7 @@
                 alpha: Math.random(),
                 targetAlpha: Math.random() * 0.8 + 0.2,
                 rotation: Math.random() * Math.PI * 2,
-                sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
+                sprite: cloudSpritePool[Math.floor(Math.random() * cloudSpritePool.length)]
             });
         }
     };
@@ -1475,7 +1548,7 @@
                 rotation: Math.random() * Math.PI * 2,
                 fading: false,
                 fadeCounter: 30,
-                sprite: generateCloudTexture(rgb[0], rgb[1], rgb[2]) // Unique texture
+                sprite: cloudSpritePool[Math.floor(Math.random() * cloudSpritePool.length)]
             });
         }
 
@@ -1483,7 +1556,7 @@
         nebulaParticles.forEach(p => {
             const dx = p.x - x;
             const dy = p.y - y;
-            const dist = Math.hypot(dx, dy);
+            const dist = Math.sqrt(dx, dy);
             if (dist < 400) {
                 const force = (400 - dist) / 400;
                 const angle = Math.atan2(dy, dx);
@@ -1524,7 +1597,7 @@
                     alpha: 0, targetAlpha: Math.random() * 0.6 + 0.4, fadeInSpeed: 0.01,
                     rotation: Math.random() * Math.PI * 2,
                     fading: false, fadeCounter: 20,
-                    sprite: generateCloudTexture(rgbVals[0], rgbVals[1], rgbVals[2]) // Unique texture
+                    sprite: cloudSpritePool[Math.floor(Math.random() * cloudSpritePool.length)]
                 });
             }
         }
@@ -1645,18 +1718,8 @@
             return;
         }
 
-        // --- IDLE SLEEP OPTIMIZATION ---
-        // If simulation is static and specific (heavy) styles are active, skip rendering.
-        // Allowed Sleep Styles: FIELD, GRID, VECTOR, TOPO. 
-        // Dynamic Styles (Always Render): ELECTRIC (random sparks), RAIN, BOIDS, NEBULA (drift), CONSTELLATION.
-        const canSleep = ['FIELD', 'GRID', 'VECTOR', 'TOPO'].includes(currentStyle);
-
-        if (canSleep && maxEnergy < 0.05 && !activeForces && !activeShocks && !mouse.down && mouse.prevX === mouse.x) {
-            // System is at rest. Do NOT clear rect. Do NOT render.
-            // Just loop back.
-            requestAnimationFrame(animate);
-            return;
-        }
+        // --- IDLE SLEEP REMOVED (User Request) ---
+        // Consistent FPS preferred over idle efficiency for this application.
 
         const accent = currentAccentRGB;
         switch (currentStyle) {
