@@ -862,13 +862,13 @@
         ctx.save();
         ctx.translate(cx, cy); // Everything renders relative to this center
 
-        // 2. Draw Plasma Ring
+        // 2. Draw Plasma Ring (Invisible geometry)
         const RADIUS = 100;
-        ctx.beginPath();
-        ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        // ctx.beginPath();
+        // ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
+        // ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
+        // ctx.lineWidth = 1;
+        // ctx.stroke();
 
         // --- BOLT GENERATION (Using Pool) ---
         const spawnBolt = (x1, y1, x2, y2, life, thickness, endpoints = null) => {
@@ -927,8 +927,19 @@
                     const ny = dx / len;
 
                     const jitter = (Math.random() - 0.5) * disp;
-                    const mx = midX + nx * jitter;
-                    const my = midY + ny * jitter;
+                    let mx = midX + nx * jitter;
+                    let my = midY + ny * jitter;
+
+                    // Aggressive Culling / Clamping to Radius
+                    // Since we are continuously in local (0,0) center space:
+                    const distSq = mx * mx + my * my;
+                    const maxR = 100; // Radius
+                    if (distSq > maxR * maxR) {
+                        const dist = Math.sqrt(distSq);
+                        const scale = (maxR - 2) / dist; // Pull back slightly inside (-2px)
+                        mx *= scale;
+                        my *= scale;
+                    }
 
                     recurse(p1x, p1y, mx, my, disp * 0.5, iter - 1);
                     recurse(mx, my, p2x, p2y, disp * 0.5, iter - 1);
