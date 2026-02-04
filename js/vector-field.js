@@ -105,11 +105,11 @@
     // =========================================
     //               CONFIGURATION
     // =========================================
-    const CONFIG = {
+    var CONFIG = {
         MOUSE_RADIUS_SQ: 0,
         VISIBILITY_CUTOFF: 0.4,
         TRAIL_SENSITIVITY: 2,
-        TENSION: 0.01,
+        TENSION: 0.02,
         FRICTION: 0.9,
         SHOCK_WIDTH: 3,
         SHOCK_AMPLITUDE: 1,
