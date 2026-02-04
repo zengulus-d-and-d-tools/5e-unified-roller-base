@@ -124,6 +124,62 @@
 
     const DRAG_FACTOR = 2000;
 
+    // --- SIMPLEX NOISE (Compact) ---
+    const SimplexNoise = (() => {
+        const F2 = 0.5 * (Math.sqrt(3.0) - 1.0);
+        const G2 = (3.0 - Math.sqrt(3.0)) / 6.0;
+        const p = new Uint8Array(256);
+        const perm = new Uint8Array(512);
+        const grad3 = [[1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0], [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1], [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1]];
+        for (let i = 0; i < 256; i++) p[i] = Math.floor(Math.random() * 256);
+        for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+        const dot = (g, x, y) => g[0] * x + g[1] * y;
+        return {
+            noise2D: (xin, yin) => {
+                let n0, n1, n2;
+                const s = (xin + yin) * F2;
+                const i = Math.floor(xin + s);
+                const j = Math.floor(yin + s);
+                const t = (i + j) * G2;
+                const X0 = i - t; const Y0 = j - t;
+                const x0 = xin - X0; const y0 = yin - Y0;
+                let i1, j1;
+                if (x0 > y0) { i1 = 1; j1 = 0; } else { i1 = 0; j1 = 1; }
+                const x1 = x0 - i1 + G2; const y1 = y0 - j1 + G2;
+                const x2 = x0 - 1.0 + 2.0 * G2; const y2 = y0 - 1.0 + 2.0 * G2;
+                const ii = i & 255; const jj = j & 255;
+                const gi0 = perm[ii + perm[jj]] % 12;
+                const gi1 = perm[ii + i1 + perm[jj + j1]] % 12;
+                const gi2 = perm[ii + 1 + perm[jj + 1]] % 12;
+                let t0 = 0.5 - x0 * x0 - y0 * y0;
+                if (t0 < 0) n0 = 0.0; else { t0 *= t0; n0 = t0 * t0 * dot(grad3[gi0], x0, y0); }
+                let t1 = 0.5 - x1 * x1 - y1 * y1;
+                if (t1 < 0) n1 = 0.0; else { t1 *= t1; n1 = t1 * t1 * dot(grad3[gi1], x1, y1); }
+                let t2 = 0.5 - x2 * x2 - y2 * y2;
+                if (t2 < 0) n2 = 0.0; else { t2 *= t2; n2 = t2 * t2 * dot(grad3[gi2], x2, y2); }
+                return 70.0 * (n0 + n1 + n2);
+            }
+        };
+    })();
+
+    const getSpatialColor = (rgbStr, x, y) => {
+        const time = Date.now() * 0.0001; // Slower drift via time
+        const scale = 0.0015; // Zoom
+
+        // Simplex Noise (returns -1 to 1)
+        const n1 = SimplexNoise.noise2D(x * scale, y * scale - time);
+        const n2 = SimplexNoise.noise2D(x * scale * 2 + 100, y * scale * 2 + time * 0.5);
+
+        // Combined noise (-1 to 1 approx)
+        const noise = (n1 + n2 * 0.5) / 1.5;
+
+        const hOff = noise * 0.05; // +/- 5% hue
+        const sOff = noise * 0.08; // +/- 8% sat (rich variance)
+        const lOff = noise * 0.04; // +/- 4% light
+
+        return applyOffset(rgbStr, hOff, sOff, lOff);
+    };
+
     // =========================================
     //               STATE
     // =========================================
@@ -328,38 +384,48 @@
         if (s.id === 'NEBULA') initNebula();
 
         // FIX: Clear physics state to prevent lag spike when switching styles (especially to Field)
-        clearPhysics();
+        hardReset();
     };
 
-    const clearPhysics = () => {
+    const hardReset = () => {
+        // 1. Clear Entities
         forces.length = 0;
         shockwaves.length = 0;
+        mouseTrack.length = 0;
+        boids.length = 0;
+        rainDrops.length = 0;
+        stars.length = 0;
+        // Nebula particles are re-init on style switch anyway, but clear them to be sure
+        nebulaParticles.length = 0;
+
+        // 2. Clear Rendering Buckets
         fieldBuckets.forEach(b => b.length = 0);
         fieldShockBucket.length = 0;
-        mouseTrack.length = 0;
-        // Reset Pooling
+
+        // 3. Reset Pools
         for (let i = 0; i < MAX_BOLTS; i++) {
             boltPool[i].active = false;
         }
-        // Also clear boids history/state if needed, though they re-init on style switch usually
-        boids.forEach(b => {
-            b.history = [];
-            b.vx = 0; b.vy = 0;
-        });
 
-        // FIX: Reset Grid Nodes to prevent ghosting
+        // 4. Force Reset Grid Nodes (Crucial for Field/Vector styles)
         layers.forEach(l => {
             const { rawNodes, rawMeta } = l;
             const count = rawNodes.length / 6;
             for (let i = 0; i < count; i++) {
                 const base = i * 6;
-                rawNodes[base] = rawNodes[base + 4];     // Reset X -> BaseX
-                rawNodes[base + 1] = rawNodes[base + 5]; // Reset Y -> BaseY
-                rawNodes[base + 2] = 0; // VX
-                rawNodes[base + 3] = 0; // VY
+                // Position -> Base Position
+                rawNodes[base] = rawNodes[base + 4];
+                rawNodes[base + 1] = rawNodes[base + 5];
+                // Velocity -> 0
+                rawNodes[base + 2] = 0;
+                rawNodes[base + 3] = 0;
             }
-            rawMeta.fill(0); // Reset Energy/Shock
+            // Meta (Energy/Shock) -> 0
+            rawMeta.fill(0);
         });
+
+        // 5. Reset Activity
+        activity = 0;
     };
 
     // --- ACCENT COLOR SYSTEM ---
@@ -635,17 +701,26 @@
         // Removed FLUSH_EVERY to improve batching performance
         // Canvas can easily handle full grid in one path (approx 2-3k segments)
 
+        // Create Spatial Gradient for "Cloud Noise" effect
+        // We use a diagonal linear gradient to simulate the drift
+        // Sampling 'getSpatialColor' at corners to define stops
+        const grad = ctx.createLinearGradient(0, 0, width, height);
+        grad.addColorStop(0, `rgba(${getSpatialColor(rgb, 0, 0)}, 0.8)`);
+        grad.addColorStop(0.5, `rgba(${getSpatialColor(rgb, width * 0.5, height * 0.5)}, 0.8)`);
+        grad.addColorStop(1, `rgba(${getSpatialColor(rgb, width, height)}, 0.8)`);
+
         // Helper: Flush
         const flush = () => {
-            const baseColor = `rgba(${rgb}, `;
-            const shockColorStr = `rgba(${rgb}, 0.9)`;
+            const shockColorStr = `rgba(${rgb}, 0.9)`; // Shocks stay bright accent
 
             // Draw Standard Buckets
             for (let b = 1; b < BUCKET_COUNT; b++) {
                 const list = fieldBuckets[b];
                 if (list.length === 0) continue;
                 const alpha = (b / BUCKET_COUNT) * 0.8;
-                ctx.strokeStyle = baseColor + alpha + ")";
+
+                ctx.strokeStyle = grad;
+                ctx.globalAlpha = alpha; // Apply alpha separately since gradient has fixed alpha
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 for (let i = 0; i < list.length; i += 4) {
@@ -655,6 +730,7 @@
                 ctx.stroke();
                 list.length = 0; // Clear
             }
+            ctx.globalAlpha = 1.0;
 
             // Draw Shock Bucket
             if (fieldShockBucket.length > 0) {
@@ -890,7 +966,7 @@
 
 
     const renderGrid = (rgb) => {
-        ctx.fillStyle = `rgba(${rgb}, 0.8)`;
+        // ctx.fillStyle moved inside
         ctx.beginPath();
 
         // OPTIMIZATION: 3x subdivision is visually sufficient (9 dots/cell) vs 4x (16 dots/cell)
@@ -921,11 +997,15 @@
 
                     // Base Grid Points (Always draw corners if active)
                     if (s1 > 0.01 || e1 > 0.01) {
+                        // SPATIAL COLOR
+                        const color = getSpatialColor(rgb, x1, y1);
+                        ctx.fillStyle = `rgba(${color}, 0.8)`;
                         const size = 1.5 + (e1 + s1) * 3;
-                        ctx.rect(x1 - size / 2, y1 - size / 2, size, size);
+                        ctx.fillRect(x1 - size / 2, y1 - size / 2, size, size); // fillRect avoids path overhead for simple squares
                     } else if (e1 > 0.005) {
-                        // Very faint dots for low energy presence
-                        ctx.rect(x1 - 1, y1 - 1, 1.5, 1.5);
+                        const color = getSpatialColor(rgb, x1, y1);
+                        ctx.fillStyle = `rgba(${color}, 0.8)`;
+                        ctx.fillRect(x1 - 1, y1 - 1, 1.5, 1.5);
                     }
 
                     if (isActive) {
@@ -960,22 +1040,26 @@
                                 // Energy = Larger (Activity)
                                 // Shock  = Smaller (Recession/Dent)
                                 const size = Math.max(0.5, 1 + (finalEnergy * 2) - (finalShock * 2.5));
-                                ctx.rect(finalX - size / 2, finalY - size / 2, size, size);
+
+                                // SPATIAL COLOR (Sub-dots)
+                                const color = getSpatialColor(rgb, finalX, finalY);
+                                ctx.fillStyle = `rgba(${color}, 0.8)`;
+                                ctx.fillRect(finalX - size / 2, finalY - size / 2, size, size);
                             }
                         }
                     }
                 }
                 // FLUSH PATH PER COLUMN
                 // This keeps the command buffer small and responsive.
-                ctx.fill();
+                // ctx.fill(); // Handled by fillRects immediately
                 ctx.beginPath();
             }
         });
-        ctx.fill();
+        // ctx.fill();
     };
 
     const renderVector = (rgb) => {
-        ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
+        // ctx.strokeStyle = ... // Moved inside
         ctx.lineWidth = 1;
         ctx.beginPath();
 
@@ -1051,6 +1135,11 @@
                                 const angle = Math.atan2(finalVY, finalVX);
                                 const x2 = finalX + Math.cos(angle) * len;
                                 const y2 = finalY + Math.sin(angle) * len;
+
+                                // SPATIAL COLOR
+                                const color = getSpatialColor(rgb, finalX, finalY);
+                                ctx.strokeStyle = `rgba(${color}, 0.5)`;
+                                ctx.beginPath();
 
                                 // Draw Arrow
                                 ctx.moveTo(finalX, finalY);
@@ -1272,7 +1361,7 @@
 
     const renderTopo = (rgb) => {
         // MARCHING SQUARES for continuous contours
-        ctx.strokeStyle = `rgba(${rgb}, 0.5)`;
+        // ctx.strokeStyle = moved inside
         ctx.lineWidth = 1.0;
 
         // Thresholds
@@ -1363,6 +1452,12 @@
                                 const b = { x: (vxR + vxDD) * 0.5, y: (vyR + vyDD) * 0.5 }; // Right Mid
                                 const c = { x: (vxD + vxDD) * 0.5, y: (vyD + vyDD) * 0.5 }; // Bot Mid
                                 const d = { x: (vx + vxD) * 0.5, y: (vy + vyD) * 0.5 }; // Left Mid
+
+
+
+                                // SPATIAL COLOR
+                                const color = getSpatialColor(rgb, vx, vy);
+                                ctx.strokeStyle = `rgba(${color}, 0.5)`;
 
                                 ctx.beginPath();
                                 switch (cIdx) {
