@@ -1,48 +1,48 @@
 // --- CONFIGURATION ---
 const CONFIG = {
-    PHYSICS_STEPS: 3,         // Iterations per frame (3 is stable & fast)
-    GRAVITY: 0.5,             // Sag amount
-    SEGMENT_LENGTH: 18,       // Distance between points
-    POINTS_COUNT: 9,          // Points per string
-    SLEEP_THRESHOLD: 0.15,    // Velocity below this freezes the physics
-    MAX_CONNECTIONS: 2000,    // Hard limit for memory allocation
+    PHYSICS_STEPS: 3,
+    GRAVITY: 0.6,
+    SEGMENT_LENGTH: 18,
+    POINTS_COUNT: 9,
+    SLEEP_THRESHOLD: 0.1,
+    MAX_CONNECTIONS: 2000,
     VIEW_SCALE_MIN: 0.2,
     VIEW_SCALE_MAX: 3,
-    BASE_THICKNESS: 3.5,      // Increased thickness
-    SHADOW_THICKNESS: 7,      // Shadow width relative to base
-    STRESS_COLOR_START: { h: 355, s: 60, l: 45 }, // Dark Red
-    STRESS_COLOR_END: { h: 15, s: 95, l: 60 }   // Bright Orange/Gold
+    BASE_THICKNESS: 3.5,
+    SHADOW_THICKNESS: 6,
+    MAX_STRETCH: 15, // Pixels of stretch for max color change
 };
 
 // --- GLOBAL STATE ---
 const container = document.getElementById('board-container');
 const labelContainer = document.getElementById('string-label-container');
 const canvas = document.getElementById('connection-layer');
-const ctx = canvas.getContext('2d', { alpha: false }); // Optimization
+
+// FIX: Removed { alpha: false } so the background is transparent again
+const ctx = canvas.getContext('2d');
+
 const contextMenu = document.getElementById('context-menu');
 
 // Data Models
 let nodes = [];
-let connections = []; // Metadata (id, from, to, label)
+let connections = [];
 
-// High-Performance Physics Buffer
-// Layout per point: [x, y, oldx, oldy, STRESS]
+// Physics Buffer: [x, y, oldx, oldy, STRESS]
 const STRIDE = 5;
-const BYTES_PER_POINT = STRIDE;
 const BYTES_PER_CONN = CONFIG.POINTS_COUNT * STRIDE;
 const physicsBuffer = new Float32Array(CONFIG.MAX_CONNECTIONS * CONFIG.POINTS_COUNT * STRIDE);
-const sleepState = new Uint8Array(CONFIG.MAX_CONNECTIONS); // 1 = awake, 0 = asleep
+const sleepState = new Uint8Array(CONFIG.MAX_CONNECTIONS);
 
 // Fast Lookups
-const connToIndex = new Map(); // connId -> bufferIndex
-const nodeGraph = new Map();   // nodeId -> Set<connId>
+const connToIndex = new Map();
+const nodeGraph = new Map();
 let allocatedCount = 0;
 
 // View & Interaction
 let view = { x: 0, y: 0, scale: 1 };
-let nodeCache = new Map();     // {x, y, w, h}
+let nodeCache = new Map();
 let draggedNode = null;
-let offset = { x: 0, y: 0 };
+let dragStart = { x: 0, y: 0, nodeX: 0, nodeY: 0 };
 let isConnecting = false;
 let connectStart = { id: null, port: null, x: 0, y: 0 };
 let focusMode = false;
@@ -97,7 +97,6 @@ function updatePhysics() {
         const conn = connections[cIdx];
         const bufferIdx = connToIndex.get(conn.id);
 
-        // Skip if asleep (Major Optimization)
         if (sleepState[bufferIdx] === 0) continue;
 
         const c1 = nodeCache.get(conn.from);
@@ -110,16 +109,16 @@ function updatePhysics() {
         const p1 = getPortPos(c1, conn.fromPort);
         const p2 = getPortPos(c2, conn.toPort);
 
-        // Head (Index 0)
+        // Head
         physicsBuffer[basePtr] = p1.x;
         physicsBuffer[basePtr + 1] = p1.y;
 
-        // Tail (Index N)
+        // Tail
         const lastPtr = basePtr + (CONFIG.POINTS_COUNT - 1) * STRIDE;
         physicsBuffer[lastPtr] = p2.x;
         physicsBuffer[lastPtr + 1] = p2.y;
 
-        // 2. Verlet Integration (Inertia + Gravity)
+        // 2. Verlet Integration
         let totalMotion = 0;
 
         for (let i = 1; i < CONFIG.POINTS_COUNT - 1; i++) {
@@ -129,9 +128,8 @@ function updatePhysics() {
             const ox = physicsBuffer[ptr + 2];
             const oy = physicsBuffer[ptr + 3];
 
-            // Damping 0.92 gives it a bit of weight
-            const vx = (x - ox) * 0.92;
-            const vy = (y - oy) * 0.92;
+            const vx = (x - ox) * 0.90;
+            const vy = (y - oy) * 0.90;
 
             physicsBuffer[ptr + 2] = x;
             physicsBuffer[ptr + 3] = y;
@@ -142,7 +140,7 @@ function updatePhysics() {
             totalMotion += Math.abs(vx) + Math.abs(vy);
         }
 
-        // 3. Stick Constraints & Stress Calculation
+        // 3. Constraints
         let maxStress = 0;
         const stepCount = CONFIG.PHYSICS_STEPS;
 
@@ -162,7 +160,7 @@ function updatePhysics() {
 
                 if (dist === 0) continue;
 
-                // Stress Tracking: How much is it stretched beyond natural length?
+                // Stress Calculation
                 const stress = Math.max(0, dist - CONFIG.SEGMENT_LENGTH);
                 if (stress > maxStress) maxStress = stress;
 
@@ -181,10 +179,8 @@ function updatePhysics() {
             }
         }
 
-        // Store Max Stress in Head Node Data (Index 4) for Renderer
         physicsBuffer[basePtr + 4] = maxStress;
 
-        // 4. Auto-Sleep Logic
         if (totalMotion < CONFIG.SLEEP_THRESHOLD) {
             sleepState[bufferIdx] = 0;
         }
@@ -194,7 +190,6 @@ function updatePhysics() {
 function drawLayer() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Viewport Culling Bounds (World Space) + Padding
     const pad = 150;
     const viewL = -view.x / view.scale - pad;
     const viewT = -view.y / view.scale - pad;
@@ -204,7 +199,6 @@ function drawLayer() {
     ctx.save();
     ctx.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
 
-    // 1. Interactive Drag Line
     if (isConnecting) {
         ctx.beginPath();
         const startPos = getPortPos(nodeCache.get(connectStart.id), connectStart.port);
@@ -222,34 +216,32 @@ function drawLayer() {
 
     const len = connections.length;
 
-    // --- PASS 1: BATCHED SHADOWS (Cheap & Fast) ---
+    // --- PASS 1: SHADOWS ---
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; // Darker, cleaner shadow
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = CONFIG.SHADOW_THICKNESS;
 
     for (let i = 0; i < len; i++) {
         const conn = connections[i];
-        if (focusMode && isBlurred(conn)) continue; // Don't draw shadows for blurred
+        if (focusMode && isBlurred(conn)) continue;
 
         const bIdx = connToIndex.get(conn.id);
         const base = bIdx * BYTES_PER_CONN;
 
-        // Culling Check
+        // Culling
         const p0x = physicsBuffer[base];
         const lastPtr = base + (CONFIG.POINTS_COUNT - 1) * STRIDE;
         const pNx = physicsBuffer[lastPtr];
 
-        // Fast Bounding Box Check (Head vs Tail)
         const minX = Math.min(p0x, pNx);
         const maxX = Math.max(p0x, pNx);
-        if (maxX < viewL || minX > viewR) continue; // Skip X axis
+        if (maxX < viewL || minX > viewR) continue;
         const p0y = physicsBuffer[base + 1];
         const pNy = physicsBuffer[lastPtr + 1];
         const minY = Math.min(p0y, pNy);
         const maxY = Math.max(p0y, pNy);
-        if (maxY < viewT || minY > viewB) continue; // Skip Y axis
+        if (maxY < viewT || minY > viewB) continue;
 
-        // Draw Shadow Curve (+2px offset)
         const off = 2;
         ctx.moveTo(p0x + off, p0y + off);
         for (let pt = 1; pt < CONFIG.POINTS_COUNT - 1; pt++) {
@@ -265,13 +257,12 @@ function drawLayer() {
         }
         ctx.lineTo(pNx + off, pNy + off);
     }
-    ctx.stroke(); // Single draw call for all shadows
+    ctx.stroke();
 
-    // --- PASS 2: COLORED WIRES ---
+    // --- PASS 2: WIRES (WHITE -> RED) ---
     for (let i = 0; i < len; i++) {
         const conn = connections[i];
 
-        // Visibility Logic
         let alpha = 1;
         if (focusMode && isBlurred(conn)) alpha = 0.1;
         ctx.globalAlpha = alpha;
@@ -283,24 +274,18 @@ function drawLayer() {
         const lastPtr = base + (CONFIG.POINTS_COUNT - 1) * STRIDE;
         const pNx = physicsBuffer[lastPtr];
 
-        // Culling (Repeat check is cheap vs Canvas state switch)
         if (Math.max(p0x, pNx) < viewL || Math.min(p0x, pNx) > viewR) continue;
 
-        // Dynamic Tension Coloring
         const stress = physicsBuffer[base + 4];
-        // Normalize stress (0 to 5px stretch)
-        const t = Math.min(1, stress / 5.0);
+        const t = Math.min(1, stress / CONFIG.MAX_STRETCH);
 
         if (t > 0.05) {
-            // Lerp Color
-            const h = CONFIG.STRESS_COLOR_START.h + t * (CONFIG.STRESS_COLOR_END.h - CONFIG.STRESS_COLOR_START.h);
-            const s = CONFIG.STRESS_COLOR_START.s + t * (CONFIG.STRESS_COLOR_END.s - CONFIG.STRESS_COLOR_START.s);
-            const l = CONFIG.STRESS_COLOR_START.l + t * (CONFIG.STRESS_COLOR_END.l - CONFIG.STRESS_COLOR_START.l);
-            ctx.strokeStyle = `hsl(${h}, ${s}%, ${l}%)`;
-            // Thin out as it stretches
-            ctx.lineWidth = CONFIG.BASE_THICKNESS - (t * 1.5);
+            // Fade Green/Blue to 0 to get Red
+            const gb = Math.floor(255 * (1 - t));
+            ctx.strokeStyle = `rgb(255, ${gb}, ${gb})`;
+            ctx.lineWidth = CONFIG.BASE_THICKNESS;
         } else {
-            ctx.strokeStyle = '#c0392b';
+            ctx.strokeStyle = '#ffffff'; // Base White
             ctx.lineWidth = CONFIG.BASE_THICKNESS;
         }
 
@@ -346,7 +331,6 @@ function updateLabelPos(conn, basePtr, alpha) {
 
     if ((conn.label || isEditing) && alpha > 0.1) {
         if (!el) el = createLabelDOM(conn);
-        // Using transform for position is faster than top/left
         el.style.transform = `translate(${x}px, ${y}px)`;
         el.style.display = 'flex';
         el.style.opacity = alpha;
@@ -372,7 +356,6 @@ function drawArrows(ctx, conn, basePtr) {
         ctx.translate(px, py);
         ctx.rotate(angle);
         ctx.beginPath();
-        // Slightly larger arrows to match thicker string
         ctx.moveTo(-8, -5);
         ctx.lineTo(8, 0);
         ctx.lineTo(-8, 5);
@@ -397,7 +380,6 @@ function registerConnection(conn) {
     const c1 = nodeCache.get(conn.from);
     const c2 = nodeCache.get(conn.to);
 
-    // Initial Position (Straight Line)
     if (c1 && c2) {
         const p1 = getPortPos(c1, conn.fromPort);
         const p2 = getPortPos(c2, conn.toPort);
@@ -413,7 +395,7 @@ function registerConnection(conn) {
             physicsBuffer[ptr + 1] = y;
             physicsBuffer[ptr + 2] = x;
             physicsBuffer[ptr + 3] = y;
-            physicsBuffer[ptr + 4] = 0; // Init stress
+            physicsBuffer[ptr + 4] = 0;
         }
     }
 
@@ -458,24 +440,32 @@ function updateNodeCache(id) {
 function startDragNode(e, el) {
     if (el.classList.contains('editing') || e.button !== 0) return;
     draggedNode = el;
-    const worldPos = screenToWorld(e.clientX, e.clientY);
-    offset.x = worldPos.x - el.offsetLeft;
-    offset.y = worldPos.y - el.offsetTop;
 
-    updateNodeCache(el.id); // Wake physics
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    dragStart.x = worldPos.x;
+    dragStart.y = worldPos.y;
+    dragStart.nodeX = el.offsetLeft;
+    dragStart.nodeY = el.offsetTop;
+
+    updateNodeCache(el.id);
+    el.style.willChange = 'transform';
 }
 
 document.addEventListener('mousemove', (e) => {
     const worldPos = screenToWorld(e.clientX, e.clientY);
 
     if (draggedNode) {
-        const x = worldPos.x - offset.x;
-        const y = worldPos.y - offset.y;
-        draggedNode.style.left = x + 'px';
-        draggedNode.style.top = y + 'px';
+        // GPU DRAG
+        const dx = worldPos.x - dragStart.x;
+        const dy = worldPos.y - dragStart.y;
 
+        draggedNode.style.transform = `translate(${dx}px, ${dy}px)`;
+
+        // Physics update
+        const newX = dragStart.nodeX + dx;
+        const newY = dragStart.nodeY + dy;
         const cache = nodeCache.get(draggedNode.id);
-        if (cache) { cache.x = x; cache.y = y; }
+        if (cache) { cache.x = newX; cache.y = newY; }
         wakeConnected(draggedNode.id);
     }
 
@@ -494,6 +484,18 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', (e) => {
     if (draggedNode) {
+        const worldPos = screenToWorld(e.clientX, e.clientY);
+        const dx = worldPos.x - dragStart.x;
+        const dy = worldPos.y - dragStart.y;
+
+        const finalX = dragStart.nodeX + dx;
+        const finalY = dragStart.nodeY + dy;
+
+        draggedNode.style.left = finalX + 'px';
+        draggedNode.style.top = finalY + 'px';
+        draggedNode.style.transform = 'none';
+        draggedNode.style.willChange = 'auto';
+
         updateNodeCache(draggedNode.id);
         saveBoard();
         draggedNode = null;
