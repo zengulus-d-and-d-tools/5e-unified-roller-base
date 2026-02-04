@@ -1,74 +1,62 @@
+// --- CONFIGURATION ---
+const CONFIG = {
+    PHYSICS_STEPS: 3,         // Iterations per frame (3 is stable & fast)
+    GRAVITY: 0.5,             // Sag amount
+    SEGMENT_LENGTH: 18,       // Distance between points
+    POINTS_COUNT: 9,          // Points per string
+    SLEEP_THRESHOLD: 0.15,    // Velocity below this freezes the physics
+    MAX_CONNECTIONS: 2000,    // Hard limit for memory allocation
+    VIEW_SCALE_MIN: 0.2,
+    VIEW_SCALE_MAX: 3,
+    BASE_THICKNESS: 3.5,      // Increased thickness
+    SHADOW_THICKNESS: 7,      // Shadow width relative to base
+    STRESS_COLOR_START: { h: 355, s: 60, l: 45 }, // Dark Red
+    STRESS_COLOR_END: { h: 15, s: 95, l: 60 }   // Bright Orange/Gold
+};
+
+// --- GLOBAL STATE ---
 const container = document.getElementById('board-container');
 const labelContainer = document.getElementById('string-label-container');
 const canvas = document.getElementById('connection-layer');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d', { alpha: false }); // Optimization
 const contextMenu = document.getElementById('context-menu');
 
+// Data Models
 let nodes = [];
-let connections = [];
-let nextId = 1;
+let connections = []; // Metadata (id, from, to, label)
+
+// High-Performance Physics Buffer
+// Layout per point: [x, y, oldx, oldy, STRESS]
+const STRIDE = 5;
+const BYTES_PER_POINT = STRIDE;
+const BYTES_PER_CONN = CONFIG.POINTS_COUNT * STRIDE;
+const physicsBuffer = new Float32Array(CONFIG.MAX_CONNECTIONS * CONFIG.POINTS_COUNT * STRIDE);
+const sleepState = new Uint8Array(CONFIG.MAX_CONNECTIONS); // 1 = awake, 0 = asleep
+
+// Fast Lookups
+const connToIndex = new Map(); // connId -> bufferIndex
+const nodeGraph = new Map();   // nodeId -> Set<connId>
+let allocatedCount = 0;
+
+// View & Interaction
+let view = { x: 0, y: 0, scale: 1 };
+let nodeCache = new Map();     // {x, y, w, h}
 let draggedNode = null;
 let offset = { x: 0, y: 0 };
-
-// Interaction State
 let isConnecting = false;
 let connectStart = { id: null, port: null, x: 0, y: 0 };
-let activeCase = "UNNAMED";
 let focusMode = false;
-let focusedNodeId = null;
-
-// View State
-let view = { x: 0, y: 0, scale: 1 };
 let panMode = false;
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
 
-// Physics Config
-const PHYSICS_STEPS = 5;
-const GRAVITY = 0.5;
-const SEGMENT_LENGTH = 18;
-const STIFFNESS = 0.5;
-const POINTS_COUNT = 9;
-
-// Cache for node metrics to avoid DOM thrashing in physics loop
-// Map<id, {x, y, w, h}>
-const nodeCache = new Map();
-
-function updateNodeCache(id) {
-    const el = document.getElementById(id);
-    if (!el) {
-        nodeCache.delete(id);
-        return;
-    }
-    // CAUTION: Assumes styles (left/top) match the visual usage.
-    // getPortPos used offsetLeft/Top which are relative to container.
-    nodeCache.set(id, {
-        x: el.offsetLeft,
-        y: el.offsetTop,
-        w: el.offsetWidth,
-        h: el.offsetHeight
-    });
-}
-
-function rebuildNodeCache() {
-    nodeCache.clear();
-    document.querySelectorAll('.node').forEach(el => {
-        nodeCache.set(el.id, {
-            x: el.offsetLeft,
-            y: el.offsetTop,
-            w: el.offsetWidth,
-            h: el.offsetHeight
-        });
-    });
-}
-
 // --- INITIALIZATION ---
 window.onload = () => {
     resizeCanvas();
-    loadBoard();
     initGuildToolbar();
+    loadBoard();
     updateViewCSS();
-    requestAnimationFrame(physicsLoop);
+    requestAnimationFrame(loop);
 };
 
 window.onresize = () => resizeCanvas();
@@ -89,34 +77,538 @@ function initGuildToolbar() {
         el.draggable = true;
         el.setAttribute('data-type', g.id);
         el.ondragstart = (e) => startDragNew(e, g.id);
-
-        el.innerHTML = `
-            <div class="icon">${g.icon}</div>
-            <div class="label">${g.name}</div>
-         `;
+        el.innerHTML = `<div class="icon">${g.icon}</div><div class="label">${g.name}</div>`;
         guildContainer.appendChild(el);
     });
 }
 
-function toggleToolbar() {
-    const toolbar = document.getElementById('toolbar-wrapper');
-    const btn = document.getElementById('toolbar-toggle');
-    toolbar.classList.toggle('toolbar-hidden');
-    btn.innerText = toolbar.classList.contains('toolbar-hidden') ? "Show Toolbar" : "Hide Toolbar";
+// --- CORE LOOPS ---
+
+function loop() {
+    updatePhysics();
+    drawLayer();
+    requestAnimationFrame(loop);
 }
 
-// --- COORDINATE MAPPING ---
-function screenToWorld(x, y) {
-    return {
-        x: (x - view.x) / view.scale,
-        y: (y - view.y) / view.scale
+function updatePhysics() {
+    const len = connections.length;
+
+    for (let cIdx = 0; cIdx < len; cIdx++) {
+        const conn = connections[cIdx];
+        const bufferIdx = connToIndex.get(conn.id);
+
+        // Skip if asleep (Major Optimization)
+        if (sleepState[bufferIdx] === 0) continue;
+
+        const c1 = nodeCache.get(conn.from);
+        const c2 = nodeCache.get(conn.to);
+        if (!c1 || !c2) continue;
+
+        const basePtr = bufferIdx * BYTES_PER_CONN;
+
+        // 1. Pin Endpoints
+        const p1 = getPortPos(c1, conn.fromPort);
+        const p2 = getPortPos(c2, conn.toPort);
+
+        // Head (Index 0)
+        physicsBuffer[basePtr] = p1.x;
+        physicsBuffer[basePtr + 1] = p1.y;
+
+        // Tail (Index N)
+        const lastPtr = basePtr + (CONFIG.POINTS_COUNT - 1) * STRIDE;
+        physicsBuffer[lastPtr] = p2.x;
+        physicsBuffer[lastPtr + 1] = p2.y;
+
+        // 2. Verlet Integration (Inertia + Gravity)
+        let totalMotion = 0;
+
+        for (let i = 1; i < CONFIG.POINTS_COUNT - 1; i++) {
+            const ptr = basePtr + i * STRIDE;
+            const x = physicsBuffer[ptr];
+            const y = physicsBuffer[ptr + 1];
+            const ox = physicsBuffer[ptr + 2];
+            const oy = physicsBuffer[ptr + 3];
+
+            // Damping 0.92 gives it a bit of weight
+            const vx = (x - ox) * 0.92;
+            const vy = (y - oy) * 0.92;
+
+            physicsBuffer[ptr + 2] = x;
+            physicsBuffer[ptr + 3] = y;
+
+            physicsBuffer[ptr] = x + vx;
+            physicsBuffer[ptr + 1] = y + vy + CONFIG.GRAVITY;
+
+            totalMotion += Math.abs(vx) + Math.abs(vy);
+        }
+
+        // 3. Stick Constraints & Stress Calculation
+        let maxStress = 0;
+        const stepCount = CONFIG.PHYSICS_STEPS;
+
+        for (let step = 0; step < stepCount; step++) {
+            for (let i = 0; i < CONFIG.POINTS_COUNT - 1; i++) {
+                const ptrA = basePtr + i * STRIDE;
+                const ptrB = basePtr + (i + 1) * STRIDE;
+
+                const x1 = physicsBuffer[ptrA];
+                const y1 = physicsBuffer[ptrA + 1];
+                const x2 = physicsBuffer[ptrB];
+                const y2 = physicsBuffer[ptrB + 1];
+
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist === 0) continue;
+
+                // Stress Tracking: How much is it stretched beyond natural length?
+                const stress = Math.max(0, dist - CONFIG.SEGMENT_LENGTH);
+                if (stress > maxStress) maxStress = stress;
+
+                const diff = (dist - CONFIG.SEGMENT_LENGTH) / dist;
+                const offsetX = dx * 0.5 * diff;
+                const offsetY = dy * 0.5 * diff;
+
+                if (i !== 0) {
+                    physicsBuffer[ptrA] += offsetX;
+                    physicsBuffer[ptrA + 1] += offsetY;
+                }
+                if ((i + 1) !== CONFIG.POINTS_COUNT - 1) {
+                    physicsBuffer[ptrB] -= offsetX;
+                    physicsBuffer[ptrB + 1] -= offsetY;
+                }
+            }
+        }
+
+        // Store Max Stress in Head Node Data (Index 4) for Renderer
+        physicsBuffer[basePtr + 4] = maxStress;
+
+        // 4. Auto-Sleep Logic
+        if (totalMotion < CONFIG.SLEEP_THRESHOLD) {
+            sleepState[bufferIdx] = 0;
+        }
+    }
+}
+
+function drawLayer() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Viewport Culling Bounds (World Space) + Padding
+    const pad = 150;
+    const viewL = -view.x / view.scale - pad;
+    const viewT = -view.y / view.scale - pad;
+    const viewR = (canvas.width - view.x) / view.scale + pad;
+    const viewB = (canvas.height - view.y) / view.scale + pad;
+
+    ctx.save();
+    ctx.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
+
+    // 1. Interactive Drag Line
+    if (isConnecting) {
+        ctx.beginPath();
+        const startPos = getPortPos(nodeCache.get(connectStart.id), connectStart.port);
+        ctx.moveTo(startPos.x, startPos.y);
+        ctx.lineTo(connectStart.currentX, connectStart.currentY);
+        ctx.strokeStyle = '#f1c40f';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 8]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    const len = connections.length;
+
+    // --- PASS 1: BATCHED SHADOWS (Cheap & Fast) ---
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; // Darker, cleaner shadow
+    ctx.lineWidth = CONFIG.SHADOW_THICKNESS;
+
+    for (let i = 0; i < len; i++) {
+        const conn = connections[i];
+        if (focusMode && isBlurred(conn)) continue; // Don't draw shadows for blurred
+
+        const bIdx = connToIndex.get(conn.id);
+        const base = bIdx * BYTES_PER_CONN;
+
+        // Culling Check
+        const p0x = physicsBuffer[base];
+        const lastPtr = base + (CONFIG.POINTS_COUNT - 1) * STRIDE;
+        const pNx = physicsBuffer[lastPtr];
+
+        // Fast Bounding Box Check (Head vs Tail)
+        const minX = Math.min(p0x, pNx);
+        const maxX = Math.max(p0x, pNx);
+        if (maxX < viewL || minX > viewR) continue; // Skip X axis
+        const p0y = physicsBuffer[base + 1];
+        const pNy = physicsBuffer[lastPtr + 1];
+        const minY = Math.min(p0y, pNy);
+        const maxY = Math.max(p0y, pNy);
+        if (maxY < viewT || minY > viewB) continue; // Skip Y axis
+
+        // Draw Shadow Curve (+2px offset)
+        const off = 2;
+        ctx.moveTo(p0x + off, p0y + off);
+        for (let pt = 1; pt < CONFIG.POINTS_COUNT - 1; pt++) {
+            const ptr = base + pt * STRIDE;
+            const nextPtr = base + (pt + 1) * STRIDE;
+            const x = physicsBuffer[ptr] + off;
+            const y = physicsBuffer[ptr + 1] + off;
+            const nx = physicsBuffer[nextPtr] + off;
+            const ny = physicsBuffer[nextPtr + 1] + off;
+            const xc = (x + nx) / 2;
+            const yc = (y + ny) / 2;
+            ctx.quadraticCurveTo(x, y, xc, yc);
+        }
+        ctx.lineTo(pNx + off, pNy + off);
+    }
+    ctx.stroke(); // Single draw call for all shadows
+
+    // --- PASS 2: COLORED WIRES ---
+    for (let i = 0; i < len; i++) {
+        const conn = connections[i];
+
+        // Visibility Logic
+        let alpha = 1;
+        if (focusMode && isBlurred(conn)) alpha = 0.1;
+        ctx.globalAlpha = alpha;
+        if (alpha < 0.05) continue;
+
+        const bIdx = connToIndex.get(conn.id);
+        const base = bIdx * BYTES_PER_CONN;
+        const p0x = physicsBuffer[base];
+        const lastPtr = base + (CONFIG.POINTS_COUNT - 1) * STRIDE;
+        const pNx = physicsBuffer[lastPtr];
+
+        // Culling (Repeat check is cheap vs Canvas state switch)
+        if (Math.max(p0x, pNx) < viewL || Math.min(p0x, pNx) > viewR) continue;
+
+        // Dynamic Tension Coloring
+        const stress = physicsBuffer[base + 4];
+        // Normalize stress (0 to 5px stretch)
+        const t = Math.min(1, stress / 5.0);
+
+        if (t > 0.05) {
+            // Lerp Color
+            const h = CONFIG.STRESS_COLOR_START.h + t * (CONFIG.STRESS_COLOR_END.h - CONFIG.STRESS_COLOR_START.h);
+            const s = CONFIG.STRESS_COLOR_START.s + t * (CONFIG.STRESS_COLOR_END.s - CONFIG.STRESS_COLOR_START.s);
+            const l = CONFIG.STRESS_COLOR_START.l + t * (CONFIG.STRESS_COLOR_END.l - CONFIG.STRESS_COLOR_START.l);
+            ctx.strokeStyle = `hsl(${h}, ${s}%, ${l}%)`;
+            // Thin out as it stretches
+            ctx.lineWidth = CONFIG.BASE_THICKNESS - (t * 1.5);
+        } else {
+            ctx.strokeStyle = '#c0392b';
+            ctx.lineWidth = CONFIG.BASE_THICKNESS;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(p0x, physicsBuffer[base + 1]);
+
+        for (let pt = 1; pt < CONFIG.POINTS_COUNT - 1; pt++) {
+            const ptr = base + pt * STRIDE;
+            const nextPtr = base + (pt + 1) * STRIDE;
+            const x = physicsBuffer[ptr];
+            const y = physicsBuffer[ptr + 1];
+            const nx = physicsBuffer[nextPtr];
+            const ny = physicsBuffer[nextPtr + 1];
+            const xc = (x + nx) / 2;
+            const yc = (y + ny) / 2;
+            ctx.quadraticCurveTo(x, y, xc, yc);
+        }
+
+        ctx.lineTo(pNx, physicsBuffer[lastPtr + 1]);
+        ctx.stroke();
+
+        updateLabelPos(conn, base, alpha);
+        if (conn.arrowLeft || conn.arrowRight) drawArrows(ctx, conn, base);
+    }
+
+    ctx.restore();
+}
+
+function isBlurred(conn) {
+    const n1 = document.getElementById(conn.from);
+    const n2 = document.getElementById(conn.to);
+    return (!n1 || !n2 || n1.classList.contains('blurred') || n2.classList.contains('blurred'));
+}
+
+function updateLabelPos(conn, basePtr, alpha) {
+    const mid = Math.floor(CONFIG.POINTS_COUNT / 2);
+    const ptr = basePtr + mid * STRIDE;
+    const x = physicsBuffer[ptr];
+    const y = physicsBuffer[ptr + 1];
+
+    let el = document.getElementById('lbl_' + conn.id);
+    const isEditing = el && el.querySelector('.label-input') === document.activeElement;
+
+    if ((conn.label || isEditing) && alpha > 0.1) {
+        if (!el) el = createLabelDOM(conn);
+        // Using transform for position is faster than top/left
+        el.style.transform = `translate(${x}px, ${y}px)`;
+        el.style.display = 'flex';
+        el.style.opacity = alpha;
+    } else if (el) {
+        el.style.display = 'none';
+    }
+}
+
+function drawArrows(ctx, conn, basePtr) {
+    const drawHead = (idx, rev) => {
+        const pIdx = basePtr + idx * STRIDE;
+        const prevIdx = basePtr + (idx - 1) * STRIDE;
+        const nextIdx = basePtr + (idx + 1) * STRIDE;
+        const px = physicsBuffer[pIdx];
+        const py = physicsBuffer[pIdx + 1];
+
+        const mx = physicsBuffer[nextIdx] - physicsBuffer[prevIdx];
+        const my = physicsBuffer[nextIdx + 1] - physicsBuffer[prevIdx + 1];
+        let angle = Math.atan2(my, mx);
+        if (rev) angle += Math.PI;
+
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(angle);
+        ctx.beginPath();
+        // Slightly larger arrows to match thicker string
+        ctx.moveTo(-8, -5);
+        ctx.lineTo(8, 0);
+        ctx.lineTo(-8, 5);
+        ctx.fillStyle = '#f1c40f';
+        ctx.fill();
+        ctx.restore();
     };
+
+    if (conn.arrowLeft) drawHead(2, conn.arrowLeft === 1);
+    if (conn.arrowRight) drawHead(6, conn.arrowRight === 1);
+}
+
+// --- DATA MANAGEMENT ---
+
+function registerConnection(conn) {
+    if (allocatedCount >= CONFIG.MAX_CONNECTIONS) return;
+
+    let idx = allocatedCount++;
+    connToIndex.set(conn.id, idx);
+    sleepState[idx] = 1;
+
+    const c1 = nodeCache.get(conn.from);
+    const c2 = nodeCache.get(conn.to);
+
+    // Initial Position (Straight Line)
+    if (c1 && c2) {
+        const p1 = getPortPos(c1, conn.fromPort);
+        const p2 = getPortPos(c2, conn.toPort);
+        const base = idx * BYTES_PER_CONN;
+
+        for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
+            const t = i / (CONFIG.POINTS_COUNT - 1);
+            const x = p1.x + (p2.x - p1.x) * t;
+            const y = p1.y + (p2.y - p1.y) * t;
+
+            const ptr = base + i * STRIDE;
+            physicsBuffer[ptr] = x;
+            physicsBuffer[ptr + 1] = y;
+            physicsBuffer[ptr + 2] = x;
+            physicsBuffer[ptr + 3] = y;
+            physicsBuffer[ptr + 4] = 0; // Init stress
+        }
+    }
+
+    if (!nodeGraph.has(conn.from)) nodeGraph.set(conn.from, new Set());
+    if (!nodeGraph.has(conn.to)) nodeGraph.set(conn.to, new Set());
+    nodeGraph.get(conn.from).add(conn.id);
+    nodeGraph.get(conn.to).add(conn.id);
+}
+
+function wakeConnected(nodeId) {
+    const set = nodeGraph.get(nodeId);
+    if (set) {
+        set.forEach(connId => {
+            const idx = connToIndex.get(connId);
+            if (idx !== undefined) sleepState[idx] = 1;
+        });
+    }
+}
+
+// --- DOM & INTERACTION ---
+
+function getPortPos(nodeData, port) {
+    const { x, y, w, h } = nodeData;
+    if (port === 'top') return { x: x + w / 2, y: y };
+    if (port === 'bottom') return { x: x + w / 2, y: y + h };
+    if (port === 'left') return { x: x, y: y + h / 2 };
+    if (port === 'right') return { x: x + w, y: y + h / 2 };
+    return { x: x + w / 2, y: y + h / 2 };
+}
+
+function updateNodeCache(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        const data = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+        nodeCache.set(id, data);
+        wakeConnected(id);
+    } else {
+        nodeCache.delete(id);
+    }
+}
+
+function startDragNode(e, el) {
+    if (el.classList.contains('editing') || e.button !== 0) return;
+    draggedNode = el;
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    offset.x = worldPos.x - el.offsetLeft;
+    offset.y = worldPos.y - el.offsetTop;
+
+    updateNodeCache(el.id); // Wake physics
+}
+
+document.addEventListener('mousemove', (e) => {
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+
+    if (draggedNode) {
+        const x = worldPos.x - offset.x;
+        const y = worldPos.y - offset.y;
+        draggedNode.style.left = x + 'px';
+        draggedNode.style.top = y + 'px';
+
+        const cache = nodeCache.get(draggedNode.id);
+        if (cache) { cache.x = x; cache.y = y; }
+        wakeConnected(draggedNode.id);
+    }
+
+    if (isConnecting) {
+        connectStart.currentX = worldPos.x;
+        connectStart.currentY = worldPos.y;
+    }
+
+    if (isPanning) {
+        view.x += e.clientX - panStart.x;
+        view.y += e.clientY - panStart.y;
+        panStart = { x: e.clientX, y: e.clientY };
+        updateViewCSS();
+    }
+});
+
+document.addEventListener('mouseup', (e) => {
+    if (draggedNode) {
+        updateNodeCache(draggedNode.id);
+        saveBoard();
+        draggedNode = null;
+    }
+    if (isConnecting) {
+        if (e.target.classList.contains('port')) {
+            const node = e.target.closest('.node');
+            completeConnection(node, e.target.dataset.port);
+        }
+        isConnecting = false;
+    }
+    if (isPanning) {
+        isPanning = false;
+        document.body.style.cursor = panMode ? "grab" : "default";
+    }
+});
+
+function createNode(type, x, y, id = null, content = {}) {
+    const nodeId = id || 'node_' + Date.now();
+    const nodeEl = document.createElement('div');
+    nodeEl.className = `node type-${type}`;
+    nodeEl.id = nodeId;
+    nodeEl.style.left = (x - 75) + 'px';
+    nodeEl.style.top = (y - 40) + 'px';
+
+    const iconMap = { person: '👤', location: '📍', clue: '🔍', note: '📝', azorius: '⚖️', boros: '⚔️', dimir: '👁️', golgari: '🍄', gruul: '🔥', izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬' };
+    const icon = iconMap[type] || '❓';
+    const title = content.title || type.toUpperCase();
+
+    nodeEl.innerHTML = `
+        <div class="port top" data-port="top"></div><div class="port bottom" data-port="bottom"></div>
+        <div class="port left" data-port="left"></div><div class="port right" data-port="right"></div>
+        <div class="node-header"><div class="node-title">${title}</div><div class="node-icon">${icon}</div></div>
+        <div class="node-body">${content.body || ''}</div>
+    `;
+
+    nodeEl.onmousedown = (e) => {
+        if (e.target.classList.contains('port')) return;
+        if (!panMode) startDragNode(e, nodeEl);
+    };
+    nodeEl.oncontextmenu = (e) => showContextMenu(e, nodeEl);
+    nodeEl.querySelectorAll('.port').forEach(p =>
+        p.onmousedown = (e) => startConnectionDrag(e, nodeEl, p.dataset.port)
+    );
+
+    container.appendChild(nodeEl);
+    updateNodeCache(nodeId);
+
+    if (!id) {
+        nodes.push({ id: nodeId, type, x: x - 75, y: y - 40 });
+    }
+    return nodeEl;
+}
+
+function startConnectionDrag(e, node, port) {
+    e.stopPropagation();
+    e.preventDefault();
+    isConnecting = true;
+    const wp = screenToWorld(e.clientX, e.clientY);
+    connectStart = { id: node.id, port, x: wp.x, y: wp.y, currentX: wp.x, currentY: wp.y };
+}
+
+function completeConnection(targetNode, targetPort) {
+    if (targetNode.id === connectStart.id) return;
+    if (connections.some(c => (c.from === connectStart.id && c.to === targetNode.id) || (c.from === targetNode.id && c.to === connectStart.id))) return;
+
+    const newConn = {
+        id: 'conn_' + Date.now(),
+        from: connectStart.id, to: targetNode.id,
+        fromPort: connectStart.port, toPort: targetPort,
+        label: '', arrowLeft: 0, arrowRight: 0
+    };
+
+    connections.push(newConn);
+    registerConnection(newConn);
+    saveBoard();
+}
+
+function createLabelDOM(conn) {
+    const el = document.createElement('div');
+    el.id = 'lbl_' + conn.id;
+    el.className = 'string-label';
+    el.style.position = 'absolute';
+    el.style.left = '0'; el.style.top = '0';
+
+    const btnL = document.createElement('div');
+    btnL.className = `arrow-btn ${conn.arrowLeft ? 'active' : ''}`;
+    btnL.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowLeft || 0];
+    btnL.onclick = (e) => { conn.arrowLeft = ((conn.arrowLeft || 0) + 1) % 3; saveBoard(); };
+
+    const input = document.createElement('div');
+    input.className = 'label-input';
+    input.contentEditable = true;
+    input.innerText = conn.label || "";
+    input.oninput = (e) => { conn.label = e.target.innerText; saveBoard(); };
+    input.onmousedown = (e) => e.stopPropagation();
+
+    const btnR = document.createElement('div');
+    btnR.className = `arrow-btn ${conn.arrowRight ? 'active' : ''}`;
+    btnR.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowRight || 0];
+    btnR.onclick = (e) => { conn.arrowRight = ((conn.arrowRight || 0) + 1) % 3; saveBoard(); };
+
+    el.append(btnL, input, btnR);
+    labelContainer.appendChild(el);
+    return el;
+}
+
+function screenToWorld(x, y) {
+    return { x: (x - view.x) / view.scale, y: (y - view.y) / view.scale };
 }
 
 function updateViewCSS() {
-    const transform = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
-    container.style.transform = transform;
-    labelContainer.style.transform = transform;
+    const t = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+    container.style.transform = t;
+    labelContainer.style.transform = t;
 }
 
 function togglePanMode() {
@@ -130,638 +622,83 @@ function togglePanMode() {
     }
 }
 
-// --- ZOOM & PAN HANDLERS ---
 document.addEventListener('wheel', (e) => {
-    if (e.target.closest('.toolbar-scroll-wrapper')) return; // Allow toolbar scroll
+    if (e.target.closest('.toolbar-scroll-wrapper')) return;
     e.preventDefault();
+    const d = e.deltaY > 0 ? -1 : 1;
+    const f = d * 0.1;
+    const mx = e.clientX, my = e.clientY;
+    const wx = (mx - view.x) / view.scale;
+    const wy = (my - view.y) / view.scale;
 
-    const zoomIntensity = 0.1;
-    const direction = e.deltaY > 0 ? -1 : 1;
-    const factor = direction * zoomIntensity;
-
-    // Zoom towards mouse
-    const mouseX = e.clientX;
-    const mouseY = e.clientY;
-
-    // Calculate world point before zoom
-    const wx = (mouseX - view.x) / view.scale;
-    const wy = (mouseY - view.y) / view.scale;
-
-    let newScale = view.scale + factor;
-    // Limits
-    newScale = Math.max(0.2, Math.min(newScale, 3));
-
-    // Calculate new Offset so (wx, wy) remains under (mouseX, mouseY)
-    // mouseX = newX + wx * newScale
-    view.x = mouseX - wx * newScale;
-    view.y = mouseY - wy * newScale;
-    view.scale = newScale;
-
+    view.scale = Math.max(CONFIG.VIEW_SCALE_MIN, Math.min(view.scale + f, CONFIG.VIEW_SCALE_MAX));
+    view.x = mx - wx * view.scale;
+    view.y = my - wy * view.scale;
     updateViewCSS();
 }, { passive: false });
 
 document.addEventListener('mousedown', (e) => {
-    // Middle click or Pan Mode (Left Click on BG)
-    if (e.button === 1 || (panMode && e.button === 0 && !e.target.closest('.node') && !e.target.closest('.label-input'))) {
+    if (e.button === 1 || (panMode && e.button === 0 && !e.target.closest('.node'))) {
         isPanning = true;
         panStart = { x: e.clientX, y: e.clientY };
         document.body.style.cursor = "grabbing";
-        e.preventDefault(); // Prevent text selection
+        e.preventDefault();
     }
 });
 
-document.addEventListener('mousemove', (e) => {
-    if (isPanning) {
-        const dx = e.clientX - panStart.x;
-        const dy = e.clientY - panStart.y;
-        view.x += dx;
-        view.y += dy;
-        panStart = { x: e.clientX, y: e.clientY };
-        updateViewCSS();
-    }
-});
+function saveBoard() {
+    const nodeData = Array.from(document.querySelectorAll('.node')).map(el => ({
+        id: el.id,
+        type: Array.from(el.classList).find(c => c.startsWith('type-')).replace('type-', ''),
+        x: parseInt(el.style.left), y: parseInt(el.style.top),
+        title: el.querySelector('.node-title').innerText,
+        body: el.querySelector('.node-body').innerText
+    }));
 
-document.addEventListener('mouseup', (e) => {
-    if (isPanning) {
-        isPanning = false;
-        document.body.style.cursor = panMode ? "grab" : "default";
-    }
-});
-
-
-// --- DRAG HELPER (NEW NODE) ---
-function startDragNew(e, type) {
-    e.dataTransfer.setData('text/plain', type);
-    e.dataTransfer.effectAllowed = "copy";
-}
-
-document.body.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "copy";
-});
-
-document.body.addEventListener('drop', (e) => {
-    e.preventDefault();
-    let type = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('type');
-    if (!type && e.target.getAttribute('data-type')) type = e.target.getAttribute('data-type');
-
-    if (type) {
-        // Drop coordinates are screen. Need World.
-        const worldPos = screenToWorld(e.clientX, e.clientY);
-        const el = createNode(type, worldPos.x, worldPos.y);
-        updateNodeCache(el.id);
-        saveBoard();
-    }
-});
-
-// --- PHYSICS LOOP ---
-function physicsLoop() {
-    updatePhysics();
-    drawConnections();
-    requestAnimationFrame(physicsLoop);
-}
-
-function updatePhysics() {
-    const missingNodes = new Set();
-
-    connections.forEach(conn => {
-        // Use cached metrics instead of DOM
-        const c1 = nodeCache.get(conn.from);
-        const c2 = nodeCache.get(conn.to);
-
-        if (!c1) missingNodes.add(conn.from);
-        if (!c2) missingNodes.add(conn.to);
-
-        if (!c1 || !c2) return;
-
-        const p1 = getPortPos(c1, conn.fromPort);
-        const p2 = getPortPos(c2, conn.toPort);
-
-        if (!conn.points || conn.points.length !== POINTS_COUNT) {
-            conn.points = [];
-            for (let i = 0; i < POINTS_COUNT; i++) {
-                conn.points.push({
-                    x: p1.x + (p2.x - p1.x) * (i / (POINTS_COUNT - 1)),
-                    y: p1.y + (p2.y - p1.y) * (i / (POINTS_COUNT - 1)),
-                    oldx: p1.x + (p2.x - p1.x) * (i / (POINTS_COUNT - 1)),
-                    oldy: p1.y + (p2.y - p1.y) * (i / (POINTS_COUNT - 1)),
-                    pinned: (i === 0 || i === POINTS_COUNT - 1)
-                });
-            }
-        }
-
-        conn.points[0].x = p1.x; conn.points[0].y = p1.y;
-        conn.points[POINTS_COUNT - 1].x = p2.x; conn.points[POINTS_COUNT - 1].y = p2.y;
-
-        for (let i = 0; i < conn.points.length; i++) {
-            const p = conn.points[i];
-            if (!p.pinned) {
-                const vx = (p.x - p.oldx) * 0.9;
-                const vy = (p.y - p.oldy) * 0.9;
-                p.oldx = p.x;
-                p.oldy = p.y;
-                p.x += vx;
-                p.y += vy;
-                p.y += GRAVITY;
-            }
-        }
-
-        for (let k = 0; k < 3; k++) {
-            for (let i = 0; i < conn.points.length - 1; i++) {
-                const pA = conn.points[i];
-                const pB = conn.points[i + 1];
-
-                const dx = pB.x - pA.x;
-                const dy = pB.y - pA.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const diff = (dist - SEGMENT_LENGTH) / dist;
-
-                if (!pA.pinned) {
-                    pA.x += dx * 0.5 * diff;
-                    pA.y += dy * 0.5 * diff;
-                }
-                if (!pB.pinned) {
-                    pB.x -= dx * 0.5 * diff;
-                    pB.y -= dy * 0.5 * diff;
-                }
-            }
-        }
-    });
-
-    // Lazy recover missing nodes (e.g. if created outside normal flow)
-    if (missingNodes.size > 0) {
-        missingNodes.forEach(id => updateNodeCache(id));
-    }
-}
-
-// IMPORTANT: getPortPos needs to return WORLD coordinates because nodes are transformed relative to 0,0 WORLD, 
-// BUT getBoundingClientRect returns SCREEN coordinates.
-// Since the container is transformed, its local coordinates are World coords.
-// nodeData is from cache {x, y, w, h}
-function getPortPos(nodeData, port) {
-    const left = nodeData.x;
-    const top = nodeData.y;
-    const width = nodeData.w;
-    const height = nodeData.h;
-
-    if (port === 'top') return { x: left + width / 2, y: top };
-    if (port === 'bottom') return { x: left + width / 2, y: top + height };
-    if (port === 'left') return { x: left, y: top + height / 2 };
-    if (port === 'right') return { x: left + width, y: top + height / 2 };
-    return { x: left + width / 2, y: top + height / 2 };
-}
-
-// --- NODE CREATION ---
-function createNode(type, x, y, id = null, content = {}) {
-    const nodeId = id || 'node_' + Date.now();
-    const nodeEl = document.createElement('div');
-    nodeEl.classList.add('node', 'type-' + type);
-    nodeEl.id = nodeId;
-    nodeEl.style.left = (x - 75) + 'px';
-    nodeEl.style.top = (y - 40) + 'px';
-
-    const iconMap = {
-        person: '👤', location: '📍', clue: '🔍', note: '📝',
-        azorius: '⚖️', boros: '⚔️', dimir: '👁️', golgari: '🍄', gruul: '🔥',
-        izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬'
+    const data = {
+        name: document.getElementById('caseName').innerText,
+        nodes: nodeData,
+        connections: connections.map(c => ({
+            id: c.id, from: c.from, to: c.to, fromPort: c.fromPort, toPort: c.toPort,
+            label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight
+        }))
     };
+    localStorage.setItem('invBoardData', JSON.stringify(data));
+}
 
-    let defaultTitle = (type || 'Unknown').toUpperCase();
-    if (type && type.length > 4 && !['person', 'location', 'note'].includes(type) && !content.title) {
-        defaultTitle = type.charAt(0).toUpperCase() + type.slice(1);
-    }
+function loadBoard() {
+    const raw = localStorage.getItem('invBoardData');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    document.getElementById('caseName').innerText = data.name || "UNNAMED";
 
-    const title = content.title || defaultTitle;
-    const body = content.body || '';
-    const icon = iconMap[type] || '❓';
+    container.innerHTML = '';
+    labelContainer.innerHTML = '';
+    nodeCache.clear();
+    nodeGraph.clear();
+    connToIndex.clear();
+    allocatedCount = 0;
+    nodes = [];
+    connections = [];
 
-    nodeEl.innerHTML = `
-        <div class="port top" data-port="top"></div>
-        <div class="port bottom" data-port="bottom"></div>
-        <div class="port left" data-port="left"></div>
-        <div class="port right" data-port="right"></div>
-        <div class="node-header">
-            <div class="node-title">${title}</div>
-            <div class="node-icon">${icon}</div>
-        </div>
-        <div class="node-body">${body}</div>
-    `;
-
-    nodeEl.addEventListener('mousedown', (e) => {
-        if (e.target.classList.contains('port')) return;
-        if (panMode && e.button === 0) return; // Don't drag nodes in Pan Mode (unless we want to? Usually distinct modes)
-        startDragNode(e, nodeEl);
+    (data.nodes || []).forEach(n => {
+        createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
     });
 
-    nodeEl.addEventListener('contextmenu', (e) => showContextMenu(e, nodeEl));
-
-    nodeEl.querySelectorAll('.port').forEach(p => {
-        p.addEventListener('mousedown', (e) => startConnectionDrag(e, nodeEl, p.dataset.port));
-    });
-
-    container.appendChild(nodeEl);
-
-    updateNodeCache(nodeId);
-
-    if (!id) {
-        nodes.push({ id: nodeId, type, x: x - 75, y: y - 40 });
-    }
-    return nodeEl;
-}
-
-// --- NODE DRAGGING ---
-function startDragNode(e, el) {
-    if (el.classList.contains('editing')) return;
-    if (e.button !== 0) return;
-
-    draggedNode = el;
-    // Map screen click to world offset
-    const worldPos = screenToWorld(e.clientX, e.clientY);
-    offset.x = worldPos.x - el.offsetLeft;
-    offset.y = worldPos.y - el.offsetTop;
-}
-
-document.addEventListener('mousemove', (e) => {
-    // World Mouse Pos
-    const worldPos = screenToWorld(e.clientX, e.clientY);
-
-    if (draggedNode) {
-        const x = worldPos.x - offset.x;
-        const y = worldPos.y - offset.y;
-        draggedNode.style.left = x + 'px';
-        draggedNode.style.top = y + 'px';
-
-        const nodeData = nodes.find(n => n.id === draggedNode.id);
-        if (nodeData) {
-            nodeData.x = x;
-            nodeData.y = y;
-        }
-
-        // Fast update cache for physics
-        const cache = nodeCache.get(draggedNode.id);
-        if (cache) {
-            cache.x = x;
-            cache.y = y;
-        } else {
-            updateNodeCache(draggedNode.id);
-        }
-    }
-    if (isConnecting) {
-        // Track current mouse in World Space
-        connectStart.currentX = worldPos.x;
-        connectStart.currentY = worldPos.y;
-    }
-});
-
-document.addEventListener('mouseup', (e) => {
-    if (draggedNode) {
-        updateNodeCache(draggedNode.id); // Ensure final sync
-        draggedNode = null;
-        saveBoard();
-    }
-    if (isConnecting) {
-        if (e.target.classList.contains('port')) {
-            const targetNode = e.target.closest('.node');
-            const targetPort = e.target.dataset.port;
-            completeConnection(targetNode, targetPort);
-        } else {
-            isConnecting = false;
-        }
-    }
-});
-
-// --- CONNECTION LOGIC ---
-function startConnectionDrag(e, node, port) {
-    e.stopPropagation();
-    e.preventDefault();
-    isConnecting = true;
-    const worldPos = screenToWorld(e.clientX, e.clientY);
-    connectStart = { id: node.id, port: port, x: worldPos.x, y: worldPos.y, currentX: worldPos.x, currentY: worldPos.y };
-}
-
-function completeConnection(targetNode, targetPort) {
-    if (targetNode.id === connectStart.id) return;
-
-    const exists = connections.some(c =>
-        (c.from === connectStart.id && c.to === targetNode.id) ||
-        (c.from === targetNode.id && c.to === connectStart.id)
-    );
-
-    if (!exists) {
-        const newConn = {
-            id: 'conn_' + Date.now(),
-            from: connectStart.id,
-            to: targetNode.id,
-            fromPort: connectStart.port,
-            toPort: targetPort,
-            label: '',
-            labelT: 0.5,
-            points: [],
-            arrowLeft: 0,
-            arrowRight: 0
-        };
-        connections.push(newConn);
-        saveBoard();
-    }
-    isConnecting = false;
-}
-
-// --- DRAWING ---
-function drawConnections() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear screen
-
-    // Apply View Transform
-    ctx.save();
-    ctx.setTransform(view.scale, 0, 0, view.scale, view.x, view.y);
-
-    if (isConnecting) {
-        ctx.beginPath();
-        // Use cache for start point
-        const cache = nodeCache.get(connectStart.id);
-        if (cache) {
-            const startPos = getPortPos(cache, connectStart.port);
-            ctx.moveTo(startPos.x, startPos.y);
-            ctx.lineTo(connectStart.currentX, connectStart.currentY);
-            ctx.strokeStyle = '#f1c40f';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-    }
-
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    connections.forEach(conn => {
-        let alpha = 1;
-        if (focusMode) {
-            const n1 = document.getElementById(conn.from);
-            const n2 = document.getElementById(conn.to);
-            if (!n1 || !n2 || n1.classList.contains('blurred') || n2.classList.contains('blurred')) {
-                alpha = 0.1;
-            }
-        }
-
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = '#c0392b';
-
-        if (conn.points && conn.points.length > 0) {
-            ctx.beginPath();
-            ctx.moveTo(conn.points[0].x, conn.points[0].y);
-            for (let i = 1; i < conn.points.length - 1; i++) {
-                const xc = (conn.points[i].x + conn.points[i + 1].x) / 2;
-                const yc = (conn.points[i].y + conn.points[i + 1].y) / 2;
-                ctx.quadraticCurveTo(conn.points[i].x, conn.points[i].y, xc, yc);
-            }
-            ctx.lineTo(conn.points[conn.points.length - 1].x, conn.points[conn.points.length - 1].y);
-            ctx.stroke();
-
-            const centerPt = updateLabel(conn, alpha);
-
-            // Draw Arrows (Anchored Logic)
-            if (conn.points.length > 6) {
-                const OFFSET = 0; // Not needed if anchoring directly on point
-
-                // Left Arrow: Index 2
-                if (conn.arrowLeft !== 0) {
-                    // Determine angle at p[2] using p[1] and p[3]
-                    const idx = 2;
-                    const pA = conn.points[idx - 1];
-                    const pB = conn.points[idx + 1];
-                    const pt = conn.points[idx];
-                    const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x);
-
-                    if (conn.arrowLeft === 1) // Arrow pointing 'back' relative to flow -> Towards Start
-                        drawArrowHead(ctx, pt.x, pt.y, angle + Math.PI);
-                    else
-                        drawArrowHead(ctx, pt.x, pt.y, angle);
-                }
-
-                // Right Arrow: Index 6 (Total 9: 0..8, so 6 is 75%)
-                if (conn.arrowRight !== 0) {
-                    const idx = 6;
-                    const pA = conn.points[idx - 1];
-                    const pB = conn.points[idx + 1];
-                    const pt = conn.points[idx];
-                    const angle = Math.atan2(pB.y - pA.y, pB.x - pA.x);
-
-                    if (conn.arrowRight === 1)
-                        drawArrowHead(ctx, pt.x, pt.y, angle + Math.PI);
-                    else
-                        drawArrowHead(ctx, pt.x, pt.y, angle);
-                }
-            }
-        }
-    });
-
-    ctx.restore(); // Reset transform for next frame (or clears mostly)
-}
-
-function drawArrowHead(ctx, x, y, rotation) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(rotation);
-    ctx.beginPath();
-    ctx.moveTo(-6, -4);
-    ctx.lineTo(6, 0);
-    ctx.lineTo(-6, 4);
-    ctx.fillStyle = '#f1c40f';
-    ctx.fill();
-    ctx.restore();
-}
-
-function updateLabel(conn, alpha) {
-    let el = document.getElementById('lbl_' + conn.id);
-    const midIdx = Math.floor(conn.points.length / 2);
-    const pt = conn.points[midIdx];
-
-    // Check if currently editing
-    const isEditing = el && el.querySelector('.label-input') === document.activeElement;
-
-    // MANDATORY FIX: Use a boolean flag to keep it visible if it was just edited to empty
-    // OR if the value is non-empty.
-    if (conn.label || isEditing) {
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'lbl_' + conn.id;
-            el.className = 'string-label';
-
-            const btnLeft = document.createElement('div');
-            btnLeft.className = 'arrow-btn';
-            btnLeft.onclick = (e) => {
-                e.stopPropagation();
-                conn.arrowLeft = ((conn.arrowLeft || 0) + 1) % 3;
-                saveBoard();
-            };
-
-            const input = document.createElement('div');
-            input.className = 'label-input';
-            input.contentEditable = true;
-            input.innerText = conn.label || "";
-
-            // Input Handler
-            input.oninput = (e) => {
-                conn.label = e.target.innerText; // Keep data in sync
-                saveBoard();
-            };
-            input.onmousedown = (e) => e.stopPropagation();
-
-            // Key Handler
-            input.onkeydown = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    input.blur(); // Blur triggers disappearance if empty next frame
-                }
-            };
-
-            const btnRight = document.createElement('div');
-            btnRight.className = 'arrow-btn';
-            btnRight.onclick = (e) => {
-                e.stopPropagation();
-                conn.arrowRight = ((conn.arrowRight || 0) + 1) % 3;
-                saveBoard();
-            };
-
-            el.appendChild(btnLeft);
-            el.appendChild(input);
-            el.appendChild(btnRight);
-            labelContainer.appendChild(el);
-        }
-
-        const input = el.querySelector('.label-input');
-        if (input && document.activeElement !== input) {
-            // Sync display value with data, but avoid recursion during typing
-            if (input.innerText !== (conn.label || "")) {
-                input.innerText = conn.label || "";
-            }
-        }
-
-        const stateMap = { 0: '—', 1: '◀', 2: '▶' };
-
-        el.children[0].innerText = stateMap[conn.arrowLeft || 0];
-        el.children[2].innerText = stateMap[conn.arrowRight || 0];
-        el.children[0].className = 'arrow-btn ' + (conn.arrowLeft !== 0 ? 'active' : '');
-        el.children[2].className = 'arrow-btn ' + (conn.arrowRight !== 0 ? 'active' : '');
-
-        el.style.left = pt.x + 'px';
-        el.style.top = pt.y + 'px';
-        el.style.opacity = alpha;
-        el.style.pointerEvents = (alpha < 0.5) ? 'none' : 'auto';
-
-        el.style.display = 'flex';
-    } else {
-        if (el) el.style.display = 'none';
-    }
-    return pt;
-}
-
-// --- INTERACTION EVENT LISTENERS ---
-
-document.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-
-    const nodeEl = e.target.closest('.node');
-    if (nodeEl) {
-        enterFocusMode(nodeEl.id);
-        return;
-    }
-
-    // String Check - Needs Screen to World for Mouse Check?
-    // distToSegment assumes Points are in World. Mouse needs to be World.
-    const worldM = screenToWorld(e.clientX, e.clientY);
-
-    let bestDist = 20;
-    let closestConn = null;
-    connections.forEach(conn => {
-        if (!conn.points) return;
-        for (let i = 0; i < conn.points.length - 1; i++) {
-            const dist = distToSegment({ x: worldM.x, y: worldM.y }, conn.points[i], conn.points[i + 1]);
-            if (dist < bestDist) {
-                bestDist = dist;
-                closestConn = conn;
-            }
-        }
-    });
-
-    if (closestConn) {
-        if (!closestConn.label) {
-            closestConn.label = "Note";
-            saveBoard();
-        }
-    } else {
-        resetFocus();
-    }
-});
-
-document.addEventListener('click', (e) => {
-    const nodeEl = e.target.closest('.node');
-    if (nodeEl && nodeEl.classList.contains('editing')) return;
-
-    if (nodeEl) {
-        if (focusMode) {
-            if (nodeEl.classList.contains('blurred')) {
-                nodeEl.classList.remove('blurred');
-            } else {
-                nodeEl.classList.add('blurred');
-            }
-        }
-        return;
-    }
-});
-
-function distToSegment(p, v, w) {
-    const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
-    if (l2 == 0) return Math.hypot(p.x - v.x, p.y - v.y);
-    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-    t = Math.max(0, Math.min(1, t));
-    return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
-}
-
-
-// --- ACCESSORY FUNCTIONS ---
-function enterFocusMode(nodeId) {
-    focusMode = true;
-    focusedNodeId = nodeId;
-    document.body.classList.add('focus-active');
-
-    document.querySelectorAll('.node').forEach(n => {
-        n.classList.remove('focused');
-        n.classList.add('blurred');
-    });
-
-    expandFocus(nodeId);
-
-    const main = document.getElementById(nodeId);
-    if (main) main.classList.add('focused');
-}
-
-function expandFocus(nodeId) {
-    unblurNode(nodeId);
-    connections.forEach(c => {
-        if (c.from === nodeId) unblurNode(c.to);
-        if (c.to === nodeId) unblurNode(c.from);
+    (data.connections || []).forEach(c => {
+        if (!c.id) c.id = 'conn_' + Date.now() + Math.random();
+        connections.push(c);
+        registerConnection(c);
     });
 }
 
-function unblurNode(id) {
-    const el = document.getElementById(id);
-    if (el) el.classList.remove('blurred');
+function clearBoard() {
+    if (confirm("Clear board?")) {
+        localStorage.removeItem('invBoardData');
+        location.reload();
+    }
 }
 
-function resetFocus() {
-    focusMode = false;
-    focusedNodeId = null;
-    document.body.classList.remove('focus-active');
-    document.querySelectorAll('.node').forEach(n => {
-        n.classList.remove('blurred');
-        n.classList.remove('focused');
-    });
-}
-
-
-// --- CONTEXT MENU ---
 function showContextMenu(e, node) {
     e.preventDefault();
     contextMenu.style.display = 'block';
@@ -769,186 +706,78 @@ function showContextMenu(e, node) {
     contextMenu.style.top = e.clientY + 'px';
     contextMenu.dataset.target = node.id;
 }
+window.onclick = (e) => { if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none'; };
 
-window.onclick = (e) => {
-    if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
-};
-
-// --- EDIT NODE ---
 function editTargetNode() {
-    const id = contextMenu.dataset.target;
-    if (id) {
-        const el = document.getElementById(id);
-        if (el) {
-            const title = el.querySelector('.node-title');
-            const body = el.querySelector('.node-body');
+    const el = document.getElementById(contextMenu.dataset.target);
+    if (!el) return;
+    el.classList.add('editing');
+    const t = el.querySelector('.node-title');
+    const b = el.querySelector('.node-body');
+    t.contentEditable = b.contentEditable = true;
+    t.focus();
 
-            el.classList.add('editing');
-            title.contentEditable = true;
-            body.contentEditable = true;
-            title.focus();
-
-            const finishEdit = () => {
-                title.contentEditable = false;
-                body.contentEditable = false;
-                el.classList.remove('editing');
-                updateNodeCache(id); // Re-measure size in case it changed
-                saveBoard();
-            };
-
-            const onBlur = () => {
-                setTimeout(() => {
-                    if (document.activeElement !== title && document.activeElement !== body) {
-                        finishEdit();
-                    }
-                }, 50);
-            };
-
-            title.addEventListener('blur', onBlur);
-            body.addEventListener('blur', onBlur);
-
-            title.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    body.focus();
-                }
-            });
-
-            const range = document.createRange();
-            range.selectNodeContents(title);
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            sel.addRange(range);
-        }
-        contextMenu.style.display = 'none';
-    }
+    const end = () => {
+        t.contentEditable = b.contentEditable = false;
+        el.classList.remove('editing');
+        updateNodeCache(el.id);
+        saveBoard();
+    };
+    t.onblur = () => setTimeout(() => { if (document.activeElement !== t && document.activeElement !== b) end(); }, 50);
+    b.onblur = () => setTimeout(() => { if (document.activeElement !== t && document.activeElement !== b) end(); }, 50);
+    contextMenu.style.display = 'none';
 }
 
 function deleteTargetNode() {
     const id = contextMenu.dataset.target;
-    if (id) {
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        nodeCache.delete(id); // Remove from cache
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) el.remove();
 
-        const removedConns = connections.filter(c => c.from === id || c.to === id);
-
-        removedConns.forEach(c => {
+    connections = connections.filter(c => {
+        if (c.from === id || c.to === id) {
             const lbl = document.getElementById('lbl_' + c.id);
             if (lbl) lbl.remove();
-        });
-
-        nodes = nodes.filter(n => n.id !== id);
-        connections = connections.filter(c => c.from !== id && c.to !== id);
-        saveBoard();
-    }
-}
-
-// --- PERSISTENCE ---
-function saveBoard() {
-    const currentNodes = Array.from(document.querySelectorAll('.node')).map(el => ({
-        id: el.id,
-        type: Array.from(el.classList).find(c => c.startsWith('type-')).replace('type-', ''),
-        x: parseInt(el.style.left),
-        y: parseInt(el.style.top),
-        title: el.querySelector('.node-title').innerText,
-        body: el.querySelector('.node-body').innerText
-    }));
-
-    const data = {
-        name: document.getElementById('caseName').innerText,
-        nodes: currentNodes,
-        connections: connections.map(c => ({
-            id: c.id,
-            from: c.from, to: c.to,
-            fromPort: c.fromPort, toPort: c.toPort,
-            label: c.label,
-            arrowLeft: c.arrowLeft,
-            arrowRight: c.arrowRight
-        }))
-    };
-
-    localStorage.setItem('invBoardData', JSON.stringify(data));
-}
-
-function loadBoard() {
-    const raw = localStorage.getItem('invBoardData');
-    if (raw) {
-        const data = JSON.parse(raw);
-        document.getElementById('caseName').innerText = data.name || "UNNAMED";
-
-        connections = data.connections || [];
-        connections.forEach((c, index) => {
-            c.points = [];
-            // Backwards compatibility: Assign ID if missing (from old saves)
-            if (!c.id) {
-                c.id = 'conn_' + Date.now() + '_' + index;
-            }
-        });
-
-        nodes = data.nodes || [];
-        container.innerHTML = '';
-        labelContainer.innerHTML = '';
-
-        nodeCache.clear();
-        nodes.forEach(n => {
-            const el = createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
-            updateNodeCache(n.id);
-        });
-    }
-}
-
-function exportBoard() {
+            return false;
+        }
+        return true;
+    });
     saveBoard();
-    const raw = localStorage.getItem('invBoardData');
-    if (!raw) return;
-
-    const blob = new Blob([raw], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `case_${Date.now()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    loadBoard();
+    contextMenu.style.display = 'none';
 }
 
-function importBoard() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            try {
-                const json = JSON.parse(evt.target.result);
-                if (json.nodes && json.connections) {
-                    localStorage.setItem('invBoardData', JSON.stringify(json));
-                    loadBoard();
-                    alert("Case File Loaded Successfully!");
-                } else {
-                    alert("Invalid File Format");
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Error Parsing File");
-            }
-        };
-        reader.readAsText(file);
-    };
-    input.click();
-}
-
-function clearBoard() {
-    if (confirm("Clear the entire investigation board?")) {
-        nodes = [];
-        connections = [];
-        container.innerHTML = '';
-        labelContainer.innerHTML = '';
+function startDragNew(e, type) { e.dataTransfer.setData('text/plain', type); }
+document.body.ondragover = (e) => e.preventDefault();
+document.body.ondrop = (e) => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData('text/plain');
+    if (type) {
+        const wp = screenToWorld(e.clientX, e.clientY);
+        createNode(type, wp.x, wp.y);
         saveBoard();
     }
-}
+};
+
+document.addEventListener('dblclick', (e) => {
+    const n = e.target.closest('.node');
+    if (n) {
+        focusMode = true;
+        document.body.classList.add('focus-active');
+        document.querySelectorAll('.node').forEach(el => el.classList.add('blurred'));
+        n.classList.remove('blurred');
+        const neighborIds = new Set();
+        connections.forEach(c => {
+            if (c.from === n.id) neighborIds.add(c.to);
+            if (c.to === n.id) neighborIds.add(c.from);
+        });
+        neighborIds.forEach(nid => {
+            const el = document.getElementById(nid);
+            if (el) el.classList.remove('blurred');
+        });
+    } else {
+        focusMode = false;
+        document.body.classList.remove('focus-active');
+        document.querySelectorAll('.node').forEach(el => el.classList.remove('blurred'));
+    }
+});
