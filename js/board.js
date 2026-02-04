@@ -10,16 +10,14 @@ const CONFIG = {
     VIEW_SCALE_MAX: 3,
     BASE_THICKNESS: 3.5,
     SHADOW_THICKNESS: 6,
-    MAX_STRETCH: 15, // Pixels of stretch for max color change
+    MAX_STRETCH: 15,
 };
 
 // --- GLOBAL STATE ---
 const container = document.getElementById('board-container');
 const labelContainer = document.getElementById('string-label-container');
 const canvas = document.getElementById('connection-layer');
-
-// FIX: Removed { alpha: false } so the background is transparent again
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d'); // Transparent background
 
 const contextMenu = document.getElementById('context-menu');
 
@@ -109,11 +107,9 @@ function updatePhysics() {
         const p1 = getPortPos(c1, conn.fromPort);
         const p2 = getPortPos(c2, conn.toPort);
 
-        // Head
         physicsBuffer[basePtr] = p1.x;
         physicsBuffer[basePtr + 1] = p1.y;
 
-        // Tail
         const lastPtr = basePtr + (CONFIG.POINTS_COUNT - 1) * STRIDE;
         physicsBuffer[lastPtr] = p2.x;
         physicsBuffer[lastPtr + 1] = p2.y;
@@ -160,7 +156,6 @@ function updatePhysics() {
 
                 if (dist === 0) continue;
 
-                // Stress Calculation
                 const stress = Math.max(0, dist - CONFIG.SEGMENT_LENGTH);
                 if (stress > maxStress) maxStress = stress;
 
@@ -259,7 +254,7 @@ function drawLayer() {
     }
     ctx.stroke();
 
-    // --- PASS 2: WIRES (WHITE -> RED) ---
+    // --- PASS 2: WIRES ---
     for (let i = 0; i < len; i++) {
         const conn = connections[i];
 
@@ -280,12 +275,11 @@ function drawLayer() {
         const t = Math.min(1, stress / CONFIG.MAX_STRETCH);
 
         if (t > 0.05) {
-            // Fade Green/Blue to 0 to get Red
             const gb = Math.floor(255 * (1 - t));
             ctx.strokeStyle = `rgb(255, ${gb}, ${gb})`;
             ctx.lineWidth = CONFIG.BASE_THICKNESS;
         } else {
-            ctx.strokeStyle = '#ffffff'; // Base White
+            ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = CONFIG.BASE_THICKNESS;
         }
 
@@ -455,13 +449,10 @@ document.addEventListener('mousemove', (e) => {
     const worldPos = screenToWorld(e.clientX, e.clientY);
 
     if (draggedNode) {
-        // GPU DRAG
         const dx = worldPos.x - dragStart.x;
         const dy = worldPos.y - dragStart.y;
-
         draggedNode.style.transform = `translate(${dx}px, ${dy}px)`;
 
-        // Physics update
         const newX = dragStart.nodeX + dx;
         const newY = dragStart.nodeY + dy;
         const cache = nodeCache.get(draggedNode.id);
@@ -761,6 +752,16 @@ document.body.ondrop = (e) => {
     }
 };
 
+// HIT TEST HELPER
+function distToSegment(p, v, w) {
+    const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2;
+    if (l2 == 0) return Math.hypot(p.x - v.x, p.y - v.y);
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+}
+
+// RESTORED HIT TEST
 document.addEventListener('dblclick', (e) => {
     const n = e.target.closest('.node');
     if (n) {
@@ -768,6 +769,7 @@ document.addEventListener('dblclick', (e) => {
         document.body.classList.add('focus-active');
         document.querySelectorAll('.node').forEach(el => el.classList.add('blurred'));
         n.classList.remove('blurred');
+        // Unblur neighbors
         const neighborIds = new Set();
         connections.forEach(c => {
             if (c.from === n.id) neighborIds.add(c.to);
@@ -777,7 +779,45 @@ document.addEventListener('dblclick', (e) => {
             const el = document.getElementById(nid);
             if (el) el.classList.remove('blurred');
         });
+        return;
+    }
+
+    // HIT TEST STRINGS
+    const worldPos = screenToWorld(e.clientX, e.clientY);
+    let bestDist = 20; // threshold
+    let foundConn = null;
+
+    const len = connections.length;
+    for (let i = 0; i < len; i++) {
+        const conn = connections[i];
+        const bIdx = connToIndex.get(conn.id);
+        if (bIdx === undefined) continue;
+
+        const base = bIdx * BYTES_PER_CONN;
+
+        // Iterate segments
+        for (let j = 0; j < CONFIG.POINTS_COUNT - 1; j++) {
+            const p1Idx = base + j * STRIDE;
+            const p2Idx = base + (j + 1) * STRIDE;
+
+            const p1 = { x: physicsBuffer[p1Idx], y: physicsBuffer[p1Idx + 1] };
+            const p2 = { x: physicsBuffer[p2Idx], y: physicsBuffer[p2Idx + 1] };
+
+            const d = distToSegment(worldPos, p1, p2);
+            if (d < bestDist) {
+                bestDist = d;
+                foundConn = conn;
+            }
+        }
+    }
+
+    if (foundConn) {
+        if (!foundConn.label) {
+            foundConn.label = "Note";
+            saveBoard();
+        }
     } else {
+        // RESET FOCUS
         focusMode = false;
         document.body.classList.remove('focus-active');
         document.querySelectorAll('.node').forEach(el => el.classList.remove('blurred'));
