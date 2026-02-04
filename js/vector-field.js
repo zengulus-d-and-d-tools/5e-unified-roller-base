@@ -845,24 +845,33 @@
         });
     };
 
-    const getRandomEdgePoint = () => {
-        const side = Math.floor(Math.random() * 4);
-        switch (side) {
-            case 0: return { x: Math.random() * width, y: 0 };           // Top
-            case 1: return { x: Math.random() * width, y: height };      // Bottom
-            case 2: return { x: 0, y: Math.random() * height };          // Left
-            case 3: return { x: width, y: Math.random() * height };      // Right
-        }
-    };
-
     const renderElectric = (rgb) => {
         const { width, height } = canvas;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
         ctx.shadowBlur = 15;
 
+        // 1. Determine Origin
+        let cx = width / 2;
+        let cy = height / 2;
+        if (mouse.x !== -999) {
+            cx = mouse.x;
+            cy = mouse.y;
+        }
+
+        ctx.save();
+        ctx.translate(cx, cy); // Everything renders relative to this center
+
+        // 2. Draw Plasma Ring
+        const RADIUS = 100;
+        ctx.beginPath();
+        ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
         // --- BOLT GENERATION (Using Pool) ---
-        const spawnBolt = (x1, y1, x2, y2, life, thickness, targetObj = null) => {
+        const spawnBolt = (x1, y1, x2, y2, life, thickness, endpoints = null) => {
             // Find free bolt
             let bolt = null;
             for (let i = 0; i < MAX_BOLTS; i++) {
@@ -871,15 +880,15 @@
                     break;
                 }
             }
-            if (!bolt) return; // Pool full
+            if (!bolt) return null;
 
             bolt.active = true;
             bolt.life = life;
             bolt.maxLife = life;
-            // Generate varied color for this bolt
             bolt.color = applyOffset(rgb, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1);
-            bolt.target = targetObj;
             bolt.pathCount = 0;
+            // Store endpoints for glow rendering (if provided)
+            bolt.customProps = endpoints;
 
             // Generator Helper
             const addPath = (width) => {
@@ -924,7 +933,6 @@
                     recurse(p1x, p1y, mx, my, disp * 0.5, iter - 1);
                     recurse(mx, my, p2x, p2y, disp * 0.5, iter - 1);
 
-                    // Branching
                     if (Math.random() < 0.2 && iter > 2 && iter < 5) {
                         if (bolt.pathCount < MAX_PATHS) {
                             const branchAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.5;
@@ -938,34 +946,35 @@
                 recurse(ax, ay, bx, by, displace, iteration);
             };
 
-            generateSegments(x1, y1, x2, y2, 80, thickness, 6);
+            generateSegments(x1, y1, x2, y2, 40, thickness, 5);
+            return bolt;
+        };
+
+        // Helper
+        const getLocalPerimeter = () => {
+            const angle = Math.random() * Math.PI * 2;
+            return { x: Math.cos(angle) * RADIUS, y: Math.sin(angle) * RADIUS };
         };
 
         // --- SPAWN LOGIC ---
-        // 1. Mouse Interaction (Click): Arcs from cursor to circumference
         if (mouse.down) {
-            // High frequency: spawn multiple bolts per frame for density
+            // EXPLOSION: Center (0,0) -> Out
             const count = 3;
             for (let k = 0; k < count; k++) {
-                const target = getRandomEdgePoint();
-                // Spawn from mouse -> edge
-                spawnBolt(mouse.x, mouse.y, target.x, target.y, 10, 2.5);
+                const pt = getLocalPerimeter();
+                // End is at perimeter
+                spawnBolt(0, 0, pt.x, pt.y, 10, 2.5, { glowAtEnd: pt });
             }
-        }
-        // 2. Idle State (Plasma Ball): Arcs from circumference to cursor
-        else {
-            // Rate: 2-3 per second. Logic runs ~60 FPS.
-            // 2.5 / 60 ~= 0.04
+        } else {
+            // IMPLOSION: Out -> Center (0,0)
             if (Math.random() < 0.04) {
-                const source = getRandomEdgePoint();
-                // Spawn from edge -> mouse
-                // Life 20 (approx 1/3 sec visible)
-                spawnBolt(source.x, source.y, mouse.x, mouse.y, 20, 2, mouse);
+                const pt = getLocalPerimeter();
+                // Start is at perimeter
+                spawnBolt(pt.x, pt.y, 0, 0, 20, 2, { glowAtStart: pt });
             }
         }
 
-        // --- RENDER ---
-        // Iterate Pool
+        // --- RENDER BOLTS ---
         for (let i = 0; i < MAX_BOLTS; i++) {
             const bolt = boltPool[i];
             if (!bolt.active) continue;
@@ -976,30 +985,13 @@
                 continue;
             }
 
-            // Anchor logic
-            if (bolt.target && bolt.pathCount > 0) {
-                const mainPath = bolt.paths[0];
-                if (mainPath.count >= 2) {
-                    // Update target end of the bolt depending on direction
-                    // To handle both cases (Start->Target vs Target->Start), we need to know WHICH was anchored.
-                    // For Idle (Edge -> Mouse), the Target is the End (last point).
-                    // For Click (Mouse -> Edge), we don't track targetObj (it's null).
-
-                    // So if bolt.target is set, it MUST be the end of the bolt (last point).
-                    const lastIdx = mainPath.count - 2;
-                    if (lastIdx >= 0) {
-                        mainPath.points[lastIdx] += (bolt.target.x - mainPath.points[lastIdx]) * 0.5;
-                        mainPath.points[lastIdx + 1] += (bolt.target.y - mainPath.points[lastIdx + 1]) * 0.5;
-                    }
-                }
-            }
-
             const alpha = bolt.life / bolt.maxLife;
             ctx.globalAlpha = alpha;
             ctx.shadowBlur = 10 * alpha;
             ctx.shadowColor = `rgba(${bolt.color}, 0.8)`;
             ctx.strokeStyle = `rgba(${bolt.color}, ${alpha})`;
 
+            // Draw Paths
             for (let p = 0; p < bolt.pathCount; p++) {
                 const path = bolt.paths[p];
                 if (path.count < 2) continue;
@@ -1012,8 +1004,28 @@
                 }
                 ctx.stroke();
             }
+
+            // Draw Glow (Glows at Anchor Points)
+            if (bolt.customProps) {
+                const { glowAtStart, glowAtEnd } = bolt.customProps;
+
+                const drawGlow = (x, y) => {
+                    const g = ctx.createRadialGradient(x, y, 0, x, y, 20);
+                    g.addColorStop(0, `rgba(${bolt.color}, ${alpha})`);
+                    g.addColorStop(1, `rgba(${bolt.color}, 0)`);
+                    ctx.fillStyle = g;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                };
+
+                if (glowAtStart) drawGlow(glowAtStart.x, glowAtStart.y);
+                if (glowAtEnd) drawGlow(glowAtEnd.x, glowAtEnd.y);
+            }
         }
+
         ctx.globalAlpha = 1.0;
+        ctx.restore(); // Restore coordinate system
     };
 
 
