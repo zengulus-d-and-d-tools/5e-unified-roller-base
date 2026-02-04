@@ -843,6 +843,16 @@
         });
     };
 
+    const getRandomEdgePoint = () => {
+        const side = Math.floor(Math.random() * 4);
+        switch (side) {
+            case 0: return { x: Math.random() * width, y: 0 };           // Top
+            case 1: return { x: Math.random() * width, y: height };      // Bottom
+            case 2: return { x: 0, y: Math.random() * height };          // Left
+            case 3: return { x: width, y: Math.random() * height };      // Right
+        }
+    };
+
     const renderElectric = (rgb) => {
         const { width, height } = canvas;
         ctx.lineJoin = 'round';
@@ -930,35 +940,26 @@
         };
 
         // --- SPAWN LOGIC ---
+        // 1. Mouse Interaction (Click): Arcs from cursor to circumference
         if (mouse.down) {
-            if (Math.random() < 0.25) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = 300 + Math.random() * 200;
-                const sx = mouse.x + Math.cos(angle) * dist;
-                const sy = mouse.y + Math.sin(angle) * dist;
-                spawnBolt(mouse.x, mouse.y, sx, sy, 8, 3, mouse);
-            }
-        } else if (mouse.x !== -999) {
-            if (Math.random() < 0.02) {
-                spawnBolt(mouse.x, mouse.y, mouse.x + (Math.random() - 0.5) * 100, mouse.y + (Math.random() - 0.5) * 100, 15, 2);
-            }
-            for (let i = mouseTrack.length - 1; i >= 0; i--) {
-                const p = mouseTrack[i];
-                p.life--;
-                if (p.life <= 0) { mouseTrack.splice(i, 1); continue; }
-                if (Math.random() < 0.15) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const len = 30 + Math.random() * 50;
-                    const ex = p.x + Math.cos(angle) * len;
-                    const ey = p.y + Math.sin(angle) * len;
-                    spawnBolt(p.x, p.y, ex, ey, 5, 1.5);
-                }
+            // High frequency: spawn multiple bolts per frame for density
+            const count = 3;
+            for (let k = 0; k < count; k++) {
+                const target = getRandomEdgePoint();
+                // Spawn from mouse -> edge
+                spawnBolt(mouse.x, mouse.y, target.x, target.y, 10, 2.5);
             }
         }
-        if (Math.random() < 0.02) {
-            const x1 = Math.random() * width; const y1 = Math.random() * height;
-            const x2 = x1 + (Math.random() - 0.5) * 400; const y2 = y1 + (Math.random() - 0.5) * 400;
-            spawnBolt(x1, y1, x2, y2, 20, 2);
+        // 2. Idle State (Plasma Ball): Arcs from circumference to cursor
+        else {
+            // Rate: 2-3 per second. Logic runs ~60 FPS.
+            // 2.5 / 60 ~= 0.04
+            if (Math.random() < 0.04) {
+                const source = getRandomEdgePoint();
+                // Spawn from edge -> mouse
+                // Life 20 (approx 1/3 sec visible)
+                spawnBolt(source.x, source.y, mouse.x, mouse.y, 20, 2, mouse);
+            }
         }
 
         // --- RENDER ---
@@ -977,8 +978,17 @@
             if (bolt.target && bolt.pathCount > 0) {
                 const mainPath = bolt.paths[0];
                 if (mainPath.count >= 2) {
-                    mainPath.points[0] += (bolt.target.x - mainPath.points[0]) * 0.5;
-                    mainPath.points[1] += (bolt.target.y - mainPath.points[1]) * 0.5;
+                    // Update target end of the bolt depending on direction
+                    // To handle both cases (Start->Target vs Target->Start), we need to know WHICH was anchored.
+                    // For Idle (Edge -> Mouse), the Target is the End (last point).
+                    // For Click (Mouse -> Edge), we don't track targetObj (it's null).
+
+                    // So if bolt.target is set, it MUST be the end of the bolt (last point).
+                    const lastIdx = mainPath.count - 2;
+                    if (lastIdx >= 0) {
+                        mainPath.points[lastIdx] += (bolt.target.x - mainPath.points[lastIdx]) * 0.5;
+                        mainPath.points[lastIdx + 1] += (bolt.target.y - mainPath.points[lastIdx + 1]) * 0.5;
+                    }
                 }
             }
 
