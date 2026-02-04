@@ -2036,7 +2036,20 @@
         ctx.globalCompositeOperation = 'source-over';
     };
 
-    const animate = () => {
+    // 60FPS Limiter
+    let lastTime = 0;
+    const FPS = 60;
+    const INTERVAL = 1000 / FPS;
+
+    const animate = (timestamp) => {
+        requestAnimationFrame(animate);
+
+        if (!timestamp) timestamp = performance.now();
+        const elapsed = timestamp - lastTime;
+        if (elapsed < INTERVAL) return;
+
+        lastTime = timestamp - (elapsed % INTERVAL);
+
         ctx.clearRect(0, 0, width, height);
 
         const currentStyle = STYLES[currentStyleIdx].id;
@@ -2061,7 +2074,6 @@
         const maxEnergy = updateVectorPhysics(activeForces, activeShocks);
 
         if (currentStyle === 'OFF') {
-            requestAnimationFrame(animate);
             return;
         }
 
@@ -2086,8 +2098,6 @@
             case 'ELECTRIC': renderElectric(accent); break;
             case 'NEURAL': renderElectric(accent); break; // Fallback
         }
-
-        requestAnimationFrame(animate);
     };
 
     // =========================================
