@@ -218,7 +218,7 @@
         { id: 'VECTOR', label: 'BG: Vector' },
         { id: 'BOIDS', label: 'BG: Boids' },
         { id: 'TOPO', label: 'BG: Topography' },
-        { id: 'MATRIX', label: 'BG: Matrix' },
+        { id: 'RAIN', label: 'BG: Rain' },
         { id: 'CONSTELLATION', label: 'BG: Constellation' },
         { id: 'NEBULA', label: 'BG: Nebula' },
         { id: 'ELECTRIC', label: 'BG: Electric' },
@@ -226,41 +226,21 @@
     ];
     let currentStyleIdx = 0;
 
-    // MATRIX STATE (Replaces Rain)
-    const matrixDrops = [];
-    const matrixChars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$+-*/=%"\'#&_()[],.?';
-    // Katakana unicode range: 30A0-30FF. easier to just stirng literal or use random int
-
-    const getRandomMatrixChar = () => {
-        if (Math.random() < 0.3) {
-            // Katakana
-            return String.fromCharCode(0x30A0 + Math.random() * 96);
-        }
-        return matrixChars.charAt(Math.floor(Math.random() * matrixChars.length));
-    };
-
-    const initMatrix = () => {
-        matrixDrops.length = 0;
-        const columns = Math.floor(width / 20); // 20px font approx
-
-        for (let i = 0; i < columns; i++) {
-            // Staggered start
-            matrixDrops.push({
-                x: i * 20,
-                y: Math.random() * height - height, // Start above
+    // RAIN STATE
+    const rainDrops = [];
+    const initRain = () => {
+        rainDrops.length = 0;
+        const count = 100;
+        for (let i = 0; i < count; i++) {
+            rainDrops.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
                 vy: 5 + Math.random() * 5,
-                len: 10 + Math.floor(Math.random() * 20),
-                speed: 1 + Math.random() * 3, // drop speed
-                vals: [], // Array of chars for the trail
-                highlights: [], // Array of booleans for persistent brightness
-                first: true // Flag to spawn initial trail chars immediately
+                len: 10 + Math.random() * 20,
+                hOff: (Math.random() - 0.5) * 0.1,
+                sOff: (Math.random() - 0.5) * 0.1,
+                lOff: (Math.random() - 0.5) * 0.1
             });
-            // Pre-fill vals
-            const col = matrixDrops[i];
-            for (let j = 0; j < col.len; j++) {
-                col.vals.push(getRandomMatrixChar());
-                col.highlights.push(Math.random() < 0.05); // 1 in 20 chance
-            }
         }
     };
 
@@ -355,7 +335,7 @@
         canvas.height = height;
         buildNodes();
         updateAccent();
-        if (STYLES[currentStyleIdx].id === 'MATRIX') initMatrix();
+        if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
         if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
         if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
         if (STYLES[currentStyleIdx].id === 'NEBULA') initNebula();
@@ -400,7 +380,7 @@
 
         localStorage.setItem('vectorFieldStyle', s.id);
 
-        if (s.id === 'MATRIX') initMatrix();
+        if (s.id === 'RAIN') initRain();
         if (s.id === 'CONSTELLATION') initConstellation();
         if (s.id === 'BOIDS') initBoids();
         if (s.id === 'NEBULA') initNebula();
@@ -416,7 +396,7 @@
         shockwaves.length = 0;
         mouseTrack.length = 0;
         boids.length = 0;
-        matrixDrops.length = 0;
+        rainDrops.length = 0;
         stars.length = 0;
         // Nebula particles are re-init on style switch anyway, but clear them to be sure
         nebulaParticles.length = 0;
@@ -505,23 +485,6 @@
         // Continuous force handles interaction now, shockwave on release
         if (STYLES[currentStyleIdx].id === 'NEBULA') {
             spawnNebulaPulse(e.clientX, e.clientY);
-        }
-        if (STYLES[currentStyleIdx].id === 'MATRIX') {
-            const col = Math.floor(e.clientX / 20) * 20;
-            const newDrop = {
-                x: col,
-                y: e.clientY,
-                vy: 5 + Math.random() * 5,
-                len: 10 + Math.floor(Math.random() * 20),
-                vals: [],
-                highlights: [],
-                first: true
-            };
-            for (let j = 0; j < newDrop.len; j++) {
-                newDrop.vals.push(getRandomMatrixChar());
-                newDrop.highlights.push(Math.random() < 0.05);
-            }
-            matrixDrops.push(newDrop);
         }
         mouse.down = true;
     });
@@ -1526,78 +1489,53 @@
         });
     };
 
-    const renderMatrix = (rgb, activeShocks) => {
-        const { width, height } = canvas;
-        ctx.font = 'bold 20px monospace';
-        ctx.textAlign = 'center';
+    const renderRain = (rgb, activeShocks) => {
+        // ctx.strokeStyle removed
+        ctx.lineWidth = 1;
 
-        matrixDrops.forEach(d => {
+        rainDrops.forEach(d => {
             d.y += d.vy;
 
-            // Screen wrap
-            if (d.y - d.len * 20 > height) {
-                d.y = -20;
-                d.x = Math.floor(Math.random() * (width / 20)) * 20;
-                d.len = 10 + Math.floor(Math.random() * 20);
-                d.vals = [];
-                d.highlights = [];
-                for (let i = 0; i < d.len; i++) {
-                    d.vals.push(getRandomMatrixChar());
-                    d.highlights.push(Math.random() < 0.05);
+            // Calculate Deflection
+            let vx = 0;
+            if (mouse.x !== -999) {
+                const dx = d.x - mouse.x;
+                const dy = d.y - mouse.y;
+                const dist = Math.hypot(dx, dy);
+                // Mouse repel/wind
+                if (dist < 300) {
+                    vx += (dx / dist) * 10 * (1 - dist / 300);
                 }
             }
 
-            // Draw Trail
-            const headY = d.y;
-            // Snap to grid visually?
-            const snapHeadY = Math.floor(headY / 20) * 20;
+            forces.forEach(f => {
+                const dist = Math.hypot(d.x - f.x, d.y - f.y);
+                if (dist < 200) vx += (d.x - f.x) / dist * 5 * f.life;
+            });
 
-            for (let i = 0; i < d.len; i++) {
-                const charY = snapHeadY - i * 20;
-                // Cull off-screen
-                if (charY > height + 20) continue;
-                // Don't cull top, we need to see them falling in
+            d.x += vx;
 
-                const char = d.vals[i];
-
-                // Character Switch Logic (Decoding Effect)
-                if (Math.random() < 0.05) {
-                    d.vals[i] = getRandomMatrixChar();
-                    // Keep existing highlight status or re-roll? 
-                    // Let's re-roll to make it dynamic
-                    if (Math.random() < 0.05) d.highlights[i] = !d.highlights[i];
-                }
-
-                // Opacity
-                let alpha = 1.0 - (i / d.len);
-                if (alpha < 0) alpha = 0;
-
-                // Head is white/bright
-                if (i === 0) {
-                    ctx.fillStyle = '#ffffff';
-                    ctx.shadowBlur = 5;
-                    ctx.shadowColor = '#ffffff';
-                    // ctx.font = 'bold 22px monospace';
-                } else {
-                    // Luminosity Logic
-                    let isBright = d.highlights[i];
-
-                    if (!isBright && mouse.x !== -999) {
-                        // Check proximity
-                        const dist = Math.hypot(d.x - mouse.x, charY - mouse.y); // Approx Y check
-                        if (dist < 100) isBright = true;
+            if (activeShocks) {
+                shockwaves.forEach(s => {
+                    const dist = Math.hypot(d.x - s.x, d.y - s.y);
+                    if (Math.abs(dist - s.radius) < s.thickness + 10) {
+                        d.y -= 5;
+                        d.x += (Math.random() - 0.5) * 10;
                     }
-
-                    if (!isBright) alpha *= 0.5;
-
-                    ctx.fillStyle = `rgba(${rgb}, ${alpha})`;
-                    ctx.shadowBlur = 0;
-                    // ctx.font = '20px monospace';
-                }
-
-                ctx.fillText(char, d.x, charY);
+                });
             }
-            ctx.shadowBlur = 0;
+            if (d.y > height) {
+                d.y = -d.len;
+                d.x = Math.random() * width;
+            }
+
+            // Draw skewed line based on vx
+            const dropColor = applyOffset(rgb, d.hOff, d.sOff, d.lOff);
+            ctx.strokeStyle = `rgba(${dropColor}, 0.4)`;
+            ctx.beginPath();
+            ctx.moveTo(d.x, d.y);
+            ctx.lineTo(d.x + vx * 2, d.y + d.len);
+            ctx.stroke();
         });
     };
 
@@ -2008,7 +1946,7 @@
             case 'VECTOR': renderVector(accent); break;
             case 'BOIDS': renderBoids(accent); break;
             case 'TOPO': renderTopo(accent); break;
-            case 'MATRIX': renderMatrix(accent, activeShocks); break;
+            case 'RAIN': renderRain(accent, activeShocks); break;
             case 'CONSTELLATION': renderConstellation(accent, activeShocks); break;
             case 'NEBULA': renderNebula(accent); break;
             case 'ELECTRIC': renderElectric(accent); break;
@@ -2044,7 +1982,7 @@
             }, 500);
         }
 
-        if (STYLES[currentStyleIdx].id === 'MATRIX') initMatrix();
+        if (STYLES[currentStyleIdx].id === 'RAIN') initRain();
         if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
         if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
 
