@@ -473,13 +473,13 @@
 
     // --- RENDERERS ---
     const renderField = (rgb) => {
-        // High Performance Dense Field Renderer
-        // 1. Subdivision (STEPS=2 means 4 sub-cells per grid cell)
-        // 2. Localized Flushing (to avoid massive paths)
+        // Optimized Field Renderer
+        // STEPS=1 for performance (Field is naturally sparse/clean)
+        // Flush every column to keep path buffer small
 
-        const STEPS = 2; // Matches Grid density/quality
-        const BUCKET_COUNT = 10; // Reduced from 21 for speed
-        const FLUSH_EVERY = 5; // Flush paths every N columns
+        const STEPS = 1;
+        const BUCKET_COUNT = 10;
+        const FLUSH_EVERY = 1; // Flush every column like Grid
 
         // Init Buckets
         const buckets = [];
@@ -488,101 +488,77 @@
 
         // Helper: Flush
         const flush = () => {
-            drawBuckets(ctx, rgb, buckets, shockBucket);
-            // Clear
-            for (let i = 0; i < BUCKET_COUNT; i++) buckets[i].length = 0;
-            shockBucket.length = 0;
-        };
+            // Adaptive alpha based on bucket count
+            const baseColor = `rgba(${rgb}, `;
+            const shockColorStr = `rgba(${rgb}, 0.9)`;
 
-        const lerp = (a, b, t) => a + (b - a) * t;
+            // Draw Standard Buckets
+            for (let b = 1; b < BUCKET_COUNT; b++) {
+                const list = buckets[b];
+                if (list.length === 0) continue;
+                const alpha = (b / BUCKET_COUNT) * 0.8;
+                ctx.strokeStyle = baseColor + alpha + ")";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (let i = 0; i < list.length; i += 4) {
+                    ctx.moveTo(list[i], list[i + 1]);
+                    ctx.lineTo(list[i + 2], list[i + 3]);
+                }
+                ctx.stroke();
+                list.length = 0; // Clear
+            }
+
+            // Draw Shock Bucket
+            if (shockBucket.length > 0) {
+                ctx.strokeStyle = shockColorStr;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                for (let i = 0; i < shockBucket.length; i += 4) {
+                    ctx.moveTo(shockBucket[i], shockBucket[i + 1]);
+                    ctx.lineTo(shockBucket[i + 2], shockBucket[i + 3]);
+                }
+                ctx.stroke();
+                shockBucket.length = 0;
+            }
+        };
 
         layers.forEach(l => {
             const { cols, rows, rawNodes, rawMeta } = l;
 
             for (let cx = 0; cx < cols - 1; cx++) {
-
                 // FLUSH CHECK
-                if (cx % FLUSH_EVERY === 0) flush();
+                flush();
 
                 for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
                     const right = idx + rows;
                     const down = idx + 1;
-                    const diag = idx + rows + 1;
 
-                    // Node Data (Positions)
-                    const x1 = rawNodes[idx * 6]; const y1 = rawNodes[idx * 6 + 1];
-                    const x2 = rawNodes[right * 6]; const y2 = rawNodes[right * 6 + 1];
-                    const x3 = rawNodes[down * 6]; const y3 = rawNodes[down * 6 + 1];
-                    const x4 = rawNodes[diag * 6]; const y4 = rawNodes[diag * 6 + 1];
+                    // Node Data
+                    const x = rawNodes[idx * 6]; const y = rawNodes[idx * 6 + 1];
+                    const e = rawMeta[idx * 2]; const s = rawMeta[idx * 2 + 1];
 
-                    // Meta Data (E=Energy, S=Shock)
-                    const e1 = rawMeta[idx * 2]; const s1 = rawMeta[idx * 2 + 1];
-                    const e2 = rawMeta[right * 2]; const s2 = rawMeta[right * 2 + 1];
-                    const e3 = rawMeta[down * 2]; const s3 = rawMeta[down * 2 + 1];
-                    const e4 = rawMeta[diag * 2]; const s4 = rawMeta[diag * 2 + 1];
+                    // Visual parameters
+                    const intensity = (e * CONFIG.TRAIL_SENSITIVITY) + s + 0.1; // Baseline visibility
 
-                    // SUBDIVISION LOOP
-                    for (let sx = 0; sx < STEPS; sx++) {
-                        for (let sy = 0; sy < STEPS; sy++) {
-                            const tx = sx / STEPS;
-                            const ty = sy / STEPS;
+                    if (intensity < 0.05) continue;
 
-                            // Interpolate Current Point
-                            const xt = lerp(x1, x2, tx); const yt = lerp(y1, y2, tx);
-                            const xb = lerp(x3, x4, tx); const yb = lerp(y3, y4, tx);
-                            const px = lerp(xt, xb, ty);
-                            const py = lerp(yt, yb, ty);
+                    const bIdx = Math.floor(Math.min(0.99, intensity) * BUCKET_COUNT);
 
-                            // Interpolate Values
-                            const et = lerp(e1, e2, tx); const eb = lerp(e3, e4, tx);
-                            const valE = lerp(et, eb, ty);
+                    // Draw Right
+                    const rx = rawNodes[right * 6];
+                    const ry = rawNodes[right * 6 + 1];
+                    if (s > 0.5) shockBucket.push(x, y, rx, ry);
+                    else if (bIdx > 0) buckets[bIdx].push(x, y, rx, ry);
 
-                            const st = lerp(s1, s2, tx); const sb = lerp(s3, s4, tx);
-                            const valS = lerp(st, sb, ty);
-
-                            // Next H Point (Right)
-                            const txR = (sx + 1) / STEPS;
-                            if (txR <= 1.001) { // Floating point safety
-                                const xtR = lerp(x1, x2, txR); const ytR = lerp(y1, y2, txR);
-                                const xbR = lerp(x3, x4, txR); const ybR = lerp(y3, y4, txR);
-                                const pxR = lerp(xtR, xbR, ty);
-                                const pyR = lerp(ytR, ybR, ty);
-
-                                // Draw Line Right
-                                const intensity = (valE * CONFIG.TRAIL_SENSITIVITY) + valS + 0.1; // +0.1 Base
-                                if (intensity > 0.05) {
-                                    if (valS > 0.5) {
-                                        shockBucket.push(px, py, pxR, pyR);
-                                    } else {
-                                        const bIdx = Math.floor(Math.min(0.99, intensity) * BUCKET_COUNT);
-                                        if (bIdx >= 0) buckets[bIdx].push(px, py, pxR, pyR);
-                                    }
-                                }
-                            }
-
-                            // Next V Point (Down)
-                            const tyD = (sy + 1) / STEPS;
-                            if (tyD <= 1.001) {
-                                const pxD = lerp(xt, xb, tyD);
-                                const pyD = lerp(yt, yb, tyD);
-
-                                // Draw Line Down
-                                const intensity = (valE * CONFIG.TRAIL_SENSITIVITY) + valS + 0.1;
-                                if (intensity > 0.05) {
-                                    if (valS > 0.5) {
-                                        shockBucket.push(px, py, pxD, pyD);
-                                    } else {
-                                        const bIdx = Math.floor(Math.min(0.99, intensity) * BUCKET_COUNT);
-                                        if (bIdx >= 0) buckets[bIdx].push(px, py, pxD, pyD);
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    // Draw Down
+                    const dx = rawNodes[down * 6];
+                    const dy = rawNodes[down * 6 + 1];
+                    if (s > 0.5) shockBucket.push(x, y, dx, dy);
+                    else if (bIdx > 0) buckets[bIdx].push(x, y, dx, dy);
                 }
             }
-            flush(); // Final flush for layer
+            flush(); // Final flush
         });
     };
 
@@ -590,16 +566,17 @@
         const { width, height } = canvas;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-        ctx.shadowBlur = 15; // Slightly reduced for performance
+        ctx.shadowBlur = 15;
         ctx.shadowColor = `rgba(${rgb}, 0.8)`;
         ctx.fillStyle = `rgba(${rgb}, 0.8)`;
 
         // --- BOLT GENERATION ---
 
-        const createBolt = (x1, y1, x2, y2, life, thickness) => {
+        const createBolt = (x1, y1, x2, y2, life, thickness, targetObj = null) => {
             const paths = [];
 
             // Recursive segment generator
+            // We capture 'paths' via closure
             const generateSegments = (ax, ay, bx, by, displace, width, iteration) => {
                 const points = [{ x: ax, y: ay }];
 
@@ -608,17 +585,12 @@
                         points.push({ x: p2x, y: p2y });
                         return;
                     }
-
                     const dx = p2x - p1x;
                     const dy = p2y - p1y;
                     const midX = (p1x + p2x) / 2;
                     const midY = (p1y + p2y) / 2;
                     const len = Math.sqrt(dx * dx + dy * dy);
-
-                    // Normal
-                    const nx = -dy / len;
-                    const ny = dx / len;
-
+                    const nx = -dy / len; const ny = dx / len;
                     const jitter = (Math.random() - 0.5) * disp;
                     const mx = midX + nx * jitter;
                     const my = midY + ny * jitter;
@@ -627,124 +599,79 @@
                     recurse(mx, my, p2x, p2y, disp * 0.5, iter - 1);
 
                     // Branching
-                    if (Math.random() < 0.2 && iter > 2) {
-                        // Create a new path for the branch
+                    if (Math.random() < 0.2 && iter > 2 && iter < 5) {
                         const branchAngle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.5;
                         const branchLen = len * (0.5 + Math.random() * 0.5);
                         const ex = mx + Math.cos(branchAngle) * branchLen;
                         const ey = my + Math.sin(branchAngle) * branchLen;
 
-                        // Add branch path
-                        const branchPath = [];
-                        // Simple recursive fill for branch
-                        const fillBranch = (sx, sy, ex, ey, d, i) => {
-                            if (i <= 0) {
-                                branchPath.push({ x: sx, y: sy }, { x: ex, y: ey }); // Simplified
-                                return;
-                            }
-                            // ... reuse recurse logic? It pushes to 'points'.
-                            // Let's just recursively call generateSegments for the branch!
-                            // But we need to capture the result. 
-                        }
-                        // Actually, just push a new task to our main 'paths' list?
-                        // Better: call a helper that returns points.
-
-                        const branchPoints = getSegmentPoints(mx, my, ex, ey, disp, iteration - 1);
-                        paths.push({ points: branchPoints, width: width * 0.6 });
+                        const branchPts = getSegmentPoints(mx, my, ex, ey, disp, iteration - 1);
+                        paths.push({ points: branchPts, width: width * 0.6 });
                     }
                 };
 
-                // Helper to get points array directly
+                // Private helper for branch points
                 const getSegmentPoints = (sx, sy, ex, ey, disp, iter) => {
                     const pts = [{ x: sx, y: sy }];
-
                     const sub = (ax, ay, bx, by, d, i) => {
-                        if (i <= 0) {
-                            pts.push({ x: bx, y: by });
-                            return;
-                        }
-                        const dx = bx - ax;
-                        const dy = by - ay;
-                        const midX = (ax + bx) / 2;
-                        const midY = (ay + by) / 2;
-                        const len = Math.sqrt(dx * dx + dy * dy) || 1;
-                        const nx = -dy / len; const ny = dx / len;
-                        const j = (Math.random() - 0.5) * d;
-                        const mx = midX + nx * j;
-                        const my = midY + ny * j;
-
+                        if (i <= 0) { pts.push({ x: bx, y: by }); return; }
+                        const mx = (ax + bx) / 2 + (Math.random() - 0.5) * d;
+                        const my = (ay + by) / 2 + (Math.random() - 0.5) * d;
                         sub(ax, ay, mx, my, d * 0.5, i - 1);
                         sub(mx, my, bx, by, d * 0.5, i - 1);
-
-                        // Branch inside sub
-                        if (Math.random() < 0.15 && i > 2) {
-                            const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.0;
-                            const bLen = len * 0.8;
-                            const bx2 = mx + Math.cos(angle) * bLen;
-                            const by2 = my + Math.sin(angle) * bLen;
-
-                            const bPts = getSegmentPoints(mx, my, bx2, by2, d * 0.8, i - 1);
-                            paths.push({ points: bPts, width: width * 0.5 });
-                        }
                     };
-
                     sub(sx, sy, ex, ey, disp, iter);
                     return pts;
                 };
 
-                const mainPts = getSegmentPoints(ax, ay, bx, by, displace, iteration);
-                paths.push({ points: mainPts, width: thickness });
+                recurse(ax, ay, bx, by, displace, iteration);
+                paths.push({ points, width }); // Main path
             };
 
-            generateSegments(x1, y1, x2, y2, 80, thickness, 6); // High displacement, 6 iterations
-
-            return {
-                paths,
-                life,
-                maxLife: life,
-                color: rgb
-            };
+            generateSegments(x1, y1, x2, y2, 80, thickness, 6);
+            return { paths, life, maxLife: life, color: rgb, target: targetObj };
         };
 
-        // --- LOGIC: SPAWN BOLTS ---
-
-        // 1. Mouse Interaction
+        // --- SPAWN LOGIC ---
         if (mouse.down) {
-            // Continuous arc to mouse from random points on screen
-            if (Math.random() < 0.3) { // Limit spawn rate
+            // High spawn rate for responsiveness, short life
+            if (Math.random() < 0.4) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = 300 + Math.random() * 200;
                 const sx = mouse.x + Math.cos(angle) * dist;
                 const sy = mouse.y + Math.sin(angle) * dist;
-                lightningBolts.push(createBolt(sx, sy, mouse.x, mouse.y, 10, 3));
+                // Target is mouse object
+                lightningBolts.push(createBolt(sx, sy, mouse.x, mouse.y, 8, 3, mouse));
             }
         } else if (mouse.x !== -999) {
-            // Passive interaction: lightning occasionally strikes near mouse
             if (Math.random() < 0.05) {
                 const sx = Math.random() * width;
-                const sy = 0; // From top
+                const sy = 0;
                 lightningBolts.push(createBolt(sx, sy, mouse.x + (Math.random() - 0.5) * 100, mouse.y + (Math.random() - 0.5) * 100, 15, 2));
             }
         }
-
-        // 2. Random Ambient
         if (Math.random() < 0.02) {
-            const x1 = Math.random() * width;
-            const y1 = Math.random() * height;
-            const x2 = x1 + (Math.random() - 0.5) * 400;
-            const y2 = y1 + (Math.random() - 0.5) * 400;
+            const x1 = Math.random() * width; const y1 = Math.random() * height;
+            const x2 = x1 + (Math.random() - 0.5) * 400; const y2 = y1 + (Math.random() - 0.5) * 400;
             lightningBolts.push(createBolt(x1, y1, x2, y2, 20, 2));
         }
 
-        // --- RENDER & UPDATE ---
-
+        // --- RENDER ---
         for (let i = lightningBolts.length - 1; i >= 0; i--) {
             const bolt = lightningBolts[i];
             bolt.life--;
+            if (bolt.life <= 0) { lightningBolts.splice(i, 1); continue; }
 
-            if (bolt.life <= 0) {
-                lightningBolts.splice(i, 1);
-                continue;
+            // Anchor logic
+            if (bolt.target && bolt.paths.length > 0) {
+                // The last point of the FIRST path (main path) should snap to target
+                const mainPath = bolt.paths[bolt.paths.length - 1]; // Actually main path is pushed LAST in generateSegments
+                if (mainPath && mainPath.points.length > 0) {
+                    const lastPt = mainPath.points[mainPath.points.length - 1];
+                    // Lerp towards target for smoothness
+                    lastPt.x += (bolt.target.x - lastPt.x) * 0.5;
+                    lastPt.y += (bolt.target.y - lastPt.y) * 0.5;
+                }
             }
 
             const alpha = bolt.life / bolt.maxLife;
