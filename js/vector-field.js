@@ -862,13 +862,12 @@
         ctx.save();
         ctx.translate(cx, cy); // Everything renders relative to this center
 
-        // 2. Draw Plasma Ring (Invisible geometry)
+        // 2. Draw Plasma Ring (Invisible geometry + CLIPPING)
         const RADIUS = 100;
-        // ctx.beginPath();
-        // ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
-        // ctx.strokeStyle = `rgba(${rgb}, 0.3)`;
-        // ctx.lineWidth = 1;
-        // ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(0, 0, RADIUS, 0, Math.PI * 2);
+        // ctx.stroke(); // Invisible
+        ctx.clip(); // Mask everything to inside the ball
 
         // --- BOLT GENERATION (Using Pool) ---
         const spawnBolt = (x1, y1, x2, y2, life, thickness, endpoints = null) => {
@@ -1020,18 +1019,39 @@
             if (bolt.customProps) {
                 const { glowAtStart, glowAtEnd } = bolt.customProps;
 
-                const drawGlow = (x, y) => {
-                    const g = ctx.createRadialGradient(x, y, 0, x, y, 20);
-                    g.addColorStop(0, `rgba(${bolt.color}, ${alpha})`);
-                    g.addColorStop(1, `rgba(${bolt.color}, 0)`);
-                    ctx.fillStyle = g;
+                const drawEdgeGlow = (x, y) => {
+                    const angle = Math.atan2(y, x);
+                    const radius = 99; // Slightly inside ring
+
+                    // Layered Arcs for Tapering Effect
+                    ctx.shadowBlur = 10 * alpha;
+                    ctx.shadowColor = `rgba(${bolt.color}, 0.8)`;
+                    ctx.lineCap = 'round'; // Important for smooth ends
+
+                    // Wide/Dim
                     ctx.beginPath();
-                    ctx.arc(x, y, 20, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.arc(0, 0, radius, angle - 0.4, angle + 0.4);
+                    ctx.strokeStyle = `rgba(${bolt.color}, ${alpha * 0.3})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    // Mid/Bright
+                    ctx.beginPath();
+                    ctx.arc(0, 0, radius, angle - 0.2, angle + 0.2);
+                    ctx.strokeStyle = `rgba(${bolt.color}, ${alpha * 0.6})`;
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+
+                    // Center/Hot
+                    ctx.beginPath();
+                    ctx.arc(0, 0, radius, angle - 0.05, angle + 0.05);
+                    ctx.strokeStyle = `rgba(${bolt.color}, ${alpha})`;
+                    ctx.lineWidth = 4;
+                    ctx.stroke();
                 };
 
-                if (glowAtStart) drawGlow(glowAtStart.x, glowAtStart.y);
-                if (glowAtEnd) drawGlow(glowAtEnd.x, glowAtEnd.y);
+                if (glowAtStart) drawEdgeGlow(glowAtStart.x, glowAtStart.y);
+                if (glowAtEnd) drawEdgeGlow(glowAtEnd.x, glowAtEnd.y);
             }
         }
 
