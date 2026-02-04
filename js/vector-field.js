@@ -370,9 +370,9 @@
     const spawnShockwave = (x, y) => {
         shockwaves.push({
             x, y, radius: 0, age: 0,
-            maxAge: CONFIG.SHOCK_DURATION,
-            thickness: CONFIG.SHOCK_THICKNESS,
-            amplitude: CONFIG.SHOCK_AMPLITUDE
+            maxAge: window.CONFIG.SHOCK_DURATION,
+            thickness: window.CONFIG.SHOCK_THICKNESS,
+            amplitude: window.CONFIG.SHOCK_AMPLITUDE
         });
         if (shockwaves.length > 10) shockwaves.shift();
         activity = 1;
@@ -580,11 +580,11 @@
                             targetX += f.vx * influence; targetY += f.vy * influence;
                         }
                     }
-                    vx += (targetX - x) * CONFIG.TENSION;
-                    vy += (targetY - y) * CONFIG.TENSION;
+                    vx += (targetX - x) * window.CONFIG.TENSION;
+                    vy += (targetY - y) * window.CONFIG.TENSION;
                 } else {
-                    vx += (baseX - x) * CONFIG.TENSION;
-                    vy += (baseY - y) * CONFIG.TENSION;
+                    vx += (baseX - x) * window.CONFIG.TENSION;
+                    vy += (baseY - y) * window.CONFIG.TENSION;
                 }
 
                 if (mouse.down) {
@@ -605,7 +605,7 @@
                     }
                 }
 
-                vx *= CONFIG.FRICTION; vy *= CONFIG.FRICTION;
+                vx *= window.CONFIG.FRICTION; vy *= window.CONFIG.FRICTION;
 
                 // SHOCKWAVE PHYSICAL PUSH
                 let shock = 0;
@@ -813,7 +813,7 @@
 
                     const avgE_r = (e + er) * 0.5;
                     const avgS_r = (s + sr) * 0.5;
-                    const intensityR = (avgE_r * CONFIG.TRAIL_SENSITIVITY) + avgS_r + 0.15;
+                    const intensityR = (avgE_r * window.CONFIG.TRAIL_SENSITIVITY) + avgS_r + 0.15;
 
                     const rx = rawNodes[right * 6];
                     const ry = rawNodes[right * 6 + 1];
@@ -830,7 +830,7 @@
 
                     const avgE_d = (e + ed) * 0.5;
                     const avgS_d = (s + sd) * 0.5;
-                    const intensityD = (avgE_d * CONFIG.TRAIL_SENSITIVITY) + avgS_d + 0.15;
+                    const intensityD = (avgE_d * window.CONFIG.TRAIL_SENSITIVITY) + avgS_d + 0.15;
 
                     const dx = rawNodes[down * 6];
                     const dy = rawNodes[down * 6 + 1];
@@ -2066,7 +2066,7 @@
         let activeShocks = false;
         for (let i = shockwaves.length - 1; i >= 0; i--) {
             const s = shockwaves[i];
-            s.radius += CONFIG.SHOCK_SPEED;
+            s.radius += window.CONFIG.SHOCK_SPEED;
             s.age++;
             if (s.age >= s.maxAge) shockwaves.splice(i, 1);
             else activeShocks = true;
@@ -2103,11 +2103,147 @@
     };
 
     // =========================================
+    //          PHYSICS CONFIG PANEL
+    // =========================================
+    window.updateVectorLayer = (index, key, value) => {
+        if (layers[index]) {
+            layers[index][key] = value;
+            // specific handling if needed (e.g. if spacing changes, need rebuild)
+            if (key === 'spacing') resize();
+        }
+    };
+
+    const initPhysicsPanel = () => {
+        const btn = document.getElementById('btn-bg-style');
+        if (!btn) return;
+
+        btn.addEventListener('click', (e) => {
+            if (e.shiftKey && e.altKey) {
+                e.preventDefault();
+                e.stopPropagation();
+                togglePhysicsPanel();
+            }
+        });
+    };
+
+    const togglePhysicsPanel = () => {
+        let panel = document.getElementById('vector-physics-panel');
+        if (panel) {
+            panel.remove();
+            return;
+        }
+
+        panel = document.createElement('div');
+        panel.id = 'vector-physics-panel';
+        Object.assign(panel.style, {
+            position: 'fixed',
+            top: '50px',
+            right: '20px',
+            width: '300px',
+            background: 'rgba(0, 0, 0, 0.9)',
+            border: '1px solid #444',
+            borderRadius: '8px',
+            padding: '15px',
+            zIndex: '99999',
+            color: '#eee',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            overflowY: 'auto',
+            maxHeight: '80vh'
+        });
+
+        const title = document.createElement('h3');
+        title.innerText = 'Physics Config';
+        title.style.margin = '0 0 10px 0';
+        title.style.color = '#78cdc4';
+        title.style.borderBottom = '1px solid #333';
+        title.style.paddingBottom = '5px';
+        title.style.display = 'flex';
+        title.style.justifyContent = 'space-between';
+
+        const closeBtn = document.createElement('span');
+        closeBtn.innerText = ' [x]';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.onclick = () => panel.remove();
+        title.appendChild(closeBtn);
+        panel.appendChild(title);
+
+        const createInput = (label, obj, key, min, max, step, onChange = null) => {
+            const row = document.createElement('div');
+            row.style.marginBottom = '8px';
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+
+            const lbl = document.createElement('label');
+            lbl.style.flex = '1';
+            lbl.innerText = label;
+
+            const valDisplay = document.createElement('span');
+            valDisplay.style.width = '40px';
+            valDisplay.style.textAlign = 'right';
+            valDisplay.style.marginLeft = '10px';
+            valDisplay.innerText = obj[key] && obj[key].toFixed ? obj[key].toFixed(2) : obj[key];
+
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.min = min;
+            input.max = max;
+            input.step = step;
+            input.value = obj[key];
+            input.style.flex = '1';
+
+            input.oninput = (e) => {
+                const val = parseFloat(e.target.value);
+                obj[key] = val; // Direct update
+                valDisplay.innerText = val.toFixed(step < 0.1 ? 3 : 2);
+                if (onChange) onChange(val);
+            };
+
+            row.appendChild(lbl);
+            row.appendChild(input);
+            row.appendChild(valDisplay);
+            panel.appendChild(row);
+        };
+
+        // Global Params
+        // Note: We use window.CONFIG to ensure we are editing the global object
+        const C = window.CONFIG;
+        createInput('Tension', C, 'TENSION', 0.001, 0.2, 0.001);
+        createInput('Friction', C, 'FRICTION', 0.5, 0.99, 0.01);
+        createInput('Trail Sens', C, 'TRAIL_SENSITIVITY', 0.1, 5.0, 0.1);
+        createInput('Shock Amp', C, 'SHOCK_AMPLITUDE', 0.1, 5.0, 0.1);
+        createInput('Shock Speed', C, 'SHOCK_SPEED', 0.1, 10.0, 0.1);
+        createInput('Shock Thickness', C, 'SHOCK_THICKNESS', 1, 20, 1);
+
+        // Layers
+        const subHeader = document.createElement('div');
+        subHeader.innerText = 'Layers (Drag)';
+        subHeader.style.margin = '15px 0 5px 0';
+        subHeader.style.color = '#aaa';
+        subHeader.style.borderBottom = '1px solid #333';
+        panel.appendChild(subHeader);
+
+        C.LAYERS.forEach((l, idx) => {
+            createInput(`Layer ${idx} Drag`, l, 'drag', 0.01, 0.5, 0.01, (val) => {
+                // Also update internal state via helper
+                window.updateVectorLayer(idx, 'drag', val);
+            });
+            createInput(`Layer ${idx} Rad`, l, 'radius', 10, 500, 10, (val) => {
+                window.updateVectorLayer(idx, 'radius', val);
+            });
+        });
+
+        document.body.appendChild(panel);
+    };
+
+    // =========================================
     //                 INIT
     // =========================================
     const init = () => {
         buildNodes();
         updateAccent();
+        initPhysicsPanel(); // Initialize the secret panel listener
 
         // LOAD SAVED STYLE
         const savedStyle = localStorage.getItem('vectorFieldStyle');
