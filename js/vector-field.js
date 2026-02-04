@@ -260,7 +260,7 @@
                 sOff: (Math.random() - 0.5) * 0.1,
                 lOff: (Math.random() - 0.5) * 0.1,
                 twinklePhase: Math.random() * Math.PI * 2,
-                twinkleSpeed: 0.02 + Math.random() * 0.05
+                twinkleSpeed: 0.0005 + Math.random() * 0.0015
             });
         }
     };
@@ -1154,6 +1154,7 @@
                                 ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
                                 ctx.moveTo(x2, y2);
                                 ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+                                ctx.stroke();
                             }
                         }
                     }
