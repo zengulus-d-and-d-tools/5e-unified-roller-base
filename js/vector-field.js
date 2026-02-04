@@ -248,18 +248,19 @@
             matrixDrops.push({
                 x: i * 20,
                 y: Math.random() * height - height, // Start above
-                vy: 5 + Math.random() * 5,
+                vy: 2 + Math.random() * 4, // Slower speed (2-6)
                 len: 10 + Math.floor(Math.random() * 20),
-                speed: 1 + Math.random() * 3, // drop speed
+                speed: 1 + Math.random() * 3, // drop speed (redundant with vy? Keeping for compatibility if used)
                 vals: [], // Array of chars for the trail
-                highlights: [], // Array of booleans for persistent brightness
+                highlights: [], // Moved to top-level isHighlight, but keeping struct to avoid breaking
+                isHighlight: Math.random() < 0.05, // 5% chance of being fullbright
                 first: true // Flag to spawn initial trail chars immediately
             });
             // Pre-fill vals
             const col = matrixDrops[i];
             for (let j = 0; j < col.len; j++) {
                 col.vals.push(getRandomMatrixChar());
-                col.highlights.push(Math.random() < 0.05); // 1 in 20 chance
+                col.highlights.push(false); // Legacy filler
             }
         }
     };
@@ -511,15 +512,16 @@
             const newDrop = {
                 x: col,
                 y: e.clientY,
-                vy: 5 + Math.random() * 5,
+                vy: 2 + Math.random() * 4, // Slower (2-6)
                 len: 10 + Math.floor(Math.random() * 20),
                 vals: [],
                 highlights: [],
+                isHighlight: Math.random() < 0.05,
                 first: true
             };
             for (let j = 0; j < newDrop.len; j++) {
                 newDrop.vals.push(getRandomMatrixChar());
-                newDrop.highlights.push(Math.random() < 0.05);
+                newDrop.highlights.push(false);
             }
             matrixDrops.push(newDrop);
         }
@@ -1550,10 +1552,11 @@
                 d.x = Math.floor(Math.random() * (width / 20)) * 20;
                 d.len = 10 + Math.floor(Math.random() * 20);
                 d.vals = [];
-                d.highlights = [];
+                d.highlights = []; // Cleared
+                d.isHighlight = Math.random() < 0.05; // Re-roll chance
                 for (let i = 0; i < d.len; i++) {
                     d.vals.push(getRandomMatrixChar());
-                    d.highlights.push(Math.random() < 0.05);
+                    d.highlights.push(false);
                 }
             }
 
@@ -1573,36 +1576,52 @@
                 // Character Switch Logic (Decoding Effect)
                 if (Math.random() < 0.05) {
                     d.vals[i] = getRandomMatrixChar();
-                    // Keep existing highlight status or re-roll? 
-                    // Let's re-roll to make it dynamic
-                    if (Math.random() < 0.05) d.highlights[i] = !d.highlights[i];
                 }
 
-                // Opacity
-                let alpha = 1.0 - (i / d.len);
-                if (alpha < 0) alpha = 0;
+                // --- LUMINOSITY LOGIC ---
+                // Base Alpha
+                let alpha = 1.0;
 
-                // Head is white/bright
-                if (i === 0) {
+                // Inherited Brightness (Parent is Highlight)
+                const isFullBright = d.isHighlight;
+
+                // Proximity Brightness (Mouse Interaction)
+                let isNear = false;
+                if (mouse.x !== -999) {
+                    // Check simple distance
+                    const dx = d.x - mouse.x;
+                    const dy = charY - mouse.y;
+                    if (dx * dx + dy * dy < 10000) { // 100px radius
+                        isNear = true;
+                    }
+                }
+
+                if (isFullBright || isNear) {
+                    // Bright Mode
+                    alpha = 1.0;
+                } else {
+                    // Dim Mode -> 25% max
+                    alpha = 0.25;
+                }
+
+                // Fade Trail Tail
+                // Linear fade for the whole tail? 
+                // "Trails need to inherit... meaning a trail could be bright even if character has left"
+                // So if isFullBright, we might NOT want to fade the alpha too much, or just standard partial fade?
+                // Standard matrix fades the tail.
+                const tailFade = 1.0 - (i / d.len);
+                alpha *= tailFade;
+
+                // Color Selection
+                if (i === 0 && (isFullBright || isNear)) {
+                    // Head is White ONLY if bright/near
                     ctx.fillStyle = '#ffffff';
                     ctx.shadowBlur = 5;
                     ctx.shadowColor = '#ffffff';
-                    // ctx.font = 'bold 22px monospace';
                 } else {
-                    // Luminosity Logic
-                    let isBright = d.highlights[i];
-
-                    if (!isBright && mouse.x !== -999) {
-                        // Check proximity
-                        const dist = Math.hypot(d.x - mouse.x, charY - mouse.y); // Approx Y check
-                        if (dist < 100) isBright = true;
-                    }
-
-                    if (!isBright) alpha *= 0.5;
-
-                    ctx.fillStyle = `rgba(${rgb}, ${alpha})`;
+                    // Standard Color (Accent)
+                    ctx.fillStyle = `rgba(${rgb}, ${Math.max(0, alpha)})`;
                     ctx.shadowBlur = 0;
-                    // ctx.font = '20px monospace';
                 }
 
                 ctx.fillText(char, d.x, charY);
