@@ -122,6 +122,8 @@
         ]
     };
 
+    window.CONFIG = CONFIG;
+
     const DRAG_FACTOR = 2000;
 
     // --- SIMPLEX NOISE (Compact) ---
