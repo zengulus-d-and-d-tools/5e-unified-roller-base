@@ -70,6 +70,7 @@
     const forces = [];
     const shockwaves = [];
     const lightningBolts = []; // { paths: [{points:[], width}], life, maxLife, color }
+    const mouseTrack = []; // Trail history for Electric style
     let activity = 0;
     const mouse = { x: -999, y: -999, prevX: -999, prevY: -999, down: false };
     // currentAccentRGB defined at top
@@ -236,6 +237,13 @@
         if (s.id === 'CONSTELLATION') initConstellation();
         if (s.id === 'BOIDS') initBoids();
         if (s.id === 'NEBULA') initNebula();
+
+        // FIX: Clear physics state to prevent lag spike when switching styles (especially to Field)
+        forces.length = 0;
+        shockwaves.length = 0;
+        fieldBuckets.forEach(b => b.length = 0);
+        fieldShockBucket.length = 0;
+        mouseTrack.length = 0;
     };
 
     // --- ACCENT COLOR SYSTEM ---
@@ -247,6 +255,11 @@
     // =========================================
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', e => {
+        // Track mouse history for Electric trail
+        if (mouseTrack.length < 20) { // Limit density
+            mouseTrack.push({ x: e.clientX, y: e.clientY, life: 10 });
+        }
+
         if (mouse.prevX !== -999) {
             const distX = e.clientX - mouse.prevX;
             const distY = e.clientY - mouse.prevY;
@@ -654,11 +667,34 @@
                 lightningBolts.push(createBolt(mouse.x, mouse.y, sx, sy, 8, 3, mouse));
             }
         } else if (mouse.x !== -999) {
+            // TRAIL LOGIC
+            // 1. Current cursor
             if (Math.random() < 0.05) {
                 const sx = Math.random() * width;
                 const sy = 0;
-                lightningBolts.push(createBolt(sx, sy, mouse.x + (Math.random() - 0.5) * 100, mouse.y + (Math.random() - 0.5) * 100, 15, 2));
+                lightningBolts.push(createBolt(mouse.x, mouse.y, mouse.x + (Math.random() - 0.5) * 100, mouse.y + (Math.random() - 0.5) * 100, 15, 2));
             }
+
+            // 2. Mouse History Trail
+            for (let i = mouseTrack.length - 1; i >= 0; i--) {
+                const p = mouseTrack[i];
+                p.life--;
+                if (p.life <= 0) {
+                    mouseTrack.splice(i, 1);
+                    continue;
+                }
+
+                // Spawn chance proportional to life? Or just random.
+                if (Math.random() < 0.3) {
+                    // Small chaotic bolts along the path
+                    const angle = Math.random() * Math.PI * 2;
+                    const len = 30 + Math.random() * 50;
+                    const ex = p.x + Math.cos(angle) * len;
+                    const ey = p.y + Math.sin(angle) * len;
+                    lightningBolts.push(createBolt(p.x, p.y, ex, ey, 5, 1.5));
+                }
+            }
+
         }
         if (Math.random() < 0.02) {
             const x1 = Math.random() * width; const y1 = Math.random() * height;
