@@ -255,9 +255,23 @@
     // =========================================
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', e => {
-        // Track mouse history for Electric trail
-        if (mouseTrack.length < 20) { // Limit density
-            mouseTrack.push({ x: e.clientX, y: e.clientY, life: 10 });
+        // Track mouse history for Electric trail (Interpolated High-Res)
+        if (mouse.prevX !== -999) {
+            const distX = e.clientX - mouse.prevX;
+            const distY = e.clientY - mouse.prevY;
+            const dist = Math.hypot(distX, distY);
+            const steps = Math.ceil(dist / 10); // One point every 10px
+
+            for (let i = 0; i < steps; i++) {
+                const t = (i + 1) / steps;
+                const lx = mouse.prevX + distX * t;
+                const ly = mouse.prevY + distY * t;
+                mouseTrack.push({ x: lx, y: ly, life: 12 });
+            }
+            // Cap history
+            while (mouseTrack.length > 50) mouseTrack.shift();
+        } else {
+            mouseTrack.push({ x: e.clientX, y: e.clientY, life: 12 });
         }
 
         if (mouse.prevX !== -999) {
@@ -314,6 +328,7 @@
         if (activeShocks) activity = 1;
         if (mouse.down) activity = 1; // Keep active while holding
 
+        let maxEnergy = 0;
 
         layers.forEach(layer => {
             const { rawNodes, rawMeta, cols, rows, drag } = layer;
@@ -404,8 +419,14 @@
 
                 rawMeta[i * 2] = Math.abs(vx) + Math.abs(vy);
                 rawMeta[i * 2 + 1] = shock;
+
+                // Track max kinetic energy for idle sleep
+                const ke = Math.abs(vx) + Math.abs(vy);
+                if (ke > maxEnergy) maxEnergy = ke;
             }
         });
+
+        return maxEnergy;
     };
 
 
@@ -1599,10 +1620,6 @@
         ctx.clearRect(0, 0, width, height);
 
         const currentStyle = STYLES[currentStyleIdx].id;
-        if (currentStyle === 'OFF') {
-            requestAnimationFrame(animate);
-            return;
-        }
 
         let activeForces = false;
         for (let i = forces.length - 1; i >= 0; i--) {
@@ -1620,7 +1637,26 @@
             else activeShocks = true;
         }
 
-        updateVectorPhysics(activeForces, activeShocks);
+        // Always update physics to avoid cold-start lag when switching styles
+        const maxEnergy = updateVectorPhysics(activeForces, activeShocks);
+
+        if (currentStyle === 'OFF') {
+            requestAnimationFrame(animate);
+            return;
+        }
+
+        // --- IDLE SLEEP OPTIMIZATION ---
+        // If simulation is static and specific (heavy) styles are active, skip rendering.
+        // Allowed Sleep Styles: FIELD, GRID, VECTOR, TOPO. 
+        // Dynamic Styles (Always Render): ELECTRIC (random sparks), RAIN, BOIDS, NEBULA (drift), CONSTELLATION.
+        const canSleep = ['FIELD', 'GRID', 'VECTOR', 'TOPO'].includes(currentStyle);
+
+        if (canSleep && maxEnergy < 0.05 && !activeForces && !activeShocks && !mouse.down && mouse.prevX === mouse.x) {
+            // System is at rest. Do NOT clear rect. Do NOT render.
+            // Just loop back.
+            requestAnimationFrame(animate);
+            return;
+        }
 
         const accent = currentAccentRGB;
         switch (currentStyle) {
