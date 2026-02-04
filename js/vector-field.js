@@ -276,6 +276,20 @@
             b.history = [];
             b.vx = 0; b.vy = 0;
         });
+
+        // FIX: Reset Grid Nodes to prevent ghosting
+        layers.forEach(l => {
+            const { rawNodes, rawMeta } = l;
+            const count = rawNodes.length / 6;
+            for (let i = 0; i < count; i++) {
+                const base = i * 6;
+                rawNodes[base] = rawNodes[base + 4];     // Reset X -> BaseX
+                rawNodes[base + 1] = rawNodes[base + 5]; // Reset Y -> BaseY
+                rawNodes[base + 2] = 0; // VX
+                rawNodes[base + 3] = 0; // VY
+            }
+            rawMeta.fill(0); // Reset Energy/Shock
+        });
     };
 
     // --- ACCENT COLOR SYSTEM ---
@@ -291,7 +305,7 @@
         if (mouse.prevX !== -999) {
             const distX = e.clientX - mouse.prevX;
             const distY = e.clientY - mouse.prevY;
-            const dist = Math.sqrt(distX, distY);
+            const dist = Math.hypot(distX, distY);
             const steps = Math.ceil(dist / 10); // One point every 10px
 
             for (let i = 0; i < steps; i++) {
@@ -309,7 +323,7 @@
         if (mouse.prevX !== -999) {
             const distX = e.clientX - mouse.prevX;
             const distY = e.clientY - mouse.prevY;
-            const dist = Math.sqrt(distX, distY);
+            const dist = Math.hypot(distX, distY);
 
             // Interpolate to fill gaps for smooth trail
             // Step size ~15px (half-grid)
@@ -618,7 +632,7 @@
 
                     // Optimization: Visibility Cutoff (User Request)
                     if (avgS_r > 0.05) fieldShockBucket.push(x, y, rx, ry); // Shock visible
-                    else if (intensityR > 0.15 && bIdxR > 0) fieldBuckets[bIdxR].push(x, y, rx, ry); // Field visible only if intensity > threshold
+                    else if (intensityR > 0.18 && bIdxR > 0) fieldBuckets[bIdxR].push(x, y, rx, ry); // Field visible only if intensity > threshold
 
                     // Draw Down
                     const downIdx = down;
@@ -636,7 +650,7 @@
                     // Optimization: Visibility Cutoff (User Request)
                     // Only add to buckets if intensity is high enough to be visible
                     if (avgS_d > 0.05) fieldShockBucket.push(x, y, dx, dy); // Shock visible
-                    else if (intensityD > 0.15 && bIdxD > 0) fieldBuckets[bIdxD].push(x, y, dx, dy); // Field visible only if intensity > threshold
+                    else if (intensityD > 0.18 && bIdxD > 0) fieldBuckets[bIdxD].push(x, y, dx, dy); // Field visible only if intensity > threshold
                 }
             }
             flush(); // Final flush
@@ -975,7 +989,7 @@
                             const finalX = lerp(xt, xb, ty);
                             const finalY = lerp(yt, yb, ty);
 
-                            const mag = Math.sqrt(finalVX, finalVY);
+                            const mag = Math.hypot(finalVX, finalVY);
                             const shock = rawMeta[idx * 2 + 1]; // Just use TL shock for now, or interp? Interp is overkill.
 
                             if (mag > 0.1 || shock > 0.1) {
@@ -1028,7 +1042,7 @@
             // Calculate distances
             const withDist = boids.map((b, i) => ({
                 idx: i,
-                dist: Math.sqrt(b.x - mouse.x, b.y - mouse.y)
+                dist: Math.hypot(b.x - mouse.x, b.y - mouse.y)
             }));
 
             // Sort by distance
@@ -1063,7 +1077,7 @@
             boids.forEach(other => {
                 const dx = b.x - other.x;
                 const dy = b.y - other.y;
-                const dist = Math.sqrt(dx, dy);
+                const dist = Math.hypot(dx, dy);
 
                 if (dist > 0 && dist < perception) {
                     // Alignment
@@ -1098,7 +1112,7 @@
             if (mouse.x !== -999) {
                 const dx = b.x - mouse.x;
                 const dy = b.y - mouse.y;
-                const dist = Math.sqrt(dx, dy);
+                const dist = Math.hypot(dx, dy);
 
                 if (mouse.down && calledSet.has(index)) {
                     // CALL & ORBIT (Selected Boids Only)
@@ -1146,7 +1160,7 @@
             }
 
             // 3. Limit Speed (Reduced Further)
-            const speed = Math.sqrt(b.vx, b.vy);
+            const speed = Math.hypot(b.vx, b.vy);
             const lim = 2.0; // Very calm
             if (speed > lim) {
                 b.vx = (b.vx / speed) * lim;
@@ -1332,7 +1346,7 @@
             if (mouse.x !== -999) {
                 const dx = d.x - mouse.x;
                 const dy = d.y - mouse.y;
-                const dist = Math.sqrt(dx, dy);
+                const dist = Math.hypot(dx, dy);
                 // Mouse repel/wind
                 if (dist < 300) {
                     vx += (dx / dist) * 10 * (1 - dist / 300);
@@ -1340,7 +1354,7 @@
             }
 
             forces.forEach(f => {
-                const dist = Math.sqrt(d.x - f.x, d.y - f.y);
+                const dist = Math.hypot(d.x - f.x, d.y - f.y);
                 if (dist < 200) vx += (d.x - f.x) / dist * 5 * f.life;
             });
 
@@ -1348,7 +1362,7 @@
 
             if (activeShocks) {
                 shockwaves.forEach(s => {
-                    const dist = Math.sqrt(d.x - s.x, d.y - s.y);
+                    const dist = Math.hypot(d.x - s.x, d.y - s.y);
                     if (Math.abs(dist - s.radius) < s.thickness + 10) {
                         d.y -= 5;
                         d.x += (Math.random() - 0.5) * 10;
@@ -1375,7 +1389,7 @@
             if (mouse.x !== -999) {
                 const dx = s.x - mouse.x;
                 const dy = s.y - mouse.y;
-                const d = Math.sqrt(dx, dy);
+                const d = Math.hypot(dx, dy);
                 if (d < 150) {
                     s.vx += (dx / d) * 0.5;
                     s.vy += (dy / d) * 0.5;
@@ -1410,7 +1424,7 @@
                 shockwaves.forEach(wave => {
                     const dx = s.x - wave.x;
                     const dy = s.y - wave.y;
-                    const d = Math.sqrt(dx, dy);
+                    const d = Math.hypot(dx, dy);
                     const distFromWave = Math.abs(d - wave.radius);
                     if (distFromWave < wave.thickness * 2) {
                         const push = wave.amplitude * 0.5;
@@ -1469,7 +1483,7 @@
             const rx = half + (Math.random() - 0.5) * size * 0.6;
             const ry = half + (Math.random() - 0.5) * size * 0.6;
 
-            const dist = Math.sqrt(rx - half, ry - half);
+            const dist = Math.hypot(rx - half, ry - half);
             if (dist > half * 0.75) continue;
 
             const rRad = (Math.random() * 40 + 15) * (1 - dist / half);
@@ -1556,7 +1570,7 @@
         nebulaParticles.forEach(p => {
             const dx = p.x - x;
             const dy = p.y - y;
-            const dist = Math.sqrt(dx, dy);
+            const dist = Math.hypot(dx, dy);
             if (dist < 400) {
                 const force = (400 - dist) / 400;
                 const angle = Math.atan2(dy, dx);
