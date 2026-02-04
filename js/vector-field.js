@@ -482,7 +482,8 @@
         // STEPS=1, Global Buckets (Zero GC)
 
         const STEPS = 1;
-        const FLUSH_EVERY = 5;
+        // Removed FLUSH_EVERY to improve batching performance
+        // Canvas can easily handle full grid in one path (approx 2-3k segments)
 
         // Helper: Flush
         const flush = () => {
@@ -523,7 +524,7 @@
             const { cols, rows, rawNodes, rawMeta } = l;
 
             for (let cx = 0; cx < cols - 1; cx++) {
-                if (cx % FLUSH_EVERY === 0) flush();
+                // if (cx % FLUSH_EVERY === 0) flush(); // Removed for performance
 
                 for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
@@ -534,22 +535,37 @@
                     const e = rawMeta[idx * 2]; const s = rawMeta[idx * 2 + 1];
 
                     // Visual parameters
-                    // Fixed: Minimal intensity ensures grid is always connected (faintly)
-                    const intensity = (e * CONFIG.TRAIL_SENSITIVITY) + s + 0.15;
-
-                    const bIdx = Math.floor(Math.min(0.99, Math.max(0, intensity)) * BUCKET_COUNT);
+                    // Fix: Average intensity for segments to prevent "upside-down L" artifacts
 
                     // Draw Right
+                    const rightIdx = right;
+                    const er = rawMeta[rightIdx * 2]; const sr = rawMeta[rightIdx * 2 + 1];
+
+                    const avgE_r = (e + er) * 0.5;
+                    const avgS_r = (s + sr) * 0.5;
+                    const intensityR = (avgE_r * CONFIG.TRAIL_SENSITIVITY) + avgS_r + 0.15;
+
                     const rx = rawNodes[right * 6];
                     const ry = rawNodes[right * 6 + 1];
-                    if (s > 0.5) fieldShockBucket.push(x, y, rx, ry);
-                    else if (bIdx > 0) fieldBuckets[bIdx].push(x, y, rx, ry);
+
+                    const bIdxR = Math.floor(Math.min(0.99, Math.max(0, intensityR)) * BUCKET_COUNT);
+                    if (avgS_r > 0.5) fieldShockBucket.push(x, y, rx, ry);
+                    else if (bIdxR > 0) fieldBuckets[bIdxR].push(x, y, rx, ry);
 
                     // Draw Down
+                    const downIdx = down;
+                    const ed = rawMeta[downIdx * 2]; const sd = rawMeta[downIdx * 2 + 1];
+
+                    const avgE_d = (e + ed) * 0.5;
+                    const avgS_d = (s + sd) * 0.5;
+                    const intensityD = (avgE_d * CONFIG.TRAIL_SENSITIVITY) + avgS_d + 0.15;
+
                     const dx = rawNodes[down * 6];
                     const dy = rawNodes[down * 6 + 1];
-                    if (s > 0.5) fieldShockBucket.push(x, y, dx, dy);
-                    else if (bIdx > 0) fieldBuckets[bIdx].push(x, y, dx, dy);
+
+                    const bIdxD = Math.floor(Math.min(0.99, Math.max(0, intensityD)) * BUCKET_COUNT);
+                    if (avgS_d > 0.5) fieldShockBucket.push(x, y, dx, dy);
+                    else if (bIdxD > 0) fieldBuckets[bIdxD].push(x, y, dx, dy);
                 }
             }
             flush(); // Final flush
@@ -634,8 +650,8 @@
                 const dist = 300 + Math.random() * 200;
                 const sx = mouse.x + Math.cos(angle) * dist;
                 const sy = mouse.y + Math.sin(angle) * dist;
-                // Target is mouse object
-                lightningBolts.push(createBolt(sx, sy, mouse.x, mouse.y, 8, 3, mouse));
+                // Target is mouse object. Spawn FROM mouse TO outside (sx, sy) so forks angle away.
+                lightningBolts.push(createBolt(mouse.x, mouse.y, sx, sy, 8, 3, mouse));
             }
         } else if (mouse.x !== -999) {
             if (Math.random() < 0.05) {
@@ -658,13 +674,14 @@
 
             // Anchor logic
             if (bolt.target && bolt.paths.length > 0) {
-                // The last point of the FIRST path (main path) should snap to target
-                const mainPath = bolt.paths[bolt.paths.length - 1]; // Actually main path is pushed LAST in generateSegments
+                // The FIRST point of the FIRST path should snap to target (since we reversed spawn direction)
+                // Spawn: Mouse -> Outside.
+                const mainPath = bolt.paths[bolt.paths.length - 1]; // Main path is still the last one pushed
                 if (mainPath && mainPath.points.length > 0) {
-                    const lastPt = mainPath.points[mainPath.points.length - 1];
+                    const firstPt = mainPath.points[0]; // Start of bolt (at mouse)
                     // Lerp towards target for smoothness
-                    lastPt.x += (bolt.target.x - lastPt.x) * 0.5;
-                    lastPt.y += (bolt.target.y - lastPt.y) * 0.5;
+                    firstPt.x += (bolt.target.x - firstPt.x) * 0.5;
+                    firstPt.y += (bolt.target.y - firstPt.y) * 0.5;
                 }
             }
 
