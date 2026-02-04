@@ -472,29 +472,26 @@
     };
 
     // --- RENDERERS ---
+
+    // GLOBAL RENDER CACHE (No GC)
+    const BUCKET_COUNT = 10;
+    const fieldBuckets = Array.from({ length: BUCKET_COUNT }, () => []);
+    const fieldShockBucket = [];
     const renderField = (rgb) => {
         // Optimized Field Renderer
-        // STEPS=1 for performance (Field is naturally sparse/clean)
-        // Flush every column to keep path buffer small
+        // STEPS=1, Global Buckets (Zero GC)
 
         const STEPS = 1;
-        const BUCKET_COUNT = 10;
-        const FLUSH_EVERY = 1; // Flush every column like Grid
-
-        // Init Buckets
-        const buckets = [];
-        for (let i = 0; i < BUCKET_COUNT; i++) buckets.push([]);
-        const shockBucket = [];
+        const FLUSH_EVERY = 5;
 
         // Helper: Flush
         const flush = () => {
-            // Adaptive alpha based on bucket count
             const baseColor = `rgba(${rgb}, `;
             const shockColorStr = `rgba(${rgb}, 0.9)`;
 
             // Draw Standard Buckets
             for (let b = 1; b < BUCKET_COUNT; b++) {
-                const list = buckets[b];
+                const list = fieldBuckets[b];
                 if (list.length === 0) continue;
                 const alpha = (b / BUCKET_COUNT) * 0.8;
                 ctx.strokeStyle = baseColor + alpha + ")";
@@ -509,16 +506,16 @@
             }
 
             // Draw Shock Bucket
-            if (shockBucket.length > 0) {
+            if (fieldShockBucket.length > 0) {
                 ctx.strokeStyle = shockColorStr;
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
-                for (let i = 0; i < shockBucket.length; i += 4) {
-                    ctx.moveTo(shockBucket[i], shockBucket[i + 1]);
-                    ctx.lineTo(shockBucket[i + 2], shockBucket[i + 3]);
+                for (let i = 0; i < fieldShockBucket.length; i += 4) {
+                    ctx.moveTo(fieldShockBucket[i], fieldShockBucket[i + 1]);
+                    ctx.lineTo(fieldShockBucket[i + 2], fieldShockBucket[i + 3]);
                 }
                 ctx.stroke();
-                shockBucket.length = 0;
+                fieldShockBucket.length = 0;
             }
         };
 
@@ -526,36 +523,33 @@
             const { cols, rows, rawNodes, rawMeta } = l;
 
             for (let cx = 0; cx < cols - 1; cx++) {
-                // FLUSH CHECK
-                flush();
+                if (cx % FLUSH_EVERY === 0) flush();
 
                 for (let cy = 0; cy < rows - 1; cy++) {
                     const idx = cx * rows + cy;
                     const right = idx + rows;
                     const down = idx + 1;
 
-                    // Node Data
                     const x = rawNodes[idx * 6]; const y = rawNodes[idx * 6 + 1];
                     const e = rawMeta[idx * 2]; const s = rawMeta[idx * 2 + 1];
 
                     // Visual parameters
-                    const intensity = (e * CONFIG.TRAIL_SENSITIVITY) + s + 0.1; // Baseline visibility
+                    // Fixed: Minimal intensity ensures grid is always connected (faintly)
+                    const intensity = (e * CONFIG.TRAIL_SENSITIVITY) + s + 0.15;
 
-                    if (intensity < 0.05) continue;
-
-                    const bIdx = Math.floor(Math.min(0.99, intensity) * BUCKET_COUNT);
+                    const bIdx = Math.floor(Math.min(0.99, Math.max(0, intensity)) * BUCKET_COUNT);
 
                     // Draw Right
                     const rx = rawNodes[right * 6];
                     const ry = rawNodes[right * 6 + 1];
-                    if (s > 0.5) shockBucket.push(x, y, rx, ry);
-                    else if (bIdx > 0) buckets[bIdx].push(x, y, rx, ry);
+                    if (s > 0.5) fieldShockBucket.push(x, y, rx, ry);
+                    else if (bIdx > 0) fieldBuckets[bIdx].push(x, y, rx, ry);
 
                     // Draw Down
                     const dx = rawNodes[down * 6];
                     const dy = rawNodes[down * 6 + 1];
-                    if (s > 0.5) shockBucket.push(x, y, dx, dy);
-                    else if (bIdx > 0) buckets[bIdx].push(x, y, dx, dy);
+                    if (s > 0.5) fieldShockBucket.push(x, y, dx, dy);
+                    else if (bIdx > 0) fieldBuckets[bIdx].push(x, y, dx, dy);
                 }
             }
             flush(); // Final flush
