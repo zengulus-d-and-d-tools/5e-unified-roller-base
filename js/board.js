@@ -535,9 +535,9 @@ function createNode(type, x, y, id = null, content = {}) {
     container.appendChild(nodeEl);
     updateNodeCache(nodeId);
 
-    if (!id) {
-        nodes.push({ id: nodeId, type, x: x - 75, y: y - 40 });
-    }
+    // Ensure node is tracked in global state (both for new and loaded nodes)
+    nodes.push({ id: nodeId, type, x: x - 75, y: y - 40 });
+
     return nodeEl;
 }
 
