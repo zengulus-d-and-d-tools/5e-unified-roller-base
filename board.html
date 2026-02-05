@@ -64,15 +64,17 @@
 
             <!-- POPUP TRIGGERS -->
             <div class="tool-group">
-                <div class="tool-item" id="btn-guilds">
+                <div class="tool-item" id="btn-guilds"
+                    onclick="event.stopPropagation(); window.togglePopup('guild-popup')">
                     <div class="icon">🏛️</div>
                     <div class="label">Guilds</div>
                 </div>
-                <div class="tool-item" id="btn-npcs">
+                <div class="tool-item" id="btn-npcs" onclick="event.stopPropagation(); window.togglePopup('npc-popup')">
                     <div class="icon">👥</div>
                     <div class="label">NPCs</div>
                 </div>
-                <div class="tool-item" id="btn-locations">
+                <div class="tool-item" id="btn-locations"
+                    onclick="event.stopPropagation(); window.togglePopup('location-popup')">
                     <div class="icon">📍</div>
                     <div class="label">Places</div>
                 </div>
