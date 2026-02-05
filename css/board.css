@@ -620,6 +620,45 @@ body.focus-active .header-overlay {
     font-size: 2rem;
 }
 
+/* Filter Bar */
+.filter-bar {
+    position: sticky;
+    top: 0;
+    background: #1e1e1e;
+    padding: 10px;
+    border-bottom: 1px solid #333;
+    z-index: 10;
+    display: flex;
+    gap: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.filter-input,
+.filter-select {
+    background: #000;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.filter-input:focus,
+.filter-select:focus {
+    border-color: var(--accent);
+}
+
+.filter-input {
+    flex: 1;
+}
+
+.filter-select {
+    width: 120px;
+    cursor: pointer;
+}
+
 /* --- FORMATTING TOOLBAR --- */
 .formatting-toolbar {
     position: absolute;

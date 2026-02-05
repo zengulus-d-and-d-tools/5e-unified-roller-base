@@ -17,5 +17,7 @@ A suite of lightweight, offline-first HTML tools for 5th Edition tabletop rolepl
 ## Usage
 Simply open any `.html` file in a modern web browser (Edge, Chrome, Firefox). Data is saved automatically to your browser's Local Storage.
 
+For a comprehensive guide on using the player tools, see **[Player Guide](player.md)**.
+
 ## License
 The Unlicense (Public Domain).

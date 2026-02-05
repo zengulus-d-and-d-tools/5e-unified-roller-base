@@ -118,10 +118,10 @@ function initNPCToolbar() {
 
     // Create Filter UI
     container.innerHTML = `
-        <div style="position:sticky; top:0; background:#1e1e1e; padding:5px; border-bottom:1px solid #333; z-index:10; display:flex; gap:5px;">
-            <input type="text" id="npc-search" placeholder="Search..." oninput="renderNPCs()" style="flex:1; background:#000; color:#fff; border:1px solid #444; padding:3px; font-size:0.8rem;">
-            <select id="npc-guild-filter" onchange="renderNPCs()" style="background:#000; color:#fff; border:1px solid #444; width:80px; font-size:0.8rem;">
-                <option value="">All</option>
+        <div class="filter-bar">
+            <input type="text" id="npc-search" class="filter-input" placeholder="Search NPCs..." oninput="renderNPCs()">
+            <select id="npc-guild-filter" class="filter-select" onchange="renderNPCs()">
+                <option value="">All Guilds</option>
                 ${(window.RTF_DATA && window.RTF_DATA.guilds ? window.RTF_DATA.guilds.map(g => `<option value="${g}">${g}</option>`).join('') : '')}
             </select>
         </div>
@@ -142,9 +142,10 @@ function renderNPCs() {
     listContainer.innerHTML = '';
 
     const filtered = npcs.filter(npc => {
-        const matchesName = npc.name.toLowerCase().includes(searchTerm);
+        const text = `${npc.name} ${npc.wants || ''} ${npc.leverage || ''} ${npc.notes || ''} ${npc.guild || ''}`.toLowerCase();
+        const matchesSearch = text.includes(searchTerm);
         const matchesGuild = !guildFilter || (npc.guild === guildFilter);
-        return matchesName && matchesGuild;
+        return matchesSearch && matchesGuild;
     });
 
     if (filtered.length === 0) {
@@ -178,10 +179,10 @@ function initLocationToolbar() {
 
     // Create Filter UI
     container.innerHTML = `
-        <div style="position:sticky; top:0; background:#1e1e1e; padding:5px; border-bottom:1px solid #333; z-index:10; display:flex; gap:5px;">
-            <input type="text" id="loc-search" placeholder="Search..." oninput="renderLocations()" style="flex:1; background:#000; color:#fff; border:1px solid #444; padding:3px; font-size:0.8rem;">
-            <select id="loc-guild-filter" onchange="renderLocations()" style="background:#000; color:#fff; border:1px solid #444; width:80px; font-size:0.8rem;">
-                <option value="">All</option>
+        <div class="filter-bar">
+            <input type="text" id="loc-search" class="filter-input" placeholder="Search Places..." oninput="renderLocations()">
+            <select id="loc-guild-filter" class="filter-select" onchange="renderLocations()">
+                <option value="">All Districts</option>
                 ${(window.RTF_DATA && window.RTF_DATA.guilds ? window.RTF_DATA.guilds.map(g => `<option value="${g}">${g}</option>`).join('') : '')}
             </select>
         </div>
@@ -202,10 +203,11 @@ function renderLocations() {
     listContainer.innerHTML = '';
 
     const filtered = locs.filter(loc => {
-        const matchesName = loc.name.toLowerCase().includes(searchTerm);
+        const text = `${loc.name} ${loc.district || ''} ${loc.desc || ''} ${loc.notes || ''}`.toLowerCase();
+        const matchesSearch = text.includes(searchTerm);
         // Location "District" is essentially the Guild
         const matchesGuild = !guildFilter || (loc.district === guildFilter);
-        return matchesName && matchesGuild;
+        return matchesSearch && matchesGuild;
     });
 
     if (filtered.length === 0) {
