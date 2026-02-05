@@ -68,6 +68,33 @@ function initToolbars() {
     initGuildToolbar();
     initNPCToolbar();
     initLocationToolbar();
+    initFormattingToolbar();
+}
+
+function initFormattingToolbar() {
+    if (document.getElementById('formatting-toolbar')) return;
+    const tb = document.createElement('div');
+    tb.id = 'formatting-toolbar';
+    tb.className = 'formatting-toolbar';
+
+    ['bold', 'italic', 'underline'].forEach(cmd => {
+        const btn = document.createElement('div');
+        btn.className = 'formatting-btn';
+        btn.dataset.cmd = cmd;
+        // Icons: B, I, U
+        btn.innerHTML = cmd === 'bold' ? 'B' : cmd === 'italic' ? 'I' : 'U';
+        btn.style.fontStyle = cmd === 'italic' ? 'italic' : 'normal';
+        btn.style.textDecoration = cmd === 'underline' ? 'underline' : 'none';
+
+        btn.onmousedown = (e) => {
+            e.preventDefault(); // Prevent losing focus
+            document.execCommand(cmd, false, null);
+            saveBoard();
+        };
+        tb.appendChild(btn);
+    });
+
+    document.body.appendChild(tb);
 }
 
 function initGuildToolbar() {
@@ -103,9 +130,9 @@ function initNPCToolbar() {
         // Map NPC data to Node content
         // Map NPC data to Node content
         let body = `${npc.guild || 'Unassigned'}`;
-        if (npc.wants) body += `\nWants: ${npc.wants}`;
-        if (npc.leverage) body += `\nLev:   ${npc.leverage}`;
-        if (npc.notes) body += `\nNote:  ${npc.notes}`;
+        if (npc.wants) body += `<br><strong>Wants:</strong> ${npc.wants}`;
+        if (npc.leverage) body += `<br><strong>Lev:</strong>   ${npc.leverage}`;
+        if (npc.notes) body += `<br><strong>Note:</strong>  ${npc.notes}`;
 
         const nodeData = {
             title: npc.name,
@@ -133,8 +160,8 @@ function initLocationToolbar() {
         el.className = 'tool-item';
         el.draggable = true;
         let body = `${loc.district || ''}`;
-        if (loc.desc) body += `\n${loc.desc}`;
-        if (loc.notes) body += `\nNote:  ${loc.notes}`;
+        if (loc.desc) body += `<br>${loc.desc}`;
+        if (loc.notes) body += `<br><strong>Note:</strong>  ${loc.notes}`;
 
         const nodeData = {
             title: loc.name,
@@ -711,7 +738,7 @@ function saveBoard() {
         type: Array.from(el.classList).find(c => c.startsWith('type-')).replace('type-', ''),
         x: parseInt(el.style.left), y: parseInt(el.style.top),
         title: el.querySelector('.node-title').innerText,
-        body: el.querySelector('.node-body').innerText
+        body: el.querySelector('.node-body').innerHTML
     }));
 
     const data = {
@@ -796,14 +823,50 @@ function editTargetNode() {
     t.contentEditable = b.contentEditable = true;
     t.focus();
 
-    const end = () => {
-        t.contentEditable = b.contentEditable = false;
-        el.classList.remove('editing');
-        updateNodeCache(el.id);
-        saveBoard();
+    // Show Formatting Toolbar
+    const tb = document.getElementById('formatting-toolbar');
+    if (tb) {
+        tb.style.display = 'flex';
+        // Position to the right of the node
+        const rect = el.getBoundingClientRect();
+        tb.style.left = (rect.right + 10) + 'px';
+        tb.style.top = rect.top + 'px';
+    }
+
+    const handleKey = (e) => {
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key.toLowerCase()) {
+                case 'b': e.preventDefault(); document.execCommand('bold'); saveBoard(); break;
+                case 'i': e.preventDefault(); document.execCommand('italic'); saveBoard(); break;
+                case 'u': e.preventDefault(); document.execCommand('underline'); saveBoard(); break;
+            }
+        }
     };
-    t.onblur = () => setTimeout(() => { if (document.activeElement !== t && document.activeElement !== b) end(); }, 50);
-    b.onblur = () => setTimeout(() => { if (document.activeElement !== t && document.activeElement !== b) end(); }, 50);
+
+    t.addEventListener('keydown', handleKey);
+    b.addEventListener('keydown', handleKey);
+
+    const end = () => {
+        // slight delay to allow button clicks to register before blur hides everything
+        setTimeout(() => {
+            if (document.activeElement !== t && document.activeElement !== b) {
+                t.contentEditable = b.contentEditable = false;
+                el.classList.remove('editing');
+
+                t.removeEventListener('keydown', handleKey);
+                b.removeEventListener('keydown', handleKey);
+
+                if (tb) tb.style.display = 'none';
+
+                updateNodeCache(el.id);
+                saveBoard();
+            }
+        }, 50);
+    };
+
+    t.onblur = end;
+    b.onblur = end;
+
     contextMenu.style.display = 'none';
 }
 
