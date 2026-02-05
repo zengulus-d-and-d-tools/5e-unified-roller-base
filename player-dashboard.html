@@ -258,112 +258,110 @@
         </div>
     </div>
 
+    <script src="js/data.js"></script>
+    <script src="js/data-npcs.js"></script>
+    <script src="js/data-locations.js"></script>
+    <script src="js/store.js"></script>
     <script>
-        const STORAGE_KEY = 'ravnicaHubV3_2';
-        let state = {
-            rep: {},
-            heat: 0,
-            players: [],
-            case: {}
-        };
-
-        const loadState = () => {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                try {
-                    state = JSON.parse(saved);
-                } catch (e) {
-                    console.error("Save Error", e);
-                }
-            }
-            render();
-        };
-
-        const save = () => {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-        };
-
-        const addPlayer = () => {
-            state.players.push({
-                name: "New Agent",
-                ac: 10,
-                hp: 10,
-                pp: 10,
-                dc: 10,
-                dp: 2,
-                projectClock: 0,
-                projectName: "",
-                projectReward: ""
-            });
-            save();
-            render();
-        };
-
-        const updatePlayer = (idx, field, val) => {
-            state.players[idx][field] = val;
-            save();
-        };
-
-        const deletePlayer = (idx) => {
-            if (confirm("Disavow this agent? (Delete Player)")) {
-                state.players.splice(idx, 1);
-                save();
-                render();
-            }
-        };
-
         const render = () => {
             const grid = document.getElementById('playerGrid');
             const empty = document.getElementById('emptyState');
             grid.innerHTML = '';
 
-            if (!state.players || state.players.length === 0) {
+            const players = window.RTF_STORE ? window.RTF_STORE.getPlayers() : [];
+
+            if (!players || players.length === 0) {
                 empty.style.display = 'block';
                 return;
             }
             empty.style.display = 'none';
 
-            state.players.forEach((p, i) => {
+            players.forEach((p, i) => {
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
-                <div class="card-header">
-                    <input type="text" class="input-name" value="${p.name || ''}" 
-                        onchange="updatePlayer(${i}, 'name', this.value)" placeholder="AGENT NAME">
-                    <button class="btn btn-del" onclick="deletePlayer(${i})">&times;</button>
-                </div>
-                
-                <div class="stat-grid">
-                    <div class="stat-box">
-                        <span class="stat-label">AC</span>
-                        <input type="number" class="stat-val" value="${p.ac || 0}" 
-                            onchange="updatePlayer(${i}, 'ac', parseInt(this.value))">
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-label">Passive Perc</span>
-                        <input type="number" class="stat-val" value="${p.pp || 0}" 
-                            style="color: ${p.pp >= 15 ? 'var(--accent)' : 'inherit'}"
-                            onchange="updatePlayer(${i}, 'pp', parseInt(this.value))">
-                    </div>
-                    <div class="stat-box">
-                        <span class="stat-label">Save DC</span>
-                        <input type="number" class="stat-val" value="${p.dc || 0}" 
-                            onchange="updatePlayer(${i}, 'dc', parseInt(this.value))">
-                    </div>
-                </div>
+        <div class="card-header">
+            <input type="text" class="input-name" value="${p.name || ''}"
+                onchange="updatePlayer(${i}, 'name', this.value)" placeholder="AGENT NAME">
+                <button class="btn btn-del" onclick="deletePlayer(${i})">&times;</button>
+        </div>
 
-                <div class="stat-box" style="margin-top: 5px; border-color: ${p.hp < 10 ? 'var(--danger)' : 'transparent'}">
-                    <span class="stat-label" style="color:${p.hp < 10 ? 'var(--danger)' : '#888'}">Hit Points</span>
-                    <input type="text" class="stat-val" value="${p.hp || 0}" 
-                        onchange="updatePlayer(${i}, 'hp', this.value)" placeholder="Max/Curr">
-                </div>
+        <div class="stat-grid">
+            <div class="stat-box">
+                <span class="stat-label">AC</span>
+                <input type="number" class="stat-val" value="${p.ac || 0}"
+                    onchange="updatePlayer(${i}, 'ac', parseInt(this.value))">
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Passive Perc</span>
+                <input type="number" class="stat-val" value="${p.pp || 0}"
+                    style="color: ${p.pp >= 15 ? 'var(--accent)' : 'inherit'}"
+                    onchange="updatePlayer(${i}, 'pp', parseInt(this.value))">
+            </div>
+            <div class="stat-box">
+                <span class="stat-label">Save DC</span>
+                <input type="number" class="stat-val" value="${p.dc || 0}"
+                    onchange="updatePlayer(${i}, 'dc', parseInt(this.value))">
+            </div>
+        </div>
+
+        <div class="stat-box" style="margin-top: 5px; border-color: ${parseInt(p.hp) < 10 ? 'var(--danger)' : 'transparent'}">
+            <span class="stat-label" style="color:${parseInt(p.hp) < 10 ? 'var(--danger)' : '#888'}">Hit Points</span>
+            <input type="text" class="stat-val" value="${p.hp || 0}"
+                onchange="updatePlayer(${i}, 'hp', this.value)" placeholder="Max/Curr">
+        </div>
             `;
                 grid.appendChild(card);
             });
         };
 
+        const addPlayer = () => {
+            if (window.RTF_STORE) {
+                window.RTF_STORE.addPlayer({
+                    name: "New Agent",
+                    ac: 10,
+                    hp: 10,
+                    pp: 10,
+                    dc: 10,
+                    dp: 2,
+                    projectClock: 0,
+                    projectName: "",
+                    projectReward: "+1 Reputation"
+                });
+                render();
+            }
+        };
+
+        const updatePlayer = (idx, field, val) => {
+            if (window.RTF_STORE) {
+                const players = window.RTF_STORE.getPlayers();
+                if (players[idx]) {
+                    players[idx][field] = val;
+                    window.RTF_STORE.save();
+                    // render(); // Optional: re-render if needed, but input handles display
+                }
+            }
+        };
+
+        const deletePlayer = (idx) => {
+            if (confirm("Disavow this agent? (Delete Player)")) {
+                if (window.RTF_STORE) {
+                    const players = window.RTF_STORE.getPlayers();
+                    players.splice(idx, 1);
+                    window.RTF_STORE.save();
+                    render();
+                }
+            }
+        };
+
         // Init
-        document.addEventListener('DOMContentLoaded', loadState);
+        window.onload = () => {
+            if (window.RTF_STORE) {
+                render();
+            } else {
+                setTimeout(render, 100);
+            }
+        };
 
     </script>
     <script src="js/vector-field.js"></script>

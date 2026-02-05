@@ -65,7 +65,7 @@ function modHeat(amt) {
 // --- PLAYER LOGIC ---
 function addPlayer() {
     const c = getCampaign();
-    c.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
+    c.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation", ac: 10, hp: 10, pp: 10, dc: 10 });
     save();
 }
 

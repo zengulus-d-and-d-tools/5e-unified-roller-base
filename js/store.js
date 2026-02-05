@@ -40,8 +40,39 @@
                     console.log("RTF_STORE: No unified data found. Attempting migration...");
                     this.migrate();
                 }
+                this.ingestPreloadedData();
             } catch (e) {
                 console.error("RTF_STORE: Load failed", e);
+            }
+        }
+
+        ingestPreloadedData() {
+            // Seed NPCs
+            if (window.PRELOADED_NPCS && Array.isArray(window.PRELOADED_NPCS)) {
+                const existingNames = new Set(this.state.campaign.npcs.map(n => n.name));
+                let count = 0;
+                window.PRELOADED_NPCS.forEach(n => {
+                    if (!existingNames.has(n.name)) {
+                        this.state.campaign.npcs.push({ ...n }); // Copy to avoid ref issues
+                        existingNames.add(n.name);
+                        count++;
+                    }
+                });
+                if (count > 0) console.log(`RTF_STORE: Seeded ${count} NPCs.`);
+            }
+
+            // Seed Locations
+            if (window.PRELOADED_LOCATIONS && Array.isArray(window.PRELOADED_LOCATIONS)) {
+                const existingNames = new Set(this.state.campaign.locations.map(l => l.name));
+                let count = 0;
+                window.PRELOADED_LOCATIONS.forEach(l => {
+                    if (!existingNames.has(l.name)) {
+                        this.state.campaign.locations.push({ ...l });
+                        existingNames.add(l.name);
+                        count++;
+                    }
+                });
+                if (count > 0) console.log(`RTF_STORE: Seeded ${count} Locations.`);
             }
         }
 
