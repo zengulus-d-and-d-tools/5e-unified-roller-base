@@ -3,6 +3,16 @@
     const LEGACY_HUB_KEY = 'ravnicaHubV3_2';
     const LEGACY_BOARD_KEY = 'invBoardData';
 
+    const createDefaultHQState = () => {
+        const baseId = 'floor_' + Math.random().toString(36).slice(2, 7);
+        return {
+            grid: { cols: 26, rows: 18, cell: 48 },
+            snapToGrid: true,
+            floors: [{ id: baseId, name: 'Street Level', rooms: [] }],
+            activeFloorId: baseId
+        };
+    };
+
     const DEFAULT_STATE = {
         meta: { version: 1, created: Date.now() },
         campaign: {
@@ -20,7 +30,8 @@
             name: "UNNAMED CASE",
             nodes: [],
             connections: []
-        }
+        },
+        hq: createDefaultHQState()
     };
 
     class Store {
@@ -45,12 +56,14 @@
                     if (!this.state.campaign.requisitions) this.state.campaign.requisitions = [];
                     if (!this.state.campaign.events) this.state.campaign.events = [];
                     if (!this.state.campaign.encounters) this.state.campaign.encounters = [];
+                    if (!this.state.hq) this.state.hq = createDefaultHQState();
 
                     console.log("RTF_STORE: Loaded unified data.");
                 } else {
                     console.log("RTF_STORE: No unified data found. Attempting migration...");
                     this.migrate();
                 }
+                if (!this.state.hq) this.state.hq = createDefaultHQState();
                 this.ingestPreloadedData();
             } catch (e) {
                 console.error("RTF_STORE: Load failed", e);
@@ -265,6 +278,16 @@
                 list.splice(idx, 1);
                 this.save();
             }
+        }
+
+        getHQLayout() {
+            if (!this.state.hq) this.state.hq = createDefaultHQState();
+            return JSON.parse(JSON.stringify(this.state.hq));
+        }
+
+        updateHQLayout(hqState) {
+            this.state.hq = hqState;
+            this.save();
         }
     }
 

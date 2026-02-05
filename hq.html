@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Force HQ Designer</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hq.css">
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="hq-app">
+        <header class="hq-header">
+            <div>
+                <p class="eyebrow">Ravnica Task Force</p>
+                <h1>HQ Layout Foundry</h1>
+                <p class="subtitle">Blueprint your command post with sigils, rails, and recharging pods that reflect the guild-tech fueling your ops.</p>
+            </div>
+            <div class="header-actions">
+                <button id="btn-add-custom" class="btn ghost">Custom Room</button>
+                <button id="btn-clear" class="btn ghost">Clear Floor</button>
+                <button id="btn-export" class="btn ghost">Export Data</button>
+                <button id="btn-import" class="btn ghost">Import Data</button>
+                <button id="btn-screenshot" class="btn accent">Take Screenshot</button>
+            </div>
+        </header>
+
+        <main class="hq-layout">
+            <section class="blueprint-shell">
+                <div class="blueprint-toolbar">
+                    <div class="stat">
+                        <span class="label">Rooms</span>
+                        <strong id="stat-room-count">0</strong>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Downtime Slots</span>
+                        <strong id="stat-downtime">0</strong>
+                    </div>
+                    <div class="stat">
+                        <span class="label">Resource Bays</span>
+                        <strong id="stat-resource">0</strong>
+                    </div>
+                    <label class="toggle">
+                        <input type="checkbox" id="toggle-grid" checked>
+                        <span>Snap to Grid</span>
+                    </label>
+                </div>
+                <div class="floor-switcher">
+                    <div class="floor-tabs" id="floor-tabs"></div>
+                    <div class="floor-buttons">
+                        <button id="btn-add-floor" class="btn ghost small">Add Floor</button>
+                        <button id="btn-rename-floor" class="btn ghost small">Rename</button>
+                        <button id="btn-delete-floor" class="btn ghost small danger-text">Delete</button>
+                    </div>
+                </div>
+                <div class="blueprint-dock">
+                    <div class="nav-pill">
+                        <span>Drag rooms to reposition. Click to edit details. Blueprint respects Ravnican glyph grid (1 square = 2 meters).</span>
+                    </div>
+                    <div id="hq-grid" class="hq-grid" role="presentation"></div>
+                </div>
+            </section>
+
+            <aside class="control-panel">
+                <section class="card palette">
+                    <div class="card-title">Guild-Forged Templates</div>
+                    <p class="card-desc">Drop in prefabs sanctioned by guild artificers. Each carries established downtime lanes and supply caches.</p>
+                    <div id="template-list" class="template-list"></div>
+                </section>
+
+                <section class="card detail" id="detail-panel">
+                    <div class="detail-empty">
+                        <p>Select a room to tune its dimensions, downtime activities, and deployment caches.</p>
+                    </div>
+                    <div class="detail-body hidden">
+                        <div class="field">
+                            <label for="room-name">Room Name</label>
+                            <input id="room-name" type="text" placeholder="Operations Bullpen">
+                        </div>
+                        <div class="field">
+                            <label for="room-type">Designation</label>
+                            <select id="room-type"></select>
+                        </div>
+                        <div class="field two-col">
+                            <div>
+                                <label for="room-width">Width (cells)</label>
+                                <input id="room-width" type="number" min="1" max="24">
+                            </div>
+                            <div>
+                                <label for="room-height">Height (cells)</label>
+                                <input id="room-height" type="number" min="1" max="24">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="room-notes">Notes / Perks</label>
+                            <textarea id="room-notes" rows="3" placeholder="Radiant barrier, rapid scry uplink, etc."></textarea>
+                        </div>
+
+                        <div class="subsection">
+                            <div class="sub-header">
+                                <h4>Downtime Activities</h4>
+                                <button id="btn-add-downtime" class="btn ghost small">Add Slot</button>
+                            </div>
+                            <p class="mini">Slots represent where operatives clock downtime actions for extra speed.</p>
+                            <div id="downtime-list" class="slot-list"></div>
+                        </div>
+
+                        <div class="subsection">
+                            <div class="sub-header">
+                                <h4>Resource Bays</h4>
+                                <button id="btn-add-resource" class="btn ghost small">Add Bay</button>
+                            </div>
+                            <p class="mini">Resources deployed from a bay launch one segment faster.</p>
+                            <div id="resource-list" class="slot-list"></div>
+                        </div>
+
+                        <datalist id="player-options"></datalist>
+                        <datalist id="resource-options"></datalist>
+
+                        <div class="detail-actions">
+                            <button id="btn-duplicate" class="btn ghost">Duplicate</button>
+                            <button id="btn-delete" class="btn danger">Delete</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card lore">
+                    <div class="card-title">Blueprint Doctrine</div>
+                    <p class="card-desc">Ravnican HQs blend steamscript engines, living wood, and sanctioned wards. Keep command bays buffered by Azorius stasis ribs, leave Boros muster yards clear for griffon ingress, and always earmark a Simic wet-lab for emergency synth-grafts.</p>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/data-npcs.js"></script>
+    <script src="js/data-locations.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/hq.js"></script>
+    <script src="js/vector-field.js"></script>
+</body>
+
+</html>

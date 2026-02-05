@@ -1,0 +1,853 @@
+(() => {
+    const STORAGE_KEY = 'task_force_hq_v1';
+    const DEFAULT_GRID = { cols: 26, rows: 18, cell: 48 };
+    const ROOM_TYPES = [
+        { id: 'command', label: 'Command & Control', color: '#7cdde1' },
+        { id: 'logistics', label: 'Logistics & Support', color: '#f7c266' },
+        { id: 'arcane', label: 'Arcano-Tech Lab', color: '#be9bff' },
+        { id: 'recovery', label: 'Recovery & Hearth', color: '#7ff0c7' },
+        { id: 'hangar', label: 'Motor Pool / Hangar', color: '#ff9c7f' },
+        { id: 'stealth', label: 'Stealth / Intelligence', color: '#8bb5ff' }
+    ];
+
+    const TEMPLATE_CATALOG = [
+        {
+            id: 'ops_spire',
+            name: 'Ops Spire',
+            type: 'command',
+            width: 6,
+            height: 4,
+            downtime: ['Precog Briefings', 'Case Review Deck'],
+            resources: ['Signal Relay Uplink'],
+            desc: 'Azorius-plated observatory with suspended holo-table and vox sigils.'
+        },
+        {
+            id: 'muster_yard',
+            name: 'Boros Muster Yard',
+            type: 'hangar',
+            width: 7,
+            height: 5,
+            downtime: ['Sparring Circuits', 'Tactical Rehearsal'],
+            resources: ['Rapid Response Wing', 'Shield Locker'],
+            desc: 'Open drill court for griffon riders and mech-squires to scramble from.'
+        },
+        {
+            id: 'izzet_garage',
+            name: 'Izzet Foundry Garage',
+            type: 'logistics',
+            width: 5,
+            height: 4,
+            downtime: ['Prototype Tuning', 'Field Repairs'],
+            resources: ['Arc Rail Bikes', 'Voltaic Fuel Cells'],
+            desc: 'Pipe-choked bay humming with crackling conduits and replacer drones.'
+        },
+        {
+            id: 'orzhov_vault',
+            name: 'Orzhov Ledger Vault',
+            type: 'stealth',
+            width: 4,
+            height: 4,
+            downtime: ['Case Law Dossier', 'Debt Negotiations'],
+            resources: ['Lien Spirits'],
+            desc: 'Gilded quiet room with notarized wards for sensitive intel.'
+        },
+        {
+            id: 'selesnya_grove',
+            name: 'Conclave Grove',
+            type: 'recovery',
+            width: 6,
+            height: 3,
+            downtime: ['Meditative Chorus', 'Restorative Ritual'],
+            resources: ['Living Remedy Garden'],
+            desc: 'Livingwood greenhouse where loxodon wardens mend body and mind.'
+        },
+        {
+            id: 'dimir_archive',
+            name: 'Dimir Shadow Archive',
+            type: 'arcane',
+            width: 5,
+            height: 3,
+            downtime: ['Memory Theater', 'Ghost Analysis'],
+            resources: ['Veiled Courier Cache'],
+            desc: 'Sub-level stacks veiled by null-runes, perfect for covert briefings.'
+        }
+    ];
+
+    const escapeHTML = (str = '') => String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const store = window.RTF_STORE;
+    const hasStoreBridge = !!(store && typeof store.getHQLayout === 'function' && typeof store.updateHQLayout === 'function');
+
+    const refs = {
+        grid: document.getElementById('hq-grid'),
+        templateList: document.getElementById('template-list'),
+        roomCount: document.getElementById('stat-room-count'),
+        downtimeCount: document.getElementById('stat-downtime'),
+        resourceCount: document.getElementById('stat-resource'),
+        toggleGrid: document.getElementById('toggle-grid'),
+        detailPanel: document.getElementById('detail-panel'),
+        detailBody: document.querySelector('#detail-panel .detail-body'),
+        roomName: document.getElementById('room-name'),
+        roomType: document.getElementById('room-type'),
+        roomWidth: document.getElementById('room-width'),
+        roomHeight: document.getElementById('room-height'),
+        roomNotes: document.getElementById('room-notes'),
+        downtimeList: document.getElementById('downtime-list'),
+        resourceList: document.getElementById('resource-list'),
+        addDowntime: document.getElementById('btn-add-downtime'),
+        addResource: document.getElementById('btn-add-resource'),
+        duplicate: document.getElementById('btn-duplicate'),
+        delete: document.getElementById('btn-delete'),
+        addCustom: document.getElementById('btn-add-custom'),
+        clear: document.getElementById('btn-clear'),
+        exportBtn: document.getElementById('btn-export'),
+        importBtn: document.getElementById('btn-import'),
+        screenshotBtn: document.getElementById('btn-screenshot'),
+        floorTabs: document.getElementById('floor-tabs'),
+        addFloor: document.getElementById('btn-add-floor'),
+        renameFloor: document.getElementById('btn-rename-floor'),
+        deleteFloor: document.getElementById('btn-delete-floor')
+    };
+
+    const datalistRefs = {
+        players: document.getElementById('player-options'),
+        resources: document.getElementById('resource-options')
+    };
+
+    if (!refs.grid) return;
+
+    let state = sanitizeState(hasStoreBridge ? store.getHQLayout() : loadLocalState());
+    let selectedRoomId = null;
+    let dragging = null;
+
+    init();
+
+    function init() {
+        refs.toggleGrid.checked = state.snapToGrid;
+        buildTypeSelect();
+        refreshAssigneeLists();
+        renderTemplateCards();
+        renderFloorTabs();
+        renderRooms();
+        updateDetailPanel();
+        bindUI();
+        window.addEventListener('focus', refreshAssigneeLists);
+    }
+
+    function sanitizeState(raw) {
+        const base = raw || {};
+        const grid = sanitizeGrid(base.grid || {});
+        let floors = Array.isArray(base.floors) ? base.floors.map((floor, idx) => sanitizeFloor(floor, idx, grid)) : [];
+        if (!floors.length) floors = [createFloor('Street Level')];
+        const activeFloorId = floors.some(f => f.id === base.activeFloorId) ? base.activeFloorId : floors[0].id;
+        return {
+            grid,
+            floors,
+            snapToGrid: base.snapToGrid !== undefined ? !!base.snapToGrid : true,
+            activeFloorId
+        };
+    }
+
+    function sanitizeGrid(grid) {
+        return {
+            cols: clampNumber(parseInt(grid.cols, 10) || DEFAULT_GRID.cols, 6, 60),
+            rows: clampNumber(parseInt(grid.rows, 10) || DEFAULT_GRID.rows, 6, 60),
+            cell: clampNumber(parseInt(grid.cell, 10) || DEFAULT_GRID.cell, 24, 96)
+        };
+    }
+
+    function sanitizeFloor(floor, idx, grid) {
+        return {
+            id: floor && floor.id ? floor.id : uniqueId('floor'),
+            name: floor && floor.name ? floor.name : `Level ${idx + 1}`,
+            rooms: Array.isArray(floor && floor.rooms) ? floor.rooms.map(room => sanitizeRoom(room, grid)) : []
+        };
+    }
+
+    function sanitizeRoom(room, grid = state.grid) {
+        const width = clampNumber(room.w ?? room.width ?? 4, 1, grid.cols);
+        const height = clampNumber(room.h ?? room.height ?? 3, 1, grid.rows);
+        return {
+            id: room.id || uniqueId('room'),
+            name: room.name || 'Unnamed Room',
+            type: ROOM_TYPES.some(t => t.id === room.type) ? room.type : ROOM_TYPES[0].id,
+            x: clampNumber(room.x ?? 2, 0, grid.cols - width),
+            y: clampNumber(room.y ?? 2, 0, grid.rows - height),
+            w: width,
+            h: height,
+            notes: room.notes || '',
+            downtimeSlots: Array.isArray(room.downtimeSlots) ? room.downtimeSlots.map(sanitizeSlot) : [],
+            resourceSlots: Array.isArray(room.resourceSlots) ? room.resourceSlots.map(sanitizeSlot) : []
+        };
+    }
+
+    function sanitizeSlot(slot) {
+        if (typeof slot === 'string') {
+            return { id: uniqueId('slot'), label: slot, assigned: '' };
+        }
+        return {
+            id: slot.id || uniqueId('slot'),
+            label: slot.label || '',
+            assigned: slot.assigned || ''
+        };
+    }
+
+    function loadLocalState() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : getDefaultState();
+        } catch (err) {
+            console.warn('RTF_HQ: Failed to load local state', err);
+            return getDefaultState();
+        }
+    }
+
+    function getDefaultState() {
+        const floor = createFloor('Street Level');
+        return {
+            grid: { ...DEFAULT_GRID },
+            floors: [floor],
+            snapToGrid: true,
+            activeFloorId: floor.id
+        };
+    }
+
+    function persistState() {
+        const payload = sanitizeState(state);
+        if (hasStoreBridge) {
+            store.updateHQLayout(payload);
+        } else {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        }
+        state = payload;
+    }
+
+    function buildTypeSelect() {
+        refs.roomType.innerHTML = '';
+        ROOM_TYPES.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t.id;
+            opt.textContent = t.label;
+            refs.roomType.appendChild(opt);
+        });
+    }
+
+    function renderTemplateCards() {
+        refs.templateList.innerHTML = '';
+        TEMPLATE_CATALOG.forEach(template => {
+            const card = document.createElement('div');
+            card.className = 'template-card';
+            card.innerHTML = `
+                <h3>${escapeHTML(template.name)}</h3>
+                <span class="type-tag">${escapeHTML(getRoomType(template.type).label)}</span>
+                <p>${escapeHTML(template.desc)}</p>
+                <div class="slot-flags">
+                    <span>⏱ ${template.downtime.length} downtime</span>
+                    <span>⚙ ${template.resources.length} resources</span>
+                </div>
+            `;
+            const btn = document.createElement('button');
+            btn.className = 'btn ghost small';
+            btn.textContent = 'Deploy';
+            btn.addEventListener('click', () => addRoomFromTemplate(template));
+            card.appendChild(btn);
+            refs.templateList.appendChild(card);
+        });
+    }
+
+    function addRoomFromTemplate(template) {
+        const floor = getActiveFloor();
+        if (!floor) return;
+        const room = sanitizeRoom({
+            id: uniqueId('room'),
+            name: template.name,
+            type: template.type,
+            x: Math.floor((state.grid.cols - template.width) / 2),
+            y: Math.floor((state.grid.rows - template.height) / 2),
+            w: template.width,
+            h: template.height,
+            notes: '',
+            downtimeSlots: template.downtime.map(label => ({ id: uniqueId('slot'), label, assigned: '' })),
+            resourceSlots: template.resources.map(label => ({ id: uniqueId('slot'), label, assigned: '' }))
+        });
+        nudgedPlacement(room, floor);
+        floor.rooms.push(room);
+        selectRoom(room.id);
+        persistState();
+        renderRooms();
+        renderFloorTabs();
+    }
+
+    function nudgedPlacement(room, floor) {
+        const offset = floor.rooms.length % 4;
+        room.x = clampNumber(room.x + offset, 0, state.grid.cols - room.w);
+        room.y = clampNumber(room.y + offset, 0, state.grid.rows - room.h);
+    }
+
+    function renderRooms() {
+        refs.grid.innerHTML = '';
+        refs.grid.style.width = state.grid.cols * state.grid.cell + 'px';
+        refs.grid.style.height = state.grid.rows * state.grid.cell + 'px';
+        const floor = getActiveFloor();
+        const rooms = floor ? floor.rooms : [];
+
+        rooms.forEach(room => {
+            const el = document.createElement('div');
+            el.className = 'room';
+            if (room.id === selectedRoomId) el.classList.add('selected');
+            const type = getRoomType(room.type);
+            el.style.left = room.x * state.grid.cell + 'px';
+            el.style.top = room.y * state.grid.cell + 'px';
+            el.style.width = room.w * state.grid.cell + 'px';
+            el.style.height = room.h * state.grid.cell + 'px';
+            el.style.borderColor = type.color;
+            el.style.boxShadow = `0 10px 30px rgba(0,0,0,0.35), 0 0 20px ${type.color}33`;
+            el.dataset.id = room.id;
+            el.innerHTML = `
+                <div class="room-label">
+                    <span class="room-name">${escapeHTML(room.name)}</span>
+                    <span class="room-type">${escapeHTML(type.label)}</span>
+                </div>
+                <div class="room-slots">
+                    <span>⏱ ${room.downtimeSlots.length}</span>
+                    <span>⚙ ${room.resourceSlots.length}</span>
+                </div>
+            `;
+            el.addEventListener('pointerdown', (ev) => startDrag(ev, room.id));
+            el.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                selectRoom(room.id);
+            });
+            refs.grid.appendChild(el);
+        });
+
+        updateStats();
+    }
+
+    function startDrag(ev, roomId) {
+        if (ev.button !== 0) return;
+        const found = findRoomWithFloor(roomId);
+        if (!found) return;
+        if (found.floor.id !== state.activeFloorId) {
+            state.activeFloorId = found.floor.id;
+            renderFloorTabs();
+        }
+        selectRoom(roomId);
+        ev.preventDefault();
+        const gridRect = refs.grid.getBoundingClientRect();
+        dragging = {
+            id: roomId,
+            offsetX: ev.clientX - gridRect.left - found.room.x * state.grid.cell,
+            offsetY: ev.clientY - gridRect.top - found.room.y * state.grid.cell
+        };
+        window.addEventListener('pointermove', onDrag);
+        window.addEventListener('pointerup', stopDrag);
+    }
+
+    function onDrag(ev) {
+        if (!dragging) return;
+        const room = getRoom(dragging.id);
+        if (!room) return;
+        const rect = refs.grid.getBoundingClientRect();
+        let rawX = (ev.clientX - rect.left - dragging.offsetX) / state.grid.cell;
+        let rawY = (ev.clientY - rect.top - dragging.offsetY) / state.grid.cell;
+        if (state.snapToGrid) {
+            rawX = Math.round(rawX);
+            rawY = Math.round(rawY);
+        }
+        room.x = clampNumber(rawX, 0, state.grid.cols - room.w);
+        room.y = clampNumber(rawY, 0, state.grid.rows - room.h);
+        renderRooms();
+        ev.preventDefault();
+    }
+
+    function stopDrag() {
+        if (dragging) {
+            persistState();
+        }
+        dragging = null;
+        window.removeEventListener('pointermove', onDrag);
+        window.removeEventListener('pointerup', stopDrag);
+    }
+
+    function selectRoom(id) {
+        selectedRoomId = id;
+        const located = id ? findRoomWithFloor(id) : null;
+        if (located && located.floor.id !== state.activeFloorId) {
+            state.activeFloorId = located.floor.id;
+            renderFloorTabs();
+        }
+        updateDetailPanel();
+        renderRooms();
+    }
+
+    function getActiveFloor() {
+        if (!state.floors.length) {
+            const floor = createFloor('Street Level');
+            state.floors.push(floor);
+            state.activeFloorId = floor.id;
+        }
+        const floor = state.floors.find(f => f.id === state.activeFloorId) || state.floors[0];
+        state.activeFloorId = floor.id;
+        return floor;
+    }
+
+    function getAllRooms() {
+        return state.floors.flatMap(f => f.rooms);
+    }
+
+    function getRoom(id) {
+        const data = findRoomWithFloor(id);
+        return data ? data.room : null;
+    }
+
+    function findRoomWithFloor(id) {
+        if (!id) return null;
+        for (const floor of state.floors) {
+            const room = floor.rooms.find(r => r.id === id);
+            if (room) return { room, floor };
+        }
+        return null;
+    }
+
+    function updateStats() {
+        const rooms = getAllRooms();
+        const downtime = rooms.reduce((sum, r) => sum + r.downtimeSlots.length, 0);
+        const resources = rooms.reduce((sum, r) => sum + r.resourceSlots.length, 0);
+        refs.roomCount.textContent = rooms.length;
+        refs.downtimeCount.textContent = downtime;
+        refs.resourceCount.textContent = resources;
+    }
+
+    function updateDetailPanel() {
+        const room = getRoom(selectedRoomId);
+        const empty = refs.detailPanel.querySelector('.detail-empty');
+        if (!room) {
+            empty.style.display = 'block';
+            refs.detailBody.classList.add('hidden');
+            return;
+        }
+        empty.style.display = 'none';
+        refs.detailBody.classList.remove('hidden');
+        refs.roomName.value = room.name;
+        refs.roomType.value = room.type;
+        refs.roomWidth.value = room.w;
+        refs.roomHeight.value = room.h;
+        refs.roomNotes.value = room.notes;
+        refs.toggleGrid.checked = state.snapToGrid;
+        renderSlotList(refs.downtimeList, room.downtimeSlots, 'downtime');
+        renderSlotList(refs.resourceList, room.resourceSlots, 'resource');
+    }
+
+    function renderSlotList(container, slots, type) {
+        container.innerHTML = '';
+        if (!slots.length) {
+            const empty = document.createElement('p');
+            empty.className = 'mini';
+            empty.textContent = `No ${type === 'downtime' ? 'downtime' : 'resource'} slots yet.`;
+            container.appendChild(empty);
+            return;
+        }
+        const datalistId = type === 'downtime' ? 'player-options' : 'resource-options';
+        slots.forEach(slot => {
+            const item = document.createElement('div');
+            item.className = 'slot-item';
+            item.dataset.id = slot.id;
+            item.innerHTML = `
+                <div class="slot-row">
+                    <input class="slot-label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
+                    <input class="slot-assignee" type="text" list="${datalistId}" placeholder="${type === 'downtime' ? 'Assigned operative' : 'Resource staged'}" value="${escapeHTML(slot.assigned)}">
+                </div>
+                <button class="btn ghost small" data-action="remove">Remove</button>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    function renderFloorTabs() {
+        if (!refs.floorTabs) return;
+        refs.floorTabs.innerHTML = '';
+        state.floors.forEach(floor => {
+            const btn = document.createElement('button');
+            btn.className = `floor-tab${floor.id === state.activeFloorId ? ' active' : ''}`;
+            btn.dataset.floorId = floor.id;
+            btn.innerHTML = `
+                <span class="floor-name">${escapeHTML(floor.name)}</span>
+                <span class="floor-count">${floor.rooms.length} rooms</span>
+            `;
+            refs.floorTabs.appendChild(btn);
+        });
+    }
+
+    function bindUI() {
+        refs.grid.addEventListener('click', (ev) => {
+            if (ev.target === refs.grid) {
+                selectRoom(null);
+            }
+        });
+
+        refs.roomName.addEventListener('input', (ev) => updateSelectedRoom('name', ev.target.value));
+        refs.roomType.addEventListener('change', (ev) => updateSelectedRoom('type', ev.target.value));
+
+        refs.roomWidth.addEventListener('change', (ev) => {
+            const value = clampNumber(parseInt(ev.target.value, 10) || 1, 1, state.grid.cols);
+            ev.target.value = value;
+            const room = getRoom(selectedRoomId);
+            if (!room) return;
+            room.w = Math.min(value, state.grid.cols - room.x);
+            persistState();
+            renderRooms();
+        });
+
+        refs.roomHeight.addEventListener('change', (ev) => {
+            const value = clampNumber(parseInt(ev.target.value, 10) || 1, 1, state.grid.rows);
+            ev.target.value = value;
+            const room = getRoom(selectedRoomId);
+            if (!room) return;
+            room.h = Math.min(value, state.grid.rows - room.y);
+            persistState();
+            renderRooms();
+        });
+
+        refs.roomNotes.addEventListener('input', (ev) => updateSelectedRoom('notes', ev.target.value));
+        refs.toggleGrid.addEventListener('change', (ev) => {
+            state.snapToGrid = ev.target.checked;
+            persistState();
+        });
+
+        refs.addDowntime.addEventListener('click', () => addSlot('downtime'));
+        refs.addResource.addEventListener('click', () => addSlot('resource'));
+
+        refs.downtimeList.addEventListener('input', handleSlotInput('downtime'));
+        refs.resourceList.addEventListener('input', handleSlotInput('resource'));
+        refs.downtimeList.addEventListener('click', handleSlotRemove('downtime'));
+        refs.resourceList.addEventListener('click', handleSlotRemove('resource'));
+
+        refs.duplicate.addEventListener('click', duplicateRoom);
+        refs.delete.addEventListener('click', deleteRoom);
+        refs.addCustom.addEventListener('click', addCustomRoom);
+        refs.clear.addEventListener('click', clearFloor);
+        refs.exportBtn.addEventListener('click', exportLayout);
+        refs.importBtn.addEventListener('click', importLayout);
+        refs.screenshotBtn.addEventListener('click', takeScreenshot);
+
+        refs.floorTabs.addEventListener('click', (ev) => {
+            const tab = ev.target.closest('.floor-tab');
+            if (!tab) return;
+            if (tab.dataset.floorId !== state.activeFloorId) {
+                state.activeFloorId = tab.dataset.floorId;
+                selectedRoomId = null;
+                persistState();
+                renderFloorTabs();
+                renderRooms();
+                updateDetailPanel();
+            }
+        });
+        refs.addFloor.addEventListener('click', addFloor);
+        refs.renameFloor.addEventListener('click', renameFloor);
+        refs.deleteFloor.addEventListener('click', deleteFloor);
+    }
+
+    function addSlot(type) {
+        const room = getRoom(selectedRoomId);
+        if (!room) return;
+        const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
+        list.push({ id: uniqueId('slot'), label: type === 'downtime' ? 'Downtime Slot' : 'Resource Bay', assigned: '' });
+        persistState();
+        updateDetailPanel();
+        renderRooms();
+    }
+
+    function handleSlotInput(type) {
+        return (ev) => {
+            const room = getRoom(selectedRoomId);
+            if (!room) return;
+            const item = ev.target.closest('.slot-item');
+            if (!item) return;
+            const slotId = item.dataset.id;
+            const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
+            const slot = list.find(s => s.id === slotId);
+            if (!slot) return;
+            if (ev.target.classList.contains('slot-label')) {
+                slot.label = ev.target.value;
+            } else if (ev.target.classList.contains('slot-assignee')) {
+                slot.assigned = ev.target.value;
+            }
+            persistState();
+            renderRooms();
+        };
+    }
+
+    function handleSlotRemove(type) {
+        return (ev) => {
+            if (!ev.target.matches('button[data-action="remove"]')) return;
+            const room = getRoom(selectedRoomId);
+            if (!room) return;
+            const item = ev.target.closest('.slot-item');
+            if (!item) return;
+            const slotId = item.dataset.id;
+            const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
+            const idx = list.findIndex(s => s.id === slotId);
+            if (idx >= 0) {
+                list.splice(idx, 1);
+                persistState();
+                updateDetailPanel();
+                renderRooms();
+            }
+        };
+    }
+
+    function updateSelectedRoom(field, value) {
+        const room = getRoom(selectedRoomId);
+        if (!room) return;
+        room[field] = value;
+        persistState();
+        renderRooms();
+    }
+
+    function duplicateRoom() {
+        const found = findRoomWithFloor(selectedRoomId);
+        if (!found) return;
+        const copy = JSON.parse(JSON.stringify(found.room));
+        copy.id = uniqueId('room');
+        copy.name = `${found.room.name} Copy`;
+        copy.x = clampNumber(found.room.x + 1, 0, state.grid.cols - found.room.w);
+        copy.y = clampNumber(found.room.y + 1, 0, state.grid.rows - found.room.h);
+        found.floor.rooms.push(copy);
+        selectRoom(copy.id);
+        persistState();
+        renderRooms();
+    }
+
+    function deleteRoom() {
+        const found = findRoomWithFloor(selectedRoomId);
+        if (!found) return;
+        if (!confirm('Remove this room from the map?')) return;
+        const idx = found.floor.rooms.findIndex(r => r.id === selectedRoomId);
+        if (idx >= 0) {
+            found.floor.rooms.splice(idx, 1);
+            selectedRoomId = null;
+            persistState();
+            renderRooms();
+            updateDetailPanel();
+        }
+    }
+
+    function addCustomRoom() {
+        const floor = getActiveFloor();
+        const room = sanitizeRoom({
+            id: uniqueId('room'),
+            name: 'Custom Chamber',
+            type: ROOM_TYPES[0].id,
+            x: 2,
+            y: 2,
+            w: 4,
+            h: 3,
+            notes: '',
+            downtimeSlots: [],
+            resourceSlots: []
+        });
+        nudgedPlacement(room, floor);
+        floor.rooms.push(room);
+        selectRoom(room.id);
+        persistState();
+        renderRooms();
+        renderFloorTabs();
+    }
+
+    function clearFloor() {
+        const floor = getActiveFloor();
+        if (!floor || !floor.rooms.length) return;
+        if (!confirm(`Clear all rooms from ${floor.name}?`)) return;
+        floor.rooms = [];
+        selectedRoomId = null;
+        persistState();
+        renderRooms();
+        updateDetailPanel();
+    }
+
+    function addFloor() {
+        const baseName = `Level ${state.floors.length + 1}`;
+        const name = prompt('Name for the new floor?', baseName) || baseName;
+        const floor = createFloor(name);
+        state.floors.push(floor);
+        state.activeFloorId = floor.id;
+        selectedRoomId = null;
+        persistState();
+        renderFloorTabs();
+        renderRooms();
+        updateDetailPanel();
+    }
+
+    function renameFloor() {
+        const floor = getActiveFloor();
+        if (!floor) return;
+        const name = prompt('Rename this floor:', floor.name);
+        if (!name) return;
+        floor.name = name.trim();
+        persistState();
+        renderFloorTabs();
+        renderRooms();
+    }
+
+    function deleteFloor() {
+        if (state.floors.length <= 1) {
+            alert('Need at least one floor. Clear it instead if you want a blank slate.');
+            return;
+        }
+        const floor = getActiveFloor();
+        if (!floor) return;
+        if (!confirm(`Delete ${floor.name} and all rooms on it?`)) return;
+        state.floors = state.floors.filter(f => f.id !== floor.id);
+        state.activeFloorId = state.floors[0].id;
+        selectedRoomId = null;
+        persistState();
+        renderFloorTabs();
+        renderRooms();
+        updateDetailPanel();
+    }
+
+    function exportLayout() {
+        const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `task_force_hq_${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+    }
+
+    function importLayout() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = (ev) => {
+            const file = ev.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(reader.result);
+                    state = sanitizeState(parsed);
+                    selectedRoomId = null;
+                    persistState();
+                    renderFloorTabs();
+                    renderRooms();
+                    updateDetailPanel();
+                } catch (err) {
+                    alert('Invalid HQ data file');
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    function takeScreenshot() {
+        const floor = getActiveFloor();
+        const rooms = floor ? floor.rooms : [];
+        const width = state.grid.cols * state.grid.cell;
+        const height = state.grid.rows * state.grid.cell;
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, '#041229');
+        gradient.addColorStop(1, '#070c18');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctx.lineWidth = 1;
+        for (let x = 0; x <= state.grid.cols; x++) {
+            ctx.beginPath();
+            ctx.moveTo(x * state.grid.cell, 0);
+            ctx.lineTo(x * state.grid.cell, height);
+            ctx.stroke();
+        }
+        for (let y = 0; y <= state.grid.rows; y++) {
+            ctx.beginPath();
+            ctx.moveTo(0, y * state.grid.cell);
+            ctx.lineTo(width, y * state.grid.cell);
+            ctx.stroke();
+        }
+
+        rooms.forEach(room => {
+            const type = getRoomType(room.type);
+            const x = room.x * state.grid.cell;
+            const y = room.y * state.grid.cell;
+            const w = room.w * state.grid.cell;
+            const h = room.h * state.grid.cell;
+            ctx.fillStyle = `${type.color}22`;
+            ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
+            ctx.strokeStyle = type.color;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+            ctx.fillStyle = '#e3f5ff';
+            ctx.font = '16px "Segoe UI", sans-serif';
+            ctx.fillText(room.name, x + 10, y + 24);
+            ctx.font = '12px "Segoe UI", sans-serif';
+            ctx.fillStyle = '#8abbdc';
+            ctx.fillText(`${getRoomType(room.type).label} | ⏱ ${room.downtimeSlots.length} ⚙ ${room.resourceSlots.length}`, x + 10, y + 40);
+        });
+
+        ctx.fillStyle = '#9fd8ff';
+        ctx.font = '18px "Segoe UI", sans-serif';
+        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 16, height - 36);
+        ctx.font = '13px "Segoe UI", sans-serif';
+        ctx.fillStyle = '#6aaad6';
+        ctx.fillText(`Exported ${new Date().toLocaleString()}`, 16, height - 16);
+
+        canvas.toBlob(blob => {
+            if (!blob) return;
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `hq_blueprint_${Date.now()}.png`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+        });
+    }
+
+    function refreshAssigneeLists() {
+        if (datalistRefs.players) {
+            const players = (store && typeof store.getPlayers === 'function' ? store.getPlayers() : [])
+                .map(p => p.name)
+                .filter(Boolean);
+            setDatalistOptions(datalistRefs.players, players);
+        }
+        if (datalistRefs.resources) {
+            const requisitions = (store && typeof store.getRequisitions === 'function' ? store.getRequisitions() : []);
+            const names = requisitions.map(req => req.item || req.purpose || req.requester || '').filter(Boolean);
+            setDatalistOptions(datalistRefs.resources, names);
+        }
+    }
+
+    function setDatalistOptions(element, values) {
+        const unique = [...new Set(values)];
+        element.innerHTML = unique.map(val => `<option value="${escapeHTML(val)}"></option>`).join('');
+    }
+
+    function createFloor(name = `Level ${state.floors ? state.floors.length + 1 : 1}`) {
+        return { id: uniqueId('floor'), name, rooms: [] };
+    }
+
+    function getRoomType(id) {
+        return ROOM_TYPES.find(t => t.id === id) || ROOM_TYPES[0];
+    }
+
+    function clampNumber(value, min, max) {
+        return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+    }
+
+    function uniqueId(prefix) {
+        return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+})();
