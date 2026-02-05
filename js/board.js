@@ -762,12 +762,8 @@ window.onclick = (e) => {
 
 // Explicitly expose to window to avoid scope issues
 window.togglePopup = function (id) {
-    console.log("togglePopup called for:", id);
     const el = document.getElementById(id);
-    if (!el) {
-        console.error("Popup element not found:", id);
-        return;
-    }
+    if (!el) return;
 
     // Close others
     document.querySelectorAll('.popup-menu').forEach(p => {
@@ -775,7 +771,6 @@ window.togglePopup = function (id) {
     });
 
     el.classList.toggle('active');
-    console.log("Toggled active state:", el.classList.contains('active'));
 };
 
 function closePopups() {
