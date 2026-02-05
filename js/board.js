@@ -144,7 +144,7 @@ function renderNPCs() {
     const filtered = npcs.filter(npc => {
         const text = `${npc.name} ${npc.wants || ''} ${npc.leverage || ''} ${npc.notes || ''} ${npc.guild || ''}`.toLowerCase();
         const matchesSearch = text.includes(searchTerm);
-        const matchesGuild = !guildFilter || (npc.guild === guildFilter);
+        const matchesGuild = !guildFilter || (npc.guild && npc.guild.includes(guildFilter));
         return matchesSearch && matchesGuild;
     });
 
@@ -206,7 +206,7 @@ function renderLocations() {
         const text = `${loc.name} ${loc.district || ''} ${loc.desc || ''} ${loc.notes || ''}`.toLowerCase();
         const matchesSearch = text.includes(searchTerm);
         // Location "District" is essentially the Guild
-        const matchesGuild = !guildFilter || (loc.district === guildFilter);
+        const matchesGuild = !guildFilter || (loc.district && loc.district.includes(guildFilter));
         return matchesSearch && matchesGuild;
     });
 
