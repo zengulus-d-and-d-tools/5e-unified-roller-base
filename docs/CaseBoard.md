@@ -6,7 +6,7 @@ A virtual whiteboard for tracking clues, managing investigations, and visualizin
 
 ### Node System
 - **Drag & Drop**: Create nodes by dragging icons from the toolbar (Persons, Locations, Clues, Guild Sigils).
-- **Editing**: Double-click or use the context menu to edit titles and body text.
+- **Editing**: Right click and use context menu to edit titles and body text.
 - **Physics**: Nodes have gentle physics interactions to organize the board organically.
 
 ### Connections
