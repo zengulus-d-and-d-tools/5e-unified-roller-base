@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NPC Roster</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+    <style>
+        /* Specific adjustments for Roster if needed, reusing Hub styles for consistency */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="header-bar">
+        <div class="header-content">
+            <div>
+                <a href="tools.html"
+                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
+                    Portal</a>
+                <span
+                    style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">NPC
+                    Database</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()" style="font-size:0.75rem;">🌌 BG:
+                    Field</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>NPC Roster <button class="btn" onclick="toggleNPCForm()">+ Add NPC</button></h2>
+
+            <div id="npcForm"
+                style="display:none; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div class="grid-5" style="grid-template-columns: 1fr 1fr; margin-bottom: 10px;">
+                    <input type="text" id="npcName" placeholder="Name">
+                    <select id="npcGuild">
+                        <option value="">Select Guild...</option>
+                    </select>
+                </div>
+                <div class="grid-5" style="grid-template-columns: 1fr 1fr; margin-bottom: 10px;">
+                    <input type="text" id="npcWants" placeholder="Wants...">
+                    <input type="text" id="npcLeverage" placeholder="Leverage...">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <textarea id="npcNotes" rows="2" placeholder="Notes / Description..."></textarea>
+                </div>
+                <button class="btn btn-dp" onclick="addNPC()">Save NPC</button>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="searchFilter" placeholder="Search names..." onkeyup="render()" style="flex:1;">
+                <select id="guildFilter" onchange="render()" style="flex:1;">
+                    <option value="">All Guilds</option>
+                </select>
+            </div>
+
+            <div id="npcList"></div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/roster.js"></script>
+    <script src="js/vector-field.js"></script>
+</body>
+
+</html>

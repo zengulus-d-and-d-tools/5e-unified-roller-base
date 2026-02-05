@@ -5,110 +5,111 @@ const guilds = (window.RTF_DATA && window.RTF_DATA.guilds) ? window.RTF_DATA.gui
 // Rewards converted to a datalist for suggestions while allowing free text
 const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
 
-// Initialize state dynamically
-let state = {
-    rep: guilds.reduce((acc, g) => { acc[g] = 0; return acc; }, {}),
-    heat: 0,
-    players: [],
-    case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
-};
-
-function loadState() {
-    try {
-        const saved = localStorage.getItem('ravnicaHubV3_2');
-        if (saved) {
-            const loaded = JSON.parse(saved);
-            // Migration: Ensure all current guilds exist in loaded state
-            guilds.forEach(g => {
-                if (loaded.rep[g] === undefined) loaded.rep[g] = 0;
-            });
-            state = loaded;
-        }
-    } catch (e) { console.error("Corrupted Save", e); }
-}
-
-function exportData() {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "ravnica_hub_backup_" + new Date().toISOString().slice(0, 10) + ".json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-}
-
-function importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = e => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = event => {
-            try {
-                const loaded = JSON.parse(event.target.result);
-                if (confirm("Overwrite current data with imported file?")) {
-                    // Migration on import as well
-                    guilds.forEach(g => {
-                        if (loaded.rep && loaded.rep[g] === undefined) loaded.rep[g] = 0;
-                    });
-                    state = loaded;
-                    save();
-                    alert("Data imported successfully!");
-                }
-            } catch (err) {
-                alert("Invalid JSON file");
-            }
-        };
-        reader.readAsText(file);
-    };
-    input.click();
+// Shortcut to Store Campaign Data
+function getCampaign() {
+    if (!window.RTF_STORE) return null;
+    return window.RTF_STORE.state.campaign;
 }
 
 function save() {
-    localStorage.setItem('ravnicaHubV3_2', JSON.stringify(state));
+    if (window.RTF_STORE) window.RTF_STORE.save();
     render();
 }
 
+function exportData() {
+    if (window.RTF_STORE) window.RTF_STORE.export();
+}
+
+function importData() {
+    if (window.RTF_STORE) {
+        window.RTF_STORE.import().then(success => {
+            if (success) {
+                alert("Data imported successfully!");
+                render();
+            }
+        });
+    }
+}
+
 function saveCase() {
-    state.case.title = document.getElementById('caseTitle').value;
-    state.case.guilds = document.getElementById('caseGuilds').value;
-    state.case.goal = document.getElementById('caseGoal').value;
-    state.case.clock = document.getElementById('caseClock').value;
-    state.case.obstacles = document.getElementById('caseObstacles').value;
-    state.case.setPiece = document.getElementById('caseSetPiece').value;
+    const c = getCampaign().case;
+    if (!c) return;
+    c.title = document.getElementById('caseTitle').value;
+    c.guilds = document.getElementById('caseGuilds').value;
+    c.goal = document.getElementById('caseGoal').value;
+    c.clock = document.getElementById('caseClock').value;
+    c.obstacles = document.getElementById('caseObstacles').value;
+    c.setPiece = document.getElementById('caseSetPiece').value;
     save();
 }
 
-function resetAll() { if (confirm("Reset everything?")) { localStorage.removeItem('ravnicaHubV3_2'); location.reload(); } }
-function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, (state.rep[g] || 0) + amt)); save(); }
-function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
+function resetAll() {
+    if (confirm("Reset everything? This will wipe the Unified Store.")) {
+        localStorage.removeItem('ravnica_unified_v1');
+        location.reload();
+    }
+}
 
+function modRep(g, amt) {
+    const rep = getCampaign().rep;
+    rep[g] = Math.max(-2, Math.min(2, (rep[g] || 0) + amt));
+    save();
+}
+
+function modHeat(amt) {
+    const c = getCampaign();
+    c.heat = Math.max(0, Math.min(6, (c.heat || 0) + amt));
+    save();
+}
+
+// --- PLAYER LOGIC ---
 function addPlayer() {
-    state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
+    const c = getCampaign();
+    c.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
     save();
 }
 
-function modDP(idx, amt) { state.players[idx].dp = Math.max(0, Math.min(4, state.players[idx].dp + amt)); save(); }
-function grantWeeklyDP() { state.players.forEach(p => p.dp = Math.min(4, p.dp + 2)); save(); }
-function modClock(idx, amt) { state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt)); save(); }
+function modDP(idx, amt) {
+    const p = getCampaign().players[idx];
+    p.dp = Math.max(0, Math.min(4, p.dp + amt));
+    save();
+}
 
-function updatePlayer(idx, field, val) { state.players[idx][field] = val; save(); }
+function grantWeeklyDP() {
+    getCampaign().players.forEach(p => p.dp = Math.min(4, p.dp + 2));
+    save();
+}
+
+function modClock(idx, amt) {
+    const p = getCampaign().players[idx];
+    p.projectClock = Math.max(0, Math.min(4, p.projectClock + amt));
+    save();
+}
+
+function updatePlayer(idx, field, val) {
+    getCampaign().players[idx][field] = val;
+    save();
+}
+
+
 
 function render() {
+    const c = getCampaign();
+    if (!c) return; // Wait for store load
+
     // Render Case Info
-    document.getElementById('caseTitle').value = state.case.title || "";
-    document.getElementById('caseGuilds').value = state.case.guilds || "";
-    document.getElementById('caseGoal').value = state.case.goal || "";
-    document.getElementById('caseClock').value = state.case.clock || "";
-    document.getElementById('caseObstacles').value = state.case.obstacles || "";
-    document.getElementById('caseSetPiece').value = state.case.setPiece || "";
+    document.getElementById('caseTitle').value = c.case.title || "";
+    document.getElementById('caseGuilds').value = c.case.guilds || "";
+    document.getElementById('caseGoal').value = c.case.goal || "";
+    document.getElementById('caseClock').value = c.case.clock || "";
+    document.getElementById('caseObstacles').value = c.case.obstacles || "";
+    document.getElementById('caseSetPiece').value = c.case.setPiece || "";
 
     // Shared Status
     document.getElementById('repGrid').innerHTML = guilds.map(g => `
             <div style="text-align:center; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,0.3);">
                 <div class="mini-label" style="font-size:0.6rem;">${g}</div>
-                <div style="font-size:1.2rem; font-weight:900; color:${(state.rep[g] || 0) > 0 ? '#2ecc71' : (state.rep[g] || 0) < 0 ? '#ff6b6b' : '#666'}">${(state.rep[g] || 0) > 0 ? '+' : ''}${state.rep[g] || 0}</div>
+                <div style="font-size:1.2rem; font-weight:900; color:${(c.rep[g] || 0) > 0 ? '#2ecc71' : (c.rep[g] || 0) < 0 ? '#ff6b6b' : '#666'}">${(c.rep[g] || 0) > 0 ? '+' : ''}${c.rep[g] || 0}</div>
                 <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
                     <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
                     <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
@@ -116,16 +117,16 @@ function render() {
             </div>
         `).join('');
 
-    document.getElementById('heatVal').innerText = state.heat;
-    document.getElementById('heatFill').style.width = (state.heat / 6 * 100) + '%';
+    document.getElementById('heatVal').innerText = c.heat || 0;
+    document.getElementById('heatFill').style.width = ((c.heat || 0) / 6 * 100) + '%';
 
     let warn = "";
-    if (state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated.";
-    else if (state.heat >= 3) warn = "WARNING: Complication Scene triggered.";
+    if ((c.heat || 0) >= 6) warn = "CRITICAL: Hard Constraint mandated.";
+    else if ((c.heat || 0) >= 3) warn = "WARNING: Complication Scene triggered.";
     document.getElementById('heatWarning').innerText = warn;
 
     // Player List
-    document.getElementById('rosterList').innerHTML = state.players.map((p, i) => `
+    document.getElementById('rosterList').innerHTML = (c.players || []).map((p, i) => `
             <div class="player-row">
                 <div>
                     <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
@@ -150,9 +151,19 @@ function render() {
                         </div>
                     </div>
                 </div>
-                <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Delete?')){state.players.splice(${i},1); save();}">&times;</button>
+                <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Delete?')){getCampaign().players.splice(${i},1); save();}">&times;</button>
             </div>
         `).join('');
+
+
 }
 
-loadState(); render();
+// Initial Render on Load
+window.onload = () => {
+    // Check if store loaded
+    if (window.RTF_STORE) {
+        render();
+    } else {
+        setTimeout(render, 100); // Simple retry
+    }
+};

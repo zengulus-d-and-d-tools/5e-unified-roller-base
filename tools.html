@@ -8,20 +8,56 @@
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/tools.css">
 
-</head>
+    <style>
+        .dm-only {
+            display: none;
+        }
+
+        .header-title {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.3s;
+        }
+
+        .header-title:hover {
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        .secret-active .header-title {
+            color: #ff4444;
+            text-shadow: 0 0 15px #ff0000;
+        }
+
+        /* Style adjustments for buttons in header */
+        .header-overlay .btn-tool {
+            font-size: 0.8rem;
+            padding: 4px 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ccc;
+            border-radius: 4px;
+        }
+
+        .header-overlay .btn-tool:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-color: #fff;
+        }
+    </style>
+    </body>
 
 <body>
     <canvas id="vector-cloud"></canvas>
 
     <div class="tools-container">
         <div class="header-overlay">
-            <h1>Forbidden DM Protocols</h1>
+            <h1 class="header-title" id="pageTitle" onclick="trySecretToggle(event)">Tools Hub</h1>
             <div style="position:absolute; right:20px; top:20px; z-index:100; display:flex; gap:10px;">
-                <button class="btn-tool" onclick="triggerAccentPicker()" style="cursor:pointer; font-size:0.9rem;"
-                    onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.8">🎨 Color</button>
-                <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
-                    style="cursor:pointer; font-size:0.9rem;" onmouseover="this.style.opacity=1"
-                    onmouseout="this.style.opacity=0.8">🌌 BG: Field</button>
+                <button class="btn-tool" onclick="handleImport()">📥 Import</button>
+                <button class="btn-tool" onclick="handleExport()">📤 Export</button>
+                <span style="width:1px; background:rgba(255,255,255,0.2); margin:0 5px;"></span>
+                <button class="btn-tool" onclick="triggerAccentPicker()">🎨 Color</button>
+                <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
                 <input type="color" id="accent-picker-input"
                     style="visibility:hidden; width:0; height:0; position:absolute;"
                     onchange="setAccentColor(this.value)">
@@ -29,6 +65,14 @@
         </div>
 
         <div class="grid">
+            <a href="index.html">
+                <div class="card" style="border-color: var(--accent);">
+                    <div class="icon">🧙‍♂️</div>
+                    <div class="title">My Character</div>
+                    <div class="desc">Character sheet, dice roller, and stats.</div>
+                </div>
+            </a>
+
             <a href="player-dashboard.html">
                 <div class="card">
                     <div class="icon">♟️</div>
@@ -41,31 +85,23 @@
                 <div class="card">
                     <div class="icon">🏘️</div>
                     <div class="title">Main Hub</div>
-                    <div class="desc">Campaign state, reputation tracking, player roster, and case prep.</div>
+                    <div class="desc">Campaign state, reputation tracking, and roster.</div>
                 </div>
             </a>
 
-            <a href="gm.html">
+            <a href="roster.html">
                 <div class="card">
-                    <div class="icon">⚔️</div>
-                    <div class="title">Combat Dashboard</div>
-                    <div class="desc">Initiative tracker, HP management, dice roller, and loot tables.</div>
+                    <div class="icon">👥</div>
+                    <div class="title">NPC Roster</div>
+                    <div class="desc">Database of contacts, rivals, and guild members.</div>
                 </div>
             </a>
 
-            <a href="dm-screen.html">
+            <a href="tourney.html">
                 <div class="card">
-                    <div class="icon">📽️</div>
-                    <div class="title">Narrative Screen</div>
-                    <div class="desc">Street scenes, atmospheric texture, NPC quirks, and quick references.</div>
-                </div>
-            </a>
-
-            <a href="clue.html">
-                <div class="card">
-                    <div class="icon">🔍</div>
-                    <div class="title">Clue Generator</div>
-                    <div class="desc">Procedural mystery intersection generator (Signal vs Noise).</div>
+                    <div class="icon">🏆</div>
+                    <div class="title">Tournament Bracket</div>
+                    <div class="desc">Dynamic SVG bracket for competitions and duals.</div>
                 </div>
             </a>
 
@@ -77,17 +113,73 @@
                 </div>
             </a>
 
-            <a href="tourney.html">
-                <div class="card">
-                    <div class="icon">🏆</div>
-                    <div class="title">Tournament Bracket</div>
-                    <div class="desc">Dynamic SVG bracket for competitions and duals.</div>
+            <!-- DM ONLY TOOLS -->
+            <a href="gm.html" class="dm-only">
+                <div class="card" style="border-color: #ff4444;">
+                    <div class="icon">⚔️</div>
+                    <div class="title">Combat Dashboard</div>
+                    <div class="desc">Initiative tracker, HP management, dice roller, and loot tables.</div>
                 </div>
             </a>
+
+            <a href="dm-screen.html" class="dm-only">
+                <div class="card" style="border-color: #ff4444;">
+                    <div class="icon">📽️</div>
+                    <div class="title">Narrative Screen</div>
+                    <div class="desc">Street scenes, atmospheric texture, NPC quirks, and quick references.</div>
+                </div>
+            </a>
+
+            <a href="clue.html" class="dm-only">
+                <div class="card" style="border-color: #ff4444;">
+                    <div class="icon">🔍</div>
+                    <div class="title">Clue Generator</div>
+                    <div class="desc">Procedural mystery intersection generator (Signal vs Noise).</div>
+                </div>
+            </a>
+
         </div>
     </div>
+    <script src="js/store.js"></script>
     <script src="js/vector-field.js"></script>
-</body>
+    <script>
+        // Secret Toggle Logic
+        function trySecretToggle(e) {
+            // Alt + Shift + Click
+            if (e.altKey && e.shiftKey) {
+                document.body.classList.toggle('secret-active');
+                const isSecret = document.body.classList.contains('secret-active');
 
+                document.getElementById('pageTitle').innerText = isSecret ? "Forbidden DM Protocols" : "Tools Hub";
+
+                // Toggle DM Cards
+                document.querySelectorAll('.dm-only').forEach(el => {
+                    el.style.display = isSecret ? 'block' : 'none';
+                    // Add animation class if needed
+                    el.style.animation = isSecret ? 'fadeIn 0.5s' : '';
+                });
+            }
+        }
+
+        // Store Interaction
+        function handleExport() {
+            if (window.RTF_STORE) {
+                window.RTF_STORE.export();
+            } else {
+                alert("Store not loaded.");
+            }
+        }
+
+        function handleImport() {
+            if (window.RTF_STORE) {
+                window.RTF_STORE.import().then(success => {
+                    if (success) alert("Data imported successfully!");
+                });
+            } else {
+                alert("Store not loaded.");
+            }
+        }
+    </script>
+</body>
 
 </html>
