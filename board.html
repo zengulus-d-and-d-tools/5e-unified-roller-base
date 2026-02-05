@@ -22,8 +22,6 @@
         <div class="board-controls">
             <button class="btn-tool" id="btn-pan" onclick="togglePanMode()">🖐️ Pan: OFF</button>
             <button class="btn-tool" onclick="saveBoard()">💾 Save</button>
-            <button class="btn-tool" onclick="exportBoard()">📤 Export</button>
-            <button class="btn-tool" onclick="importBoard()">📥 Import</button>
             <button class="btn-tool" onclick="clearBoard()">🗑️ Clear</button>
             <button class="btn-tool" onclick="triggerAccentPicker()">🎨 Color</button>
             <input type="color" id="accent-picker-input"
@@ -66,15 +64,15 @@
 
             <!-- POPUP TRIGGERS -->
             <div class="tool-group">
-                <div class="tool-item" onclick="togglePopup('guild-popup')">
+                <div class="tool-item" id="btn-guilds">
                     <div class="icon">🏛️</div>
                     <div class="label">Guilds</div>
                 </div>
-                <div class="tool-item" onclick="togglePopup('npc-popup')">
+                <div class="tool-item" id="btn-npcs">
                     <div class="icon">👥</div>
                     <div class="label">NPCs</div>
                 </div>
-                <div class="tool-item" onclick="togglePopup('location-popup')">
+                <div class="tool-item" id="btn-locations">
                     <div class="icon">📍</div>
                     <div class="label">Places</div>
                 </div>

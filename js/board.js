@@ -68,6 +68,15 @@ function initToolbars() {
     initGuildToolbar();
     initNPCToolbar();
     initLocationToolbar();
+
+    // Attach Toggle Listeners
+    const btnGuilds = document.getElementById('btn-guilds');
+    const btnNpcs = document.getElementById('btn-npcs');
+    const btnLocs = document.getElementById('btn-locations');
+
+    if (btnGuilds) btnGuilds.addEventListener('click', (e) => { e.stopPropagation(); togglePopup('guild-popup'); });
+    if (btnNpcs) btnNpcs.addEventListener('click', (e) => { e.stopPropagation(); togglePopup('npc-popup'); });
+    if (btnLocs) btnLocs.addEventListener('click', (e) => { e.stopPropagation(); togglePopup('location-popup'); });
 }
 
 function initGuildToolbar() {
