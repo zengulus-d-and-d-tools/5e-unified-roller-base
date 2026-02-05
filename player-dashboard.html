@@ -5,23 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Task Force Dashboard</title>
+    <link rel="stylesheet" href="css/theme.css">
     <style>
-        :root {
-            --bg: #0f0f13;
-            --card-bg: rgba(30, 30, 35, 0.6);
-            --input-bg: rgba(0, 0, 0, 0.3);
-            --accent: #4ecdc4;
-            --accent-glow: rgba(78, 205, 196, 0.4);
-            --text: #e0e0e0;
-            --border: rgba(255, 255, 255, 0.1);
-            --glass: blur(12px);
-            --gold: #f1c40f;
-            --danger: #ff6b6b;
-        }
-
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
             padding: 20px;
             display: flex;

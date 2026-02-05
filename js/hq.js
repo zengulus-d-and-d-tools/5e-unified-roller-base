@@ -235,12 +235,12 @@
             el.innerHTML = `
                 <div class="room-label">
                     <span class="room-name">${escapeHTML(room.name)}</span>
-                    <span class="room-type">${escapeHTML(type.label)}</span>
                 </div>
                 <div class="room-slots">
                     <span>⏱ ${room.downtimeSlots.length}</span>
                     <span>⚙ ${room.resourceSlots.length}</span>
                 </div>
+                <div class="room-designation">${escapeHTML(type.label)}</div>
             `;
             el.addEventListener('pointerdown', (ev) => startDrag(ev, room.id));
             el.addEventListener('click', (ev) => {

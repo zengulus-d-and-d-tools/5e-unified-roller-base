@@ -1,16 +1,8 @@
 :root {
-            --bg: #0f0f13;
-            --card-bg: rgba(30, 30, 35, 0.6);
-            --input-bg: rgba(0, 0, 0, 0.3);
-            --accent: #00bcd4;
-            --accent-glow: rgba(0, 188, 212, 0.4);
-            --text: #f0f0f0;
-            --border: rgba(255, 255, 255, 0.1);
             --green: #00e676;
             --red: #ff5252;
             --cyan: #18ffff;
             --pink: #ff4081;
-            --glass: blur(12px);
         }
 
             to {
@@ -35,28 +27,28 @@
 
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
-            padding: 0;
+            padding: 40px 0 90px;
             margin: 0;
-            padding-bottom: 90px;
-            padding-top: 60px;
             min-height: 100vh;
         }
 
         /* --- NAVIGATION --- */
         .nav-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            position: sticky;
+            top: 10px;
             height: 55px;
             background: rgba(15, 15, 19, 0.85);
-            border-bottom: 1px solid var(--border);
+            border: 1px solid var(--border);
             display: flex;
-            z-index: 1000;
+            z-index: 10;
             backdrop-filter: var(--glass);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            margin: 0 auto 20px;
+            width: min(900px, calc(100% - 40px));
+            border-radius: 999px;
+            overflow: hidden;
         }
 
         .nav-item {
@@ -68,15 +60,13 @@
             font-size: 0.9rem;
             color: #888;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             letter-spacing: 0.5px;
         }
 
         .nav-item.active {
             color: var(--accent);
-            border-bottom-color: var(--accent);
-            background: linear-gradient(to top, rgba(0, 188, 212, 0.1), transparent);
+            background: rgba(0, 188, 212, 0.1);
             text-shadow: 0 0 10px var(--accent-glow);
         }
 

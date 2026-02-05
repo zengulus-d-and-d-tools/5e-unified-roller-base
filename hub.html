@@ -9,19 +9,6 @@
     <link rel="stylesheet" href="css/hub.css">
 
     <style>
-        :root {
-            --bg: #0f0f13;
-            --card-bg: rgba(30, 30, 35, 0.6);
-            --input-bg: rgba(0, 0, 0, 0.3);
-            --accent: #4ecdc4;
-            --accent-glow: rgba(78, 205, 196, 0.4);
-            --text: #e0e0e0;
-            --border: rgba(255, 255, 255, 0.1);
-            --glass: blur(12px);
-            --gold: #f1c40f;
-            --danger: #ff6b6b;
-        }
-
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -36,7 +23,7 @@
 
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
             padding: 20px;
             display: flex;
@@ -44,38 +31,9 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            padding-top: 80px;
-            /* Space for fixed header */
             overscroll-behavior-y: none;
             overflow-x: hidden;
             box-sizing: border-box;
-        }
-
-        /* --- HEADER --- */
-        .header-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: rgba(15, 15, 19, 0.95);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: center;
-            /* Changed to center the inner content */
-            align-items: center;
-            padding: 0 20px;
-            z-index: 1000;
-            backdrop-filter: var(--glass);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        }
-
-        .header-content {
-            width: 100%;
-            max-width: 950px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
 
         .container {
@@ -274,32 +232,28 @@
 <body>
     <canvas id="vector-cloud"></canvas>
 
-    <div class="header-bar">
-        <div class="header-content">
-            <div>
-                <a href="tools.html"
-                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
-                    Portal</a>
-                <a href="player-dashboard.html"
-                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">Dashboard</a>
-                <span style="color:#444;">|</span>
-                <span
-                    style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Task
-                    Force Hub</span>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()" style="font-size:0.75rem;">🌌 BG:
-                    Field</button>
-                <button class="btn" onclick="triggerAccentPicker()" style="font-size:0.75rem;">🎨 Color</button>
-                <input type="color" id="accent-picker-input"
-                    style="visibility:hidden; width:0; height:0; position:absolute;"
-                    onchange="setAccentColor(this.value)">
-                <button class="btn" onclick="exportData()" style="font-size:0.75rem;">💾 Export</button>
-                <button class="btn" onclick="importData()" style="font-size:0.75rem;">📂 Import</button>
-            </div>
-        </div>
-    </div>
     <div class="container">
+        <header class="hero-header">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1>Campaign Hub</h1>
+                <p class="hero-subtitle">A campaign-level dashboard for managing the strategic layer of the game, tuned for Ravnica's urban grind.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <a class="hero-btn ghost" href="tools.html">Portal</a>
+                    <a class="hero-btn ghost" href="player-dashboard.html">Dashboard</a>
+                    <button class="hero-btn ghost" onclick="exportData()">💾 Export</button>
+                    <button class="hero-btn ghost" onclick="importData()">📂 Import</button>
+                </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input"
+                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+            </div>
+        </header>
         <div class="card">
             <h2>Case Prep: One-Page Template</h2>
             <div class="case-grid">

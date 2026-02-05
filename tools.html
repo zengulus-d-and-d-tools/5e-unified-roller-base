@@ -28,21 +28,6 @@
             text-shadow: 0 0 15px #ff0000;
         }
 
-        /* Style adjustments for buttons in header */
-        .header-overlay .btn-tool {
-            font-size: 0.8rem;
-            padding: 4px 10px;
-            background: rgba(0, 0, 0, 0.4);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ccc;
-            border-radius: 4px;
-        }
-
-        .header-overlay .btn-tool:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            border-color: #fff;
-        }
     </style>
     </body>
 
@@ -50,21 +35,25 @@
     <canvas id="vector-cloud"></canvas>
 
     <div class="tools-container">
-        <div class="header-overlay"
-            style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
-            <h1 class="header-title" id="pageTitle" onclick="trySecretToggle(event)"
-                style="margin: 0; white-space: nowrap;">Tools Hub</h1>
-            <div style="display:flex; gap:10px; flex-wrap: wrap; justify-content: flex-end;">
-                <button class="btn-tool" onclick="handleImport()">📥 Import</button>
-                <button class="btn-tool" onclick="handleExport()">📤 Export</button>
-                <span style="width:1px; background:rgba(255,255,255,0.2); margin:0 5px;"></span>
-                <button class="btn-tool" onclick="triggerAccentPicker()">🎨 Color</button>
-                <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
-                <input type="color" id="accent-picker-input"
-                    style="visibility:hidden; width:0; height:0; position:absolute;"
-                    onchange="setAccentColor(this.value)">
+        <header class="hero-header" style="margin-bottom: 30px;">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1 class="header-title" id="pageTitle" onclick="trySecretToggle(event)">Tools Hub</h1>
+                <p class="hero-subtitle">Central dispatch for character sheets, command dashboards, and scenario generators.</p>
             </div>
-        </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <button class="hero-btn ghost" onclick="handleImport()">📥 Import</button>
+                    <button class="hero-btn ghost" onclick="handleExport()">📤 Export</button>
+                </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input"
+                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+            </div>
+        </header>
 
         <div class="grid">
             <a href="index.html">

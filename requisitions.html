@@ -118,23 +118,27 @@
 <body>
     <canvas id="vector-cloud"></canvas>
 
-    <div class="header-bar">
-        <div class="header-content">
-            <div>
-                <a href="tools.html" style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem;">&larr; Portal</a>
-                <span style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Requisition Vault</span>
-            </div>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <button class="btn" onclick="toggleReqForm()">+ New Request</button>
-                <button class="btn" onclick="triggerAccentPicker()">🎨 Color</button>
-                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
-                <input type="color" id="accent-picker-input" style="opacity:0; position:absolute; width:0; height:0;"
-                    onchange="setAccentColor(this.value)">
-            </div>
-        </div>
-    </div>
-
     <div class="container">
+        <header class="hero-header">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1>Requisition Vault</h1>
+                <p class="hero-subtitle">Shared inventory pipeline for triaging kit requests, approvals, and guild sourcing.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <a class="hero-btn ghost" href="tools.html">Portal</a>
+                    <button class="hero-btn accent" onclick="toggleReqForm()">+ New Request</button>
+                </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input"
+                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+            </div>
+        </header>
+
         <div class="card">
             <div id="reqForm" class="req-form">
                 <div class="req-grid">

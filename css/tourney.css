@@ -1,41 +1,22 @@
-:root {
-            --bg: #0f0f13;
-            --panel: rgba(30, 30, 35, 0.8);
-            --node-bg: rgba(30, 30, 35, 0.9);
-            --node-hover: #303030;
-            --accent: #4ecdc4;
-            --accent-glow: rgba(78, 205, 196, 0.4);
-            --gold: #f1c40f;
-            --text: #e0e0e0;
-            --line: #666;
+        :root {
+            --panel: color-mix(in srgb, #0f141f 80%, var(--accent) 20%);
+            --node-bg: color-mix(in srgb, #10121c 75%, var(--accent) 25%);
+            --node-hover: color-mix(in srgb, var(--accent) 35%, #202020 65%);
+            --line: color-mix(in srgb, #666666 70%, var(--accent) 30%);
             --node-h: 44px;
-            --glass: blur(12px);
-            --border: rgba(255, 255, 255, 0.1);
         }
 
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
             margin: 0;
-            height: 100vh;
-            overflow: hidden;
+            min-height: 100vh;
+            overflow-x: hidden;
             display: flex;
             flex-direction: column;
-        }
-
-        /* TOOLBAR */
-        #toolbar {
-            height: 60px;
-            background: rgba(15, 15, 19, 0.95);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            z-index: 100;
-            backdrop-filter: var(--glass);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            padding: 30px 20px 20px;
+            box-sizing: border-box;
         }
 
         .btn {

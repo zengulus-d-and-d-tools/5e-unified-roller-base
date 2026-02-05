@@ -13,24 +13,24 @@
     <canvas id="vector-cloud"></canvas>
 
     <div class="hq-app">
-        <header class="hq-header">
+        <header class="hq-header hero-header">
             <div>
-                <p class="eyebrow">Ravnica Task Force</p>
+                <p class="eyebrow hero-eyebrow">Ravnica Task Force</p>
                 <h1>HQ Layout Foundry</h1>
-                <p class="subtitle">Blueprint your command post with sigils, rails, and recharging pods that reflect the guild-tech fueling your ops.</p>
+                <p class="subtitle hero-subtitle">Blueprint your command post with sigils, rails, and recharging pods that reflect the guild-tech fueling your ops.</p>
             </div>
-            <div class="header-actions">
-                <div class="action-bar primary">
-                    <a class="btn ghost" href="tools.html">Portal</a>
-                    <button id="btn-add-custom" class="btn ghost">Custom Room</button>
-                    <button id="btn-clear" class="btn ghost">Clear Floor</button>
-                    <button id="btn-export" class="btn ghost">Export Data</button>
-                    <button id="btn-import" class="btn ghost">Import Data</button>
-                    <button id="btn-screenshot" class="btn accent">Take Screenshot</button>
+            <div class="header-actions hero-actions">
+                <div class="action-bar hero-action-bar primary">
+                    <a class="btn hero-btn ghost" href="tools.html">Portal</a>
+                    <button id="btn-add-custom" class="btn hero-btn ghost">Custom Room</button>
+                    <button id="btn-clear" class="btn hero-btn ghost">Clear Floor</button>
+                    <button id="btn-export" class="btn hero-btn ghost">Export Data</button>
+                    <button id="btn-import" class="btn hero-btn ghost">Import Data</button>
+                    <button id="btn-screenshot" class="btn hero-btn accent">Take Screenshot</button>
                 </div>
-                <div class="action-bar secondary">
-                    <button class="btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                <div class="action-bar hero-action-bar secondary">
+                    <button class="btn hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="btn hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input" style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
             </div>
