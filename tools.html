@@ -50,9 +50,11 @@
     <canvas id="vector-cloud"></canvas>
 
     <div class="tools-container">
-        <div class="header-overlay">
-            <h1 class="header-title" id="pageTitle" onclick="trySecretToggle(event)">Tools Hub</h1>
-            <div style="position:absolute; right:20px; top:20px; z-index:100; display:flex; gap:10px;">
+        <div class="header-overlay"
+            style="display: flex; justify-content: space-between; align-items: center; padding: 20px;">
+            <h1 class="header-title" id="pageTitle" onclick="trySecretToggle(event)"
+                style="margin: 0; white-space: nowrap;">Tools Hub</h1>
+            <div style="display:flex; gap:10px; flex-wrap: wrap; justify-content: flex-end;">
                 <button class="btn-tool" onclick="handleImport()">📥 Import</button>
                 <button class="btn-tool" onclick="handleExport()">📤 Export</button>
                 <span style="width:1px; background:rgba(255,255,255,0.2); margin:0 5px;"></span>

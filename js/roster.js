@@ -94,7 +94,7 @@ function render() {
     });
 
     container.innerHTML = filtered.map(npc => `
-        <div style="display:grid; grid-template-columns: 1fr 1fr 2fr 2fr auto; gap:10px; align-items:start; padding:15px; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.1); margin-bottom:5px; border-radius:4px;">
+        <div style="position:relative; display:grid; grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr; gap:10px; align-items:start; padding:15px; padding-right:40px; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.1); margin-bottom:5px; border-radius:4px;">
             <div style="font-weight:bold; font-size:1.1rem;">${npc.name}</div>
             <div style="color:var(--accent); font-weight:bold;">${npc.guild}</div>
             
@@ -107,11 +107,11 @@ function render() {
                 ${npc.leverage || '-'}
             </div>
             
-            <div style="grid-column: 1 / -1; margin-top:5px; font-size:0.9rem; color:#aaa; font-style:italic;">
+            <div style="grid-column: 1 / -1; margin-top:5px; font-size:0.9rem; color:#aaa; font-style:italic; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
                 ${npc.notes || ''}
             </div>
 
-            <button class="btn" onclick="deleteNPC(${npc.origIdx})" style="position:absolute; right:15px; margin-top:0px; padding:4px 8px; color:var(--danger); border:none; background:transparent; font-size:1.2rem;">&times;</button>
+            <button class="btn" onclick="deleteNPC(${npc.origIdx})" style="position:absolute; right:10px; top:10px; padding:4px 8px; color:var(--danger); border:none; background:transparent; font-size:1.2rem; cursor:pointer;" title="Delete NPC">&times;</button>
         </div>
     `).join('');
 }
