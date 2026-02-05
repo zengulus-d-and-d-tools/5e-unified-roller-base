@@ -51,7 +51,7 @@ let panStart = { x: 0, y: 0 };
 // --- INITIALIZATION ---
 window.onload = () => {
     resizeCanvas();
-    initGuildToolbar();
+    initToolbars();
     loadBoard();
     updateViewCSS();
     requestAnimationFrame(loop);
@@ -64,6 +64,12 @@ function resizeCanvas() {
     canvas.height = window.innerHeight;
 }
 
+function initToolbars() {
+    initGuildToolbar();
+    initNPCToolbar();
+    initLocationToolbar();
+}
+
 function initGuildToolbar() {
     const guildContainer = document.getElementById('guild-tools');
     if (!guildContainer || !window.RTF_DATA || !window.RTF_DATA.clue) return;
@@ -73,10 +79,60 @@ function initGuildToolbar() {
         const el = document.createElement('div');
         el.className = `tool-item g-${g.id}`;
         el.draggable = true;
-        el.setAttribute('data-type', g.id);
-        el.ondragstart = (e) => startDragNew(e, g.id);
+        el.ondragstart = (e) => startDragNew(e, g.id, { title: g.name, body: 'Guild' });
         el.innerHTML = `<div class="icon">${g.icon}</div><div class="label">${g.name}</div>`;
         guildContainer.appendChild(el);
+    });
+}
+
+function initNPCToolbar() {
+    const container = document.getElementById('npc-tools');
+    if (!container || !window.RTF_STORE) return;
+
+    const npcs = window.RTF_STORE.state.campaign.npcs || [];
+    container.innerHTML = '';
+
+    if (npcs.length === 0) {
+        container.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No NPCs found.</div>';
+    }
+
+    npcs.forEach(npc => {
+        const el = document.createElement('div');
+        el.className = 'tool-item';
+        el.draggable = true;
+        // Map NPC data to Node content
+        const nodeData = {
+            title: npc.name,
+            body: `${npc.guild || 'Unassigned'}\n${npc.wants || ''}`
+        };
+        el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
+        el.innerHTML = `<div class="icon">👤</div><div class="label">${npc.name}</div>`;
+        container.appendChild(el);
+    });
+}
+
+function initLocationToolbar() {
+    const container = document.getElementById('location-tools');
+    if (!container || !window.RTF_STORE) return;
+
+    const locs = window.RTF_STORE.state.campaign.locations || [];
+    container.innerHTML = '';
+
+    if (locs.length === 0) {
+        container.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No Locations found.</div>';
+    }
+
+    locs.forEach(loc => {
+        const el = document.createElement('div');
+        el.className = 'tool-item';
+        el.draggable = true;
+        const nodeData = {
+            title: loc.name,
+            body: `${loc.district || ''}\n${loc.desc || ''}`
+        };
+        el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
+        el.innerHTML = `<div class="icon">📍</div><div class="label">${loc.name}</div>`;
+        container.appendChild(el);
     });
 }
 
@@ -941,15 +997,34 @@ function optimizeLayout(centerId) {
     });
 }
 
-function startDragNew(e, type) { e.dataTransfer.setData('text/plain', type); }
-document.body.ondragover = (e) => e.preventDefault();
+function startDragNew(e, type, data = {}) {
+    e.dataTransfer.setData('application/json', JSON.stringify({ type, data }));
+    e.dataTransfer.effectAllowed = 'copy';
+}
+document.body.ondragover = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+};
 document.body.ondrop = (e) => {
     e.preventDefault();
-    const type = e.dataTransfer.getData('text/plain');
-    if (type) {
-        const wp = screenToWorld(e.clientX, e.clientY);
-        createNode(type, wp.x, wp.y);
-        saveBoard();
+    const raw = e.dataTransfer.getData('application/json');
+    if (raw) {
+        try {
+            const payload = JSON.parse(raw);
+            const wp = screenToWorld(e.clientX, e.clientY);
+            createNode(payload.type, wp.x, wp.y, null, payload.data);
+            saveBoard();
+        } catch (err) {
+            console.error("Drop failed", err);
+        }
+    } else {
+        // Fallback for simple types?
+        const type = e.dataTransfer.getData('text/plain');
+        if (type) {
+            const wp = screenToWorld(e.clientX, e.clientY);
+            createNode(type, wp.x, wp.y);
+            saveBoard();
+        }
     }
 };
 

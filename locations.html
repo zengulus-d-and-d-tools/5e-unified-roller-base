@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locations Database</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+    <style>
+        /* Specific adjustments for Locations if needed, reusing Hub styles for consistency */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="header-bar">
+        <div class="header-content">
+            <div>
+                <a href="tools.html"
+                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
+                    Portal</a>
+                <span
+                    style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Locations
+                    Database</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()" style="font-size:0.75rem;">🌌 BG:
+                    Field</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Location List <button class="btn" onclick="toggleLocationForm()">+ Add Location</button></h2>
+
+            <div id="locationForm"
+                style="display:none; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <div class="grid-5" style="grid-template-columns: 1fr 1fr; margin-bottom: 10px;">
+                    <input type="text" id="locName" placeholder="Location Name">
+                    <select id="locDistrict">
+                        <option value="">Select District/Guild...</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <textarea id="locDesc" rows="2" placeholder="Description / Visuals..."></textarea>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <textarea id="locNotes" rows="2" placeholder="GM Notes / Secrets..."></textarea>
+                </div>
+                <button class="btn btn-dp" onclick="addLocation()">Save Location</button>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="searchFilter" placeholder="Search locations..." onkeyup="render()"
+                    style="flex:1;">
+                <select id="districtFilter" onchange="render()" style="flex:1;">
+                    <option value="">All Districts</option>
+                </select>
+            </div>
+
+            <div id="locationList"></div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/locations.js"></script>
+    <script src="js/vector-field.js"></script>
+</body>
+
+</html>
