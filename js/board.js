@@ -71,7 +71,7 @@ function initToolbars() {
 }
 
 function initGuildToolbar() {
-    const guildContainer = document.getElementById('guild-tools');
+    const guildContainer = document.getElementById('guild-popup');
     if (!guildContainer || !window.RTF_DATA || !window.RTF_DATA.clue) return;
 
     guildContainer.innerHTML = '';
@@ -86,7 +86,7 @@ function initGuildToolbar() {
 }
 
 function initNPCToolbar() {
-    const container = document.getElementById('npc-tools');
+    const container = document.getElementById('npc-popup');
     if (!container || !window.RTF_STORE) return;
 
     const npcs = window.RTF_STORE.state.campaign.npcs || [];
@@ -112,7 +112,7 @@ function initNPCToolbar() {
 }
 
 function initLocationToolbar() {
-    const container = document.getElementById('location-tools');
+    const container = document.getElementById('location-popup');
     if (!container || !window.RTF_STORE) return;
 
     const locs = window.RTF_STORE.state.campaign.locations || [];
@@ -755,7 +755,26 @@ function showContextMenu(e, node) {
     contextMenu.style.top = e.clientY + 'px';
     contextMenu.dataset.target = node.id;
 }
-window.onclick = (e) => { if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none'; };
+window.onclick = (e) => {
+    if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
+    if (!e.target.closest('.popup-menu') && !e.target.closest('.tool-item')) closePopups();
+};
+
+function togglePopup(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+
+    // Close others
+    document.querySelectorAll('.popup-menu').forEach(p => {
+        if (p.id !== id) p.classList.remove('active');
+    });
+
+    el.classList.toggle('active');
+}
+
+function closePopups() {
+    document.querySelectorAll('.popup-menu').forEach(p => p.classList.remove('active'));
+}
 
 function editTargetNode() {
     const el = document.getElementById(contextMenu.dataset.target);

@@ -42,7 +42,7 @@
 
     <div class="toolbar-scroll-wrapper" id="toolbar-wrapper">
         <div class="toolbar">
-            <!-- CORE TYPES -->
+            <!-- CORE TOOLS -->
             <div class="tool-group">
                 <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'person')">
                     <div class="icon">👤</div>
@@ -64,22 +64,31 @@
 
             <div class="divider"></div>
 
-            <!-- GUILDS (Populated from data.js) -->
-            <div class="tool-section-title">Guilds</div>
-            <div class="tool-group" id="guild-tools"></div>
-
-            <div class="divider"></div>
-
-            <!-- NPCS (Populated from store) -->
-            <div class="tool-section-title">NPCs</div>
-            <div class="tool-group" id="npc-tools"></div>
-
-            <div class="divider"></div>
-
-            <!-- LOCATIONS (Populated from store) -->
-            <div class="tool-section-title">Locations</div>
-            <div class="tool-group" id="location-tools"></div>
+            <!-- POPUP TRIGGERS -->
+            <div class="tool-group">
+                <div class="tool-item" onclick="togglePopup('guild-popup')">
+                    <div class="icon">🏛️</div>
+                    <div class="label">Guilds</div>
+                </div>
+                <div class="tool-item" onclick="togglePopup('npc-popup')">
+                    <div class="icon">👥</div>
+                    <div class="label">NPCs</div>
+                </div>
+                <div class="tool-item" onclick="togglePopup('location-popup')">
+                    <div class="icon">📍</div>
+                    <div class="label">Places</div>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <!-- POPUP MENUS -->
+    <div id="popup-layer">
+        <div id="guild-popup" class="popup-menu"></div>
+        <div id="npc-popup" class="popup-menu"></div>
+        <div id="location-popup" class="popup-menu"></div>
+    </div>
+    </div>
     </div>
 
     <!-- Context Menu (Simplified, mostly replaced by direct interaction) -->
