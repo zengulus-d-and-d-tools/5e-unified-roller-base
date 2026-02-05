@@ -748,8 +748,14 @@ function centerAndOptimize() {
 }
 
 function optimizeLayout(centerId) {
+    if (!centerId) { console.error("optimizeLayout: No Center ID"); return; }
+
+    // SYNC STATE: Ensure memory matches DOM before calculating
+    saveBoard();
+    loadBoard();
+
     const centerNode = nodes.find(n => n.id === centerId);
-    if (!centerNode) return;
+    if (!centerNode) { console.error("optimizeLayout: Node not found", centerId); return; }
 
     // 1. Reset View to Center
     // We want the centerNode to be at screen center (approx width/2, height/2)
