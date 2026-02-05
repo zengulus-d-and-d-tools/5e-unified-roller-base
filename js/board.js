@@ -101,9 +101,15 @@ function initNPCToolbar() {
         el.className = 'tool-item';
         el.draggable = true;
         // Map NPC data to Node content
+        // Map NPC data to Node content
+        let body = `${npc.guild || 'Unassigned'}`;
+        if (npc.wants) body += `\nWants: ${npc.wants}`;
+        if (npc.leverage) body += `\nLev:   ${npc.leverage}`;
+        if (npc.notes) body += `\nNote:  ${npc.notes}`;
+
         const nodeData = {
             title: npc.name,
-            body: `${npc.guild || 'Unassigned'}\n${npc.wants || ''}`
+            body: body
         };
         el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
         el.innerHTML = `<div class="icon">👤</div><div class="label">${npc.name}</div>`;
@@ -126,9 +132,13 @@ function initLocationToolbar() {
         const el = document.createElement('div');
         el.className = 'tool-item';
         el.draggable = true;
+        let body = `${loc.district || ''}`;
+        if (loc.desc) body += `\n${loc.desc}`;
+        if (loc.notes) body += `\nNote:  ${loc.notes}`;
+
         const nodeData = {
             title: loc.name,
-            body: `${loc.district || ''}\n${loc.desc || ''}`
+            body: body
         };
         el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
         el.innerHTML = `<div class="icon">📍</div><div class="label">${loc.name}</div>`;
