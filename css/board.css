@@ -576,22 +576,34 @@ body.focus-active .header-overlay {
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     padding: 20px;
+    padding: 0;
     display: none;
-    /* Hidden by default */
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 15px;
+    flex-direction: column;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
     pointer-events: auto;
     opacity: 0;
     transition: opacity 0.2s, transform 0.2s;
     max-height: 60vh;
-    overflow-y: auto;
+    overflow: hidden;
+    /* Scroll inside the content area */
 }
 
 .popup-menu.active {
-    display: grid;
+    display: flex;
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+/* Scrollable List Content */
+#npc-list-content,
+#loc-list-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 15px;
+    padding: 15px;
+    overflow-y: auto;
+    /* Approx 2 rows: (80px item + gap) * 2 + padding */
+    max-height: 250px;
 }
 
 .popup-menu::-webkit-scrollbar {
