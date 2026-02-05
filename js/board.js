@@ -101,14 +101,16 @@ function initGuildToolbar() {
     const guildContainer = document.getElementById('guild-popup');
     if (!guildContainer || !window.RTF_DATA || !window.RTF_DATA.clue) return;
 
-    guildContainer.innerHTML = '';
+    guildContainer.innerHTML = '<div id="guild-list-content"></div>';
+    const list = document.getElementById('guild-list-content');
+
     window.RTF_DATA.clue.guilds.forEach(g => {
         const el = document.createElement('div');
         el.className = `tool-item g-${g.id}`;
         el.draggable = true;
         el.ondragstart = (e) => startDragNew(e, g.id, { title: g.name, body: 'Guild' });
         el.innerHTML = `<div class="icon">${g.icon}</div><div class="label">${g.name}</div>`;
-        guildContainer.appendChild(el);
+        list.appendChild(el);
     });
 }
 

@@ -10,6 +10,7 @@
             heat: 0,
             players: [],
             npcs: [],
+            locations: [],
             case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
         },
         board: {
@@ -35,6 +36,10 @@
                     // Ensure deep objects exist
                     if (!this.state.campaign) this.state.campaign = { ...DEFAULT_STATE.campaign };
                     if (!this.state.board) this.state.board = { ...DEFAULT_STATE.board };
+                    // Ensure arrays exist
+                    if (!this.state.campaign.npcs) this.state.campaign.npcs = [];
+                    if (!this.state.campaign.locations) this.state.campaign.locations = [];
+
                     console.log("RTF_STORE: Loaded unified data.");
                 } else {
                     console.log("RTF_STORE: No unified data found. Attempting migration...");
