@@ -771,7 +771,7 @@ function togglePanMode() {
 }
 
 document.addEventListener('wheel', (e) => {
-    if (e.target.closest('.toolbar-scroll-wrapper')) return;
+    if (e.target.closest('.toolbar-scroll-wrapper') || e.target.closest('.popup-menu')) return;
     e.preventDefault();
     const d = e.deltaY > 0 ? -1 : 1;
     const f = d * 0.1;
