@@ -116,18 +116,46 @@ function initNPCToolbar() {
     const container = document.getElementById('npc-popup');
     if (!container || !window.RTF_STORE) return;
 
-    const npcs = window.RTF_STORE.state.campaign.npcs || [];
-    container.innerHTML = '';
+    // Create Filter UI
+    container.innerHTML = `
+        <div style="position:sticky; top:0; background:#1e1e1e; padding:5px; border-bottom:1px solid #333; z-index:10; display:flex; gap:5px;">
+            <input type="text" id="npc-search" placeholder="Search..." oninput="renderNPCs()" style="flex:1; background:#000; color:#fff; border:1px solid #444; padding:3px; font-size:0.8rem;">
+            <select id="npc-guild-filter" onchange="renderNPCs()" style="background:#000; color:#fff; border:1px solid #444; width:80px; font-size:0.8rem;">
+                <option value="">All</option>
+                ${(window.RTF_DATA && window.RTF_DATA.guilds ? window.RTF_DATA.guilds.map(g => `<option value="${g}">${g}</option>`).join('') : '')}
+            </select>
+        </div>
+        <div id="npc-list-content"></div>
+    `;
 
-    if (npcs.length === 0) {
-        container.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No NPCs found.</div>';
+    renderNPCs();
+}
+
+function renderNPCs() {
+    const listContainer = document.getElementById('npc-list-content');
+    if (!listContainer) return;
+
+    const searchTerm = (document.getElementById('npc-search').value || '').toLowerCase();
+    const guildFilter = document.getElementById('npc-guild-filter').value;
+
+    const npcs = window.RTF_STORE.state.campaign.npcs || [];
+    listContainer.innerHTML = '';
+
+    const filtered = npcs.filter(npc => {
+        const matchesName = npc.name.toLowerCase().includes(searchTerm);
+        const matchesGuild = !guildFilter || (npc.guild === guildFilter);
+        return matchesName && matchesGuild;
+    });
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No NPCs found.</div>';
+        return;
     }
 
-    npcs.forEach(npc => {
+    filtered.forEach(npc => {
         const el = document.createElement('div');
         el.className = 'tool-item';
         el.draggable = true;
-        // Map NPC data to Node content
         // Map NPC data to Node content
         let body = `${npc.guild || 'Unassigned'}`;
         if (npc.wants) body += `<br><strong>Wants:</strong> ${npc.wants}`;
@@ -140,7 +168,7 @@ function initNPCToolbar() {
         };
         el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
         el.innerHTML = `<div class="icon">👤</div><div class="label">${npc.name}</div>`;
-        container.appendChild(el);
+        listContainer.appendChild(el);
     });
 }
 
@@ -148,14 +176,44 @@ function initLocationToolbar() {
     const container = document.getElementById('location-popup');
     if (!container || !window.RTF_STORE) return;
 
-    const locs = window.RTF_STORE.state.campaign.locations || [];
-    container.innerHTML = '';
+    // Create Filter UI
+    container.innerHTML = `
+        <div style="position:sticky; top:0; background:#1e1e1e; padding:5px; border-bottom:1px solid #333; z-index:10; display:flex; gap:5px;">
+            <input type="text" id="loc-search" placeholder="Search..." oninput="renderLocations()" style="flex:1; background:#000; color:#fff; border:1px solid #444; padding:3px; font-size:0.8rem;">
+            <select id="loc-guild-filter" onchange="renderLocations()" style="background:#000; color:#fff; border:1px solid #444; width:80px; font-size:0.8rem;">
+                <option value="">All</option>
+                ${(window.RTF_DATA && window.RTF_DATA.guilds ? window.RTF_DATA.guilds.map(g => `<option value="${g}">${g}</option>`).join('') : '')}
+            </select>
+        </div>
+        <div id="loc-list-content"></div>
+    `;
 
-    if (locs.length === 0) {
-        container.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No Locations found.</div>';
+    renderLocations();
+}
+
+function renderLocations() {
+    const listContainer = document.getElementById('loc-list-content');
+    if (!listContainer) return;
+
+    const searchTerm = (document.getElementById('loc-search').value || '').toLowerCase();
+    const guildFilter = document.getElementById('loc-guild-filter').value;
+
+    const locs = window.RTF_STORE.state.campaign.locations || [];
+    listContainer.innerHTML = '';
+
+    const filtered = locs.filter(loc => {
+        const matchesName = loc.name.toLowerCase().includes(searchTerm);
+        // Location "District" is essentially the Guild
+        const matchesGuild = !guildFilter || (loc.district === guildFilter);
+        return matchesName && matchesGuild;
+    });
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No Locations found.</div>';
+        return;
     }
 
-    locs.forEach(loc => {
+    filtered.forEach(loc => {
         const el = document.createElement('div');
         el.className = 'tool-item';
         el.draggable = true;
@@ -169,7 +227,7 @@ function initLocationToolbar() {
         };
         el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
         el.innerHTML = `<div class="icon">📍</div><div class="label">${loc.name}</div>`;
-        container.appendChild(el);
+        listContainer.appendChild(el);
     });
 }
 
@@ -1189,6 +1247,9 @@ document.addEventListener('dblclick', (e) => {
         // RESET FOCUS
         focusMode = false;
         document.body.classList.remove('focus-active');
-        document.querySelectorAll('.node').forEach(el => el.classList.remove('blurred'));
     }
 });
+
+// Expose filter functions to window for HTML event handlers
+window.renderNPCs = renderNPCs;
+window.renderLocations = renderLocations;

@@ -244,3 +244,71 @@ select:focus {
     display: block;
     margin-bottom: 4px;
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+        padding-top: 70px;
+        /* Reduced top padding */
+    }
+
+    /* Header adjustments */
+    .header-bar {
+        padding: 0 10px;
+        height: auto;
+        min-height: 60px;
+        flex-wrap: wrap;
+    }
+
+    .header-content {
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 0;
+    }
+
+    .header-content>div:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 5px;
+    }
+
+    .header-content>div:last-child {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    /* Stack grid elements */
+    .grid-5 {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+
+    /* Player Roster Stacking */
+    .player-row {
+        grid-template-columns: 1fr;
+        /* Single column stack */
+        gap: 10px;
+        padding: 15px 0;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+    }
+
+    .player-row:last-child {
+        margin-bottom: 0;
+    }
+
+    /* Case Prep Stacking */
+    .case-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Make buttons bigger/easier to tap */
+    .btn {
+        padding: 10px 16px;
+    }
+}

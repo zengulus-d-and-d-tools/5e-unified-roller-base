@@ -660,3 +660,75 @@ body.focus-active .header-overlay {
     color: #000;
     box-shadow: 0 0 10px var(--accent);
 }
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+
+    /* Header Overlay */
+    .header-overlay {
+        height: auto;
+        min-height: 50px;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px;
+        background: rgba(15, 15, 19, 0.95);
+        /* Solid background for readability */
+        pointer-events: none;
+        /* Allow clickthrough on empty space */
+        gap: 10px;
+    }
+
+    .header-overlay>* {
+        pointer-events: auto;
+        /* Re-enable pointer events for children */
+    }
+
+    .board-title {
+        font-size: 1rem;
+        margin: 5px 0;
+    }
+
+    .board-controls {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    /* Toolbar */
+    .toolbar-scroll-wrapper {
+        bottom: 10px;
+        width: 100%;
+        left: 0;
+        right: 0;
+        max-width: 100%;
+        padding: 0 10px;
+        box-sizing: border-box;
+    }
+
+    .toolbar {
+        padding: 8px;
+        /* Tighter padding */
+    }
+
+    /* Popups */
+    .popup-menu {
+        width: 95%;
+        bottom: 90px;
+        padding: 15px;
+        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+    }
+
+    .popup-menu .tool-item .icon {
+        font-size: 1.8rem;
+    }
+
+    /* Toggle Button position */
+    #toolbar-toggle {
+        bottom: 100px;
+    }
+
+    /* Editing Text Zoom */
+    .node.editing {
+        transform: scale(1.1);
+        z-index: 1000;
+    }
+}
