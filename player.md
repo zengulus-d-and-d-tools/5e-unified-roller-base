@@ -72,11 +72,12 @@ A high-level view of the entire party's vital statistics.
 ## 🏛️ HQ Layout Foundry (`hq.html`)
 **Blueprint your Task Force headquarters.**
 
-*   **Drag-and-Drop Rooms:** Place prefab guild facilities or custom chambers on a glowing grid. Snap-to-grid keeps Azorius inspectors happy.
+*   **Drag-and-Drop Rooms:** Place custom chambers on a glowing grid. Snap-to-grid keeps Azorius inspectors happy.
 *   **Multi-Floor Support:** Add, rename, or delete floors to reflect subterranean labs, sky docks, or street-level muster yards.
-*   **Downtime Slots:** Each room can define named downtime assignments; the assignee field auto-suggests names from your Player Roster.
-*   **Resource Bays:** Stage requisitioned assets in bays so everyone knows what deploys faster from where. Suggestions pull from the shared requisitions list.
+*   **Downtime Slots:** Each room can define named downtime assignments; the assignee field pulls directly from the Hub's player list so downtime projects stay synced.
+*   **Resource Bays:** Stage requisitioned assets in bays so everyone knows what deploys faster from where. Suggestions pull from the shared Requisition Vault list.
 *   **Screenshot & Export:** One-click PNG export shares the current floor blueprint; JSON import/export lets you sync HQ layouts across devices.
+*   **Theme Controls:** Tap 🎨 Accent or 🌌 BG to match the HQ palette to your current table mood.
 
 ---
 

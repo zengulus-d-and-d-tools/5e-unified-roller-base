@@ -57,6 +57,7 @@
                     if (!this.state.campaign.events) this.state.campaign.events = [];
                     if (!this.state.campaign.encounters) this.state.campaign.encounters = [];
                     if (!this.state.hq) this.state.hq = createDefaultHQState();
+                    this.ensurePlayerIds();
 
                     console.log("RTF_STORE: Loaded unified data.");
                 } else {
@@ -64,6 +65,7 @@
                     this.migrate();
                 }
                 if (!this.state.hq) this.state.hq = createDefaultHQState();
+                this.ensurePlayerIds();
                 this.ingestPreloadedData();
             } catch (e) {
                 console.error("RTF_STORE: Load failed", e);
@@ -202,7 +204,28 @@
             this.save();
         }
 
-        getPlayers() { return this.state.campaign.players || []; }
+        ensurePlayerIds() {
+            if (!this.state.campaign || !Array.isArray(this.state.campaign.players)) return;
+            let mutated = false;
+            this.state.campaign.players.forEach((p, idx) => {
+                if (!p.id) {
+                    p.id = 'player_' + Date.now().toString(36) + '_' + idx + Math.random().toString(36).slice(2, 5);
+                    mutated = true;
+                }
+            });
+            if (mutated) {
+                try {
+                    this.save();
+                } catch (err) {
+                    console.warn('RTF_STORE: Failed to persist player IDs', err);
+                }
+            }
+        }
+
+        getPlayers() {
+            if (!this.state.campaign.players) this.state.campaign.players = [];
+            return this.state.campaign.players;
+        }
         getNPCs() { return this.state.campaign.npcs || []; }
 
         // Requisitions

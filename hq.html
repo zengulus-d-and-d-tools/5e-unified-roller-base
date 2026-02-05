@@ -20,11 +20,19 @@
                 <p class="subtitle">Blueprint your command post with sigils, rails, and recharging pods that reflect the guild-tech fueling your ops.</p>
             </div>
             <div class="header-actions">
-                <button id="btn-add-custom" class="btn ghost">Custom Room</button>
-                <button id="btn-clear" class="btn ghost">Clear Floor</button>
-                <button id="btn-export" class="btn ghost">Export Data</button>
-                <button id="btn-import" class="btn ghost">Import Data</button>
-                <button id="btn-screenshot" class="btn accent">Take Screenshot</button>
+                <div class="action-bar primary">
+                    <a class="btn ghost" href="tools.html">Portal</a>
+                    <button id="btn-add-custom" class="btn ghost">Custom Room</button>
+                    <button id="btn-clear" class="btn ghost">Clear Floor</button>
+                    <button id="btn-export" class="btn ghost">Export Data</button>
+                    <button id="btn-import" class="btn ghost">Import Data</button>
+                    <button id="btn-screenshot" class="btn accent">Take Screenshot</button>
+                </div>
+                <div class="action-bar secondary">
+                    <button class="btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input" style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
             </div>
         </header>
 
@@ -65,12 +73,6 @@
             </section>
 
             <aside class="control-panel">
-                <section class="card palette">
-                    <div class="card-title">Guild-Forged Templates</div>
-                    <p class="card-desc">Drop in prefabs sanctioned by guild artificers. Each carries established downtime lanes and supply caches.</p>
-                    <div id="template-list" class="template-list"></div>
-                </section>
-
                 <section class="card detail" id="detail-panel">
                     <div class="detail-empty">
                         <p>Select a room to tune its dimensions, downtime activities, and deployment caches.</p>
@@ -116,9 +118,6 @@
                             <p class="mini">Resources deployed from a bay launch one segment faster.</p>
                             <div id="resource-list" class="slot-list"></div>
                         </div>
-
-                        <datalist id="player-options"></datalist>
-                        <datalist id="resource-options"></datalist>
 
                         <div class="detail-actions">
                             <button id="btn-duplicate" class="btn ghost">Duplicate</button>

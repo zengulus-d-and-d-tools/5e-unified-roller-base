@@ -2,7 +2,12 @@
     --blueprint-bg: #041126;
     --blueprint-grid: rgba(173, 216, 230, 0.08);
     --blueprint-glow: rgba(78, 205, 196, 0.4);
-    --panel-bg: rgba(12, 18, 30, 0.72);
+    --panel-bg: color-mix(in srgb, #0c121f 85%, var(--accent) 15%);
+    --hq-surface: color-mix(in srgb, #040a16 85%, var(--accent) 15%);
+    --hq-border: color-mix(in srgb, var(--accent) 35%, transparent);
+    --hq-soft: color-mix(in srgb, var(--accent) 60%, #ffffff 40%);
+    --hq-muted: color-mix(in srgb, var(--text) 70%, var(--accent) 30%);
+    --hq-warning: color-mix(in srgb, var(--accent) 30%, #facc15 70%);
 }
 
 body {
@@ -31,10 +36,10 @@ canvas#vector-cloud {
     justify-content: space-between;
     gap: 30px;
     align-items: flex-start;
-    background: rgba(10, 12, 20, 0.7);
+    background: color-mix(in srgb, var(--hq-surface) 85%, rgba(0, 0, 0, 0.4) 15%);
     padding: 24px;
     border-radius: 16px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--hq-border);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
@@ -47,21 +52,40 @@ canvas#vector-cloud {
     text-transform: uppercase;
     letter-spacing: 0.2em;
     font-size: 0.75rem;
-    color: #7cdde1;
+    color: var(--hq-soft);
     margin: 0;
 }
 
 .subtitle {
     margin: 0;
     max-width: 520px;
-    color: #a7b6d2;
+    color: var(--hq-muted);
 }
 
 .header-actions {
     display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.action-bar {
+    display: flex;
     flex-wrap: wrap;
     gap: 10px;
     justify-content: flex-end;
+}
+
+.action-bar.secondary {
+    opacity: 0.85;
+}
+
+.header-actions .btn,
+.header-actions a.btn {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn {
@@ -116,7 +140,7 @@ canvas#vector-cloud {
 .card {
     background: var(--panel-bg);
     border-radius: 16px;
-    border: 1px solid var(--border);
+    border: 1px solid var(--hq-border);
     padding: 20px;
     box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
@@ -128,8 +152,8 @@ canvas#vector-cloud {
 }
 
 .floor-switcher {
-    background: rgba(4, 17, 38, 0.55);
-    border: 1px solid rgba(126, 206, 255, 0.15);
+    background: color-mix(in srgb, var(--hq-surface) 75%, transparent 25%);
+    border: 1px solid var(--hq-border);
     border-radius: 14px;
     padding: 12px 14px;
     display: flex;
@@ -144,9 +168,9 @@ canvas#vector-cloud {
 }
 
 .floor-tab {
-    border: 1px solid rgba(126, 206, 255, 0.3);
-    background: rgba(3, 12, 24, 0.8);
-    color: #c6e8ff;
+    border: 1px solid var(--hq-border);
+    background: color-mix(in srgb, var(--hq-surface) 85%, transparent 15%);
+    color: var(--hq-soft);
     border-radius: 999px;
     padding: 6px 14px;
     cursor: pointer;
@@ -160,7 +184,7 @@ canvas#vector-cloud {
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #82b5ff;
+    color: var(--hq-muted);
 }
 
 .floor-tab.active {
@@ -179,28 +203,29 @@ canvas#vector-cloud {
     display: flex;
     align-items: center;
     gap: 20px;
-    background: rgba(4, 17, 38, 0.7);
+    background: color-mix(in srgb, var(--hq-surface) 80%, transparent 20%);
     border-radius: 16px;
     padding: 14px 18px;
-    border: 1px solid rgba(116, 197, 224, 0.2);
+    border: 1px solid var(--hq-border);
 }
 
 .stat {
     display: flex;
     flex-direction: column;
     font-size: 0.85rem;
-    color: #8ba2c7;
+    color: var(--hq-muted);
 }
 
 .stat strong {
     font-size: 1.4rem;
-    color: #e3f5ff;
+    color: var(--hq-soft);
 }
 
 .stat .label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 0.7rem;
+    color: var(--hq-muted);
 }
 
 .toggle {
@@ -226,12 +251,12 @@ canvas#vector-cloud {
 }
 
 .nav-pill {
-    background: rgba(14, 34, 56, 0.7);
-    border: 1px solid rgba(154, 214, 255, 0.2);
+    background: color-mix(in srgb, var(--hq-surface) 70%, transparent 30%);
+    border: 1px solid var(--hq-border);
     border-radius: 999px;
     padding: 10px 18px;
     font-size: 0.9rem;
-    color: #9ec8ff;
+    color: var(--hq-muted);
     margin-bottom: 12px;
 }
 
@@ -241,7 +266,7 @@ canvas#vector-cloud {
     border-radius: 20px;
     overflow: hidden;
     background-color: var(--blueprint-bg);
-    border: 1px solid rgba(126, 206, 255, 0.35);
+    border: 1px solid var(--hq-border);
     box-shadow: inset 0 0 80px rgba(0, 0, 0, 0.8);
     cursor: grab;
 }
@@ -273,70 +298,25 @@ canvas#vector-cloud {
     text-transform: uppercase;
     font-size: 0.8rem;
     letter-spacing: 0.2em;
-    color: #8abbdc;
+    color: var(--hq-soft);
     margin-bottom: 6px;
 }
 
 .card-desc {
     margin-top: 0;
-    color: #a4b7d4;
+    color: var(--hq-muted);
     font-size: 0.9rem;
-}
-
-.template-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.template-card {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    padding: 12px;
-    background: rgba(10, 14, 30, 0.6);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.template-card h3 {
-    margin: 0;
-    font-size: 1rem;
-}
-
-.template-card .type-tag {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #8ab6ff;
-}
-
-.template-card p {
-    margin: 0;
-    color: #94a7c7;
-    font-size: 0.85rem;
-}
-
-.template-card .slot-flags {
-    display: flex;
-    gap: 12px;
-    font-size: 0.8rem;
-    color: #9ee7d6;
-}
-
-.template-card button {
-    align-self: flex-start;
 }
 
 .room {
     position: absolute;
     border-radius: 16px;
-    border: 2px solid rgba(78, 205, 196, 0.65);
-    color: #c7f5f2;
+    border: 2px solid var(--hq-border);
+    color: var(--hq-soft);
     padding: 10px;
     box-sizing: border-box;
     backdrop-filter: blur(2px);
-    background: rgba(14, 42, 63, 0.4);
+    background: color-mix(in srgb, var(--hq-surface) 65%, rgba(0, 0, 0, 0.35) 35%);
     text-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     user-select: none;
@@ -359,19 +339,19 @@ canvas#vector-cloud {
     font-size: 0.75rem;
     display: flex;
     gap: 10px;
-    color: #9fe1ff;
+    color: var(--hq-muted);
 }
 
 .room .room-type {
     text-transform: uppercase;
     font-size: 0.65rem;
     letter-spacing: 0.1em;
-    color: #9cc7ff;
+    color: var(--hq-muted);
 }
 
 .detail-empty {
     text-align: center;
-    color: #8296b8;
+    color: var(--hq-muted);
 }
 
 .detail-body.hidden {
@@ -387,13 +367,25 @@ canvas#vector-cloud {
 
 .field input,
 .field select,
-.field textarea {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+.field textarea,
+.slot-item input,
+.slot-item select {
+    background: color-mix(in srgb, var(--hq-surface) 60%, rgba(255, 255, 255, 0.04));
+    border: 1px solid color-mix(in srgb, var(--hq-border) 70%, rgba(255, 255, 255, 0.15));
     border-radius: 10px;
     padding: 8px 10px;
-    color: #e8f4ff;
+    color: var(--text);
     font-size: 0.9rem;
+}
+
+.slot-item select {
+    border-radius: 8px;
+    padding: 6px 8px;
+}
+
+.slot-item input {
+    padding: 6px 8px;
+    width: 100%;
 }
 
 .field.two-col {
@@ -422,13 +414,13 @@ canvas#vector-cloud {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-size: 0.8rem;
-    color: #8abbdc;
+    color: var(--hq-soft);
 }
 
 .mini {
     margin: 4px 0 10px;
     font-size: 0.75rem;
-    color: #7c90b0;
+    color: var(--hq-muted);
 }
 
 .slot-list {
@@ -438,8 +430,8 @@ canvas#vector-cloud {
 }
 
 .slot-item {
-    background: rgba(8, 22, 36, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: color-mix(in srgb, var(--hq-surface) 60%, rgba(0, 0, 0, 0.6) 40%);
+    border: 1px solid var(--hq-border);
     border-radius: 10px;
     padding: 8px;
     display: flex;
@@ -450,11 +442,26 @@ canvas#vector-cloud {
 .slot-item .slot-row {
     display: flex;
     gap: 8px;
+    flex-direction: column;
 }
 
+/* overrides above shared styles */
 .slot-item input {
     flex: 1;
-    padding: 6px 8px;
+}
+
+.slot-item select {
+    width: 100%;
+}
+
+.slot-info {
+    font-size: 0.75rem;
+    color: var(--hq-muted);
+    margin-top: 4px;
+}
+
+.slot-info.warning {
+    color: var(--hq-warning);
 }
 
 .slot-item button {

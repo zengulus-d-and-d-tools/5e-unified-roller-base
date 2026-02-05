@@ -10,69 +10,6 @@
         { id: 'stealth', label: 'Stealth / Intelligence', color: '#8bb5ff' }
     ];
 
-    const TEMPLATE_CATALOG = [
-        {
-            id: 'ops_spire',
-            name: 'Ops Spire',
-            type: 'command',
-            width: 6,
-            height: 4,
-            downtime: ['Precog Briefings', 'Case Review Deck'],
-            resources: ['Signal Relay Uplink'],
-            desc: 'Azorius-plated observatory with suspended holo-table and vox sigils.'
-        },
-        {
-            id: 'muster_yard',
-            name: 'Boros Muster Yard',
-            type: 'hangar',
-            width: 7,
-            height: 5,
-            downtime: ['Sparring Circuits', 'Tactical Rehearsal'],
-            resources: ['Rapid Response Wing', 'Shield Locker'],
-            desc: 'Open drill court for griffon riders and mech-squires to scramble from.'
-        },
-        {
-            id: 'izzet_garage',
-            name: 'Izzet Foundry Garage',
-            type: 'logistics',
-            width: 5,
-            height: 4,
-            downtime: ['Prototype Tuning', 'Field Repairs'],
-            resources: ['Arc Rail Bikes', 'Voltaic Fuel Cells'],
-            desc: 'Pipe-choked bay humming with crackling conduits and replacer drones.'
-        },
-        {
-            id: 'orzhov_vault',
-            name: 'Orzhov Ledger Vault',
-            type: 'stealth',
-            width: 4,
-            height: 4,
-            downtime: ['Case Law Dossier', 'Debt Negotiations'],
-            resources: ['Lien Spirits'],
-            desc: 'Gilded quiet room with notarized wards for sensitive intel.'
-        },
-        {
-            id: 'selesnya_grove',
-            name: 'Conclave Grove',
-            type: 'recovery',
-            width: 6,
-            height: 3,
-            downtime: ['Meditative Chorus', 'Restorative Ritual'],
-            resources: ['Living Remedy Garden'],
-            desc: 'Livingwood greenhouse where loxodon wardens mend body and mind.'
-        },
-        {
-            id: 'dimir_archive',
-            name: 'Dimir Shadow Archive',
-            type: 'arcane',
-            width: 5,
-            height: 3,
-            downtime: ['Memory Theater', 'Ghost Analysis'],
-            resources: ['Veiled Courier Cache'],
-            desc: 'Sub-level stacks veiled by null-runes, perfect for covert briefings.'
-        }
-    ];
-
     const escapeHTML = (str = '') => String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -85,7 +22,6 @@
 
     const refs = {
         grid: document.getElementById('hq-grid'),
-        templateList: document.getElementById('template-list'),
         roomCount: document.getElementById('stat-room-count'),
         downtimeCount: document.getElementById('stat-downtime'),
         resourceCount: document.getElementById('stat-resource'),
@@ -114,16 +50,37 @@
         deleteFloor: document.getElementById('btn-delete-floor')
     };
 
-    const datalistRefs = {
-        players: document.getElementById('player-options'),
-        resources: document.getElementById('resource-options')
-    };
-
     if (!refs.grid) return;
 
     let state = sanitizeState(hasStoreBridge ? store.getHQLayout() : loadLocalState());
     let selectedRoomId = null;
     let dragging = null;
+    let playerOptions = [];
+    let requisitionOptions = [];
+
+    const normalize = (str) => (str || '').trim().toLowerCase();
+
+    const getPlayersFromStore = () => (store && typeof store.getPlayers === 'function') ? store.getPlayers() : [];
+    const getRequisitionsFromStore = () => (store && typeof store.getRequisitions === 'function') ? store.getRequisitions() : [];
+
+    const findPlayerById = (id) => playerOptions.find(p => p.id === id);
+    const findRequisitionById = (id) => requisitionOptions.find(r => r.id === id);
+
+    const resolvePlayerIdByName = (name) => {
+        const normalized = normalize(name);
+        if (!normalized) return '';
+        const players = getPlayersFromStore();
+        const found = players.find(p => normalize(p.name) === normalized);
+        return found && found.id ? found.id : '';
+    };
+
+    const resolveRequisitionIdByName = (name) => {
+        const normalized = normalize(name);
+        if (!normalized) return '';
+        const requisitions = getRequisitionsFromStore();
+        const found = requisitions.find(req => normalize(req.item) === normalized || normalize(req.purpose) === normalized || normalize(req.requester) === normalized);
+        return found && found.id ? found.id : '';
+    };
 
     init();
 
@@ -131,7 +88,6 @@
         refs.toggleGrid.checked = state.snapToGrid;
         buildTypeSelect();
         refreshAssigneeLists();
-        renderTemplateCards();
         renderFloorTabs();
         renderRooms();
         updateDetailPanel();
@@ -181,20 +137,34 @@
             w: width,
             h: height,
             notes: room.notes || '',
-            downtimeSlots: Array.isArray(room.downtimeSlots) ? room.downtimeSlots.map(sanitizeSlot) : [],
-            resourceSlots: Array.isArray(room.resourceSlots) ? room.resourceSlots.map(sanitizeSlot) : []
+            downtimeSlots: Array.isArray(room.downtimeSlots) ? room.downtimeSlots.map(s => sanitizeSlot(s, 'downtime')) : [],
+            resourceSlots: Array.isArray(room.resourceSlots) ? room.resourceSlots.map(s => sanitizeSlot(s, 'resource')) : []
         };
     }
 
-    function sanitizeSlot(slot) {
+    function sanitizeSlot(slot, type) {
         if (typeof slot === 'string') {
-            return { id: uniqueId('slot'), label: slot, assigned: '' };
+            return type === 'downtime'
+                ? { id: uniqueId('slot'), label: slot, playerId: '', legacyAssignee: slot }
+                : { id: uniqueId('slot'), label: slot, requisitionId: '', legacyAssignee: slot };
         }
-        return {
+        const base = {
             id: slot.id || uniqueId('slot'),
-            label: slot.label || '',
-            assigned: slot.assigned || ''
+            label: slot.label || ''
         };
+        if (type === 'downtime') {
+            base.playerId = slot.playerId || slot.assignedPlayerId || '';
+            if (!base.playerId && slot.assigned) base.playerId = resolvePlayerIdByName(slot.assigned);
+            if (!base.playerId && slot.assignedName) base.playerId = resolvePlayerIdByName(slot.assignedName);
+            if (!base.playerId && slot.legacyAssignee) base.legacyAssignee = slot.legacyAssignee;
+            if (!base.playerId && slot.assigned && !base.legacyAssignee) base.legacyAssignee = slot.assigned;
+        } else {
+            base.requisitionId = slot.requisitionId || slot.assignedResourceId || slot.linkedRequisitionId || '';
+            if (!base.requisitionId && slot.assigned) base.requisitionId = resolveRequisitionIdByName(slot.assigned);
+            if (!base.requisitionId && slot.legacyAssignee) base.legacyAssignee = slot.legacyAssignee;
+            if (!base.requisitionId && slot.assigned && !base.legacyAssignee) base.legacyAssignee = slot.assigned;
+        }
+        return base;
     }
 
     function loadLocalState() {
@@ -235,52 +205,6 @@
             opt.textContent = t.label;
             refs.roomType.appendChild(opt);
         });
-    }
-
-    function renderTemplateCards() {
-        refs.templateList.innerHTML = '';
-        TEMPLATE_CATALOG.forEach(template => {
-            const card = document.createElement('div');
-            card.className = 'template-card';
-            card.innerHTML = `
-                <h3>${escapeHTML(template.name)}</h3>
-                <span class="type-tag">${escapeHTML(getRoomType(template.type).label)}</span>
-                <p>${escapeHTML(template.desc)}</p>
-                <div class="slot-flags">
-                    <span>⏱ ${template.downtime.length} downtime</span>
-                    <span>⚙ ${template.resources.length} resources</span>
-                </div>
-            `;
-            const btn = document.createElement('button');
-            btn.className = 'btn ghost small';
-            btn.textContent = 'Deploy';
-            btn.addEventListener('click', () => addRoomFromTemplate(template));
-            card.appendChild(btn);
-            refs.templateList.appendChild(card);
-        });
-    }
-
-    function addRoomFromTemplate(template) {
-        const floor = getActiveFloor();
-        if (!floor) return;
-        const room = sanitizeRoom({
-            id: uniqueId('room'),
-            name: template.name,
-            type: template.type,
-            x: Math.floor((state.grid.cols - template.width) / 2),
-            y: Math.floor((state.grid.rows - template.height) / 2),
-            w: template.width,
-            h: template.height,
-            notes: '',
-            downtimeSlots: template.downtime.map(label => ({ id: uniqueId('slot'), label, assigned: '' })),
-            resourceSlots: template.resources.map(label => ({ id: uniqueId('slot'), label, assigned: '' }))
-        });
-        nudgedPlacement(room, floor);
-        floor.rooms.push(room);
-        selectRoom(room.id);
-        persistState();
-        renderRooms();
-        renderFloorTabs();
     }
 
     function nudgedPlacement(room, floor) {
@@ -453,20 +377,76 @@
             container.appendChild(empty);
             return;
         }
-        const datalistId = type === 'downtime' ? 'player-options' : 'resource-options';
         slots.forEach(slot => {
             const item = document.createElement('div');
             item.className = 'slot-item';
             item.dataset.id = slot.id;
+            const assignmentMarkup = type === 'downtime'
+                ? buildPlayerAssignment(slot)
+                : buildResourceAssignment(slot);
             item.innerHTML = `
                 <div class="slot-row">
                     <input class="slot-label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
-                    <input class="slot-assignee" type="text" list="${datalistId}" placeholder="${type === 'downtime' ? 'Assigned operative' : 'Resource staged'}" value="${escapeHTML(slot.assigned)}">
                 </div>
+                ${assignmentMarkup}
                 <button class="btn ghost small" data-action="remove">Remove</button>
             `;
             container.appendChild(item);
         });
+    }
+
+    function buildPlayerAssignment(slot) {
+        const options = playerOptions.map(p => `<option value="${p.id}" ${p.id === slot.playerId ? 'selected' : ''}>${escapeHTML(p.name || 'Unnamed')} (${p.dp ?? 0} DP)</option>`).join('');
+        const info = buildSlotInfo('downtime', slot);
+        return `
+            <div class="slot-row">
+                <label>Assigned Operative</label>
+                <select class="slot-select" data-type="downtime">
+                    <option value="">Unassigned</option>
+                    ${options}
+                </select>
+                ${info}
+            </div>
+        `;
+    }
+
+    function buildResourceAssignment(slot) {
+        const options = requisitionOptions.map(r => `<option value="${r.id}" ${r.id === slot.requisitionId ? 'selected' : ''}>${escapeHTML(r.item || 'Untitled')} (${escapeHTML(r.status || 'Pending')})</option>`).join('');
+        const info = buildSlotInfo('resource', slot);
+        return `
+            <div class="slot-row">
+                <label>Staged Resource</label>
+                <select class="slot-select" data-type="resource">
+                    <option value="">Unassigned</option>
+                    ${options}
+                </select>
+                ${info}
+            </div>
+        `;
+    }
+
+    function buildSlotInfo(type, slot) {
+        if (type === 'downtime') {
+            const player = findPlayerById(slot.playerId);
+            if (player) {
+                const project = player.projectName ? ` • Project: ${escapeHTML(player.projectName)}` : '';
+                return `<div class="slot-info">${escapeHTML(player.name || 'Unnamed')} • ${player.dp ?? 0} DP${project}</div>`;
+            }
+            if (slot.legacyAssignee) {
+                return `<div class="slot-info warning">Legacy assignment: ${escapeHTML(slot.legacyAssignee)}</div>`;
+            }
+            return '';
+        }
+        const req = findRequisitionById(slot.requisitionId);
+        if (req) {
+            const status = req.status ? ` • ${escapeHTML(req.status)}` : '';
+            const priority = req.priority ? ` • ${escapeHTML(req.priority)}` : '';
+            return `<div class="slot-info">${escapeHTML(req.item || 'Untitled')}${status}${priority}</div>`;
+        }
+        if (slot.legacyAssignee) {
+            return `<div class="slot-info warning">Legacy link: ${escapeHTML(slot.legacyAssignee)}</div>`;
+        }
+        return '';
     }
 
     function renderFloorTabs() {
@@ -523,8 +503,10 @@
         refs.addDowntime.addEventListener('click', () => addSlot('downtime'));
         refs.addResource.addEventListener('click', () => addSlot('resource'));
 
-        refs.downtimeList.addEventListener('input', handleSlotInput('downtime'));
-        refs.resourceList.addEventListener('input', handleSlotInput('resource'));
+        refs.downtimeList.addEventListener('input', handleSlotLabelInput('downtime'));
+        refs.resourceList.addEventListener('input', handleSlotLabelInput('resource'));
+        refs.downtimeList.addEventListener('change', handleSlotSelect('downtime'));
+        refs.resourceList.addEventListener('change', handleSlotSelect('resource'));
         refs.downtimeList.addEventListener('click', handleSlotRemove('downtime'));
         refs.resourceList.addEventListener('click', handleSlotRemove('resource'));
 
@@ -557,14 +539,17 @@
         const room = getRoom(selectedRoomId);
         if (!room) return;
         const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
-        list.push({ id: uniqueId('slot'), label: type === 'downtime' ? 'Downtime Slot' : 'Resource Bay', assigned: '' });
+        list.push(type === 'downtime'
+            ? { id: uniqueId('slot'), label: 'Downtime Slot', playerId: '' }
+            : { id: uniqueId('slot'), label: 'Resource Bay', requisitionId: '' });
         persistState();
         updateDetailPanel();
         renderRooms();
     }
 
-    function handleSlotInput(type) {
+    function handleSlotLabelInput(type) {
         return (ev) => {
+            if (!ev.target.classList.contains('slot-label')) return;
             const room = getRoom(selectedRoomId);
             if (!room) return;
             const item = ev.target.closest('.slot-item');
@@ -573,12 +558,31 @@
             const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
             const slot = list.find(s => s.id === slotId);
             if (!slot) return;
-            if (ev.target.classList.contains('slot-label')) {
-                slot.label = ev.target.value;
-            } else if (ev.target.classList.contains('slot-assignee')) {
-                slot.assigned = ev.target.value;
-            }
+            slot.label = ev.target.value;
             persistState();
+            renderRooms();
+        };
+    }
+
+    function handleSlotSelect(type) {
+        return (ev) => {
+            if (!ev.target.classList.contains('slot-select')) return;
+            const room = getRoom(selectedRoomId);
+            if (!room) return;
+            const item = ev.target.closest('.slot-item');
+            if (!item) return;
+            const slotId = item.dataset.id;
+            const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
+            const slot = list.find(s => s.id === slotId);
+            if (!slot) return;
+            if (type === 'downtime') {
+                slot.playerId = ev.target.value;
+            } else {
+                slot.requisitionId = ev.target.value;
+            }
+            slot.legacyAssignee = '';
+            persistState();
+            updateDetailPanel();
             renderRooms();
         };
     }
@@ -817,22 +821,23 @@
     }
 
     function refreshAssigneeLists() {
-        if (datalistRefs.players) {
-            const players = (store && typeof store.getPlayers === 'function' ? store.getPlayers() : [])
-                .map(p => p.name)
-                .filter(Boolean);
-            setDatalistOptions(datalistRefs.players, players);
+        playerOptions = getPlayersFromStore().map(p => ({
+            id: p.id,
+            name: p.name || 'Unnamed Operative',
+            dp: p.dp ?? 0,
+            projectName: p.projectName || '',
+            projectReward: p.projectReward || ''
+        }));
+        requisitionOptions = getRequisitionsFromStore().map(req => ({
+            id: req.id,
+            item: req.item || req.purpose || 'Unlabeled Request',
+            status: req.status || 'Pending',
+            priority: req.priority || '',
+            requester: req.requester || ''
+        }));
+        if (selectedRoomId) {
+            updateDetailPanel();
         }
-        if (datalistRefs.resources) {
-            const requisitions = (store && typeof store.getRequisitions === 'function' ? store.getRequisitions() : []);
-            const names = requisitions.map(req => req.item || req.purpose || req.requester || '').filter(Boolean);
-            setDatalistOptions(datalistRefs.resources, names);
-        }
-    }
-
-    function setDatalistOptions(element, values) {
-        const unique = [...new Set(values)];
-        element.innerHTML = unique.map(val => `<option value="${escapeHTML(val)}"></option>`).join('');
     }
 
     function createFloor(name = `Level ${state.floors ? state.floors.length + 1 : 1}`) {
