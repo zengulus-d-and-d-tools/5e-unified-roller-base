@@ -1,99 +1,114 @@
-const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
-        // Rewards converted to a datalist for suggestions while allowing free text
-        const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
+// Use global data if available, fallback to hardcoded (safety)
+const guilds = (window.RTF_DATA && window.RTF_DATA.guilds) ? window.RTF_DATA.guilds :
+    ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
 
-        let state = {
-            rep: { Azorius: 0, Boros: 0, Dimir: 0, Golgari: 0, Gruul: 0, Izzet: 0, Orzhov: 0, Rakdos: 0, Selesnya: 0, Simic: 0 },
-            heat: 0,
-            players: [],
-            case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
-        };
+// Rewards converted to a datalist for suggestions while allowing free text
+const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
 
-        function loadState() {
+// Initialize state dynamically
+let state = {
+    rep: guilds.reduce((acc, g) => { acc[g] = 0; return acc; }, {}),
+    heat: 0,
+    players: [],
+    case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
+};
+
+function loadState() {
+    try {
+        const saved = localStorage.getItem('ravnicaHubV3_2');
+        if (saved) {
+            const loaded = JSON.parse(saved);
+            // Migration: Ensure all current guilds exist in loaded state
+            guilds.forEach(g => {
+                if (loaded.rep[g] === undefined) loaded.rep[g] = 0;
+            });
+            state = loaded;
+        }
+    } catch (e) { console.error("Corrupted Save", e); }
+}
+
+function exportData() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "ravnica_hub_backup_" + new Date().toISOString().slice(0, 10) + ".json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = event => {
             try {
-                const saved = localStorage.getItem('ravnicaHubV3_2');
-                if (saved) state = JSON.parse(saved);
-            } catch (e) { console.error("Corrupted Save", e); }
-        }
+                const loaded = JSON.parse(event.target.result);
+                if (confirm("Overwrite current data with imported file?")) {
+                    // Migration on import as well
+                    guilds.forEach(g => {
+                        if (loaded.rep && loaded.rep[g] === undefined) loaded.rep[g] = 0;
+                    });
+                    state = loaded;
+                    save();
+                    alert("Data imported successfully!");
+                }
+            } catch (err) {
+                alert("Invalid JSON file");
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
 
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "ravnica_hub_backup_" + new Date().toISOString().slice(0, 10) + ".json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
+function save() {
+    localStorage.setItem('ravnicaHubV3_2', JSON.stringify(state));
+    render();
+}
 
-        function importData() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'application/json';
-            input.onchange = e => {
-                const file = e.target.files[0];
-                const reader = new FileReader();
-                reader.onload = event => {
-                    try {
-                        const loaded = JSON.parse(event.target.result);
-                        if (confirm("Overwrite current data with imported file?")) {
-                            state = loaded;
-                            save();
-                            alert("Data imported successfully!");
-                        }
-                    } catch (err) {
-                        alert("Invalid JSON file");
-                    }
-                };
-                reader.readAsText(file);
-            };
-            input.click();
-        }
+function saveCase() {
+    state.case.title = document.getElementById('caseTitle').value;
+    state.case.guilds = document.getElementById('caseGuilds').value;
+    state.case.goal = document.getElementById('caseGoal').value;
+    state.case.clock = document.getElementById('caseClock').value;
+    state.case.obstacles = document.getElementById('caseObstacles').value;
+    state.case.setPiece = document.getElementById('caseSetPiece').value;
+    save();
+}
 
-        function save() {
-            localStorage.setItem('ravnicaHubV3_2', JSON.stringify(state));
-            render();
-        }
+function resetAll() { if (confirm("Reset everything?")) { localStorage.removeItem('ravnicaHubV3_2'); location.reload(); } }
+function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, (state.rep[g] || 0) + amt)); save(); }
+function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
 
-        function saveCase() {
-            state.case.title = document.getElementById('caseTitle').value;
-            state.case.guilds = document.getElementById('caseGuilds').value;
-            state.case.goal = document.getElementById('caseGoal').value;
-            state.case.clock = document.getElementById('caseClock').value;
-            state.case.obstacles = document.getElementById('caseObstacles').value;
-            state.case.setPiece = document.getElementById('caseSetPiece').value;
-            save();
-        }
+function addPlayer() {
+    state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
+    save();
+}
 
-        function resetAll() { if (confirm("Reset everything?")) { localStorage.removeItem('ravnicaHubV3_2'); location.reload(); } }
-        function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, state.rep[g] + amt)); save(); }
-        function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
+function modDP(idx, amt) { state.players[idx].dp = Math.max(0, Math.min(4, state.players[idx].dp + amt)); save(); }
+function grantWeeklyDP() { state.players.forEach(p => p.dp = Math.min(4, p.dp + 2)); save(); }
+function modClock(idx, amt) { state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt)); save(); }
 
-        function addPlayer() {
-            state.players.push({ name: "New Recruit", dp: 2, projectClock: 0, projectName: "", projectReward: "+1 Reputation" });
-            save();
-        }
+function updatePlayer(idx, field, val) { state.players[idx][field] = val; save(); }
 
-        function modDP(idx, amt) { state.players[idx].dp = Math.max(0, Math.min(4, state.players[idx].dp + amt)); save(); }
-        function grantWeeklyDP() { state.players.forEach(p => p.dp = Math.min(4, p.dp + 2)); save(); }
-        function modClock(idx, amt) { state.players[idx].projectClock = Math.max(0, Math.min(4, state.players[idx].projectClock + amt)); save(); }
+function render() {
+    // Render Case Info
+    document.getElementById('caseTitle').value = state.case.title || "";
+    document.getElementById('caseGuilds').value = state.case.guilds || "";
+    document.getElementById('caseGoal').value = state.case.goal || "";
+    document.getElementById('caseClock').value = state.case.clock || "";
+    document.getElementById('caseObstacles').value = state.case.obstacles || "";
+    document.getElementById('caseSetPiece').value = state.case.setPiece || "";
 
-        function updatePlayer(idx, field, val) { state.players[idx][field] = val; save(); }
-
-        function render() {
-            // Render Case Info
-            document.getElementById('caseTitle').value = state.case.title || "";
-            document.getElementById('caseGuilds').value = state.case.guilds || "";
-            document.getElementById('caseGoal').value = state.case.goal || "";
-            document.getElementById('caseClock').value = state.case.clock || "";
-            document.getElementById('caseObstacles').value = state.case.obstacles || "";
-            document.getElementById('caseSetPiece').value = state.case.setPiece || "";
-
-            // Shared Status
-            document.getElementById('repGrid').innerHTML = guilds.map(g => `
+    // Shared Status
+    document.getElementById('repGrid').innerHTML = guilds.map(g => `
             <div style="text-align:center; padding:8px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,0.3);">
                 <div class="mini-label" style="font-size:0.6rem;">${g}</div>
-                <div style="font-size:1.2rem; font-weight:900; color:${state.rep[g] > 0 ? '#2ecc71' : state.rep[g] < 0 ? '#ff6b6b' : '#666'}">${state.rep[g] > 0 ? '+' : ''}${state.rep[g]}</div>
+                <div style="font-size:1.2rem; font-weight:900; color:${(state.rep[g] || 0) > 0 ? '#2ecc71' : (state.rep[g] || 0) < 0 ? '#ff6b6b' : '#666'}">${(state.rep[g] || 0) > 0 ? '+' : ''}${state.rep[g] || 0}</div>
                 <div style="display:flex; justify-content:center; gap:5px; margin-top:5px;">
                     <button class="btn" onclick="modRep('${g}',-1)" style="padding:2px 8px;">-</button>
                     <button class="btn" onclick="modRep('${g}',1)" style="padding:2px 8px;">+</button>
@@ -101,16 +116,16 @@ const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzho
             </div>
         `).join('');
 
-            document.getElementById('heatVal').innerText = state.heat;
-            document.getElementById('heatFill').style.width = (state.heat / 6 * 100) + '%';
+    document.getElementById('heatVal').innerText = state.heat;
+    document.getElementById('heatFill').style.width = (state.heat / 6 * 100) + '%';
 
-            let warn = "";
-            if (state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated.";
-            else if (state.heat >= 3) warn = "WARNING: Complication Scene triggered.";
-            document.getElementById('heatWarning').innerText = warn;
+    let warn = "";
+    if (state.heat >= 6) warn = "CRITICAL: Hard Constraint mandated.";
+    else if (state.heat >= 3) warn = "WARNING: Complication Scene triggered.";
+    document.getElementById('heatWarning').innerText = warn;
 
-            // Player List
-            document.getElementById('rosterList').innerHTML = state.players.map((p, i) => `
+    // Player List
+    document.getElementById('rosterList').innerHTML = state.players.map((p, i) => `
             <div class="player-row">
                 <div>
                     <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
@@ -138,6 +153,6 @@ const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzho
                 <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Delete?')){state.players.splice(${i},1); save();}">&times;</button>
             </div>
         `).join('');
-        }
+}
 
-        loadState(); render();
+loadState(); render();

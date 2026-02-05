@@ -740,6 +740,149 @@ function deleteTargetNode() {
     contextMenu.style.display = 'none';
 }
 
+function centerAndOptimize() {
+    const id = contextMenu.dataset.target;
+    if (!id) return;
+    optimizeLayout(id);
+    contextMenu.style.display = 'none';
+}
+
+function optimizeLayout(centerId) {
+    const centerNode = nodes.find(n => n.id === centerId);
+    if (!centerNode) return;
+
+    // 1. Reset View to Center
+    // We want the centerNode to be at screen center (approx width/2, height/2)
+    // view.x + node.x * view.scale = screenCenter
+    // We'll just reset view to 0,0 and move the node to 0,0 (virtual coords) then build around it
+    // Actually simpler: Build layout around (0,0) in world space, then pan view to center O,O
+
+    // BFS to assign layers
+    const layers = new Map(); // id -> distance
+    const visited = new Set();
+    const queue = [{ id: centerId, dist: 0 }];
+    visited.add(centerId);
+    layers.set(centerId, 0);
+
+    const adj = new Map();
+    nodes.forEach(n => adj.set(n.id, []));
+    connections.forEach(c => {
+        if (adj.has(c.from)) adj.get(c.from).push(c.to);
+        if (adj.has(c.to)) adj.get(c.to).push(c.from);
+    });
+
+    while (queue.length > 0) {
+        const curr = queue.shift();
+        const neighbors = adj.get(curr.id) || [];
+        neighbors.forEach(nid => {
+            if (!visited.has(nid)) {
+                visited.add(nid);
+                layers.set(nid, curr.dist + 1);
+                queue.push({ id: nid, dist: curr.dist + 1 });
+            }
+        });
+    }
+
+    // Handle disconnected components (assign to generic outer layer)
+    const maxDist = Math.max(...layers.values());
+    nodes.forEach(n => {
+        if (!visited.has(n.id)) {
+            layers.set(n.id, maxDist + 2); // Push well outside connected graph
+        }
+    });
+
+    // 2. Assign Grid Positions
+    // Grid Spacing
+    const SPACING_X = 250;
+    const SPACING_Y = 180;
+    const groups = [];
+
+    // Group by layer
+    layers.forEach((dist, id) => {
+        if (!groups[dist]) groups[dist] = [];
+        groups[dist].push(id);
+    });
+
+    const newPositions = new Map();
+    newPositions.set(centerId, { x: 0, y: 0 });
+
+    // Iterate layers
+    for (let d = 1; d < groups.length; d++) {
+        if (!groups[d]) continue;
+
+        let layerNodes = groups[d];
+
+        // Sort heuristic: Minimize crossing by sorting based on parent angle/position
+        // For each node, find average position of its parents in d-1
+        layerNodes.sort((a, b) => {
+            const getParentAvgAngle = (nid) => {
+                const parents = (adj.get(nid) || []).filter(pid => layers.get(pid) === d - 1);
+                if (parents.length === 0) return 0;
+                let sumAtan = 0;
+                parents.forEach(pid => {
+                    const pPos = newPositions.get(pid);
+                    sumAtan += Math.atan2(pPos.y, pPos.x);
+                });
+                return sumAtan / parents.length;
+            };
+            return getParentAvgAngle(a) - getParentAvgAngle(b);
+        });
+
+        // Layout: concentric rectangle/circle
+        // Simple approach: Place in a ring roughly proportional to perimeters
+        const items = layerNodes.length;
+        const radius = d * Math.max(SPACING_X, SPACING_Y);
+        const angleStep = (2 * Math.PI) / items;
+
+        layerNodes.forEach((nid, idx) => {
+            const angle = idx * angleStep;
+            // Snap to approximate grid?
+            // Let's stick to radial for "minimizing crossovers" efficiently, 
+            // but we can snap resultant positions to a grid if "grid" is strict.
+            // User asked for "Grid that minimises crossover".
+            // Let's map radial coords to nearest grid points to satisfy "Grid".
+
+            let rx = Math.round((Math.cos(angle) * radius) / SPACING_X) * SPACING_X;
+            let ry = Math.round((Math.sin(angle) * radius) / SPACING_Y) * SPACING_Y;
+
+            // Avoid collisions (rudimentary)
+            while (Array.from(newPositions.values()).some(p => p.x === rx && p.y === ry)) {
+                // If occupied, spiral out slightly? Or just shift.
+                rx += (Math.random() > 0.5 ? 1 : -1) * (SPACING_X / 2); // Jiggle
+            }
+
+            newPositions.set(nid, { x: rx, y: ry });
+        });
+    }
+
+    // Apply New Positions
+    // Apply center offset so the CENTER node is at the current view center?
+    // User asked to "Centre this".
+    // Let's set View to focus on (0,0) and place CenterNode at (0,0).
+
+    // Reset View
+    view.x = window.innerWidth / 2;
+    view.y = window.innerHeight / 2;
+    view.scale = 1;
+    updateViewCSS();
+
+    newPositions.forEach((pos, id) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.style.left = pos.x + 'px';
+            el.style.top = pos.y + 'px';
+        }
+    });
+
+    saveBoard();
+
+    // Force physics wake-up to settle strings
+    connections.forEach(c => {
+        const idx = connToIndex.get(c.id);
+        if (idx !== undefined) sleepState[idx] = 1;
+    });
+}
+
 function startDragNew(e, type) { e.dataTransfer.setData('text/plain', type); }
 document.body.ondragover = (e) => e.preventDefault();
 document.body.ondrop = (e) => {
