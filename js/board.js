@@ -284,7 +284,7 @@ function renderBoardEvents() {
     }
 
     const filtered = events.filter(evt => {
-        const text = `${evt.title || ''} ${evt.date || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''}`.toLowerCase();
+        const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''}`.toLowerCase();
         const matchesSearch = text.includes(searchTerm);
         const focusMatch = focusFilterEl && focusFilterEl.value ? evt.focus === focusFilterEl.value : true;
         return matchesSearch && focusMatch;
@@ -302,14 +302,12 @@ function renderBoardEvents() {
         el.draggable = true;
         const title = sanitizeText(evt.title || 'Event');
         const focus = sanitizeText(evt.focus || '');
-        const date = sanitizeText(evt.date || '');
         const heat = parseInt(evt.heatDelta, 10);
-        const meta = [focus, date].filter(Boolean).join(' • ');
+        const meta = focus ? focus : '';
         const heatBadge = !isNaN(heat) && heat !== 0 ? `<span style="color:${heat > 0 ? 'var(--danger)' : 'var(--accent)'}; font-size:0.75rem; margin-left:6px;">${heat > 0 ? '+' : ''}${heat} Heat</span>` : '';
         el.innerHTML = `<div class="icon">🕰️</div><div class="label">${title}${heatBadge}${meta ? `<div style="font-size:0.7rem; color:#aaa;">${meta}</div>` : ''}</div>`;
 
         const lines = [];
-        if (evt.date) lines.push(`<strong>Date:</strong> ${sanitizeText(evt.date)}`);
         if (evt.focus) lines.push(`<strong>Focus:</strong> ${sanitizeText(evt.focus)}`);
         if (!isNaN(heat) && heat !== 0) lines.push(`<strong>Heat:</strong> ${heat > 0 ? '+' : ''}${heat}`);
         if (evt.highlights) lines.push(`<strong>Beats:</strong><br>${sanitizeMultiline(evt.highlights)}`);
@@ -376,7 +374,6 @@ function renderBoardRequisitions() {
         lines.push(`<strong>Agent:</strong> ${sanitizeText(req.requester || 'Unassigned')}`);
         if (req.status || req.priority) lines.push(`<strong>Status:</strong> ${sanitizeText(req.status || 'Pending')} (${sanitizeText(req.priority || 'Routine')})`);
         if (req.value) lines.push(`<strong>Value:</strong> ${sanitizeText(req.value)}`);
-        if (req.needed) lines.push(`<strong>Needed:</strong> ${sanitizeText(req.needed)}`);
         if (req.purpose) lines.push(`<strong>Purpose:</strong> ${sanitizeMultiline(req.purpose)}`);
         if (req.notes) lines.push(`<strong>Notes:</strong> ${sanitizeMultiline(req.notes)}`);
 

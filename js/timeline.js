@@ -18,7 +18,7 @@
     }
 
     function resetForm() {
-        ['eventTitle', 'eventDate', 'eventFocus', 'eventTags', 'eventHighlights', 'eventFallout', 'eventFollow'].forEach(id => {
+        ['eventTitle', 'eventFocus', 'eventTags', 'eventHighlights', 'eventFallout', 'eventFollow'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -37,7 +37,6 @@
         const data = {
             id: 'event_' + Date.now(),
             title,
-            date: document.getElementById('eventDate').value,
             focus: document.getElementById('eventFocus').value,
             heatDelta: document.getElementById('eventHeat').value,
             tags: document.getElementById('eventTags').value,
@@ -86,8 +85,6 @@
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
                     onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
-                <input type="text" value="${escapeHtml(evt.date || '')}" placeholder="Date / Phase"
-                    onchange="updateEventField('${evt.id}', 'date', this.value)" style="max-width:180px;">
             </div>
             <div class="event-meta">
                 <div>
@@ -143,7 +140,7 @@
         const impactOnly = document.getElementById('eventImpactOnly').checked;
 
         const filtered = events.filter(evt => {
-            const text = `${evt.title || ''} ${evt.date || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
+            const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
             const matchesSearch = search ? text.includes(search) : true;
             const matchesFocus = focusFilter ? evt.focus === focusFilter : true;
             const heat = parseInt(evt.heatDelta, 10);

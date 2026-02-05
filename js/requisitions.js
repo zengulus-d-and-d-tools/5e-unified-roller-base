@@ -73,7 +73,7 @@
     }
 
     function resetForm() {
-        ['reqItem', 'reqRequester', 'reqValue', 'reqNeeded', 'reqPurpose', 'reqNotes', 'reqTags'].forEach(id => {
+        ['reqItem', 'reqRequester', 'reqValue', 'reqPurpose', 'reqNotes', 'reqTags'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -102,7 +102,6 @@
             priority: document.getElementById('reqPriority').value,
             status: document.getElementById('reqStatus').value,
             value: document.getElementById('reqValue').value,
-            needed: document.getElementById('reqNeeded').value,
             purpose: document.getElementById('reqPurpose').value,
             notes: document.getElementById('reqNotes').value,
             tags: document.getElementById('reqTags').value,
@@ -134,7 +133,6 @@
     }
 
     function buildCard(req) {
-        const neededLabel = req.needed ? req.needed : '';
         return `
         <div class="req-card">
             <h3>
@@ -167,11 +165,6 @@
                     <label>Value</label>
                     <input type="text" value="${escapeHtml(req.value || '')}" placeholder="Cost"
                         onchange="updateReqField('${req.id}', 'value', this.value)">
-                </div>
-                <div>
-                    <label>Needed By</label>
-                    <input type="date" value="${neededLabel}"
-                        onchange="updateReqField('${req.id}', 'needed', this.value)">
                 </div>
             </div>
             <textarea class="req-notes" placeholder="Purpose / Justification"
@@ -208,11 +201,8 @@
         });
 
         filtered.sort((a, b) => {
-            const aNeeded = a.needed || '9999-99-99';
-            const bNeeded = b.needed || '9999-99-99';
             const priorityDiff = (PRIORITY_WEIGHT[a.priority || 'Routine'] || 0) - (PRIORITY_WEIGHT[b.priority || 'Routine'] || 0);
             if (priorityDiff !== 0) return priorityDiff;
-            if (aNeeded !== bNeeded) return aNeeded.localeCompare(bNeeded);
             return (a.created || '').localeCompare(b.created || '');
         });
 
