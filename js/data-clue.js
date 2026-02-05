@@ -1,0 +1,407 @@
+(function (global) {
+    global.CLUEDATA = {
+            guilds: [
+                {
+                    id: 'azorius', name: 'Azorius', icon: '⚖️',
+                    phys: [
+                        { core: "a rigid legal writ", surf: "stamped with blue wax seals" },
+                        { core: "a pair of rusted manacles", surf: "etched with a precinct number" },
+                        { core: "a discarded statute book", surf: "marked with corrective red ink" },
+                        { core: "a marble gavel", surf: "chipped from heavy use" },
+                        { core: "a zoning permit", surf: "filed in triplicate" },
+                        { core: "a smashed precog-crystal", surf: "housed in geometric steel" },
+                        { core: "a patrolling sphinx's feather", surf: "stiff and metallic to the touch" },
+                        { core: "an arrest report", surf: "signed by a Justiciar" },
+                        { core: "a stone column fragment", surf: "carved with the Guildpact seal" },
+                        { core: "a confiscation lock-box", surf: "sealed with magic-dampening lead" }
+                    ],
+                    soc: [
+                        { core: "a precise lawmage", surf: "citing obscure statutes" },
+                        { core: "a bored desk clerk", surf: "demanding Form 12-B" },
+                        { core: "a stern arrester", surf: "looking for a reason to detain you" },
+                        { core: "a precognitive mage", surf: "claiming they saw this yesterday" },
+                        { core: "a vedalken administrator", surf: "obsessed with the timeline" },
+                        { core: "a judge's scribe", surf: "taking shorthand notes furiously" },
+                        { core: "a gargoyle patroller", surf: "perched silently above" },
+                        { core: "an imperious knight", surf: "refusing to speak to civilians" },
+                        { core: "a bureaucratic functionary", surf: "worried about their lunch break" },
+                        { core: "a retired senator", surf: "complaining about the 'old days'" }
+                    ],
+                    arc: [
+                        { core: "a geometric stasis-glyph", surf: "humming with Law-magic" },
+                        { core: "a zone of silence", surf: "enforced by white runes" },
+                        { core: "a truth-compulsion aura", surf: "tasting like cold iron" },
+                        { core: "a detainment sphere", surf: "fading into blue mist" },
+                        { core: "a scrying sensor", surf: "scanning for illegal magic" },
+                        { core: "a Hieromancy echo", surf: "ordering you to halt" },
+                        { core: "a ward against lying", surf: "burning when you speak" },
+                        { core: "a residual shielding spell", surf: "forming perfect triangles" },
+                        { core: "a spectral gavel", surf: "ringing with psychic force" },
+                        { core: "a blindfold of justice", surf: "blocking arcane sight" }
+                    ]
+                },
+                {
+                    id: 'boros', name: 'Boros', icon: '⚔️',
+                    phys: [
+                        { core: "a dented gauntlet", surf: "scorched by radiant heat" },
+                        { core: "a shattered sun-blade", surf: "still warm to the touch" },
+                        { core: "a tattered red banner", surf: "stained with soot and blood" },
+                        { core: "a military medal", surf: "torn from a uniform" },
+                        { core: "a heavy boot print", surf: "cracking the pavement" },
+                        { core: "a discarded whetstone", surf: "worn down to a nub" },
+                        { core: "a minotaur's horn-ring", surf: "etched with a legion number" },
+                        { core: "a fragment of slag", surf: "smelling of the forge" },
+                        { core: "a garrison key", surf: "heavy and iron-cast" },
+                        { core: "a broken signal-horn", surf: "crushed by a heavy blow" }
+                    ],
+                    soc: [
+                        { core: "an aggressive legionnaire", surf: "demanding immediate compliance" },
+                        { core: "a goblin trench-fighter", surf: "itching for a brawl" },
+                        { core: "a righteous paladin", surf: "preaching zeal and fire" },
+                        { core: "a weary sergeant", surf: "cleaning their blade" },
+                        { core: "a minotaur trooper", surf: "blocking the doorway" },
+                        { core: "a sky-knight's squire", surf: "polishing armor" },
+                        { core: "a flame-kin scout", surf: "burning with impatience" },
+                        { core: "a retired veteran", surf: "showing off their scars" },
+                        { core: "a combat medic", surf: "tending to a wound" },
+                        { core: "a angel-touched captain", surf: "radiating terrifying authority" }
+                    ],
+                    arc: [
+                        { core: "a flickering radiant aura", surf: "smelling of forge-smoke" },
+                        { core: "a holy fire residue", surf: "singing nearby fabrics" },
+                        { core: "a lingering war-shout", surf: "echoing psychically" },
+                        { core: "a circle of protection", surf: "glowing with red light" },
+                        { core: "a beam of sunlight", surf: "persisting in the dark" },
+                        { core: "a healing magic trace", surf: "tingling with warmth" },
+                        { core: "a zealot's mark", surf: "burned into the stone" },
+                        { core: "a lightning-helix scar", surf: "crackling weakly" },
+                        { core: "a spectral shield", surf: "pushing back intruders" },
+                        { core: "a summoning rune", surf: "calling for backup" }
+                    ]
+                },
+                {
+                    id: 'dimir', name: 'Dimir', icon: '👁️',
+                    phys: [
+                        { core: "a strip of cipher-paper", surf: "dissolving into smoke" },
+                        { core: "a black glass dagger", surf: "coated in sleeping poison" },
+                        { core: "a dark velvet cloak", surf: "damp with sewer fog" },
+                        { core: "a memory-vial", surf: "swirling with blue mist" },
+                        { core: "a skeleton key", surf: "made of shadowy metal" },
+                        { core: "a throwing star", surf: "embedded in the ceiling" },
+                        { core: "a hidden drop-box", surf: "concealed behind a brick" },
+                        { core: "a forged identity paper", surf: "perfectly replicated" },
+                        { core: "a destroyed journal", surf: "shredded into confetti" },
+                        { core: "a surveillance beetle", surf: "crushed underfoot" }
+                    ],
+                    soc: [
+                        { core: "a vague informant", surf: "hiding in the shadows" },
+                        { core: "a shapeshifter", surf: "forgetting their current face" },
+                        { core: "a librarian", surf: "hoarding secrets" },
+                        { core: "a street urchin", surf: "watching with too-old eyes" },
+                        { core: "a mind-mage", surf: "reading your surface thoughts" },
+                        { core: "a nervous courier", surf: "carrying a blank letter" },
+                        { core: "a double agent", surf: "playing both sides" },
+                        { core: "a ghost agent", surf: "whispering from a vent" },
+                        { core: "a night-market broker", surf: "trading in rumors" },
+                        { core: "a sleeper agent", surf: "waking up confused" }
+                    ],
+                    arc: [
+                        { core: "a psychic memory-thread", surf: "chilled by necrotic cold" },
+                        { core: "a shadow-weave", surf: "darkening the corners" },
+                        { core: "a thought-surveillance eye", surf: "blinking out of existence" },
+                        { core: "a memory-hole", surf: "where details are missing" },
+                        { core: "a whisper-network echo", surf: "repeating a name" },
+                        { core: "a sleep-spell residue", surf: "making you yawn" },
+                        { core: "an illusionary wall", surf: "flickering when touched" },
+                        { core: "a telepathic stain", surf: "causing a headache" },
+                        { core: "a necromantic chill", surf: "frosting the glass" },
+                        { core: "a nightmare trace", surf: "triggering fear" }
+                    ]
+                },
+                {
+                    id: 'golgari', name: 'Golgari', icon: '🍄',
+                    phys: [
+                        { core: "a petrified insect husk", surf: "covered in vibrant moss" },
+                        { core: "a compost-encrusted boot", surf: "smelling of the undercity" },
+                        { core: "a jar of rot-salve", surf: "bubbling with fermentation" },
+                        { core: "a stone elf ear", surf: "chipped from a statue" },
+                        { core: "a gorgon's scale", surf: "turning dust to stone" },
+                        { core: "a fungal spore-pod", surf: "ready to burst" },
+                        { core: "a reclaimed bone tool", surf: "scrimshawed with runes" },
+                        { core: "a patch of sewer-slime", surf: "glowing faintly green" },
+                        { core: "a beetle-shell shield", surf: "cracked down the middle" },
+                        { core: "a recycler's hook", surf: "rusted and dull" }
+                    ],
+                    soc: [
+                        { core: "a fatalistic rot-farmer", surf: "surrounded by insects" },
+                        { core: "a dark elf shaman", surf: "speaking for the dead" },
+                        { core: "a kraul warrior", surf: "clicking its mandibles" },
+                        { core: "a sewer-guide", surf: "covered in muck" },
+                        { core: "a gorgon recluse", surf: "hiding her gaze" },
+                        { core: "a spore-druid", surf: "growing mushrooms on their clothes" },
+                        { core: "a corpse-collector", surf: "hauling a heavy cart" },
+                        { core: "an undercity hermit", surf: "eating something questionable" },
+                        { core: "a troll bouncer", surf: "regenerating a wound" },
+                        { core: "a fungus-symbiote", surf: "merging with the wall" }
+                    ],
+                    arc: [
+                        { core: "a necrotic spore-cloud", surf: "reeking of pungent rot" },
+                        { core: "a regrowth aura", surf: "sprouting weeds from stone" },
+                        { core: "a death-magic stain", surf: "withered nearby plants" },
+                        { core: "a petrification echo", surf: "stiffening your joints" },
+                        { core: "a poison-mist residue", surf: "burning your lungs" },
+                        { core: "a reanimation trace", surf: "making shadows twitch" },
+                        { core: "a swarm-mind connection", surf: "buzzing in your ears" },
+                        { core: "a decomposition field", surf: "accelerating rust" },
+                        { core: "a life-drain signature", surf: "feeling cold and damp" },
+                        { core: "a fungal bloom", surf: "pulsing with heartbeat" }
+                    ]
+                },
+                {
+                    id: 'gruul', name: 'Gruul', icon: '🔥',
+                    phys: [
+                        { core: "a smashed stone totem", surf: "smeared with war-paint" },
+                        { core: "a crude stone axe", surf: "bound with leather" },
+                        { core: "a boar-tusk necklace", surf: "strung on gut" },
+                        { core: "a patch of graffiti", surf: "marking clan territory" },
+                        { core: "a pile of rubble", surf: "recently demolished" },
+                        { core: "a beast-hide tent scrap", surf: "smelling of wet fur" },
+                        { core: "a giant's footprint", surf: "crushing a crate" },
+                        { core: "a broken siege-arrow", surf: "thick as a limb" },
+                        { core: "a ritual bonfire pit", surf: "still smoldering" },
+                        { core: "a looting sack", surf: "spilled open" }
+                    ],
+                    soc: [
+                        { core: "a hostile wasteland scout", surf: "shouting primal threats" },
+                        { core: "a two-headed ogre", surf: "arguing with itself" },
+                        { core: "a beast-breaker", surf: "calming a hydra" },
+                        { core: "a raid-leader", surf: "demanding tribute" },
+                        { core: "a shaman", surf: "predicting the End-Raze" },
+                        { core: "a rubble-child", surf: "throwing rocks" },
+                        { core: "a centaur charger", surf: "pawing the ground" },
+                        { core: "a goblin raider", surf: "stealing shiny bits" },
+                        { core: "a wild-druid", surf: "hating the pavement" },
+                        { core: "a cyclops brute", surf: "blocking the street" }
+                    ],
+                    arc: [
+                        { core: "a chaotic elemental spark", surf: "crackling with red/green static" },
+                        { core: "an earth-tremor echo", surf: "shaking the dust" },
+                        { core: "a rage-magic aura", surf: "making blood boil" },
+                        { core: "a primal growth surge", surf: "shattering concrete" },
+                        { core: "a fire-storm residue", surf: "blackening the walls" },
+                        { core: "a beast-bond link", surf: "smelling of musk" },
+                        { core: "a destruction rune", surf: "glowing angrily" },
+                        { core: "a storm-caller's mark", surf: "wet with rain" },
+                        { core: "a wild-magic surge", surf: "tasting like copper" },
+                        { core: "a spirit-totem ward", surf: "howling faintly" }
+                    ]
+                },
+                {
+                    id: 'izzet', name: 'Izzet', icon: '⚡',
+                    phys: [
+                        { core: "a twisted copper coil", surf: "smelling of sharp ozone" },
+                        { core: "a shattered glass capacitor", surf: "leaking blue fluid" },
+                        { core: "a mana-pressure gauge", surf: "stuck in the red" },
+                        { core: "a goblin's welding goggles", surf: "cracked and sooty" },
+                        { core: "a blueprint schematic", surf: "covered in coffee stains" },
+                        { core: "a weird-containment unit", surf: "hissing steam" },
+                        { core: "a lightning-rod tip", surf: "melted by a strike" },
+                        { core: "a mizzium strut", surf: "bent by force" },
+                        { core: "a laboratory notebook", surf: "filled with frantic math" },
+                        { core: "a gravity-inverter", surf: "floating inches off the ground" }
+                    ],
+                    soc: [
+                        { core: "a manic researcher", surf: "covered in soot and oil" },
+                        { core: "a goblin test-pilot", surf: "missing eyebrows" },
+                        { core: "a chemister", surf: "mixing volatile vials" },
+                        { core: "a blast-seeker", surf: "twitching with energy" },
+                        { core: "a ley-line surveyor", surf: "ignoring safety protocols" },
+                        { core: "an elementalist", surf: "followed by a spark" },
+                        { core: "a laboratory assistant", surf: "putting out a fire" },
+                        { core: "a vedalken engineer", surf: "judging your equipment" },
+                        { core: "a steam-vent worker", surf: "shouting over the noise" },
+                        { core: "a guild-mage", surf: "overloading a spell" }
+                    ],
+                    arc: [
+                        { core: "an unstable mana-flux", surf: "vibrating with electric current" },
+                        { core: "a gravity-well", surf: "pulling debris inward" },
+                        { core: "a teleportation error", surf: "smelling of sulfur" },
+                        { core: "a storm-charge", surf: "making hair stand up" },
+                        { core: "a heat-haze", surf: "shimmering in the air" },
+                        { core: "a time-dilation bubble", surf: "slowing dust motes" },
+                        { core: "an elemental residue", surf: "puddling on the floor" },
+                        { core: "a sonic boom echo", surf: "ringing in your ears" },
+                        { core: "a spell-copy trace", surf: "repeating itself" },
+                        { core: "a mizzium-burn", surf: "glowing purple" }
+                    ]
+                },
+                {
+                    id: 'orzhov', name: 'Orzhov', icon: '🪙',
+                    phys: [
+                        { core: "a gilded debt-contract", surf: "dusted with funeral ash" },
+                        { core: "a gold coin", surf: "stamped with a ghost's face" },
+                        { core: "a black wax candle", surf: "burning with a white flame" },
+                        { core: "a gargoyle fragment", surf: "leaking black oil" },
+                        { core: "a tithe-collection box", surf: "heavier than it looks" },
+                        { core: "a stained-glass shard", surf: "depicting a saint" },
+                        { core: "a spirit-mask", surf: "cold as the grave" },
+                        { core: "a velvet alms-pouch", surf: "stained with wine" },
+                        { core: "a thrull's collar", surf: "etched with runes" },
+                        { core: "a ledger of sins", surf: "bound in pale leather" }
+                    ],
+                    soc: [
+                        { core: "a guilt-tripping pontiff", surf: "demanding a tithe" },
+                        { core: "a blind advokist", surf: "reading a contract" },
+                        { core: "a spirit-debtor", surf: "moaning in chains" },
+                        { core: "a knight-enforcer", surf: "clanking with gold armor" },
+                        { core: "a thrull servant", surf: "obeying silently" },
+                        { core: "a coin-mage", surf: "weighing your soul" },
+                        { core: "a basilica guard", surf: "blocking the archway" },
+                        { core: "a death-priest", surf: "blessing a corpse" },
+                        { core: "a syndicate banker", surf: "calculating interest" },
+                        { core: "a ghost-council envoy", surf: "floating through a wall" }
+                    ],
+                    arc: [
+                        { core: "a spectral spirit-chain", surf: "weighing heavy on the soul" },
+                        { core: "a life-drain aura", surf: "feeling cold and gray" },
+                        { core: "a gold-sickness curse", surf: "tasting of metal" },
+                        { core: "a command-word echo", surf: "forcing you to kneel" },
+                        { core: "a necrotic residue", surf: "wilting flowers" },
+                        { core: "a spirit-guard ward", surf: "watching with dead eyes" },
+                        { core: "a silence-spell", surf: "muting all sound" },
+                        { core: "a radiance-burn", surf: "searing with holy light" },
+                        { core: "a blood-pact sign", surf: "glowing crimson" },
+                        { core: "a haunting melody", surf: "drifting from nowhere" }
+                    ]
+                },
+                {
+                    id: 'rakdos', name: 'Rakdos', icon: '🎭',
+                    phys: [
+                        { core: "a jagged spiked chain", surf: "splattered with dried blood" },
+                        { core: "a harlequin mask", surf: "grinning maniacally" },
+                        { core: "a broken torch", surf: "smelling of lamp oil" },
+                        { core: "a rusty cage segment", surf: "bent bars" },
+                        { core: "a performer's silk sash", surf: "torn and muddy" },
+                        { core: "a fire-juggler's pin", surf: "blackened by soot" },
+                        { core: "a demon-bone charm", surf: "warm to the touch" },
+                        { core: "a stage-prop dagger", surf: "sharpened to a real edge" },
+                        { core: "a festival flyer", surf: "advertising a 'Killer Show'" },
+                        { core: "a tightrope wire", surf: "coiled like a snake" }
+                    ],
+                    soc: [
+                        { core: "a mocking performance artist", surf: "laughing inappropriately" },
+                        { core: "a knife-juggler", surf: "playing with a blade" },
+                        { core: "a demon-cultist", surf: "chanting a rhyme" },
+                        { core: "a chain-devil", surf: "rattling their bindings" },
+                        { core: "a ringmaster", surf: "inviting you inside" },
+                        { core: "a pain-artist", surf: "covered in piercings" },
+                        { core: "a goblin pyromancer", surf: "lighting a fuse" },
+                        { core: "a blood-witch", surf: "stirring a cauldron" },
+                        { core: "a muscle-bound ogre", surf: "wearing a tiny hat" },
+                        { core: "a riot-instigator", surf: "shouting at the crowd" }
+                    ],
+                    arc: [
+                        { core: "a burning hell-rune", surf: "smelling of sulfur" },
+                        { core: "a pain-spike aura", surf: "causing a migraine" },
+                        { core: "a madness-echo", surf: "making you giggle" },
+                        { core: "a shadow-dance trace", surf: "moving on its own" },
+                        { core: "a fire-breath residue", surf: "scorching the ceiling" },
+                        { core: "a demon-summoning circle", surf: "drawn in blood" },
+                        { core: "a fear-spike", surf: "making your heart race" },
+                        { core: "a confusion-mist", surf: "smelling of cheap perfume" },
+                        { core: "a chaos-spark", surf: "popping like fireworks" },
+                        { core: "a blood-lust enchantment", surf: "making fists clench" }
+                    ]
+                },
+                {
+                    id: 'selesnya', name: 'Selesnya', icon: '🌳',
+                    phys: [
+                        { core: "a woven living-wood token", surf: "dusted with golden pollen" },
+                        { core: "a crystal seed", surf: "glowing with inner light" },
+                        { core: "a white granite stone", surf: "perfectly polished" },
+                        { core: "a wolf-rider's saddle", surf: "smelling of leather" },
+                        { core: "a dryad's flower-crown", surf: "still blooming" },
+                        { core: "a conclave pamphlet", surf: "preaching unity" },
+                        { core: "a healer's kit", surf: "filled with salves" },
+                        { core: "an arrow with a leaf-fletching", surf: "tipped with silver" },
+                        { core: "a root-woven barrier", surf: "withered and brown" },
+                        { core: "a sun-amulet", surf: "reflecting the light" }
+                    ],
+                    soc: [
+                        { core: "a serene evangelist", surf: "speaking in the plural 'We'" },
+                        { core: "a dryad guardian", surf: "merging with a tree" },
+                        { core: "a wolf-riding knight", surf: "watching the perimeter" },
+                        { core: "a loxodon hierarch", surf: "offering wisdom" },
+                        { core: "a centaur archer", surf: "stringing a bow" },
+                        { core: "a conclave recruiter", surf: "smiling too widely" },
+                        { core: "a vernacular healer", surf: "offering a potion" },
+                        { core: "a garden-tender", surf: "ignoring the city" },
+                        { core: "a song-weaver", surf: "humming a tune" },
+                        { core: "a trostani-priest", surf: "judging your aura" }
+                    ],
+                    arc: [
+                        { core: "a harmonious light-beam", surf: "connecting to nearby life" },
+                        { core: "a growth-surge aura", surf: "making weeds bloom" },
+                        { core: "a calming wave", surf: "soothing your anger" },
+                        { core: "a summon-pact trace", surf: "smelling of loam" },
+                        { core: "a shared-mind echo", surf: "hearing many voices" },
+                        { core: "a barrier-ward", surf: "glowing soft white" },
+                        { core: "a healing pulse", surf: "closing small cuts" },
+                        { core: "a root-strangle residue", surf: "cracking the floor" },
+                        { core: "a sun-burst scorch", surf: "bleaching the color" },
+                        { core: "a truth-sense field", surf: "vibrating with clarity" }
+                    ]
+                },
+                {
+                    id: 'simic', name: 'Simic', icon: '🧬',
+                    phys: [
+                        { core: "a glass vial of bio-fluid", surf: "coated in translucent slime" },
+                        { core: "a shed reptile skin", surf: "shimmering with colors" },
+                        { core: "a crab-claw implant", surf: "discarded and bloody" },
+                        { core: "a growth-chamber valve", surf: "dripping green goo" },
+                        { core: "a notebook of mutations", surf: "waterproof and waxy" },
+                        { core: "a coral-encrusted key", surf: "smelling of brine" },
+                        { core: "a syringe gun", surf: "loaded with blue serum" },
+                        { core: "a preserved specimen", surf: "floating in a jar" },
+                        { core: "a krasis scale", surf: "harder than steel" },
+                        { core: "a bio-hazard warning sign", surf: "etched in glass" }
+                    ],
+                    soc: [
+                        { core: "a clinical biomancer", surf: "examining you like a specimen" },
+                        { core: "a shark-hybrid warrior", surf: "flexing new gills" },
+                        { core: "a merfolk terraformer", surf: "adjusting water levels" },
+                        { core: "a zonot guide", surf: "covered in algae" },
+                        { core: "a rapid-evolutionist", surf: "twitching with mutations" },
+                        { core: "a medical researcher", surf: "holding a scalpel" },
+                        { core: "a frog-lizard chimera", surf: "croaking inquisitively" },
+                        { core: "a bio-engineer", surf: "taking notes on your biology" },
+                        { core: "a deep-sea scout", surf: "dripping saltwater" },
+                        { core: "a growth-vat attendant", surf: "smelling of chemicals" }
+                    ],
+                    arc: [
+                        { core: "a spiral energy pattern", surf: "shifting and evolving color" },
+                        { core: "a mutation-aura", surf: "making your skin itch" },
+                        { core: "a growth-accel trace", surf: "expanding moss rapidly" },
+                        { core: "a bio-luminescent glow", surf: "pulsing in the dark" },
+                        { core: "a water-pressure field", surf: "feeling heavy and wet" },
+                        { core: "a gene-splice echo", surf: "feeling alien" },
+                        { core: "a slime-coat residue", surf: "making the floor slick" },
+                        { core: "a cryogenic chill", surf: "fogging your breath" },
+                        { core: "a venom-magic signature", surf: "burning your eyes" },
+                        { core: "an adaptation-ward", surf: "changing to match attacks" }
+                    ]
+                }
+            ],
+
+            frictions: [
+                "Water-Damaged", "Booby-Trapped", "Locked / Encrypted", "Contaminated",
+                "Heavily Guarded", "Culturally Taboo", "Physically Stuck", "Magically Warded",
+                "Currently Burning", "Moving Target", "Buried in Trash", "Incomplete"
+            ],
+
+            costs: [
+                "Clock +1", "Heat +1", "Resource Cost", "Reputation -1", "Minor Injury",
+                "Exhaustion", "Info Leak", "Set-Piece Trigger", "Disadvantage", "Spell Slot Drain"
+            ]
+        };
+})(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));

@@ -1,15 +1,34 @@
 (() => {
-    const data = window.RTF_DATA;
-    if (!data || !data.clue) {
-        console.error('Clue data unavailable');
-        return;
-    }
+    const state = {
+        data: null,
+        guildStatus: [],
+        dom: {},
+        cardVisible: false
+    };
 
-    const { guilds: GUILDS, frictions: FRICTIONS, costs: COSTS } = data.clue;
+    const cacheDom = () => {
+        const dom = state.dom;
+        dom.grid = document.getElementById('guildGrid');
+        dom.modeSel = document.getElementById('modeSel');
+        dom.card = document.getElementById('resultCard');
+        dom.objectBlock = document.getElementById('objectBlock');
+        dom.objectLabel = document.getElementById('objectLabel');
+        dom.objectGuild = document.getElementById('objectGuild');
+        dom.objectVal = document.getElementById('objectVal');
+        dom.contextBlock = document.getElementById('contextBlock');
+        dom.contextLabel = document.getElementById('contextLabel');
+        dom.contextGuild = document.getElementById('contextGuild');
+        dom.contextVal = document.getElementById('contextVal');
+        dom.outFric = document.getElementById('outFric');
+        dom.outCost = document.getElementById('outCost');
+        dom.outType = document.getElementById('outType');
+        dom.generateBtn = document.querySelector('.gen-btn');
+        if (dom.generateBtn) dom.generateBtn.disabled = true;
+    };
 
     const randIndex = (len) => {
         if (len <= 0) return 0;
-        if (window.crypto && window.crypto.getRandomValues) {
+        if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
             const buf = new Uint32Array(1);
             window.crypto.getRandomValues(buf);
             return buf[0] % len;
@@ -22,56 +41,132 @@
         return list[randIndex(list.length)] || { core: '', surf: '' };
     };
 
-    // Status: 0 = Grey, 1 = Herring (Orange), 2 = Involved (Green)
-    let guildStatus = new Array(10).fill(0);
+    const getClueData = () => {
+        if (state.data) return state.data;
+        const inline = window.CLUEDATA || (window.RTF_DATA && window.RTF_DATA.clue);
+        if (!inline) {
+            console.error('Clue data unavailable');
+            return null;
+        }
+        state.data = inline;
+        state.guildStatus = new Array(inline.guilds.length).fill(0);
+        return inline;
+    };
 
-    // --- INITIALIZATION ---
-    function init() {
-        const grid = document.getElementById('guildGrid');
-        GUILDS.forEach((g, idx) => {
+    const buildGuildGrid = () => {
+        const { grid } = state.dom;
+        const data = state.data;
+        if (!grid || !data) return;
+        grid.innerHTML = '';
+        data.guilds.forEach((guild, idx) => {
             const btn = document.createElement('div');
             btn.className = 'guild-btn st-0';
             btn.innerHTML = `
                 <span class="status-badge"></span>
-                <span class="g-icon">${g.icon}</span>
-                <span class="g-name">${g.name}</span>
+                <span class="g-icon">${guild.icon}</span>
+                <span class="g-name">${guild.name}</span>
             `;
-            btn.onclick = () => toggleStatus(idx, btn);
+            btn.addEventListener('click', () => toggleStatus(idx, btn));
             grid.appendChild(btn);
         });
-    }
+        if (state.dom.generateBtn) state.dom.generateBtn.disabled = false;
+    };
 
-    function toggleStatus(idx, btn) {
-        guildStatus[idx] = (guildStatus[idx] + 1) % 3;
-        btn.className = `guild-btn st-${guildStatus[idx]}`;
+    const toggleStatus = (idx, btn) => {
+        state.guildStatus[idx] = (state.guildStatus[idx] + 1) % 3;
+        btn.className = `guild-btn st-${state.guildStatus[idx]}`;
         const badge = btn.querySelector('.status-badge');
-        if (guildStatus[idx] === 1) badge.innerText = 'NOISE';
-        if (guildStatus[idx] === 2) badge.innerText = 'SIGNAL';
-        if (guildStatus[idx] === 0) badge.innerText = '';
-    }
+        if (!badge) return;
+        if (state.guildStatus[idx] === 1) badge.innerText = 'NOISE';
+        else if (state.guildStatus[idx] === 2) badge.innerText = 'SIGNAL';
+        else badge.innerText = '';
+    };
 
-        // --- GENERATOR LOGIC ---
-    function generateClue() {
-        const mode = document.getElementById('modeSel').value;
-        const involvedIndices = guildStatus.map((s, i) => (s === 2 ? i : -1)).filter(i => i !== -1);
-        const herringIndices = guildStatus.map((s, i) => (s === 1 ? i : -1)).filter(i => i !== -1);
+    const ensureCardVisible = () => {
+        const { card } = state.dom;
+        if (!card || state.cardVisible) return;
+        card.style.display = 'block';
+        state.cardVisible = true;
+    };
+
+    const pulseCard = () => {
+        ensureCardVisible();
+        const { card } = state.dom;
+        if (!card || typeof card.animate !== 'function') return;
+        card.animate([
+            { transform: 'scale(0.97)', opacity: 0.8 },
+            { transform: 'scale(1.02)', opacity: 1, offset: 0.65 },
+            { transform: 'scale(1)', opacity: 1 }
+        ], {
+            duration: 360,
+            easing: 'cubic-bezier(0.22, 1, 0.36, 1)'
+        });
+    };
+
+    const capitalize = (text) => {
+        if (!text) return '';
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    };
+
+    const renderResult = (mode, objectData, contextData, friction, cost) => {
+        const dom = state.dom;
+        ensureCardVisible();
+
+        dom.outType.innerText = mode.toUpperCase() + ' EVIDENCE';
+
+        const objectIsSignal = objectData.role === 'signal';
+        dom.objectBlock.classList.toggle('signal', objectIsSignal);
+        dom.objectBlock.classList.toggle('noise', !objectIsSignal);
+        dom.objectLabel.innerText = `${objectIsSignal ? 'The Signal' : 'The Noise'} (Object)`;
+        dom.objectLabel.style.color = objectIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
+        dom.objectGuild.innerText = objectData.guild;
+        dom.objectVal.innerText = capitalize(objectData.text);
+
+        const contextIsSignal = contextData.role === 'signal';
+        dom.contextBlock.classList.toggle('signal', contextIsSignal);
+        dom.contextBlock.classList.toggle('noise', !contextIsSignal);
+        dom.contextLabel.innerText = `${contextIsSignal ? 'The Signal' : 'The Noise'} (Context)`;
+        dom.contextLabel.style.color = contextIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
+        dom.contextGuild.innerText = contextData.guild;
+        dom.contextVal.innerText = capitalize(contextData.text);
+
+        dom.outFric.innerText = friction;
+        dom.outCost.innerText = cost;
+
+        pulseCard();
+    };
+
+    const generateClue = () => {
+        const data = getClueData();
+        if (!data) {
+            alert('Clue data is still loading.');
+            return;
+        }
+
+        const mode = state.dom.modeSel ? state.dom.modeSel.value : 'phys';
+        const involvedIndices = state.guildStatus
+            .map((status, idx) => (status === 2 ? idx : -1))
+            .filter(idx => idx !== -1);
+        const herringIndices = state.guildStatus
+            .map((status, idx) => (status === 1 ? idx : -1))
+            .filter(idx => idx !== -1);
 
         if (involvedIndices.length === 0) {
             alert('Please select at least one INVOLVED (Green) guild.');
             return;
         }
 
-        const signalIdx = involvedIndices[Math.floor(Math.random() * involvedIndices.length)];
-        const signalGuild = GUILDS[signalIdx];
+        const signalIdx = involvedIndices[randIndex(involvedIndices.length)];
+        const signalGuild = data.guilds[signalIdx];
 
-        let noiseIdx = -1;
+        let noiseIdx;
         if (herringIndices.length > 0) {
-            noiseIdx = herringIndices[Math.floor(Math.random() * herringIndices.length)];
+            noiseIdx = herringIndices[randIndex(herringIndices.length)];
         } else {
-            const available = GUILDS.map((_, i) => i).filter(i => i !== signalIdx);
-            noiseIdx = available[Math.floor(Math.random() * available.length)];
+            const available = data.guilds.map((_, i) => i).filter(i => i !== signalIdx);
+            noiseIdx = available[randIndex(available.length)];
         }
-        const noiseGuild = GUILDS[noiseIdx];
+        const noiseGuild = data.guilds[noiseIdx];
 
         const signalEntry = pickEntry(signalGuild, mode);
         const noiseEntry = pickEntry(noiseGuild, mode);
@@ -85,44 +180,23 @@
             ? { text: noiseEntry.surf, guild: noiseGuild.name, role: 'noise', kind: 'Context' }
             : { text: signalEntry.surf, guild: signalGuild.name, role: 'signal', kind: 'Context' };
 
-        const friction = FRICTIONS[Math.floor(Math.random() * FRICTIONS.length)];
-        const cost = COSTS[Math.floor(Math.random() * COSTS.length)];
+        const friction = data.frictions[randIndex(data.frictions.length)];
+        const cost = data.costs[randIndex(data.costs.length)];
 
         renderResult(mode, objectData, contextData, friction, cost);
+    };
+
+    const init = () => {
+        cacheDom();
+        if (!getClueData()) return;
+        buildGuildGrid();
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
 
-    function renderResult(mode, objectData, contextData, friction, cost) {
-        const card = document.getElementById('resultCard');
-        card.style.display = 'none';
-        card.offsetHeight;
-        card.style.display = 'block';
-
-        document.getElementById('outType').innerText = mode.toUpperCase() + ' EVIDENCE';
-
-        const objectBlock = document.getElementById('objectBlock');
-        const objectIsSignal = objectData.role === 'signal';
-        objectBlock.classList.toggle('signal', objectIsSignal);
-        objectBlock.classList.toggle('noise', !objectIsSignal);
-        const objectLabel = document.getElementById('objectLabel');
-        objectLabel.innerText = `${objectIsSignal ? 'The Signal' : 'The Noise'} (Object)`;
-        objectLabel.style.color = objectIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
-        document.getElementById('objectGuild').innerText = objectData.guild;
-        document.getElementById('objectVal').innerText = objectData.text.charAt(0).toUpperCase() + objectData.text.slice(1);
-
-        const contextIsSignal = contextData.role === 'signal';
-        const contextBlock = document.getElementById('contextBlock');
-        contextBlock.classList.toggle('signal', contextIsSignal);
-        contextBlock.classList.toggle('noise', !contextIsSignal);
-        const contextLabel = document.getElementById('contextLabel');
-        contextLabel.innerText = `${contextIsSignal ? 'The Signal' : 'The Noise'} (Context)`;
-        contextLabel.style.color = contextIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
-        document.getElementById('contextGuild').innerText = contextData.guild;
-        document.getElementById('contextVal').innerText = contextData.text.charAt(0).toUpperCase() + contextData.text.slice(1);
-
-        document.getElementById('outFric').innerText = friction;
-        document.getElementById('outCost').innerText = cost;
-    }
-
-    init();
     window.generateClue = generateClue;
 })();

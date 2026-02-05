@@ -102,6 +102,11 @@
     canvas.width = width;
     canvas.height = height;
 
+    const reduceMotionQuery = typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-reduced-motion: reduce)')
+        : null;
+    let prefersReducedMotion = !!(reduceMotionQuery && reduceMotionQuery.matches);
+
     // =========================================
     //               CONFIGURATION
     // =========================================
@@ -411,6 +416,7 @@
         // FIX: Clear physics state to prevent lag spike when switching styles (especially to Field)
         hardReset();
         resize(); // Force resize to clear all buffers/state completely
+        updateLoopState();
     };
 
     const hardReset = () => {
@@ -463,46 +469,49 @@
     // =========================================
     window.addEventListener('resize', resize);
     window.addEventListener('mousemove', e => {
-        // Track mouse history for Electric trail (Interpolated High-Res)
-        if (mouse.prevX !== -999) {
-            const distX = e.clientX - mouse.prevX;
-            const distY = e.clientY - mouse.prevY;
-            const dist = Math.hypot(distX, distY);
-            const steps = Math.ceil(dist / 10); // One point every 10px
+        const currentX = e.clientX;
+        const currentY = e.clientY;
 
-            for (let i = 0; i < steps; i++) {
-                const t = (i + 1) / steps;
-                const lx = mouse.prevX + distX * t;
-                const ly = mouse.prevY + distY * t;
-                mouseTrack.push({ x: lx, y: ly, life: 12 });
-            }
-            // Cap history
+        if (mouse.prevX === -999) {
+            mouseTrack.push({ x: currentX, y: currentY, life: 12 });
             while (mouseTrack.length > 50) mouseTrack.shift();
-        } else {
-            mouseTrack.push({ x: e.clientX, y: e.clientY, life: 12 });
+            mouse.prevX = mouse.x = currentX;
+            mouse.prevY = mouse.y = currentY;
+            return;
         }
 
-        if (mouse.prevX !== -999) {
-            const distX = e.clientX - mouse.prevX;
-            const distY = e.clientY - mouse.prevY;
-            const dist = Math.hypot(distX, distY);
+        const distX = currentX - mouse.prevX;
+        const distY = currentY - mouse.prevY;
+        const dist = Math.hypot(distX, distY);
 
-            // Interpolate to fill gaps for smooth trail
-            // Step size ~15px (half-grid)
-            const steps = Math.ceil(dist / 15);
+        if (dist > 0) {
+            const trackSteps = Math.ceil(dist / 10);
+            for (let i = 0; i < trackSteps; i++) {
+                const t = (i + 1) / trackSteps;
+                mouseTrack.push({
+                    x: mouse.prevX + distX * t,
+                    y: mouse.prevY + distY * t,
+                    life: 12
+                });
+            }
+            while (mouseTrack.length > 50) mouseTrack.shift();
 
-            for (let i = 0; i < steps; i++) {
-                const t = (i + 1) / steps;
+            const forceSteps = Math.ceil(dist / 15);
+            const scaledDx = distX * 0.5;
+            const scaledDy = distY * 0.5;
+            for (let i = 0; i < forceSteps; i++) {
+                const t = (i + 1) / forceSteps;
                 const lerpX = mouse.prevX + distX * t;
                 const lerpY = mouse.prevY + distY * t;
-
-                // Force scales with speed but much gentler
-                // Reduced from 3.0 to 0.5 to prevent explosion
-                addForce(lerpX, lerpY, distX * 0.5, distY * 0.5);
+                addForce(lerpX, lerpY, scaledDx, scaledDy);
             }
+        } else {
+            mouseTrack.push({ x: currentX, y: currentY, life: 12 });
+            while (mouseTrack.length > 50) mouseTrack.shift();
         }
-        mouse.prevX = mouse.x = e.clientX;
-        mouse.prevY = mouse.y = e.clientY;
+
+        mouse.prevX = mouse.x = currentX;
+        mouse.prevY = mouse.y = currentY;
     });
     window.addEventListener('mousedown', e => {
         // Continuous force handles interaction now, shockwave on release
@@ -2042,13 +2051,23 @@
     let lastTime = 0;
     const FPS = 60;
     const INTERVAL = 1000 / FPS;
+    let rafId = null;
+
+    const isDocumentHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    const shouldRun = () => !prefersReducedMotion && !isDocumentHidden() && STYLES[currentStyleIdx].id !== 'OFF';
 
     const animate = (timestamp) => {
-        requestAnimationFrame(animate);
+        if (!shouldRun()) {
+            rafId = null;
+            return;
+        }
 
         if (!timestamp) timestamp = performance.now();
         const elapsed = timestamp - lastTime;
-        if (elapsed < INTERVAL) return;
+        if (elapsed < INTERVAL) {
+            rafId = requestAnimationFrame(animate);
+            return;
+        }
 
         lastTime = timestamp - (elapsed % INTERVAL);
 
@@ -2075,15 +2094,7 @@
         // Always update physics to avoid cold-start lag when switching styles
         const maxEnergy = updateVectorPhysics(activeForces, activeShocks);
 
-        if (currentStyle === 'OFF') {
-            return;
-        }
-
-        // --- IDLE SLEEP REMOVED (User Request) ---
-        // Consistent FPS preferred over idle efficiency for this application.
-
         let accent = currentAccentRGB;
-        // Animated variance for Field-likes (Breathing effect)
         if (['FIELD', 'GRID', 'VECTOR', 'TOPO'].includes(currentStyle)) {
             accent = getAnimatedColor(currentAccentRGB);
         }
@@ -2100,7 +2111,47 @@
             case 'ELECTRIC': renderElectric(accent); break;
             case 'NEURAL': renderElectric(accent); break; // Fallback
         }
+
+        rafId = requestAnimationFrame(animate);
     };
+
+    const startLoop = () => {
+        if (rafId === null) {
+            lastTime = 0;
+            rafId = requestAnimationFrame(animate);
+        }
+    };
+
+    const stopLoop = () => {
+        if (rafId !== null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+    };
+
+    function updateLoopState() {
+        if (shouldRun()) {
+            startLoop();
+        } else {
+            stopLoop();
+            if (STYLES[currentStyleIdx].id === 'OFF') {
+                ctx.clearRect(0, 0, width, height);
+            }
+        }
+    }
+
+    document.addEventListener('visibilitychange', updateLoopState);
+    if (reduceMotionQuery) {
+        const handleMotionPrefChange = (event) => {
+            prefersReducedMotion = event.matches;
+            updateLoopState();
+        };
+        if (typeof reduceMotionQuery.addEventListener === 'function') {
+            reduceMotionQuery.addEventListener('change', handleMotionPrefChange);
+        } else if (typeof reduceMotionQuery.addListener === 'function') {
+            reduceMotionQuery.addListener(handleMotionPrefChange);
+        }
+    }
 
     // =========================================
     //          PHYSICS CONFIG PANEL
@@ -2268,7 +2319,7 @@
         if (STYLES[currentStyleIdx].id === 'CONSTELLATION') initConstellation();
         if (STYLES[currentStyleIdx].id === 'BOIDS') initBoids();
 
-        animate();
+        updateLoopState();
     };
 
     if (document.readyState === 'loading') {
