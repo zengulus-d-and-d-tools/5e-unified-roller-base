@@ -82,6 +82,16 @@
                     <div class="icon">📍</div>
                     <div class="label">Places</div>
                 </div>
+                <div class="tool-item" id="btn-events"
+                    onclick="event.stopPropagation(); window.togglePopup('event-popup')">
+                    <div class="icon">🕰️</div>
+                    <div class="label">Events</div>
+                </div>
+                <div class="tool-item" id="btn-reqs"
+                    onclick="event.stopPropagation(); window.togglePopup('req-popup')">
+                    <div class="icon">📦</div>
+                    <div class="label">Reqs</div>
+                </div>
             </div>
         </div>
     </div>
@@ -91,6 +101,8 @@
         <div id="guild-popup" class="popup-menu"></div>
         <div id="npc-popup" class="popup-menu"></div>
         <div id="location-popup" class="popup-menu"></div>
+        <div id="event-popup" class="popup-menu"></div>
+        <div id="req-popup" class="popup-menu"></div>
     </div>
     </div>
     </div>

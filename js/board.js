@@ -48,6 +48,20 @@ let panMode = false;
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
 
+const sanitizeText = (text = '') => String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+const sanitizeMultiline = (text = '') => sanitizeText(text).replace(/\n/g, '<br>');
+const REQUISITION_STATUSES = ["Pending", "Approved", "In Transit", "Delivered", "Denied"];
+const REQUISITION_PRIORITIES = ["Routine", "Tactical", "Emergency"];
+const REQUISITION_PRIORITY_WEIGHT = REQUISITION_PRIORITIES.reduce((acc, val, idx) => {
+    acc[val] = idx;
+    return acc;
+}, {});
+
 // --- INITIALIZATION ---
 window.onload = () => {
     resizeCanvas();
@@ -68,6 +82,8 @@ function initToolbars() {
     initGuildToolbar();
     initNPCToolbar();
     initLocationToolbar();
+    initEventToolbar();
+    initRequisitionToolbar();
     initFormattingToolbar();
 }
 
@@ -231,6 +247,140 @@ function renderLocations() {
         };
         el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
         el.innerHTML = `<div class="icon">📍</div><div class="label">${loc.name}</div>`;
+        listContainer.appendChild(el);
+    });
+}
+
+function initEventToolbar() {
+    const container = document.getElementById('event-popup');
+    if (!container || !window.RTF_STORE) return;
+
+    container.innerHTML = `
+        <div class="filter-bar">
+            <input type="text" id="event-search-board" class="filter-input" placeholder="Search events..." oninput="renderBoardEvents()">
+            <select id="event-focus-board" class="filter-select" onchange="renderBoardEvents()">
+                <option value="">All Focuses</option>
+            </select>
+        </div>
+        <div id="event-list-content"></div>
+    `;
+
+    renderBoardEvents();
+}
+
+function renderBoardEvents() {
+    const listContainer = document.getElementById('event-list-content');
+    if (!listContainer || !window.RTF_STORE) return;
+
+    const searchTerm = (document.getElementById('event-search-board').value || '').toLowerCase();
+    const focusFilterEl = document.getElementById('event-focus-board');
+
+    const events = (window.RTF_STORE.getEvents ? window.RTF_STORE.getEvents() : (window.RTF_STORE.state.campaign.events || [])).slice();
+    const focuses = Array.from(new Set(events.map(e => e.focus).filter(Boolean))).sort();
+    if (focusFilterEl) {
+        const previouslySelected = focusFilterEl.value;
+        focusFilterEl.innerHTML = '<option value="">All Focuses</option>' + focuses.map(f => `<option value="${sanitizeText(f)}">${sanitizeText(f)}</option>`).join('');
+        if (focuses.includes(previouslySelected)) focusFilterEl.value = previouslySelected;
+    }
+
+    const filtered = events.filter(evt => {
+        const text = `${evt.title || ''} ${evt.date || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''}`.toLowerCase();
+        const matchesSearch = text.includes(searchTerm);
+        const focusMatch = focusFilterEl && focusFilterEl.value ? evt.focus === focusFilterEl.value : true;
+        return matchesSearch && focusMatch;
+    }).sort((a, b) => (b.created || '').localeCompare(a.created || ''));
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No events logged.</div>';
+        return;
+    }
+
+    listContainer.innerHTML = '';
+    filtered.forEach(evt => {
+        const el = document.createElement('div');
+        el.className = 'tool-item';
+        el.draggable = true;
+        const title = sanitizeText(evt.title || 'Event');
+        const focus = sanitizeText(evt.focus || '');
+        const date = sanitizeText(evt.date || '');
+        const heat = parseInt(evt.heatDelta, 10);
+        const meta = [focus, date].filter(Boolean).join(' • ');
+        const heatBadge = !isNaN(heat) && heat !== 0 ? `<span style="color:${heat > 0 ? 'var(--danger)' : 'var(--accent)'}; font-size:0.75rem; margin-left:6px;">${heat > 0 ? '+' : ''}${heat} Heat</span>` : '';
+        el.innerHTML = `<div class="icon">🕰️</div><div class="label">${title}${heatBadge}${meta ? `<div style="font-size:0.7rem; color:#aaa;">${meta}</div>` : ''}</div>`;
+
+        const lines = [];
+        if (evt.date) lines.push(`<strong>Date:</strong> ${sanitizeText(evt.date)}`);
+        if (evt.focus) lines.push(`<strong>Focus:</strong> ${sanitizeText(evt.focus)}`);
+        if (!isNaN(heat) && heat !== 0) lines.push(`<strong>Heat:</strong> ${heat > 0 ? '+' : ''}${heat}`);
+        if (evt.highlights) lines.push(`<strong>Beats:</strong><br>${sanitizeMultiline(evt.highlights)}`);
+        if (evt.fallout) lines.push(`<strong>Fallout:</strong><br>${sanitizeMultiline(evt.fallout)}`);
+        if (evt.followUp) lines.push(`<strong>Next:</strong> ${sanitizeMultiline(evt.followUp)}`);
+
+        el.ondragstart = (e) => startDragNew(e, 'event', { title: evt.title || 'Event', body: lines.join('<br>') });
+        listContainer.appendChild(el);
+    });
+}
+
+function initRequisitionToolbar() {
+    const container = document.getElementById('req-popup');
+    if (!container || !window.RTF_STORE) return;
+
+    container.innerHTML = `
+        <div class="filter-bar">
+            <input type="text" id="req-search-board" class="filter-input" placeholder="Search requisitions..." oninput="renderBoardRequisitions()">
+            <select id="req-status-board" class="filter-select" onchange="renderBoardRequisitions()">
+                <option value="">All Statuses</option>
+                ${REQUISITION_STATUSES.map(s => `<option value="${s}">${s}</option>`).join('')}
+            </select>
+        </div>
+        <div id="req-list-content"></div>
+    `;
+
+    renderBoardRequisitions();
+}
+
+function renderBoardRequisitions() {
+    const listContainer = document.getElementById('req-list-content');
+    if (!listContainer || !window.RTF_STORE) return;
+
+    const searchTerm = (document.getElementById('req-search-board').value || '').toLowerCase();
+    const statusFilter = document.getElementById('req-status-board').value;
+
+    const requisitions = (window.RTF_STORE.getRequisitions ? window.RTF_STORE.getRequisitions() : (window.RTF_STORE.state.campaign.requisitions || [])).slice();
+    const filtered = requisitions.filter(req => {
+        const text = `${req.item || ''} ${req.requester || ''} ${req.purpose || ''} ${req.notes || ''}`.toLowerCase();
+        const matchesSearch = text.includes(searchTerm);
+        const matchesStatus = statusFilter ? req.status === statusFilter : true;
+        return matchesSearch && matchesStatus;
+    }).sort((a, b) => {
+        const pDiff = (REQUISITION_PRIORITY_WEIGHT[a.priority || 'Routine'] || 0) - (REQUISITION_PRIORITY_WEIGHT[b.priority || 'Routine'] || 0);
+        if (pDiff !== 0) return pDiff;
+        return (a.created || '').localeCompare(b.created || '');
+    });
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No requisitions logged.</div>';
+        return;
+    }
+
+    listContainer.innerHTML = '';
+    filtered.forEach(req => {
+        const el = document.createElement('div');
+        el.className = 'tool-item';
+        el.draggable = true;
+        const title = sanitizeText(req.item || 'Requisition');
+        const sub = `${sanitizeText(req.requester || 'Unassigned')}${req.priority ? ' • ' + sanitizeText(req.priority) : ''}`;
+        el.innerHTML = `<div class="icon">📦</div><div class="label">${title}<div style="font-size:0.7rem; color:#aaa;">${sub}</div></div>`;
+
+        const lines = [];
+        lines.push(`<strong>Agent:</strong> ${sanitizeText(req.requester || 'Unassigned')}`);
+        if (req.status || req.priority) lines.push(`<strong>Status:</strong> ${sanitizeText(req.status || 'Pending')} (${sanitizeText(req.priority || 'Routine')})`);
+        if (req.value) lines.push(`<strong>Value:</strong> ${sanitizeText(req.value)}`);
+        if (req.needed) lines.push(`<strong>Needed:</strong> ${sanitizeText(req.needed)}`);
+        if (req.purpose) lines.push(`<strong>Purpose:</strong> ${sanitizeMultiline(req.purpose)}`);
+        if (req.notes) lines.push(`<strong>Notes:</strong> ${sanitizeMultiline(req.notes)}`);
+
+        el.ondragstart = (e) => startDragNew(e, 'requisition', { title: req.item || 'Requisition', body: lines.join('<br>') });
         listContainer.appendChild(el);
     });
 }
@@ -667,7 +817,7 @@ function createNode(type, x, y, id = null, content = {}) {
     nodeEl.style.left = (x - 75) + 'px';
     nodeEl.style.top = (y - 40) + 'px';
 
-    const iconMap = { person: '👤', location: '📍', clue: '🔍', note: '📝', azorius: '⚖️', boros: '⚔️', dimir: '👁️', golgari: '🍄', gruul: '🔥', izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬' };
+    const iconMap = { person: '👤', location: '📍', clue: '🔍', note: '📝', event: '🕰️', requisition: '📦', azorius: '⚖️', boros: '⚔️', dimir: '👁️', golgari: '🍄', gruul: '🔥', izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬' };
     const icon = iconMap[type] || '❓';
     const title = content.title || type.toUpperCase();
 
@@ -1257,3 +1407,5 @@ document.addEventListener('dblclick', (e) => {
 // Expose filter functions to window for HTML event handlers
 window.renderNPCs = renderNPCs;
 window.renderLocations = renderLocations;
+window.renderBoardEvents = renderBoardEvents;
+window.renderBoardRequisitions = renderBoardRequisitions;

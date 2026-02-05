@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Timeline</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+    <style>
+        .event-form {
+            display: none;
+            padding: 18px;
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+        }
+
+        .event-form input,
+        .event-form textarea,
+        .event-form select {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .timeline-wrapper {
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+            margin-left: 15px;
+            padding-left: 25px;
+        }
+
+        .event-card {
+            position: relative;
+            margin-bottom: 25px;
+            padding: 18px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .event-card::before {
+            content: '';
+            position: absolute;
+            left: -33px;
+            top: 24px;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .event-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .event-head h3 {
+            margin: 0;
+            font-size: 1.1rem;
+        }
+
+        .event-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .event-meta label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #888;
+        }
+
+        .event-body {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .event-body textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .event-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            gap: 10px;
+        }
+
+        .tag-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 4px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            margin-right: 8px;
+            font-size: 0.75rem;
+        }
+
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #777;
+            padding: 40px;
+            border: 1px dashed rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+    <div class="header-bar">
+        <div class="header-content">
+            <div>
+                <a href="tools.html" style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem;">&larr; Portal</a>
+                <span style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Mission Timeline</span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn" onclick="toggleEventForm()">+ Log Event</button>
+                <button class="btn" onclick="triggerAccentPicker()">🎨 Color</button>
+                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                <input type="color" id="accent-picker-input" style="opacity:0; position:absolute; width:0; height:0;"
+                    onchange="setAccentColor(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div id="eventForm" class="event-form">
+                <input type="text" id="eventTitle" placeholder="Operation / Event *">
+                <div class="event-meta">
+                    <div>
+                        <label>In-World Date</label>
+                        <input type="text" id="eventDate" placeholder="Week 4 - Day 2">
+                    </div>
+                    <div>
+                        <label>Focus / District</label>
+                        <input type="text" id="eventFocus" placeholder="Precinct, Guild, District">
+                    </div>
+                    <div>
+                        <label>Heat Δ</label>
+                        <input type="number" id="eventHeat" placeholder="0">
+                    </div>
+                    <div>
+                        <label>Tags</label>
+                        <input type="text" id="eventTags" placeholder="stakeout, dimir, chase">
+                    </div>
+                </div>
+                <div class="event-body">
+                    <textarea id="eventHighlights" placeholder="Highlights / Beats"></textarea>
+                    <textarea id="eventFallout" placeholder="Fallout / Consequences"></textarea>
+                    <textarea id="eventFollow" placeholder="Debrief / Follow Ups"></textarea>
+                </div>
+                <div style="text-align:right; margin-top:10px;">
+                    <button class="btn btn-dp" onclick="addTimelineEvent()">Save Event</button>
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="eventSearch" placeholder="Search title, notes, tags" oninput="renderTimeline()">
+                <select id="eventFocusFilter" onchange="renderTimeline()">
+                    <option value="">All Focuses</option>
+                </select>
+                <select id="eventSort" onchange="renderTimeline()">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="heat">By Heat Impact</option>
+                </select>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+                    <input type="checkbox" id="eventImpactOnly" onchange="renderTimeline()"> Heat / Fallout only
+                </label>
+            </div>
+
+            <div class="timeline-wrapper" id="timelineList"></div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/vector-field.js"></script>
+    <script src="js/timeline.js"></script>
+</body>
+
+</html>

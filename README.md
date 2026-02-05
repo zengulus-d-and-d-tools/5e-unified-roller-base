@@ -13,6 +13,9 @@ A suite of lightweight, offline-first HTML tools for 5th Edition tabletop rolepl
 | **[Case Board](docs/CaseBoard.md)** | `board.html` | Virtual whiteboard for logic puzzles and investigations. |
 | **[Tournament](docs/TournamentBracket.md)** | `tourney.html` | Double-elimination bracket generator. |
 | **[Clue Gen](docs/ClueGenerator.md)** | `clue.html` | Logic puzzle assistant for generating leads. |
+| **Requisition Vault** | `requisitions.html` | Shared gear requests with priorities, approvals, and tagging. |
+| **Mission Timeline** | `timeline.html` | Session beat log with heat/fallout tracking and debrief notes. |
+| **Encounter Recipes** | `encounters.html` | Prep space for reusable enemy packages, hazards, and rewards. |
 
 ## Usage
 Simply open any `.html` file in a modern web browser (Edge, Chrome, Firefox). Data is saved automatically to your browser's Local Storage.

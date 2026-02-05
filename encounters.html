@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encounter Recipes</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+    <style>
+        .enc-form {
+            display: none;
+            margin-bottom: 20px;
+            padding: 18px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px dashed rgba(255, 255, 255, 0.12);
+        }
+
+        .enc-form input,
+        .enc-form textarea,
+        .enc-form select {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .enc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .enc-card {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .enc-card h3 {
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .enc-card textarea {
+            width: 100%;
+            min-height: 70px;
+            resize: vertical;
+            margin-top: 8px;
+        }
+
+        .tier-pill {
+            border-radius: 999px;
+            padding: 4px 12px;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.04em;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .filter-bar input,
+        .filter-bar select {
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #777;
+            padding: 40px;
+            border: 1px dashed rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="header-bar">
+        <div class="header-content">
+            <div>
+                <a href="tools.html" style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem;">&larr; Portal</a>
+                <span style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Encounter Recipes</span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button class="btn" onclick="toggleEncForm()">+ New Recipe</button>
+                <button class="btn" onclick="triggerAccentPicker()">🎨 Color</button>
+                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                <input type="color" id="accent-picker-input" style="opacity:0; position:absolute; width:0; height:0;"
+                    onchange="setAccentColor(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <div id="encForm" class="enc-form">
+                <input type="text" id="encTitle" placeholder="Encounter Name *">
+                <div class="enc-grid">
+                    <select id="encTier"></select>
+                    <input type="text" id="encLocation" placeholder="Battlefield / Scene">
+                    <input type="text" id="encObjective" placeholder="Objective (Protect asset, delay, heist)">
+                </div>
+                <textarea id="encOpposition" placeholder="Opposition (one per line)"></textarea>
+                <textarea id="encHazards" placeholder="Environment / Hazards"></textarea>
+                <textarea id="encBeats" placeholder="Phases, twists, or scripted beats"></textarea>
+                <textarea id="encRewards" placeholder="Rewards / Fallout"></textarea>
+                <textarea id="encNotes" placeholder="Quick notes, hooks, or scaling instructions"></textarea>
+                <div style="text-align:right;">
+                    <button class="btn btn-dp" onclick="addEncounter()">Save Recipe</button>
+                </div>
+            </div>
+
+            <div class="filter-bar">
+                <input type="text" id="encSearch" placeholder="Search name, foes, notes" oninput="renderEncounters()">
+                <select id="encTierFilter" onchange="renderEncounters()">
+                    <option value="">All Tiers</option>
+                </select>
+            </div>
+
+            <div id="encounterList"></div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/vector-field.js"></script>
+    <script src="js/encounters.js"></script>
+</body>
+
+</html>

@@ -11,6 +11,9 @@
             players: [],
             npcs: [],
             locations: [],
+            requisitions: [],
+            events: [],
+            encounters: [],
             case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
         },
         board: {
@@ -39,6 +42,9 @@
                     // Ensure arrays exist
                     if (!this.state.campaign.npcs) this.state.campaign.npcs = [];
                     if (!this.state.campaign.locations) this.state.campaign.locations = [];
+                    if (!this.state.campaign.requisitions) this.state.campaign.requisitions = [];
+                    if (!this.state.campaign.events) this.state.campaign.events = [];
+                    if (!this.state.campaign.encounters) this.state.campaign.encounters = [];
 
                     console.log("RTF_STORE: Loaded unified data.");
                 } else {
@@ -185,6 +191,81 @@
 
         getPlayers() { return this.state.campaign.players || []; }
         getNPCs() { return this.state.campaign.npcs || []; }
+
+        // Requisitions
+        getRequisitions() { return this.state.campaign.requisitions || []; }
+        addRequisition(req) {
+            if (!req.id) req.id = 'req_' + Date.now();
+            this.getRequisitions().push(req);
+            this.save();
+            return req.id;
+        }
+        updateRequisition(id, updates) {
+            const list = this.getRequisitions();
+            const idx = list.findIndex(r => r.id === id);
+            if (idx >= 0) {
+                list[idx] = { ...list[idx], ...updates };
+                this.save();
+            }
+        }
+        deleteRequisition(id) {
+            const list = this.getRequisitions();
+            const idx = list.findIndex(r => r.id === id);
+            if (idx >= 0) {
+                list.splice(idx, 1);
+                this.save();
+            }
+        }
+
+        // Mission Events
+        getEvents() { return this.state.campaign.events || []; }
+        addEvent(evt) {
+            if (!evt.id) evt.id = 'event_' + Date.now();
+            this.getEvents().push(evt);
+            this.save();
+            return evt.id;
+        }
+        updateEvent(id, updates) {
+            const list = this.getEvents();
+            const idx = list.findIndex(e => e.id === id);
+            if (idx >= 0) {
+                list[idx] = { ...list[idx], ...updates };
+                this.save();
+            }
+        }
+        deleteEvent(id) {
+            const list = this.getEvents();
+            const idx = list.findIndex(e => e.id === id);
+            if (idx >= 0) {
+                list.splice(idx, 1);
+                this.save();
+            }
+        }
+
+        // Encounter Recipes
+        getEncounters() { return this.state.campaign.encounters || []; }
+        addEncounter(enc) {
+            if (!enc.id) enc.id = 'enc_' + Date.now();
+            this.getEncounters().push(enc);
+            this.save();
+            return enc.id;
+        }
+        updateEncounter(id, updates) {
+            const list = this.getEncounters();
+            const idx = list.findIndex(e => e.id === id);
+            if (idx >= 0) {
+                list[idx] = { ...list[idx], ...updates };
+                this.save();
+            }
+        }
+        deleteEncounter(id) {
+            const list = this.getEncounters();
+            const idx = list.findIndex(e => e.id === id);
+            if (idx >= 0) {
+                list.splice(idx, 1);
+                this.save();
+            }
+        }
     }
 
     global.RTF_STORE = new Store();

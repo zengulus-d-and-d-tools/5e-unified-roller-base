@@ -298,6 +298,16 @@ body:active {
     color: #fff;
 }
 
+.type-event {
+    border-left: 4px solid var(--accent-feat);
+    box-shadow: 0 2px 10px rgba(52, 152, 219, 0.15);
+}
+
+.type-requisition {
+    border-left: 4px solid var(--accent-atk);
+    background: rgba(255, 107, 107, 0.08);
+}
+
 /* Guild Colors (Approx) */
 .type-azorius {
     border-left: 4px solid #0984e3;
