@@ -69,12 +69,24 @@ A high-level view of the entire party's vital statistics.
 
 ---
 
+## 🏛️ HQ Layout Foundry (`hq.html`)
+**Blueprint your Task Force headquarters.**
+
+*   **Drag-and-Drop Rooms:** Place prefab guild facilities or custom chambers on a glowing grid. Snap-to-grid keeps Azorius inspectors happy.
+*   **Multi-Floor Support:** Add, rename, or delete floors to reflect subterranean labs, sky docks, or street-level muster yards.
+*   **Downtime Slots:** Each room can define named downtime assignments; the assignee field auto-suggests names from your Player Roster.
+*   **Resource Bays:** Stage requisitioned assets in bays so everyone knows what deploys faster from where. Suggestions pull from the shared requisitions list.
+*   **Screenshot & Export:** One-click PNG export shares the current floor blueprint; JSON import/export lets you sync HQ layouts across devices.
+
+---
+
 ## 🛠️ Other Tools
 
 | Tool | Description |
 | :--- | :--- |
 | **Main Hub** (`hub.html`) | View Guild Renown, Heat levels, and Campaign Downtime status. |
-| **Tournament** (`tourney.html`) | View active competion brackets. |
+| **Tournament** (`tourney.html`) | View active competition brackets. |
+| **HQ Layout Foundry** (`hq.html`) | (See section above) Collaborative home-base planner. |
 
 ## 💾 Saving Data
 All data is saved automatically to your browser's **Local Storage**.
