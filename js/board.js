@@ -877,15 +877,67 @@ function optimizeLayout(centerId) {
         if (el) {
             el.style.left = pos.x + 'px';
             el.style.top = pos.y + 'px';
+            // CRITICAL: Update the cache so physics sees the new position
+            updateNodeCache(id);
         }
     });
 
     saveBoard();
 
-    // Force physics wake-up to settle strings
+    // 3. Smart Port Optimization
+    // Now that nodes are in place, find the closest ports for every connection
+    connections.forEach(c => {
+        const n1 = nodeCache.get(c.from);
+        const n2 = nodeCache.get(c.to);
+        if (!n1 || !n2) return;
+
+        let minD = Infinity;
+        let best = { from: c.fromPort, to: c.toPort };
+
+        ['top', 'bottom', 'left', 'right'].forEach(p1 => {
+            const pos1 = getPortPos(n1, p1);
+            ['top', 'bottom', 'left', 'right'].forEach(p2 => {
+                const pos2 = getPortPos(n2, p2);
+                const d = Math.hypot(pos1.x - pos2.x, pos1.y - pos2.y);
+                if (d < minD) {
+                    minD = d;
+                    best = { from: p1, to: p2 };
+                }
+            });
+        });
+
+        c.fromPort = best.from;
+        c.toPort = best.to;
+    });
+
+    // Force physics wake-up & Reset string positions to straight lines
     connections.forEach(c => {
         const idx = connToIndex.get(c.id);
-        if (idx !== undefined) sleepState[idx] = 1;
+        if (idx !== undefined) {
+            sleepState[idx] = 1;
+
+            // Reset particles to a straight line between the new endpoints
+            const c1 = nodeCache.get(c.from);
+            const c2 = nodeCache.get(c.to);
+            if (c1 && c2) {
+                const p1 = getPortPos(c1, c.fromPort);
+                const p2 = getPortPos(c2, c.toPort);
+                const base = idx * BYTES_PER_CONN;
+
+                for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
+                    const t = i / (CONFIG.POINTS_COUNT - 1);
+                    const px = p1.x + (p2.x - p1.x) * t;
+                    const py = p1.y + (p2.y - p1.y) * t;
+
+                    const ptr = base + i * STRIDE;
+                    physicsBuffer[ptr] = px;        // x
+                    physicsBuffer[ptr + 1] = py;    // y
+                    physicsBuffer[ptr + 2] = px;    // oldx
+                    physicsBuffer[ptr + 3] = py;    // oldy
+                    physicsBuffer[ptr + 4] = 0;     // stress
+                }
+            }
+        }
     });
 }
 
