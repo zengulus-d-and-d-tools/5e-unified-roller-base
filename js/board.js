@@ -760,9 +760,14 @@ window.onclick = (e) => {
     if (!e.target.closest('.popup-menu') && !e.target.closest('.tool-item')) closePopups();
 };
 
-function togglePopup(id) {
+// Explicitly expose to window to avoid scope issues
+window.togglePopup = function (id) {
+    console.log("togglePopup called for:", id);
     const el = document.getElementById(id);
-    if (!el) return;
+    if (!el) {
+        console.error("Popup element not found:", id);
+        return;
+    }
 
     // Close others
     document.querySelectorAll('.popup-menu').forEach(p => {
@@ -770,7 +775,8 @@ function togglePopup(id) {
     });
 
     el.classList.toggle('active');
-}
+    console.log("Toggled active state:", el.classList.contains('active'));
+};
 
 function closePopups() {
     document.querySelectorAll('.popup-menu').forEach(p => p.classList.remove('active'));
