@@ -14,27 +14,41 @@
 
 <body>
     <canvas id="vector-cloud"></canvas>
-    <div class="roller-bar" id="rollerBar">
-        <div class="controls-left">
-            <div class="adv-controls"><button class="adv-btn" onclick="setMode('dis')"
-                    data-mode="dis">DIS</button><button class="adv-btn active" onclick="setMode('norm')"
-                    data-mode="norm">- </button><button class="adv-btn" onclick="setMode('adv')"
-                    data-mode="adv">ADV</button></div><button id="btnSecret" class="secret-btn" onclick="toggleSecret()"
-                title="Secret Roll (Discord Spoilers)">👁️</button>
-            <button id="btn-bg-style" onclick="cycleBgStyle()" class="secret-btn"
-                style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🌌 BG</button>
-            <button class="secret-btn" onclick="triggerAccentPicker()"
-                style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🎨</button>
-            <input type="color" id="accent-picker-input"
-                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
-            <div class="misc-wrapper"><span class="misc-label">Misc</span><input type="text" id="globalMisc"
-                    placeholder="+0 or 1d4"></div>
+    <header class="hero-header roller-header" id="rollerBar">
+        <div class="header-brand">
+            <p class="hero-eyebrow">Unified 5e Roller</p>
+            <h1>Command Console</h1>
         </div>
-        <div id="logArea" class="log-area">
-            <div class="log-formula">Ready...</div>
-            <div class="log-result">-</div>
+
+        <div class="header-roller">
+            <div class="mini-log-display">
+                <div class="log-formula">Ready...</div>
+                <div class="log-result">-</div>
+            </div>
+            <div class="mini-controls">
+                <div class="adv-group">
+                    <button class="mini-btn" onclick="setMode('dis')" data-mode="dis" title="Disadvantage">DIS</button>
+                    <button class="mini-btn active" onclick="setMode('norm')" data-mode="norm"
+                        title="Normal">NRM</button>
+                    <button class="mini-btn" onclick="setMode('adv')" data-mode="adv" title="Advantage">ADV</button>
+                </div>
+                <div class="util-group">
+                    <button id="btnSecret" class="mini-btn" data-chip="secret" onclick="toggleSecret()"
+                        title="Secret Roll">👁️</button>
+                    <input type="text" id="globalMisc" placeholder="+Mod" class="mini-input">
+                </div>
+            </div>
         </div>
-    </div>
+
+        <div class="hero-actions roller-actions">
+            <a href="tools.html" class="hero-btn ghost">Portal</a>
+            <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨</button>
+            <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌</button>
+        </div>
+
+        <input type="color" id="accent-picker-input" style="visibility:hidden; width:0; height:0; position:absolute;"
+            onchange="setAccentColor(this.value)">
+    </header>
     <div class="sheet-container">
         <!-- START CREATE BUTTON --><button onclick="openCharCreator()"
             style="background:var(--res-bar); color:#fff; width:100%; padding:15px; font-size:1.1rem; border:1px solid #2ecc71; box-shadow:0 4px 10px rgba(46, 204, 113, 0.2); margin-bottom:5px;">✨

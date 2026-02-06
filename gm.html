@@ -12,21 +12,30 @@
 
 <body>
     <canvas id="vector-cloud"></canvas>
+
+    <header class="hero-header">
+        <div>
+            <p class="hero-eyebrow">Ravnica Task Force</p>
+            <h1>Session Tracker</h1>
+            <p class="hero-subtitle">A GM console for initiative, quick mobs, on-the-fly rolls, and loot/reference pulls in one pane.</p>
+        </div>
+        <div class="hero-actions">
+            <div class="hero-action-bar primary">
+                <a class="hero-btn ghost" href="tools.html">Portal</a>
+            </div>
+            <div class="hero-action-bar secondary">
+                <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+            </div>
+            <input type="color" id="accent-picker-input"
+                style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+        </div>
+    </header>
+
     <div class="nav-bar">
-        <div class="nav-item" onclick="window.location.href='tools.html'"
-            style="flex:0 0 60px; font-size:0.8rem; border-right:1px solid #444;">&larr;</div>
         <div class="nav-item active" onclick="switchTab('tracker')">Tracker</div>
         <div class="nav-item" onclick="switchTab('roller')">Roller</div>
         <div class="nav-item" onclick="switchTab('ref')">Ref & Loot</div>
-        <div style="margin-left:auto; display:flex; align-items:center; gap:10px; padding-right:15px;">
-            <button class="btn-tool" onclick="triggerAccentPicker()"
-                style="background:none; border:none; color:#888; cursor:pointer; font-size:0.9rem;">🎨 Color</button>
-            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
-                style="background:none; border:none; color:#888; cursor:pointer; font-size:0.9rem;">🌌
-                BG: Field</button>
-            <input type="color" id="accent-picker-input"
-                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
-        </div>
     </div>
 
     <div id="tab-tracker" class="container active">

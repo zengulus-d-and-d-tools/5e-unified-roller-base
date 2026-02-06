@@ -44,74 +44,29 @@ body:active {
 }
 
 /* --- HEADER --- */
-.header-overlay {
+.board-hero {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 50px;
-    background: linear-gradient(to bottom, rgba(15, 15, 19, 0.95), rgba(15, 15, 19, 0));
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    box-sizing: border-box;
-    z-index: 100;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(1100px, calc(100% - 40px));
     pointer-events: none;
-    transition: opacity 0.3s;
+    z-index: 150;
+    margin-bottom: 0;
 }
 
-/* Hide UI when focused? Optional, but keeping visible for now */
-.header-overlay>* {
+.board-hero .hero-actions,
+.board-hero .hero-action-bar,
+.board-hero .hero-btn,
+.board-hero .hero-meta {
     pointer-events: auto;
 }
 
-.back-link {
-    color: #888;
-    text-decoration: none;
-    font-weight: bold;
-    font-size: 0.9rem;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 5px 10px;
-    border-radius: 4px;
-    backdrop-filter: blur(4px);
-}
-
-.board-title {
-    color: var(--text);
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    font-size: 1.2rem;
-    text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-#caseName {
-    border-bottom: 1px dashed #666;
-    padding: 0 5px;
-    color: var(--accent);
-}
-
-.board-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.btn-tool {
-    background: rgba(50, 50, 50, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: #ccc;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: 0.2s;
-}
-
-.btn-tool:hover {
-    background: var(--accent);
-    color: #000;
+.board-hero #caseName {
+    border-bottom: 1px dashed var(--hq-muted);
+    padding: 0 6px;
+    color: var(--accent-secondary);
+    cursor: text;
 }
 
 /* --- TOOLBAR --- */
@@ -136,8 +91,8 @@ body:active {
 }
 
 #toolbar-toggle:hover {
-    color: #fff;
-    background: var(--accent);
+    color: var(--accent-contrast);
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
 }
 
 .toolbar-scroll-wrapper {
@@ -384,7 +339,7 @@ body:active {
 .port:hover {
     opacity: 1;
     transform: scale(1.3);
-    background: var(--accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
 }
 
 .port.top {
@@ -431,8 +386,8 @@ body:active {
 .string-label {
     position: absolute;
     background: rgba(20, 20, 20, 0.95);
-    border: 1px solid var(--accent);
-    color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 60%, rgba(255, 255, 255, 0.1));
+    color: var(--accent-secondary);
     font-size: 0.7rem;
     padding: 2px;
     border-radius: 4px;
@@ -518,7 +473,7 @@ body:active {
     z-index: 100;
     filter: none;
     opacity: 1;
-    box-shadow: 0 0 30px rgba(255, 255, 255, 0.1), 0 0 0 2px var(--accent);
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.1), 0 0 0 2px var(--accent-tertiary);
     transform: scale(1.02);
 }
 
@@ -635,8 +590,8 @@ body.focus-active .header-overlay {
 }
 
 .popup-menu .tool-item:hover {
-    background: var(--accent);
-    color: #000;
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+    color: var(--accent-contrast);
 }
 
 .popup-menu .tool-item .icon {
@@ -670,7 +625,7 @@ body.focus-active .header-overlay {
 
 .filter-input:focus,
 .filter-select:focus {
-    border-color: var(--accent);
+    border-color: var(--accent-tertiary);
 }
 
 .filter-input {
@@ -715,8 +670,8 @@ body.focus-active .header-overlay {
 }
 
 .formatting-btn:hover {
-    background: var(--accent);
-    color: #000;
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+    color: var(--accent-contrast);
 }
 
 

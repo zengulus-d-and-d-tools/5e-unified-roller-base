@@ -20,24 +20,27 @@
 <body>
     <canvas id="vector-cloud"></canvas>
 
-    <div class="header-bar">
-        <div class="header-content">
-            <div>
-                <a href="tools.html"
-                    style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; margin-right:15px; transition:0.2s;">&larr;
-                    Portal</a>
-                <span
-                    style="color:var(--text); font-weight:900; margin-left:15px; text-transform:uppercase; letter-spacing:1px; font-size:1rem;">Locations
-                    Database</span>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <button class="btn" id="btn-bg-style" onclick="cycleBgStyle()" style="font-size:0.75rem;">🌌 BG:
-                    Field</button>
-            </div>
-        </div>
-    </div>
-
     <div class="container">
+        <header class="hero-header">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1>Locations Database</h1>
+                <p class="hero-subtitle">Maintain safehouses, districts, and fronts with quick filtering by guild territory.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <a class="hero-btn ghost" href="tools.html">Portal</a>
+                    <button class="hero-btn accent" onclick="toggleLocationForm()">+ Add Location</button>
+                </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input"
+                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+            </div>
+        </header>
+
         <div class="card">
             <h2>Location List <button class="btn" onclick="toggleLocationForm()">+ Add Location</button></h2>
 

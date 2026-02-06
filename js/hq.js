@@ -17,6 +17,8 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
+    const formatMultiline = (str = '') => escapeHTML(str).replace(/\n/g, '<br>');
+
     const store = window.RTF_STORE;
     const hasStoreBridge = !!(store && typeof store.getHQLayout === 'function' && typeof store.updateHQLayout === 'function');
 
@@ -47,7 +49,8 @@
         floorTabs: document.getElementById('floor-tabs'),
         addFloor: document.getElementById('btn-add-floor'),
         renameFloor: document.getElementById('btn-rename-floor'),
-        deleteFloor: document.getElementById('btn-delete-floor')
+        juniorOpsDisplay: document.getElementById('junior-ops-display'),
+        juniorOpsMax: document.getElementById('junior-ops-max')
     };
 
     if (!refs.grid) return;
@@ -57,6 +60,12 @@
     let dragging = null;
     let playerOptions = [];
     let requisitionOptions = [];
+
+    const getMaxJuniorOperatives = () => {
+        const domVal = refs.juniorOpsMax ? parseInt(refs.juniorOpsMax.value, 10) : NaN;
+        if (Number.isFinite(domVal) && domVal >= 0) return domVal;
+        return Number.isFinite(state.maxJuniorOperatives) ? state.maxJuniorOperatives : 0;
+    };
 
     const normalize = (str) => (str || '').trim().toLowerCase();
 
@@ -86,10 +95,12 @@
 
     function init() {
         refs.toggleGrid.checked = state.snapToGrid;
+        refs.juniorOpsMax.value = state.maxJuniorOperatives;
         buildTypeSelect();
         refreshAssigneeLists();
         renderFloorTabs();
         renderRooms();
+        syncJuniorOpsMaxInput();
         updateDetailPanel();
         bindUI();
         window.addEventListener('focus', refreshAssigneeLists);
@@ -105,7 +116,8 @@
             grid,
             floors,
             snapToGrid: base.snapToGrid !== undefined ? !!base.snapToGrid : true,
-            activeFloorId
+            activeFloorId,
+            maxJuniorOperatives: typeof base.maxJuniorOperatives === 'number' ? base.maxJuniorOperatives : 0
         };
     }
 
@@ -145,15 +157,18 @@
     function sanitizeSlot(slot, type) {
         if (typeof slot === 'string') {
             return type === 'downtime'
-                ? { id: uniqueId('slot'), label: slot, playerId: '', legacyAssignee: slot }
-                : { id: uniqueId('slot'), label: slot, requisitionId: '', legacyAssignee: slot };
+                ? { id: uniqueId('slot'), label: slot, playerId: '' }
+                : { id: uniqueId('slot'), label: slot, requisitionId: '' };
         }
+        const descriptionSource = slot ? (slot.description ?? slot.benefit ?? slot.effect ?? slot.details ?? '') : '';
         const base = {
             id: slot.id || uniqueId('slot'),
-            label: slot.label || ''
+            label: slot.label || '',
+            description: typeof descriptionSource === 'string' ? descriptionSource : String(descriptionSource || '')
         };
         if (type === 'downtime') {
             base.playerId = slot.playerId || slot.assignedPlayerId || '';
+            base.junior = !!slot.junior;
             if (!base.playerId && slot.assigned) base.playerId = resolvePlayerIdByName(slot.assigned);
             if (!base.playerId && slot.assignedName) base.playerId = resolvePlayerIdByName(slot.assignedName);
             if (!base.playerId && slot.legacyAssignee) base.legacyAssignee = slot.legacyAssignee;
@@ -235,18 +250,20 @@
             el.innerHTML = `
                 <div class="room-label">
                     <span class="room-name">${escapeHTML(room.name)}</span>
-                    <span class="room-type">${escapeHTML(type.label)}</span>
                 </div>
                 <div class="room-slots">
                     <span>⏱ ${room.downtimeSlots.length}</span>
                     <span>⚙ ${room.resourceSlots.length}</span>
                 </div>
+                <div class="room-designation">${escapeHTML(type.label)}</div>
             `;
             el.addEventListener('pointerdown', (ev) => startDrag(ev, room.id));
             el.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 selectRoom(room.id);
             });
+            el.addEventListener('mouseenter', (ev) => showRoomPopout(ev, room));
+            el.addEventListener('mouseleave', hideRoomPopout);
             refs.grid.appendChild(el);
         });
 
@@ -339,6 +356,18 @@
         return null;
     }
 
+    function getJuniorOpsCount() {
+        let count = 0;
+        state.floors.forEach(f => {
+            f.rooms.forEach(r => {
+                r.downtimeSlots.forEach(s => {
+                    if (s.junior) count++;
+                });
+            });
+        });
+        return count;
+    }
+
     function updateStats() {
         const rooms = getAllRooms();
         const downtime = rooms.reduce((sum, r) => sum + r.downtimeSlots.length, 0);
@@ -346,7 +375,13 @@
         refs.roomCount.textContent = rooms.length;
         refs.downtimeCount.textContent = downtime;
         refs.resourceCount.textContent = resources;
+
+        const used = getJuniorOpsCount();
+        const max = getMaxJuniorOperatives();
+        const available = Math.max(0, max - used);
+        refs.juniorOpsDisplay.textContent = available;
     }
+
 
     function updateDetailPanel() {
         const room = getRoom(selectedRoomId);
@@ -368,6 +403,8 @@
         renderSlotList(refs.resourceList, room.resourceSlots, 'resource');
     }
 
+
+
     function renderSlotList(container, slots, type) {
         container.innerHTML = '';
         if (!slots.length) {
@@ -381,12 +418,19 @@
             const item = document.createElement('div');
             item.className = 'slot-item';
             item.dataset.id = slot.id;
+            if (type === 'downtime' && slot.junior) {
+                item.title = 'Junior operative';
+            }
             const assignmentMarkup = type === 'downtime'
                 ? buildPlayerAssignment(slot)
                 : buildResourceAssignment(slot);
+            const descriptionField = type === 'downtime'
+                ? `<textarea class="slot-field slot-desc" data-field="description" rows="2" placeholder="Description / Benefit">${escapeHTML(slot.description || '')}</textarea>`
+                : '';
             item.innerHTML = `
                 <div class="slot-row">
-                    <input class="slot-label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
+                    <input class="slot-field slot-label" data-field="label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
+                    ${descriptionField}
                 </div>
                 ${assignmentMarkup}
                 <button class="btn ghost small" data-action="remove">Remove</button>
@@ -398,13 +442,22 @@
     function buildPlayerAssignment(slot) {
         const options = playerOptions.map(p => `<option value="${p.id}" ${p.id === slot.playerId ? 'selected' : ''}>${escapeHTML(p.name || 'Unnamed')} (${p.dp ?? 0} DP)</option>`).join('');
         const info = buildSlotInfo('downtime', slot);
+        const checked = slot.junior ? 'checked' : '';
+        const assignmentClass = `slot-assignment${slot.junior ? ' is-junior' : ''}`;
+        const selectAttrs = slot.junior ? ' disabled aria-hidden="true" tabindex="-1"' : '';
         return `
             <div class="slot-row">
                 <label>Assigned Operative</label>
-                <select class="slot-select" data-type="downtime">
-                    <option value="">Unassigned</option>
-                    ${options}
-                </select>
+                <div class="${assignmentClass}">
+                    <select class="slot-select" data-type="downtime"${selectAttrs}>
+                        <option value="">Unassigned</option>
+                        ${options}
+                    </select>
+                    <span class="junior-pill">Junior operative</span>
+                    <label class="slot-junior-toggle">
+                        <input type="checkbox" class="slot-junior" ${checked}> Junior Op.
+                    </label>
+                </div>
                 ${info}
             </div>
         `;
@@ -431,6 +484,9 @@
             if (player) {
                 const project = player.projectName ? ` • Project: ${escapeHTML(player.projectName)}` : '';
                 return `<div class="slot-info">${escapeHTML(player.name || 'Unnamed')} • ${player.dp ?? 0} DP${project}</div>`;
+            }
+            if (slot.junior) {
+                return `<div class="slot-info" style="color: var(--accent-tertiary);">Junior operative</div>`;
             }
             if (slot.legacyAssignee) {
                 return `<div class="slot-info warning">Legacy assignment: ${escapeHTML(slot.legacyAssignee)}</div>`;
@@ -503,10 +559,10 @@
         refs.addDowntime.addEventListener('click', () => addSlot('downtime'));
         refs.addResource.addEventListener('click', () => addSlot('resource'));
 
-        refs.downtimeList.addEventListener('input', handleSlotLabelInput('downtime'));
-        refs.resourceList.addEventListener('input', handleSlotLabelInput('resource'));
-        refs.downtimeList.addEventListener('change', handleSlotSelect('downtime'));
-        refs.resourceList.addEventListener('change', handleSlotSelect('resource'));
+        refs.downtimeList.addEventListener('input', handleSlotFieldInput('downtime'));
+        refs.resourceList.addEventListener('input', handleSlotFieldInput('resource'));
+        refs.downtimeList.addEventListener('change', handleSlotChange('downtime'));
+        refs.resourceList.addEventListener('change', handleSlotChange('resource'));
         refs.downtimeList.addEventListener('click', handleSlotRemove('downtime'));
         refs.resourceList.addEventListener('click', handleSlotRemove('resource'));
 
@@ -533,6 +589,28 @@
         refs.addFloor.addEventListener('click', addFloor);
         refs.renameFloor.addEventListener('click', renameFloor);
         refs.deleteFloor.addEventListener('click', deleteFloor);
+
+        const onJuniorOpsInput = () => syncJuniorOpsMaxInput();
+        refs.juniorOpsMax.addEventListener('input', onJuniorOpsInput);
+        refs.juniorOpsMax.addEventListener('change', onJuniorOpsInput);
+    }
+
+    function syncJuniorOpsMaxInput(inputEl = refs.juniorOpsMax) {
+        if (!inputEl) return;
+        const used = getJuniorOpsCount();
+        let val = parseInt(inputEl.value, 10);
+        if (!Number.isFinite(val)) {
+            val = Number.isFinite(state.maxJuniorOperatives) ? state.maxJuniorOperatives : 0;
+        }
+        val = Math.max(used, Math.max(0, val)); // Cannot be less than currently assigned
+        inputEl.value = val;
+        const prev = state.maxJuniorOperatives;
+        state.maxJuniorOperatives = val;
+        if (prev !== val) {
+            persistState();
+        }
+        updateStats();
+        updateDetailPanel();
     }
 
     function addSlot(type) {
@@ -540,16 +618,15 @@
         if (!room) return;
         const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
         list.push(type === 'downtime'
-            ? { id: uniqueId('slot'), label: 'Downtime Slot', playerId: '' }
-            : { id: uniqueId('slot'), label: 'Resource Bay', requisitionId: '' });
+            ? { id: uniqueId('slot'), label: 'Downtime Slot', description: '', playerId: '' }
+            : { id: uniqueId('slot'), label: 'Resource Bay', description: '', requisitionId: '' });
         persistState();
         updateDetailPanel();
         renderRooms();
     }
 
-    function handleSlotLabelInput(type) {
+    function handleSlotChange(type) {
         return (ev) => {
-            if (!ev.target.classList.contains('slot-label')) return;
             const room = getRoom(selectedRoomId);
             if (!room) return;
             const item = ev.target.closest('.slot-item');
@@ -558,15 +635,42 @@
             const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
             const slot = list.find(s => s.id === slotId);
             if (!slot) return;
-            slot.label = ev.target.value;
+
+            if (ev.target.classList.contains('slot-select')) {
+                if (type === 'downtime') {
+                    slot.playerId = ev.target.value;
+                    if (slot.playerId) slot.junior = false; // Primary assignment overrides junior
+                } else {
+                    slot.requisitionId = ev.target.value;
+                }
+                slot.legacyAssignee = '';
+            } else if (ev.target.classList.contains('slot-junior')) {
+                if (ev.target.checked) {
+                    const used = getJuniorOpsCount();
+                    const max = getMaxJuniorOperatives();
+                    if (used >= max) {
+                        ev.target.checked = false;
+                        alert(`No Junior Operatives available! (Max: ${max})`);
+                        return;
+                    }
+                }
+                slot.junior = ev.target.checked;
+                if (slot.junior) slot.playerId = ''; // Junior overrides specific player
+            } else {
+                return;
+            }
+
             persistState();
+            updateDetailPanel();
             renderRooms();
         };
     }
 
-    function handleSlotSelect(type) {
+    function handleSlotFieldInput(type) {
         return (ev) => {
-            if (!ev.target.classList.contains('slot-select')) return;
+            if (!ev.target.classList.contains('slot-field')) return;
+            const field = ev.target.dataset.field;
+            if (!field) return;
             const room = getRoom(selectedRoomId);
             if (!room) return;
             const item = ev.target.closest('.slot-item');
@@ -575,14 +679,8 @@
             const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
             const slot = list.find(s => s.id === slotId);
             if (!slot) return;
-            if (type === 'downtime') {
-                slot.playerId = ev.target.value;
-            } else {
-                slot.requisitionId = ev.target.value;
-            }
-            slot.legacyAssignee = '';
+            slot[field] = ev.target.value;
             persistState();
-            updateDetailPanel();
             renderRooms();
         };
     }
@@ -740,6 +838,10 @@
                     state = sanitizeState(parsed);
                     selectedRoomId = null;
                     persistState();
+                    if (refs.juniorOpsMax) {
+                        refs.juniorOpsMax.value = state.maxJuniorOperatives;
+                        syncJuniorOpsMaxInput();
+                    }
                     renderFloorTabs();
                     renderRooms();
                     updateDetailPanel();
@@ -752,7 +854,17 @@
         input.click();
     }
 
-    function takeScreenshot() {
+    function resolveColor(cssVal) {
+        if (!cssVal) return 'transparent';
+        const temp = document.createElement('div');
+        temp.style.color = cssVal;
+        document.body.appendChild(temp);
+        const resolved = getComputedStyle(temp).color;
+        document.body.removeChild(temp);
+        return resolved;
+    }
+
+    async function takeScreenshot() {
         const floor = getActiveFloor();
         const rooms = floor ? floor.rooms : [];
         const width = state.grid.cols * state.grid.cell;
@@ -762,59 +874,175 @@
         canvas.height = height;
         const ctx = canvas.getContext('2d');
 
-        const gradient = ctx.createLinearGradient(0, 0, width, height);
-        gradient.addColorStop(0, '#041229');
-        gradient.addColorStop(1, '#070c18');
-        ctx.fillStyle = gradient;
+        // Resolve CSS Variables using standard styling from body or :root
+        const style = getComputedStyle(document.body);
+        const bgTop = style.getPropertyValue('--bg-top').trim() || '#1a2337';
+        const bgBottom = style.getPropertyValue('--bg-bottom').trim() || '#05070f';
+        const gridColor = resolveColor(style.getPropertyValue('--blueprint-grid').trim()) || 'rgba(173, 216, 230, 0.08)';
+        const accentTertiary = style.getPropertyValue('--accent-tertiary').trim() || '#4ecdc4';
+        const textMain = resolveColor(style.getPropertyValue('--hq-soft').trim()) || '#e0e0e0';
+        const textMuted = resolveColor(style.getPropertyValue('--hq-muted').trim()) || '#888';
+        const roomBg = resolveColor(style.getPropertyValue('--panel-bg').trim()) || '#0c121f';
+        const resolvedBgTop = resolveColor(bgTop);
+        const resolvedBgBottom = resolveColor(bgBottom);
+
+        // 1. Draw Background Gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, resolvedBgTop);
+        grad.addColorStop(1, resolvedBgBottom);
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        // 2. Draw Grid
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
+
+        ctx.beginPath();
         for (let x = 0; x <= state.grid.cols; x++) {
-            ctx.beginPath();
             ctx.moveTo(x * state.grid.cell, 0);
             ctx.lineTo(x * state.grid.cell, height);
-            ctx.stroke();
         }
         for (let y = 0; y <= state.grid.rows; y++) {
-            ctx.beginPath();
             ctx.moveTo(0, y * state.grid.cell);
             ctx.lineTo(width, y * state.grid.cell);
-            ctx.stroke();
         }
+        ctx.stroke();
 
+        // 3. Lighting Overlay (Radial)
+        ctx.save();
+        const radX = width * 0.2;
+        const radY = height * 0.2;
+        const radR = Math.max(width, height) * 0.8;
+        const lightGrad = ctx.createRadialGradient(radX, radY, 0, radX, radY, radR);
+        // Approximation of the complex CSS gradient
+        const accentColor = resolveColor(accentTertiary); // likely rgb(...)
+
+        // We want a subtle colored glow at top left, fading to transparent
+        // Use a low opacity version of the accent color
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 0.15; // 15% opacity overall for the gradient layer
+        lightGrad.addColorStop(0, accentColor);
+        lightGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = lightGrad;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+
+        // 4. Draw Rooms
         rooms.forEach(room => {
             const type = getRoomType(room.type);
             const x = room.x * state.grid.cell;
             const y = room.y * state.grid.cell;
             const w = room.w * state.grid.cell;
             const h = room.h * state.grid.cell;
-            ctx.fillStyle = `${type.color}22`;
-            ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
-            ctx.strokeStyle = type.color;
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-            ctx.fillStyle = '#e3f5ff';
-            ctx.font = '16px "Segoe UI", sans-serif';
-            ctx.fillText(room.name, x + 10, y + 24);
-            ctx.font = '12px "Segoe UI", sans-serif';
-            ctx.fillStyle = '#8abbdc';
-            ctx.fillText(`${getRoomType(room.type).label} | ⏱ ${room.downtimeSlots.length} ⚙ ${room.resourceSlots.length}`, x + 10, y + 40);
+
+            const rX = x + 4;
+            const rY = y + 4;
+            const rW = w - 8;
+            const rH = h - 8;
+            const radius = 12;
+
+            ctx.save();
+
+            // Room Shadow
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 10;
+
+            // Room Background
+            // Mix slightly to emulate backdrop
+            ctx.fillStyle = roomBg;
+            // We draw the bg first. 
+            // Note: Canvas doesn't do backdrop-filter (blur behind). We just use opacity.
+            ctx.globalAlpha = 0.85;
+
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(rX, rY, rW, rH, radius);
+            } else {
+                ctx.rect(rX, rY, rW, rH);
+            }
+            ctx.fill();
+
+            // Room Border & Color Glow
+            ctx.globalAlpha = 1.0;
+            ctx.shadowColor = resolveColor(type.color);
+            ctx.shadowBlur = 15; // Glow effect
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            ctx.strokeStyle = resolveColor(type.color);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+
+            // Text: Name
+            ctx.save();
+            ctx.fillStyle = textMain;
+            ctx.font = '600 15px "Segoe UI", Roboto, sans-serif';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(room.name, rX + 12, rY + 12);
+            ctx.restore();
+
+            // Text: Slots
+            ctx.save();
+            ctx.fillStyle = textMuted;
+            ctx.font = '12px "Segoe UI", Roboto, sans-serif';
+            ctx.textBaseline = 'top';
+            const slotText = `⏱ ${room.downtimeSlots.length}   ⚙ ${room.resourceSlots.length}`;
+            ctx.fillText(slotText, rX + 12, rY + 34);
+            ctx.restore();
+
+            // Designation Badge
+            const dText = type.label.toUpperCase();
+            ctx.save();
+            ctx.font = '10px "Segoe UI", Roboto, sans-serif';
+            const dMetrics = ctx.measureText(dText);
+            const dW = dMetrics.width + 16;
+            const dH = 20;
+            const badgeX = rX + 12;
+            const badgeY = (rY + rH) - dH - 10;
+
+            // Badge Bg
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(badgeX, badgeY, dW, dH, 10);
+            else ctx.rect(badgeX, badgeY, dW, dH);
+            ctx.fill();
+
+            // Badge Border
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Badge Text
+            ctx.fillStyle = textMain;
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dText, badgeX + 8, badgeY + dH / 2 + 1); // +1 for visual centering
+            ctx.restore();
         });
 
-        ctx.fillStyle = '#9fd8ff';
+        // 5. Footer Metadata
+        ctx.save();
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = textMain;
         ctx.font = '18px "Segoe UI", sans-serif';
-        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 16, height - 36);
-        ctx.font = '13px "Segoe UI", sans-serif';
-        ctx.fillStyle = '#6aaad6';
-        ctx.fillText(`Exported ${new Date().toLocaleString()}`, 16, height - 16);
+        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 20, height - 40);
 
+        ctx.font = '13px "Segoe UI", sans-serif';
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`Exported ${new Date().toLocaleString()}`, 20, height - 20);
+        ctx.restore();
+
+        // 6. Download
         canvas.toBlob(blob => {
             if (!blob) return;
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `hq_blueprint_${Date.now()}.png`;
+            link.download = `hq_blueprint_${new Date().toISOString().slice(0, 10)}.png`;
             link.click();
             setTimeout(() => URL.revokeObjectURL(url), 0);
         });
@@ -854,5 +1082,92 @@
 
     function uniqueId(prefix) {
         return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+    function showRoomPopout(ev, room) {
+        if (dragging) return;
+        refs.grid.classList.add('has-focus');
+
+        const pop = document.createElement('div');
+        pop.className = 'room-popout';
+        pop.id = 'active-room-popout';
+
+        const type = getRoomType(room.type);
+
+        let content = `
+            <div>
+                <div class="meta">${escapeHTML(type.label)}</div>
+                <h4>${escapeHTML(room.name)}</h4>
+            </div>
+        `;
+
+        // Downtime Section
+        if (room.downtimeSlots.length > 0) {
+            content += `<div class="section"><div class="meta">Downtime Activities</div>`;
+            room.downtimeSlots.forEach(slot => {
+                let assignee = 'Unassigned';
+                if (slot.playerId) {
+                    const p = findPlayerById(slot.playerId);
+                    assignee = p ? p.name : 'Unknown Agent';
+                } else if (slot.junior) {
+                    assignee = 'Junior operative';
+                } else if (slot.legacyAssignee) {
+                    assignee = slot.legacyAssignee;
+                }
+                const detail = slot.description ? `<small>${formatMultiline(slot.description)}</small>` : '';
+                const labelBlock = `<span>${escapeHTML(slot.label)}</span>${detail}`;
+                content += `<div class="pop-row${slot.description ? ' has-desc' : ''}"><div class="pop-label">${labelBlock}</div><span class="assignee">${escapeHTML(assignee)}</span></div>`;
+            });
+            content += `</div>`;
+        }
+
+        // Resource Section
+        if (room.resourceSlots.length > 0) {
+            content += `<div class="section"><div class="meta">Resource Bays</div>`;
+            room.resourceSlots.forEach(slot => {
+                let status = 'Empty';
+                if (slot.requisitionId) {
+                    const r = findRequisitionById(slot.requisitionId);
+                    status = r ? (r.item || r.purpose) : 'Unknown Asset';
+                } else if (slot.legacyAssignee) {
+                    status = slot.legacyAssignee;
+                }
+                content += `<div class="pop-row"><span>${escapeHTML(slot.label)}</span><span class="assignee">${escapeHTML(status)}</span></div>`;
+            });
+            content += `</div>`;
+        }
+
+        if (room.downtimeSlots.length === 0 && room.resourceSlots.length === 0) {
+            content += `<div class="empty-msg">No active slots configured.</div>`;
+        }
+
+        pop.innerHTML = content;
+        document.body.appendChild(pop);
+
+        // Positioning
+        const roomRect = ev.currentTarget.getBoundingClientRect();
+        const popRect = pop.getBoundingClientRect();
+
+        let top = roomRect.top;
+        let left = roomRect.right + 20; // Default: Right side
+
+        // If not enough space on right, try left
+        if (left + popRect.width > window.innerWidth - 20) {
+            left = roomRect.left - popRect.width - 20;
+        }
+
+        // Clamp vertical
+        if (top + popRect.height > window.innerHeight - 20) {
+            top = window.innerHeight - popRect.height - 20;
+        }
+        if (top < 20) top = 20;
+
+        pop.style.top = top + 'px';
+        pop.style.left = left + 'px';
+    }
+
+    function hideRoomPopout() {
+        refs.grid.classList.remove('has-focus');
+        const pop = document.getElementById('active-room-popout');
+        if (pop) pop.remove();
     }
 })();

@@ -2,9 +2,61 @@
     // --- UTILS & GLOBAL STATE (Defined before Canvas Check) ---
     const hexToRgb = (hex) => {
         if (!hex) return "78, 205, 196";
-        const clean = hex.startsWith('#') ? hex.slice(1) : hex;
+        let clean = hex.trim().replace('#', '');
+        if (clean.length === 3) {
+            clean = clean.split('').map((c) => c + c).join('');
+        }
+        if (clean.length !== 6) {
+            clean = '4ecdc4';
+        }
         const bigint = parseInt(clean, 16);
         return `${(bigint >> 16) & 255}, ${(bigint >> 8) & 255}, ${bigint & 255}`;
+    };
+
+    const clamp = (val, min, max) => Math.min(max, Math.max(min, val));
+    const clamp01 = (val) => clamp(val, 0, 1);
+    const wrapHue = (deg) => {
+        let h = deg % 360;
+        if (h < 0) h += 360;
+        return h;
+    };
+
+    const rgbStringToComponents = (rgbStr) => rgbStr.split(',').map((n) => parseInt(n.trim(), 10));
+    const rgbToHex = (r, g, b) => `#${[r, g, b].map((c) => clamp(c, 0, 255).toString(16).padStart(2, '0')).join('')}`;
+
+    const hexToHsl = (hex) => {
+        const [r, g, b] = rgbStringToComponents(hexToRgb(hex));
+        const [h, s, l] = rgbToHsl(r, g, b);
+        return { h: h * 360, s, l };
+    };
+
+    const hslToHex = ({ h, s, l }) => {
+        const rgbStr = hslToRgb(wrapHue(h) / 360, clamp01(s), clamp01(l));
+        const [r, g, b] = rgbStringToComponents(rgbStr);
+        return rgbToHex(r, g, b);
+    };
+
+    const mixHex = (hexA, hexB, weightB = 0.5) => {
+        const a = rgbStringToComponents(hexToRgb(hexA));
+        const b = rgbStringToComponents(hexToRgb(hexB || hexA));
+        const w = clamp01(weightB);
+        const mix = a.map((channel, idx) => Math.round(channel * (1 - w) + b[idx] * w));
+        return rgbToHex(mix[0], mix[1], mix[2]);
+    };
+
+    const adjustHsl = (hex, delta) => {
+        const source = hexToHsl(hex);
+        return hslToHex({
+            h: source.h + (delta.h || 0),
+            s: clamp01(source.s + (delta.s || 0)),
+            l: clamp01(source.l + (delta.l || 0))
+        });
+    };
+
+    const getContrastColor = (hex) => {
+        const [r, g, b] = rgbStringToComponents(hexToRgb(hex));
+        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+        return yiq >= 168 ? '#05070f' : '#f8f8f8';
     };
 
     // --- COLOR UTILS ---
@@ -68,29 +120,444 @@
         return applyOffset(rgbStr, hOff, sOff, lOff);
     };
 
-    let currentAccentRGB = "78, 205, 196";
+    const DEFAULT_ACCENT = '#4ecdc4';
+    const DEFAULT_SCHEME = 'monochromatic';
+    const ACCENT_STORAGE_KEY = 'accentSettings';
 
-    window.triggerAccentPicker = () => {
-        const input = document.getElementById('accent-picker-input');
-        if (input) input.click();
+    const COLOR_SCHEMES = {
+        monochromatic: {
+            label: 'Monochromatic',
+            build: (hex) => [
+                hex,
+                adjustHsl(hex, { l: -0.2 }),
+                adjustHsl(hex, { l: 0.12 }),
+                adjustHsl(hex, { s: -0.15, l: 0.2 })
+            ]
+        },
+        analogous: {
+            label: 'Analogous',
+            build: (hex) => [
+                hex,
+                adjustHsl(hex, { h: -30 }),
+                adjustHsl(hex, { h: 30 }),
+                adjustHsl(hex, { h: 60, l: 0.05 })
+            ]
+        },
+        complementary: {
+            label: 'Complementary',
+            build: (hex) => {
+                const comp = adjustHsl(hex, { h: 180 });
+                return [
+                    hex,
+                    comp,
+                    adjustHsl(hex, { l: 0.18 }),
+                    adjustHsl(comp, { l: -0.08 })
+                ];
+            }
+        },
+        split: {
+            label: 'Split Complementary',
+            build: (hex) => [
+                hex,
+                adjustHsl(hex, { h: 150 }),
+                adjustHsl(hex, { h: -150 }),
+                adjustHsl(hex, { h: 180, l: 0.12 })
+            ]
+        },
+        triadic: {
+            label: 'Triadic',
+            build: (hex) => [
+                hex,
+                adjustHsl(hex, { h: 120 }),
+                adjustHsl(hex, { h: -120 }),
+                adjustHsl(hex, { h: 180, l: -0.05 })
+            ]
+        },
+        tetradic: {
+            label: 'Tetradic',
+            build: (hex) => [
+                hex,
+                adjustHsl(hex, { h: 90 }),
+                adjustHsl(hex, { h: 180 }),
+                adjustHsl(hex, { h: 270 })
+            ]
+        }
     };
 
-    window.setAccentColor = (hex) => {
-        const root = document.documentElement;
-        const rgb = hexToRgb(hex);
-        root.style.setProperty('--accent', hex);
-        root.style.setProperty('--accent-glow', `rgba(${rgb}, 0.4)`);
-        currentAccentRGB = rgb;
-        localStorage.setItem('accentColor', hex);
+    const SCHEME_ORDER = ['monochromatic', 'analogous', 'complementary', 'split', 'triadic', 'tetradic'];
+
+    const accentState = { color: DEFAULT_ACCENT, scheme: DEFAULT_SCHEME };
+    let currentAccentRGB = "78, 205, 196";
+    let accentPanelControls = null;
+
+    const normalizeHex = (hex) => {
+        if (!hex) return DEFAULT_ACCENT;
+        let clean = hex.trim().replace('#', '');
+        if (clean.length === 3) clean = clean.split('').map((c) => c + c).join('');
+        if (clean.length !== 6) return DEFAULT_ACCENT;
+        return `#${clean.toLowerCase()}`;
+    };
+
+    const syncHiddenAccentInput = (hex) => {
         const input = document.getElementById('accent-picker-input');
         if (input && input.value !== hex) input.value = hex;
     };
 
+    const persistAccentSettings = () => {
+        try {
+            localStorage.setItem(ACCENT_STORAGE_KEY, JSON.stringify(accentState));
+        } catch (err) {
+            console.warn('Accent persistence failed', err);
+        }
+    };
+
+    const loadAccentSettings = () => {
+        try {
+            const saved = localStorage.getItem(ACCENT_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.color) accentState.color = normalizeHex(parsed.color);
+                if (parsed.scheme && COLOR_SCHEMES[parsed.scheme]) {
+                    accentState.scheme = parsed.scheme;
+                }
+            } else {
+                const legacy = localStorage.getItem('accentColor');
+                if (legacy) accentState.color = normalizeHex(legacy);
+            }
+        } catch (err) {
+            console.warn('Accent settings corrupt', err);
+        }
+    };
+
+    const getPaletteForScheme = () => {
+        const scheme = COLOR_SCHEMES[accentState.scheme] || COLOR_SCHEMES[DEFAULT_SCHEME];
+        const palette = scheme.build(accentState.color).map(normalizeHex);
+        while (palette.length < 4) palette.push(accentState.color);
+        return palette.slice(0, 4);
+    };
+
+    const applySurfaceColors = (palette) => {
+        const root = document.documentElement;
+        const [primary, secondary, tertiary, quaternary] = palette;
+        const rgb = hexToRgb(primary);
+        currentAccentRGB = rgb;
+        root.style.setProperty('--accent', primary);
+        root.style.setProperty('--accent-glow', `rgba(${rgb}, 0.4)`);
+        root.style.setProperty('--blueprint-glow', `rgba(${rgb}, 0.4)`);
+        root.style.setProperty('--accent-secondary', secondary);
+        root.style.setProperty('--accent-tertiary', tertiary);
+        root.style.setProperty('--accent-quaternary', quaternary);
+        root.style.setProperty('--accent-contrast', getContrastColor(primary));
+        root.style.setProperty('--accent-muted', mixHex('#e0e0e0', primary, 0.3));
+
+        const surfaces = {
+            '--bg-top': mixHex('#1a2337', secondary || primary, 0.35),
+            '--bg-bottom': mixHex('#05070f', tertiary || primary, 0.15),
+            '--card-bg': mixHex('#080d18', primary, 0.2),
+            '--input-bg': mixHex('#050910', primary, 0.3),
+            '--panel-bg': mixHex('#0c121f', quaternary || primary, 0.22),
+            '--border': mixHex(primary, '#ffffff', 0.12),
+            '--hq-surface': mixHex('#040a16', tertiary || primary, 0.2),
+            '--hq-border': `rgba(${hexToRgb(primary)}, 0.35)`,
+            '--hq-soft': mixHex(primary, '#ffffff', 0.4),
+            '--hq-muted': mixHex('#e0e0e0', primary, 0.25),
+            '--hq-warning': mixHex('#facc15', primary, 0.3),
+            '--blueprint-bg': mixHex('#041126', secondary || primary, 0.15)
+        };
+
+        Object.entries(surfaces).forEach(([token, value]) => root.style.setProperty(token, value));
+    };
+
+    const applyAccentPalette = () => {
+        const palette = getPaletteForScheme();
+        applySurfaceColors(palette);
+        return palette;
+    };
+
+    const updateAccentColor = (hex, options = {}) => {
+        const normalized = normalizeHex(hex);
+        accentState.color = normalized;
+        const palette = applyAccentPalette();
+        if (options.persist !== false) persistAccentSettings();
+        syncHiddenAccentInput(normalized);
+        if (accentPanelControls && accentPanelControls.updateColor) {
+            accentPanelControls.updateColor(normalized, palette);
+        }
+        return palette;
+    };
+
+    const setAccentScheme = (scheme, options = {}) => {
+        const next = COLOR_SCHEMES[scheme] ? scheme : DEFAULT_SCHEME;
+        accentState.scheme = next;
+        const palette = applyAccentPalette();
+        if (options.persist !== false) persistAccentSettings();
+        if (accentPanelControls && accentPanelControls.updateScheme) {
+            accentPanelControls.updateScheme(next, palette);
+        }
+        return palette;
+    };
+
+    window.setAccentColor = (hex, options) => updateAccentColor(hex, options ?? {});
+    window.setAccentScheme = (scheme, options) => setAccentScheme(scheme, options ?? {});
+
     const initAccent = () => {
-        const saved = localStorage.getItem('accentColor');
-        if (saved) setAccentColor(saved);
+        loadAccentSettings();
+        updateAccentColor(accentState.color, { persist: false });
+        setAccentScheme(accentState.scheme, { persist: false });
     };
     try { initAccent(); } catch (e) { console.warn(e); }
+
+    const createAccentPanel = () => {
+        const panel = document.createElement('div');
+        panel.id = 'accent-panel';
+        panel.className = 'accent-panel';
+        panel.setAttribute('aria-hidden', 'true');
+        panel.innerHTML = `
+            <div class="accent-panel__backdrop" data-dismiss="accent"></div>
+            <div class="accent-panel__card" role="dialog" aria-modal="true" aria-labelledby="accent-panel-title">
+                <header class="accent-panel__header">
+                    <div>
+                        <p class="accent-panel__eyebrow">Unified Roller</p>
+                        <h3 id="accent-panel-title">Accent Architect</h3>
+                        <p class="accent-panel__lede">Spin the color wheel, then pick a harmony to tint the entire command deck.</p>
+                    </div>
+                        <button class="accent-panel__close" type="button" aria-label="Close" data-dismiss="accent">×</button>
+                </header>
+                <div class="accent-panel__content">
+                    <section class="accent-panel__wheel">
+                        <div class="accent-color-wheel" data-role="color-wheel">
+                            <div class="accent-color-wheel__indicator" data-wheel-indicator></div>
+                        </div>
+                        <label class="accent-lightness">
+                            <span>Lightness</span>
+                            <input type="range" min="0" max="100" value="55" data-role="lightness">
+                        </label>
+                        <div class="accent-hex-readout">
+                            <span>Accent</span>
+                            <strong data-role="hex">${accentState.color.toUpperCase()}</strong>
+                        </div>
+                    </section>
+                    <section class="accent-panel__schemes">
+                        <div class="accent-scheme-header">
+                            <h4>Harmony Modes</h4>
+                            <p>Choose complementary, monochromatic, analogous, triadic, tetradic, or split complementary pairings.</p>
+                        </div>
+                        <div class="accent-scheme-grid" data-role="scheme-grid"></div>
+                    </section>
+                    <section class="accent-panel__preview">
+                        <h4>Live Palette</h4>
+                        <div class="accent-preview" data-role="preview"></div>
+                    </section>
+                </div>
+                <footer class="accent-panel__footer">
+                    <button class="accent-close-btn" type="button" data-dismiss="accent">Done</button>
+                </footer>
+            </div>
+        `;
+
+        document.body.appendChild(panel);
+
+        const wheel = panel.querySelector('[data-role="color-wheel"]');
+        const indicator = panel.querySelector('[data-wheel-indicator]');
+        const lightnessInput = panel.querySelector('[data-role="lightness"]');
+        const hexOutput = panel.querySelector('[data-role="hex"]');
+        const previewContainer = panel.querySelector('[data-role="preview"]');
+        const schemeGrid = panel.querySelector('[data-role="scheme-grid"]');
+        const closeButtons = panel.querySelectorAll('[data-dismiss="accent"]');
+
+        const previewSwatches = [];
+        for (let i = 0; i < 4; i++) {
+            const swatch = document.createElement('span');
+            swatch.className = 'accent-preview__swatch';
+            previewContainer.appendChild(swatch);
+            previewSwatches.push(swatch);
+        }
+
+        const schemeButtons = [];
+        SCHEME_ORDER.forEach((key) => {
+            const scheme = COLOR_SCHEMES[key];
+            if (!scheme) return;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'accent-scheme';
+            btn.dataset.scheme = key;
+            btn.innerHTML = `
+                <span class="accent-scheme__label">${scheme.label}</span>
+                <span class="accent-scheme__swatches"></span>
+            `;
+            const swatchWrap = btn.querySelector('.accent-scheme__swatches');
+            const swatches = [];
+            for (let i = 0; i < 4; i++) {
+                const swatch = document.createElement('span');
+                swatch.className = 'accent-swatch';
+                swatchWrap.appendChild(swatch);
+                swatches.push(swatch);
+            }
+            btn.addEventListener('click', () => setAccentScheme(key));
+            schemeGrid.appendChild(btn);
+            schemeButtons.push({ key, btn, swatches });
+        });
+
+        const refreshSchemeSwatches = (hex) => {
+            schemeButtons.forEach(({ key, swatches }) => {
+                const colors = COLOR_SCHEMES[key].build(hex).map(normalizeHex);
+                swatches.forEach((swatch, idx) => {
+                    const color = colors[idx] || colors[colors.length - 1];
+                    swatch.style.background = color;
+                });
+            });
+        };
+
+        const applyPreviewPalette = (palette) => {
+            if (!palette || !palette.length) return;
+            previewSwatches.forEach((swatch, idx) => {
+                const color = palette[idx] || palette[palette.length - 1];
+                swatch.style.background = color;
+            });
+        };
+
+        const wheelState = { hue: 0, saturation: 1 };
+
+        const positionIndicator = () => {
+            const rect = wheel.getBoundingClientRect();
+            if (!rect.width) return;
+            const radius = rect.width / 2;
+            const rad = (wheelState.hue * Math.PI) / 180;
+            const distance = wheelState.saturation * radius;
+            indicator.style.setProperty('--indicator-x', `${Math.cos(rad) * distance}px`);
+            indicator.style.setProperty('--indicator-y', `${Math.sin(rad) * distance}px`);
+        };
+
+        const updateFromHex = (hex) => {
+            const normalized = normalizeHex(hex);
+            const { h, s, l } = hexToHsl(normalized);
+            wheelState.hue = h;
+            wheelState.saturation = clamp01(s);
+            lightnessInput.value = Math.round(clamp01(l) * 100);
+            hexOutput.textContent = normalized.toUpperCase();
+            positionIndicator();
+            refreshSchemeSwatches(normalized);
+        };
+
+        const commitColorFromState = () => {
+            const lightness = clamp01(parseInt(lightnessInput.value, 10) / 100);
+            const hex = hslToHex({ h: wheelState.hue, s: clamp01(wheelState.saturation), l: lightness });
+            updateAccentColor(hex);
+        };
+
+        lightnessInput.addEventListener('input', commitColorFromState);
+
+        let activePointerId = null;
+        const handleWheelPointer = (evt) => {
+            evt.preventDefault();
+            const rect = wheel.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = evt.clientX - centerX;
+            const dy = evt.clientY - centerY;
+            const hue = wrapHue(Math.atan2(dy, dx) * 180 / Math.PI);
+            const distance = Math.min(Math.sqrt(dx * dx + dy * dy), rect.width / 2);
+            wheelState.hue = hue;
+            wheelState.saturation = clamp01(distance / (rect.width / 2));
+            positionIndicator();
+            commitColorFromState();
+        };
+
+        wheel.addEventListener('pointerdown', (evt) => {
+            activePointerId = evt.pointerId;
+            wheel.setPointerCapture(activePointerId);
+            handleWheelPointer(evt);
+        });
+
+        wheel.addEventListener('pointermove', (evt) => {
+            if (activePointerId !== null) handleWheelPointer(evt);
+        });
+
+        const clearPointer = () => {
+            if (activePointerId !== null) {
+                try { wheel.releasePointerCapture(activePointerId); } catch (err) { }
+                activePointerId = null;
+            }
+        };
+
+        wheel.addEventListener('pointerup', clearPointer);
+        wheel.addEventListener('pointercancel', clearPointer);
+
+        window.addEventListener('resize', positionIndicator);
+
+        const highlightScheme = (scheme) => {
+            schemeButtons.forEach(({ key, btn }) => {
+                btn.classList.toggle('active', key === scheme);
+            });
+        };
+
+        const closePanel = () => {
+            panel.classList.remove('open');
+            panel.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('accent-panel-open');
+        };
+
+        const openPanel = () => {
+            panel.classList.add('open');
+            panel.setAttribute('aria-hidden', 'false');
+            document.body.classList.add('accent-panel-open');
+            positionIndicator();
+            const closeBtn = panel.querySelector('.accent-panel__close');
+            if (closeBtn) closeBtn.focus();
+            return true;
+        };
+
+        closeButtons.forEach((btn) => btn.addEventListener('click', closePanel));
+        document.addEventListener('keydown', (evt) => {
+            if (evt.key === 'Escape' && panel.classList.contains('open')) closePanel();
+        });
+
+        return {
+            open: openPanel,
+            close: closePanel,
+            updateColor: (hex, palette) => {
+                updateFromHex(hex);
+                if (palette) applyPreviewPalette(palette);
+            },
+            updateScheme: (scheme, palette) => {
+                highlightScheme(scheme);
+                if (palette) applyPreviewPalette(palette);
+            }
+        };
+    };
+
+    const ensureAccentPanel = () => {
+        if (accentPanelControls) return;
+        accentPanelControls = createAccentPanel();
+        const palette = getPaletteForScheme();
+        accentPanelControls.updateColor(accentState.color, palette);
+        accentPanelControls.updateScheme(accentState.scheme, palette);
+    };
+
+    const bootAccentPanel = () => {
+        const initPanel = () => ensureAccentPanel();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initPanel, { once: true });
+        } else {
+            initPanel();
+        }
+    };
+
+    bootAccentPanel();
+
+    const openAccentPanel = () => {
+        if (!accentPanelControls) {
+            if (document.readyState === 'loading') return false;
+            ensureAccentPanel();
+        }
+        return (accentPanelControls && accentPanelControls.open && accentPanelControls.open()) || false;
+    };
+
+    window.triggerAccentPicker = () => {
+        if (openAccentPanel()) return;
+        const input = document.getElementById('accent-picker-input');
+        if (input) input.click();
+    };
 
     // --- CANVAS INIT ---
     const canvas = document.getElementById('vector-cloud');

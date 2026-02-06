@@ -15,28 +15,24 @@
 <body>
     <canvas id="vector-cloud"></canvas>
 
-    <div class="header-bar" style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="display:flex; align-items:center; gap:20px;">
-            <a href="tools.html"
-                style="color:#888; text-decoration:none; font-weight:bold; font-size:0.9rem; transition:0.2s;">&larr;
-                Portal</a>
-            <div>
-                <div class="header-title">Task Force Command</div>
-                <div class="header-sub">Ravnica Procedural Engine v3</div>
+    <header class="hero-header">
+        <div>
+            <p class="hero-eyebrow">Ravnica Task Force</p>
+            <h1>Narrative Engine</h1>
+            <p class="hero-subtitle">A procedural improvisation console for incident prompts, sensory texture, hazards, and fallout beats.</p>
+        </div>
+        <div class="hero-actions">
+            <div class="hero-action-bar primary">
+                <a class="hero-btn ghost" href="tools.html">Portal</a>
             </div>
-        </div>
-        <div style="display:flex; align-items:center; gap:20px;">
-            <button class="btn-tool" onclick="triggerAccentPicker()"
-                style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🎨
-                Color</button>
+            <div class="hero-action-bar secondary">
+                <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+            </div>
             <input type="color" id="accent-picker-input"
-                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
-            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()"
-                style="background:none; border:1px solid #444; color:var(--text); padding:5px 10px; border-radius:4px; cursor:pointer;">🌌
-                BG: Field</button>
-            <div style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">⚖️</div>
+                style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
         </div>
-    </div>
+    </header>
 
     <div class="container">
 

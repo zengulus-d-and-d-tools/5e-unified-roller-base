@@ -13,26 +13,28 @@
     <canvas id="vector-cloud"></canvas>
 
     <div class="hq-app">
-        <header class="hq-header">
+        <header class="hq-header hero-header">
             <div>
-                <p class="eyebrow">Ravnica Task Force</p>
+                <p class="eyebrow hero-eyebrow">Ravnica Task Force</p>
                 <h1>HQ Layout Foundry</h1>
-                <p class="subtitle">Blueprint your command post with sigils, rails, and recharging pods that reflect the guild-tech fueling your ops.</p>
+                <p class="subtitle hero-subtitle">Blueprint your command post with sigils, rails, and recharging pods
+                    that reflect the guild-tech fueling your ops.</p>
             </div>
-            <div class="header-actions">
-                <div class="action-bar primary">
-                    <a class="btn ghost" href="tools.html">Portal</a>
-                    <button id="btn-add-custom" class="btn ghost">Custom Room</button>
-                    <button id="btn-clear" class="btn ghost">Clear Floor</button>
-                    <button id="btn-export" class="btn ghost">Export Data</button>
-                    <button id="btn-import" class="btn ghost">Import Data</button>
-                    <button id="btn-screenshot" class="btn accent">Take Screenshot</button>
+            <div class="header-actions hero-actions">
+                <div class="action-bar hero-action-bar primary">
+                    <a class="btn hero-btn ghost" href="tools.html">Portal</a>
+                    <button id="btn-add-custom" class="btn hero-btn ghost">Custom Room</button>
+                    <button id="btn-clear" class="btn hero-btn ghost">Clear Floor</button>
+                    <button id="btn-export" class="btn hero-btn ghost">Export Data</button>
+                    <button id="btn-import" class="btn hero-btn ghost">Import Data</button>
+                    <button id="btn-screenshot" class="btn hero-btn accent">Take Screenshot</button>
                 </div>
-                <div class="action-bar secondary">
-                    <button class="btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                <div class="action-bar hero-action-bar secondary">
+                    <button class="btn hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="btn hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
-                <input type="color" id="accent-picker-input" style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                <input type="color" id="accent-picker-input" style="position:absolute; opacity:0; pointer-events:none;"
+                    onchange="setAccentColor(this.value)">
             </div>
         </header>
 
@@ -62,11 +64,18 @@
                         <button id="btn-add-floor" class="btn ghost small">Add Floor</button>
                         <button id="btn-rename-floor" class="btn ghost small">Rename</button>
                         <button id="btn-delete-floor" class="btn ghost small danger-text">Delete</button>
+                        <div class="junior-ops-control">
+                            <span class="label">Junior Ops:</span>
+                            <span id="junior-ops-display" class="count-display">0</span>
+                            <span class="sep">/</span>
+                            <input type="number" id="junior-ops-max" class="small-input" min="0" value="0">
+                        </div>
                     </div>
                 </div>
                 <div class="blueprint-dock">
                     <div class="nav-pill">
-                        <span>Drag rooms to reposition. Click to edit details. Blueprint respects Ravnican glyph grid (1 square = 2 meters).</span>
+                        <span>Drag rooms to reposition. Click to edit details. Blueprint respects Ravnican glyph grid (1
+                            square = 2 meters).</span>
                     </div>
                     <div id="hq-grid" class="hq-grid" role="presentation"></div>
                 </div>
@@ -98,7 +107,8 @@
                         </div>
                         <div class="field">
                             <label for="room-notes">Notes / Perks</label>
-                            <textarea id="room-notes" rows="3" placeholder="Radiant barrier, rapid scry uplink, etc."></textarea>
+                            <textarea id="room-notes" rows="3"
+                                placeholder="Radiant barrier, rapid scry uplink, etc."></textarea>
                         </div>
 
                         <div class="subsection">
@@ -128,7 +138,9 @@
 
                 <section class="card lore">
                     <div class="card-title">Blueprint Doctrine</div>
-                    <p class="card-desc">Ravnican HQs blend steamscript engines, living wood, and sanctioned wards. Keep command bays buffered by Azorius stasis ribs, leave Boros muster yards clear for griffon ingress, and always earmark a Simic wet-lab for emergency synth-grafts.</p>
+                    <p class="card-desc">Ravnican HQs blend steamscript engines, living wood, and sanctioned wards. Keep
+                        command bays buffered by Azorius stasis ribs, leave Boros muster yards clear for griffon
+                        ingress, and always earmark a Simic wet-lab for emergency synth-grafts.</p>
                 </section>
             </aside>
         </main>

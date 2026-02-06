@@ -20,19 +20,28 @@
     <!-- Canvas for drawing physics strings -->
     <canvas id="connection-layer"></canvas>
 
-    <div class="header-overlay">
-        <a href="tools.html" class="back-link">&larr; Portal</a>
-        <div class="board-title">CASE FILE: <span id="caseName" contenteditable="true">UNNAMED</span></div>
-        <div class="board-controls">
-            <button class="btn-tool" id="btn-pan" onclick="togglePanMode()">🖐️ Pan: OFF</button>
-            <button class="btn-tool" onclick="saveBoard()">💾 Save</button>
-            <button class="btn-tool" onclick="clearBoard()">🗑️ Clear</button>
-            <button class="btn-tool" onclick="triggerAccentPicker()">🎨 Color</button>
-            <input type="color" id="accent-picker-input"
-                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
-            <button class="btn-tool" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+    <header class="hero-header board-hero">
+        <div>
+            <p class="hero-eyebrow">Ravnica Task Force</p>
+            <h1>Investigation Board</h1>
+            <p class="hero-subtitle">A virtual whiteboard for tracking clues, NPCs, and faction threads with physics-assisted connections.</p>
+            <div class="hero-meta">Case File <strong id="caseName" contenteditable="true">UNNAMED</strong></div>
         </div>
-    </div>
+        <div class="hero-actions">
+            <div class="hero-action-bar primary">
+                <a class="hero-btn ghost" href="tools.html">Portal</a>
+                <button class="hero-btn ghost" id="btn-pan" onclick="togglePanMode()">🖐️ Pan: OFF</button>
+                <button class="hero-btn ghost" onclick="saveBoard()">💾 Save</button>
+                <button class="hero-btn danger" onclick="clearBoard()">🗑️ Clear</button>
+            </div>
+            <div class="hero-action-bar secondary">
+                <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
+                <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+            </div>
+            <input type="color" id="accent-picker-input"
+                style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+        </div>
+    </header>
 
     <!-- Container for the dragged nodes -->
     <div id="board-container"></div>

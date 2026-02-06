@@ -1,26 +1,22 @@
 # Unified 5e Player Sheet (`index.html`)
 
-A comprehensive, offline-first character sheet designed for 5th Edition play. It automates calculations while remaining fully editable.
+Command-console sheet for players and DMs. Everything lives in Local Storage, so you can run it offline and jump between devices with the JSON import/export buttons.
 
-## Key Features
+## Layout
+- **Command Console** – Hero header exposes the Portal link, accent picker, BG cycler, and global advantage/secret toggles. The misc bonus field feeds every roll beneath it.
+- **Vitals & Rest** – `card-vitals`, `card-ac`, and `card-rest` cover HP/Temp HP, death saves, exhaustion, armor formulae (standard vs custom), and one-tap Short/Long Rests that reset tracked resources.
+- **Combat Stack** – `card-combat` manages initiative, speed, spell DC, senses, proficiencies, and the class resource grid for Rage/Ki/etc.
+- **Attributes & Effects** – `card-attr`, `card-buffs`, and `card-settings` keep ability scores, passive skills, concentration/effect toggles, sheet theme, Discord webhook, and luck bias in one place.
+- **Attacks & Features** – `card-atk`, `card-feats`, and `card-spells` let you build reusable attacks/spells with hit/damage formulas, store feats or custom abilities, and track slot usage.
+- **Skills & Roller** – `card-skills` shows every skill with editable mods, while `card-roller` exposes the inline dice roller, history log, and quick buttons for staples like Initiative, Saves, or Skill checks.
+- **Data & Creator** – `card-io` handles import/export/reset plus Discord toggles. The creator overlay walks you through race/class ability assignments, auto-fills skill proficiencies, and seeds the base sheet.
 
-### Core Stats
-- **Vitals**: Tracks HP (Current/Max/Temp) with auto-calculation options based on Level/Con. Includes Death Saves.
-- **Armor Class**: Supports Standard (Armor + Dex Cap + Shield) and Custom formulas (Unarmored Defense).
-- **Resting**: One-click Short/Long rest handling (resets limited use features, hit dice).
+## Automation & Sync
+- **Unified Store** – All inputs sync to `RTF_STORE`, so character data moves with you to the GM dashboard, hub, or requisition tools when relevant.
+- **Discord Hooks** – Provide any webhook URL to push rolls using spoiler tags (Secret option piggybacks on the command console's 👁 toggle).
+- **Theme Controls** – Every sheet honors the global accent picker and background cycler so you can keep the table on-brand.
 
-### Combat & Actions
-- **Dice Roller**: Integrated 3D-style vector dice roller and standard click-to-roll interface.
-- **Attacks**: Add weapons/spells with auto-calculated To Hit/Damage.
-- **Spell Slots**: Tracks slots separate from resources.
-- **Class Resources**: Custom counters for Ki, Sorcery Points, Rage, etc.
-
-### Automation
-- **Character Creator**: Step-by-step wizard for stats, race, class, and skills.
-- **Save/Load**: JSON-based export/import system to backup characters.
-- **Discord Integration**: Optional webhook support to push rolls to a Discord channel.
-
-## Shortcuts
-- **Advantage/Disadvantage**: Toggle via buttons or hold `Shift`/`Alt` when clicking roll buttons.
-- **Secret Rolls**: Toggle the "Eye" icon for GM-only rolls (if connected to Discord).
-- **Backgrounds**: Click "BG" to cycle visual themes (Nebula, Matrix, Vector Field).
+## Table Tips
+- Lock in core stats, then duplicate the JSON file before major level-ups so you can roll back.
+- Use the Misc Bonus field for Bless, Bardic dice, or homebrew situational modifiers; it auto-resets after each roll.
+- Keep resource trackers simple: "Rage" can be reused for Channel Divinity or Superiority Dice—rename and set max to whatever you need.

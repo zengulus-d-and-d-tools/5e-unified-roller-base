@@ -76,7 +76,7 @@
     function buildEventCard(evt) {
         const heat = parseInt(evt.heatDelta, 10);
         const heatText = !isNaN(heat) && heat !== 0
-            ? `<span class="tag-pill" style="border-color:${heat > 0 ? 'var(--danger)' : 'var(--accent)'}; color:${heat > 0 ? 'var(--danger)' : 'var(--accent)'}">Heat ${heat > 0 ? '+' : ''}${heat}</span>`
+            ? `<span class="tag-pill" style="border-color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}; color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}">Heat ${heat > 0 ? '+' : ''}${heat}</span>`
             : '';
         const focusDisplay = evt.focus ? `<span class="tag-pill">${escapeHtml(evt.focus)}</span>` : '';
 

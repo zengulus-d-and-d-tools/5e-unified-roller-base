@@ -1,15 +1,4 @@
 :root {
-            --bg: #0f0f13;
-            --card-bg: rgba(30, 30, 35, 0.6);
-            --border: rgba(255, 255, 255, 0.1);
-            --text: #e0e0e0;
-            --text-dim: #aaa;
-            --accent: #4ecdc4;
-            --accent-glow: rgba(78, 205, 196, 0.4);
-            --gold: #f1c40f;
-            --danger: #ff6b6b;
-            --glass: blur(12px);
-
             --st-grey: #444;
             --st-orange: #e67e22;
             --st-green: #2ecc71;
@@ -22,12 +11,11 @@
         }
 
 body {
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
             font-family: 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            padding: 80px 20px 20px;
-            /* Space for fixed header */
+            padding: 40px 20px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -49,30 +37,12 @@ body {
             z-index: 2;
         }
 
-        /* --- HEADER --- */
-        .header-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: rgba(15, 15, 19, 0.95);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            z-index: 1000;
-            backdrop-filter: var(--glass);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        }
-
         h1 {
             margin: 0 0 5px 0;
             font-size: 1.5rem;
             text-transform: uppercase;
             letter-spacing: 2px;
-            color: var(--accent);
+            color: var(--accent-secondary);
             text-shadow: 0 0 10px var(--accent-glow);
             text-align: center;
         }
@@ -117,7 +87,7 @@ body {
         .guild-btn:hover {
             transform: translateY(-3px);
             background: rgba(255, 255, 255, 0.05);
-            border-color: var(--accent);
+            border-color: var(--accent-tertiary);
         }
 
         .guild-btn.st-0 {
@@ -212,14 +182,14 @@ body {
 
         .mode-select:hover,
         .mode-select:focus {
-            border-color: var(--accent);
+            border-color: var(--accent-tertiary);
             outline: none;
         }
 
         .gen-btn {
             flex: 2;
-            background: var(--accent);
-            color: #0f0f13;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            color: var(--accent-contrast);
             border: none;
             padding: 12px;
             border-radius: 8px;
@@ -233,7 +203,7 @@ body {
         }
 
         .gen-btn:hover {
-            background: #fff;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent));
             transform: translateY(-2px);
             box-shadow: 0 4px 25px var(--accent-glow);
         }

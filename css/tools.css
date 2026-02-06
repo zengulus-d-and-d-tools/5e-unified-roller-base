@@ -1,14 +1,3 @@
-:root {
-    --bg: #0f0f13;
-    --card-bg: rgba(30, 30, 35, 0.6);
-    --accent: #4ecdc4;
-    --accent-glow: rgba(78, 205, 196, 0.4);
-    --text: #e0e0e0;
-    --border: rgba(255, 255, 255, 0.1);
-    --glass: blur(12px);
-}
-
-
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -22,7 +11,7 @@
 }
 
 body {
-    background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+    background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
     color: var(--text);
     font-family: 'Segoe UI', Roboto, sans-serif;
     margin: 0;
@@ -45,19 +34,6 @@ body {
     gap: 30px;
 }
 
-h1 {
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 50px;
-    font-size: 1.8rem;
-    text-align: center;
-    text-shadow: 0 0 15px var(--accent-glow);
-    animation: fadeIn 0.5s ease-out;
-    position: relative;
-    z-index: 2;
-}
-
 #vector-cloud {
     position: fixed;
     top: 0;
@@ -66,14 +42,6 @@ h1 {
     height: 100%;
     z-index: 0;
     pointer-events: none;
-}
-
-.header-overlay {
-    position: relative;
-    z-index: 2;
-    width: 100%;
-    display: flex;
-    justify-content: center;
 }
 
 .grid {
@@ -118,14 +86,14 @@ a {
     left: 0;
     width: 100%;
     height: 2px;
-    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    background: linear-gradient(90deg, transparent, var(--accent), var(--accent-secondary), transparent);
     opacity: 0;
     transition: 0.3s;
 }
 
 .card:hover {
     transform: translateY(-8px);
-    border-color: var(--accent);
+    border-color: var(--accent-secondary);
     background: rgba(40, 40, 45, 0.8);
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
 }

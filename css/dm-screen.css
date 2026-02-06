@@ -1,61 +1,18 @@
 :root {
-            --bg: #0f0f13;
-            --card-bg: rgba(30, 30, 35, 0.6);
-            --panel-bg: rgba(22, 22, 26, 0.8);
-            --accent: #4ecdc4;
-            --accent-glow: rgba(78, 205, 196, 0.4);
-            --accent-dim: rgba(78, 205, 196, 0.1);
-            --gold: #f1c40f;
-            --danger: #ff6b6b;
-            --text: #e0e0e0;
-            --text-muted: #888;
-            --border: rgba(255, 255, 255, 0.1);
-            --glass: blur(12px);
+            --panel-bg: color-mix(in srgb, #111826 75%, var(--accent-secondary) 25%);
+            --accent-dim: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
+            --text-muted: color-mix(in srgb, var(--text) 70%, var(--accent-quaternary) 30%);
         }
 
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
-            padding: 80px 0 50px;
-            /* Top padding for fixed header */
+            padding: 40px 0 50px;
             margin: 0;
             overscroll-behavior-y: none;
             overflow-x: hidden;
             min-height: 100vh;
-        }
-
-        /* --- STICKY HEADER --- */
-        .header-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 60px;
-            background: rgba(15, 15, 19, 0.95);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            z-index: 1000;
-            backdrop-filter: var(--glass);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-        }
-
-        .header-title {
-            font-weight: 900;
-            letter-spacing: 1px;
-            color: var(--accent);
-            text-transform: uppercase;
-            font-size: 1.1rem;
-            text-shadow: 0 0 10px var(--accent-glow);
-        }
-
-        .header-sub {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            letter-spacing: 0.5px;
         }
 
         /* --- LAYOUT --- */
@@ -120,8 +77,8 @@
         }
 
         .btn-gen {
-            background: var(--accent);
-            color: #0f0f13;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            color: var(--accent-contrast);
             padding: 14px;
             border-radius: 8px;
             font-weight: 900;
@@ -134,7 +91,7 @@
         }
 
         .btn-gen:hover {
-            background: #fff;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent));
             transform: translateY(-2px);
             box-shadow: 0 4px 20px var(--accent-glow);
         }
@@ -168,9 +125,9 @@
         }
 
         .btn-small:hover {
-            border-color: var(--accent);
+            border-color: var(--accent-tertiary);
             color: #fff;
-            background: rgba(255, 255, 255, 0.1);
+            background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-quaternary) 40%);
         }
 
         /* --- OUTPUT BOXES --- */
@@ -233,7 +190,7 @@
         }
 
         .dispatch-val.highlight {
-            color: var(--accent);
+            color: var(--accent-secondary);
             font-weight: bold;
             text-shadow: 0 0 8px var(--accent-glow);
         }
@@ -256,7 +213,7 @@
         }
 
         .hl-txt {
-            color: var(--accent);
+            color: var(--accent-tertiary);
             font-weight: bold;
         }
 
@@ -294,7 +251,7 @@
         }
 
         .out-good {
-            color: var(--accent);
+            color: var(--accent-secondary);
         }
 
         /* --- ACCORDION & REFERENCE TABLES --- */
@@ -353,7 +310,7 @@
         }
 
         .ref-hl {
-            color: var(--accent);
+            color: var(--accent-tertiary);
             font-weight: bold;
         }
 

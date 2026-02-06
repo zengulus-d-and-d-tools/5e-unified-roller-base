@@ -1,16 +1,8 @@
 :root {
-            --bg: #0f0f13;
-            --card-bg: rgba(30, 30, 35, 0.6);
-            --input-bg: rgba(0, 0, 0, 0.3);
-            --accent: #00bcd4;
-            --accent-glow: rgba(0, 188, 212, 0.4);
-            --text: #f0f0f0;
-            --border: rgba(255, 255, 255, 0.1);
             --green: #00e676;
             --red: #ff5252;
             --cyan: #18ffff;
             --pink: #ff4081;
-            --glass: blur(12px);
         }
 
             to {
@@ -35,28 +27,28 @@
 
         body {
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #0f0f13 0%, #1a1a20 100%);
+            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
-            padding: 0;
+            padding: 40px 0 90px;
             margin: 0;
-            padding-bottom: 90px;
-            padding-top: 60px;
             min-height: 100vh;
         }
 
         /* --- NAVIGATION --- */
         .nav-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
+            position: sticky;
+            top: 10px;
             height: 55px;
             background: rgba(15, 15, 19, 0.85);
-            border-bottom: 1px solid var(--border);
+            border: 1px solid var(--border);
             display: flex;
-            z-index: 1000;
+            z-index: 10;
             backdrop-filter: var(--glass);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            margin: 0 auto 20px;
+            width: min(900px, calc(100% - 40px));
+            border-radius: 999px;
+            overflow: hidden;
         }
 
         .nav-item {
@@ -68,15 +60,13 @@
             font-size: 0.9rem;
             color: #888;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             letter-spacing: 0.5px;
         }
 
         .nav-item.active {
-            color: var(--accent);
-            border-bottom-color: var(--accent);
-            background: linear-gradient(to top, rgba(0, 188, 212, 0.1), transparent);
+            color: var(--accent-secondary);
+            background: color-mix(in srgb, rgba(0, 0, 0, 0.1) 50%, var(--accent-tertiary) 50%);
             text-shadow: 0 0 10px var(--accent-glow);
         }
 
@@ -141,9 +131,9 @@
         input:focus,
         textarea:focus {
             outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 10px var(--accent-glow);
-            background: rgba(0, 0, 0, 0.5);
+            border-color: var(--accent-tertiary);
+            box-shadow: 0 0 10px color-mix(in srgb, var(--accent-quaternary) 55%, transparent);
+            background: color-mix(in srgb, rgba(0, 0, 0, 0.5) 70%, var(--accent-secondary) 30%);
         }
 
         /* Custom Checkbox */
@@ -162,8 +152,8 @@
         }
 
         input[type="checkbox"]:checked {
-            background: var(--accent);
-            border-color: var(--accent);
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            border-color: var(--accent-secondary);
             box-shadow: 0 0 10px var(--accent-glow);
         }
 
@@ -205,14 +195,14 @@
         }
 
         .btn-main {
-            background: var(--accent);
-            color: #000;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            color: var(--accent-contrast);
             box-shadow: 0 4px 15px var(--accent-glow);
         }
 
         .btn-main:hover {
-            box-shadow: 0 6px 20px var(--accent-glow);
-            filter: brightness(1.1);
+            box-shadow: 0 6px 20px color-mix(in srgb, var(--accent-quaternary) 65%, rgba(0, 0, 0, 0.2));
+            filter: brightness(1.05);
         }
 
         .btn-sec {
@@ -224,7 +214,7 @@
         .btn-sec:hover {
             background: rgba(255, 255, 255, 0.15);
             color: #fff;
-            border-color: #666;
+            border-color: color-mix(in srgb, var(--accent-tertiary) 45%, #666 55%);
         }
 
         .btn-danger {
@@ -317,7 +307,7 @@
 
         .btn-tier:hover {
             background: rgba(255, 255, 255, 0.1);
-            border-color: var(--accent);
+            border-color: var(--accent-tertiary);
             padding-left: 20px;
         }
 
@@ -326,9 +316,9 @@
             background: rgba(0, 0, 0, 0.5);
             padding: 4px 8px;
             border-radius: 4px;
-            color: var(--accent);
+            color: var(--accent-secondary);
             font-weight: bold;
-            border: 1px solid var(--border);
+            border: 1px solid color-mix(in srgb, var(--accent-tertiary) 35%, var(--border) 65%);
         }
 
         .log-display {
@@ -346,7 +336,7 @@
         }
 
         .log-result {
-            color: var(--accent);
+            color: var(--accent-secondary);
             font-size: 3rem;
             font-weight: 900;
             text-shadow: 0 0 15px var(--accent-glow);
@@ -373,8 +363,8 @@
         }
 
         .combat-item.active {
-            border: 2px solid var(--accent);
-            background: #2a221a;
+            border: 2px solid var(--accent-tertiary);
+            background: color-mix(in srgb, #2a221a 70%, var(--accent-quaternary) 30%);
             box-shadow: 0 0 15px rgba(230, 126, 34, 0.1);
         }
 
@@ -388,7 +378,7 @@
         .init-val {
             font-size: 1.4rem;
             font-weight: 900;
-            color: var(--accent);
+            color: var(--accent-secondary);
             line-height: 1;
         }
 
@@ -474,14 +464,14 @@
 
         .round-counter {
             background: #000;
-            color: var(--accent);
+            color: var(--accent-tertiary);
             padding: 0 15px;
             border-radius: 6px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border: 1px solid #444;
+            border: 1px solid color-mix(in srgb, var(--accent-quaternary) 25%, #444 75%);
             font-size: 0.7rem;
             font-weight: bold;
             text-transform: uppercase;
@@ -520,11 +510,11 @@
 
         .cond-tag {
             display: inline-block;
-            background: #333;
+            background: color-mix(in srgb, #333 70%, var(--accent-quaternary) 30%);
             padding: 2px 6px;
             border-radius: 4px;
             margin-bottom: 4px;
-            color: var(--accent);
+            color: var(--accent-secondary);
             font-weight: bold;
             font-size: 0.7rem;
         }
