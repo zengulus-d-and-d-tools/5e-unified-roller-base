@@ -219,17 +219,17 @@ body {
     position: sticky;
     top: var(--roller-stick-offset, 180px);
     z-index: 850;
-    margin-top: clamp(6px, 1.5vw, 14px);
+    margin-top: clamp(0px, 1vw, 10px);
 }
 
 .roll-log-card {
     width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
     margin: 0 auto;
     display: grid;
-    grid-template-columns: minmax(200px, 0.85fr) minmax(320px, 1.15fr);
-    gap: clamp(16px, 2vw, 24px);
-    padding: clamp(18px, 2.4vw, 26px);
-    border-radius: 16px;
+    grid-template-columns: minmax(160px, 0.8fr) minmax(280px, 1.2fr);
+    gap: clamp(12px, 1.6vw, 20px);
+    padding: clamp(12px, 1.8vw, 18px) clamp(14px, 2vw, 20px);
+    border-radius: 14px;
     border: 1px solid color-mix(in srgb, var(--hq-border) 75%, rgba(255, 255, 255, 0.12));
     background: color-mix(in srgb, var(--surface-soft) 85%, rgba(0, 0, 0, 0.2));
     box-shadow: 0 14px 35px rgba(0, 0, 0, 0.35);
@@ -245,8 +245,8 @@ body {
 
 .log-console {
     display: grid;
-    grid-template-columns: minmax(190px, 0.75fr) minmax(300px, 1.25fr);
-    gap: clamp(12px, 2vw, 18px);
+    grid-template-columns: minmax(160px, 0.65fr) minmax(260px, 1.35fr);
+    gap: clamp(10px, 2vw, 16px);
     align-items: stretch;
 }
 
@@ -270,9 +270,9 @@ body {
     align-items: flex-end;
     justify-content: center;
     text-align: right;
-    padding: clamp(12px, 2vw, 18px) clamp(12px, 2.5vw, 20px);
+    padding: clamp(10px, 1.8vw, 16px);
     min-width: 0;
-    border-radius: 14px;
+    border-radius: 12px;
     border: 1px solid color-mix(in srgb, var(--hq-border) 80%, rgba(255, 255, 255, 0.15));
     background: color-mix(in srgb, var(--surface-soft) 80%, rgba(0, 0, 0, 0.45));
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);

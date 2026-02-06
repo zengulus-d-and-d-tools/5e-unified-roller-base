@@ -526,13 +526,12 @@ body.accent-panel-open {
 
 /* --- HERO HEADER --- */
 .hero-header {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
-    gap: clamp(16px, 3vw, 32px);
+    display: flex;
     align-items: center;
+    gap: clamp(12px, 2vw, 20px);
     background: color-mix(in srgb, var(--surface-strong) 80%, rgba(0, 0, 0, 0.35));
-    padding: clamp(18px, 3vw, 26px) clamp(20px, 4vw, 34px);
-    border-radius: 20px;
+    padding: clamp(14px, 2.3vw, 22px) clamp(18px, 3vw, 28px);
+    border-radius: 16px;
     border: 1px solid var(--hq-border);
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
     position: relative;
@@ -540,6 +539,11 @@ body.accent-panel-open {
     width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
     max-width: var(--page-max);
     margin: 0 auto clamp(16px, 3vw, 26px);
+}
+
+.hero-header > div:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .hero-header h1 {
@@ -565,19 +569,21 @@ body.accent-panel-open {
 
 .hero-actions {
     display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-end;
-    min-width: 220px;
-    width: 100%;
-    max-width: 480px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    width: auto;
+    max-width: none;
     text-align: right;
 }
 
 .hero-action-bar {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 8px;
     justify-content: flex-end;
     width: auto;
 }
@@ -657,16 +663,13 @@ body.accent-panel-open {
 
 @media (max-width: 768px) {
     .hero-header {
-        grid-template-columns: 1fr;
-        text-align: left;
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .hero-actions {
-        align-items: flex-start;
-        min-width: 0;
-        max-width: none;
         width: 100%;
-        text-align: left;
+        justify-content: flex-start;
     }
 
     .hero-action-bar {
