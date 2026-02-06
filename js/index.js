@@ -503,12 +503,12 @@ let isPopulating = false; // Guard to prevent saving during initial load
 
             if (secretMode) {
                 btn.classList.add('active');
-                btn.innerHTML = '🙈';
+                btn.innerHTML = '🙈 Secret';
             }
 
             else {
                 btn.classList.remove('active');
-                btn.innerHTML = '👁️';
+                btn.innerHTML = '👁️ Secret';
             }
         }
 

@@ -14,27 +14,50 @@
 
 <body>
     <canvas id="vector-cloud"></canvas>
-    <div class="roller-bar" id="rollerBar">
-        <div class="controls-left">
-            <div class="adv-controls"><button class="adv-btn" onclick="setMode('dis')"
-                    data-mode="dis">DIS</button><button class="adv-btn active" onclick="setMode('norm')"
-                    data-mode="norm">- </button><button class="adv-btn" onclick="setMode('adv')"
-                    data-mode="adv">ADV</button></div><button id="btnSecret" class="secret-btn" onclick="toggleSecret()"
-                title="Secret Roll (Discord Spoilers)">👁️</button>
-            <button id="btn-bg-style" onclick="cycleBgStyle()" class="secret-btn"
-                style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🌌 BG</button>
-            <button class="secret-btn" onclick="triggerAccentPicker()"
-                style="width:auto; padding:0 10px; font-size:0.8rem; margin-left:5px;">🎨</button>
-            <input type="color" id="accent-picker-input"
-                style="visibility:hidden; width:0; height:0; position:absolute;" onchange="setAccentColor(this.value)">
-            <div class="misc-wrapper"><span class="misc-label">Misc</span><input type="text" id="globalMisc"
-                    placeholder="+0 or 1d4"></div>
+    <header class="roller-shell" id="rollerBar">
+        <div class="roller-inner">
+            <div class="roller-meta">
+                <p class="roller-eyebrow">Unified 5e Roller</p>
+                <h1>Command Console</h1>
+                <p class="roller-lede">Dial in advantage state, secret rolls, and background vibes while the accent palette keeps everything in sync.</p>
+            </div>
+            <div class="roller-controls">
+                <div class="control-block">
+                    <span class="control-label">Advantage Mode</span>
+                    <div class="adv-controls"><button class="adv-btn" onclick="setMode('dis')"
+                            data-mode="dis">DIS</button><button class="adv-btn active" onclick="setMode('norm')"
+                            data-mode="norm">NORM</button><button class="adv-btn" onclick="setMode('adv')"
+                            data-mode="adv">ADV</button></div>
+                </div>
+                <div class="control-block">
+                    <span class="control-label">Utilities</span>
+                    <div class="control-chip-row"><button id="btnSecret" class="chip-btn" onclick="toggleSecret()"
+                            title="Secret Roll (Discord Spoilers)">👁️ Secret</button>
+                        <button id="btn-bg-style" onclick="cycleBgStyle()" class="chip-btn">🌌 Field</button>
+                        <button class="chip-btn" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    </div>
+                </div>
+                <div class="control-block">
+                    <span class="control-label">Misc Bonus</span>
+                    <div class="misc-wrapper"><input type="text" id="globalMisc" placeholder="+0 or 1d4"></div>
+                </div>
+            </div>
         </div>
-        <div id="logArea" class="log-area">
-            <div class="log-formula">Ready...</div>
-            <div class="log-result">-</div>
+        <input type="color" id="accent-picker-input" style="visibility:hidden; width:0; height:0; position:absolute;"
+            onchange="setAccentColor(this.value)">
+    </header>
+    <section class="roll-log-panel">
+        <div class="roll-log-card" id="logArea">
+            <div class="log-panel-meta">
+                <p class="log-eyebrow">Roll Log</p>
+                <p class="log-hint">Shows your last throw, including all stacked modifiers.</p>
+            </div>
+            <div class="log-area">
+                <div class="log-formula">Ready...</div>
+                <div class="log-result">-</div>
+            </div>
         </div>
-    </div>
+    </section>
     <div class="sheet-container">
         <!-- START CREATE BUTTON --><button onclick="openCharCreator()"
             style="background:var(--res-bar); color:#fff; width:100%; padding:15px; font-size:1.1rem; border:1px solid #2ecc71; box-shadow:0 4px 10px rgba(46, 204, 113, 0.2); margin-bottom:5px;">✨
