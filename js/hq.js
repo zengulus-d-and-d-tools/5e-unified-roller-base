@@ -47,7 +47,8 @@
         floorTabs: document.getElementById('floor-tabs'),
         addFloor: document.getElementById('btn-add-floor'),
         renameFloor: document.getElementById('btn-rename-floor'),
-        deleteFloor: document.getElementById('btn-delete-floor')
+        juniorOpsDisplay: document.getElementById('junior-ops-display'),
+        juniorOpsMax: document.getElementById('junior-ops-max')
     };
 
     if (!refs.grid) return;
@@ -86,6 +87,7 @@
 
     function init() {
         refs.toggleGrid.checked = state.snapToGrid;
+        refs.juniorOpsMax.value = state.maxJuniorOperatives;
         buildTypeSelect();
         refreshAssigneeLists();
         renderFloorTabs();
@@ -105,7 +107,8 @@
             grid,
             floors,
             snapToGrid: base.snapToGrid !== undefined ? !!base.snapToGrid : true,
-            activeFloorId
+            activeFloorId,
+            maxJuniorOperatives: typeof base.maxJuniorOperatives === 'number' ? base.maxJuniorOperatives : 0
         };
     }
 
@@ -145,8 +148,8 @@
     function sanitizeSlot(slot, type) {
         if (typeof slot === 'string') {
             return type === 'downtime'
-                ? { id: uniqueId('slot'), label: slot, playerId: '', legacyAssignee: slot }
-                : { id: uniqueId('slot'), label: slot, requisitionId: '', legacyAssignee: slot };
+                ? { id: uniqueId('slot'), label: slot, playerId: '' }
+                : { id: uniqueId('slot'), label: slot, requisitionId: '' };
         }
         const base = {
             id: slot.id || uniqueId('slot'),
@@ -154,6 +157,7 @@
         };
         if (type === 'downtime') {
             base.playerId = slot.playerId || slot.assignedPlayerId || '';
+            base.junior = !!slot.junior;
             if (!base.playerId && slot.assigned) base.playerId = resolvePlayerIdByName(slot.assigned);
             if (!base.playerId && slot.assignedName) base.playerId = resolvePlayerIdByName(slot.assignedName);
             if (!base.playerId && slot.legacyAssignee) base.legacyAssignee = slot.legacyAssignee;
@@ -247,6 +251,8 @@
                 ev.stopPropagation();
                 selectRoom(room.id);
             });
+            el.addEventListener('mouseenter', (ev) => showRoomPopout(ev, room));
+            el.addEventListener('mouseleave', hideRoomPopout);
             refs.grid.appendChild(el);
         });
 
@@ -339,6 +345,18 @@
         return null;
     }
 
+    function getJuniorOpsCount() {
+        let count = 0;
+        state.floors.forEach(f => {
+            f.rooms.forEach(r => {
+                r.downtimeSlots.forEach(s => {
+                    if (s.junior) count++;
+                });
+            });
+        });
+        return count;
+    }
+
     function updateStats() {
         const rooms = getAllRooms();
         const downtime = rooms.reduce((sum, r) => sum + r.downtimeSlots.length, 0);
@@ -346,7 +364,12 @@
         refs.roomCount.textContent = rooms.length;
         refs.downtimeCount.textContent = downtime;
         refs.resourceCount.textContent = resources;
+
+        const used = getJuniorOpsCount();
+        const available = Math.max(0, state.maxJuniorOperatives - used);
+        refs.juniorOpsDisplay.textContent = available;
     }
+
 
     function updateDetailPanel() {
         const room = getRoom(selectedRoomId);
@@ -367,6 +390,8 @@
         renderSlotList(refs.downtimeList, room.downtimeSlots, 'downtime');
         renderSlotList(refs.resourceList, room.resourceSlots, 'resource');
     }
+
+
 
     function renderSlotList(container, slots, type) {
         container.innerHTML = '';
@@ -398,13 +423,19 @@
     function buildPlayerAssignment(slot) {
         const options = playerOptions.map(p => `<option value="${p.id}" ${p.id === slot.playerId ? 'selected' : ''}>${escapeHTML(p.name || 'Unnamed')} (${p.dp ?? 0} DP)</option>`).join('');
         const info = buildSlotInfo('downtime', slot);
+        const checked = slot.junior ? 'checked' : '';
         return `
             <div class="slot-row">
                 <label>Assigned Operative</label>
-                <select class="slot-select" data-type="downtime">
-                    <option value="">Unassigned</option>
-                    ${options}
-                </select>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <select class="slot-select" data-type="downtime" style="flex: 1;">
+                        <option value="">Unassigned</option>
+                        ${options}
+                    </select>
+                    <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer;">
+                        <input type="checkbox" class="slot-junior" ${checked}> Junior Op.
+                    </label>
+                </div>
                 ${info}
             </div>
         `;
@@ -431,6 +462,9 @@
             if (player) {
                 const project = player.projectName ? ` • Project: ${escapeHTML(player.projectName)}` : '';
                 return `<div class="slot-info">${escapeHTML(player.name || 'Unnamed')} • ${player.dp ?? 0} DP${project}</div>`;
+            }
+            if (slot.junior) {
+                return `<div class="slot-info" style="color: var(--accent-tertiary);">Junior Operative Assigned</div>`;
             }
             if (slot.legacyAssignee) {
                 return `<div class="slot-info warning">Legacy assignment: ${escapeHTML(slot.legacyAssignee)}</div>`;
@@ -505,8 +539,8 @@
 
         refs.downtimeList.addEventListener('input', handleSlotLabelInput('downtime'));
         refs.resourceList.addEventListener('input', handleSlotLabelInput('resource'));
-        refs.downtimeList.addEventListener('change', handleSlotSelect('downtime'));
-        refs.resourceList.addEventListener('change', handleSlotSelect('resource'));
+        refs.downtimeList.addEventListener('change', handleSlotChange('downtime'));
+        refs.resourceList.addEventListener('change', handleSlotChange('resource'));
         refs.downtimeList.addEventListener('click', handleSlotRemove('downtime'));
         refs.resourceList.addEventListener('click', handleSlotRemove('resource'));
 
@@ -533,6 +567,17 @@
         refs.addFloor.addEventListener('click', addFloor);
         refs.renameFloor.addEventListener('click', renameFloor);
         refs.deleteFloor.addEventListener('click', deleteFloor);
+
+        refs.juniorOpsMax.addEventListener('change', (ev) => {
+            const val = Math.max(0, parseInt(ev.target.value, 10));
+            ev.target.value = val;
+            state.maxJuniorOperatives = val;
+            persistState();
+            updateStats();
+            // Re-render rooms is needed to update checkboxes if we lowered the limit below consumption? 
+            // Actually no, we don't auto-uncheck, we just prevent new checks.
+            updateDetailPanel();
+        });
     }
 
     function addSlot(type) {
@@ -560,29 +605,6 @@
             if (!slot) return;
             slot.label = ev.target.value;
             persistState();
-            renderRooms();
-        };
-    }
-
-    function handleSlotSelect(type) {
-        return (ev) => {
-            if (!ev.target.classList.contains('slot-select')) return;
-            const room = getRoom(selectedRoomId);
-            if (!room) return;
-            const item = ev.target.closest('.slot-item');
-            if (!item) return;
-            const slotId = item.dataset.id;
-            const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
-            const slot = list.find(s => s.id === slotId);
-            if (!slot) return;
-            if (type === 'downtime') {
-                slot.playerId = ev.target.value;
-            } else {
-                slot.requisitionId = ev.target.value;
-            }
-            slot.legacyAssignee = '';
-            persistState();
-            updateDetailPanel();
             renderRooms();
         };
     }
@@ -980,5 +1002,90 @@
 
     function uniqueId(prefix) {
         return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+    function showRoomPopout(ev, room) {
+        if (dragging) return;
+        refs.grid.classList.add('has-focus');
+
+        const pop = document.createElement('div');
+        pop.className = 'room-popout';
+        pop.id = 'active-room-popout';
+
+        const type = getRoomType(room.type);
+
+        let content = `
+            <div>
+                <div class="meta">${escapeHTML(type.label)}</div>
+                <h4>${escapeHTML(room.name)}</h4>
+            </div>
+        `;
+
+        // Downtime Section
+        if (room.downtimeSlots.length > 0) {
+            content += `<div class="section"><div class="meta">Downtime Activities</div>`;
+            room.downtimeSlots.forEach(slot => {
+                let assignee = 'Unassigned';
+                if (slot.playerId) {
+                    const p = findPlayerById(slot.playerId);
+                    assignee = p ? p.name : 'Unknown Agent';
+                } else if (slot.junior) {
+                    assignee = 'Junior Operative';
+                } else if (slot.legacyAssignee) {
+                    assignee = slot.legacyAssignee;
+                }
+                content += `<div class="pop-row"><span>${escapeHTML(slot.label)}</span><span class="assignee">${escapeHTML(assignee)}</span></div>`;
+            });
+            content += `</div>`;
+        }
+
+        // Resource Section
+        if (room.resourceSlots.length > 0) {
+            content += `<div class="section"><div class="meta">Resource Bays</div>`;
+            room.resourceSlots.forEach(slot => {
+                let status = 'Empty';
+                if (slot.requisitionId) {
+                    const r = findRequisitionById(slot.requisitionId);
+                    status = r ? (r.item || r.purpose) : 'Unknown Asset';
+                } else if (slot.legacyAssignee) {
+                    status = slot.legacyAssignee;
+                }
+                content += `<div class="pop-row"><span>${escapeHTML(slot.label)}</span><span class="assignee">${escapeHTML(status)}</span></div>`;
+            });
+            content += `</div>`;
+        }
+
+        if (room.downtimeSlots.length === 0 && room.resourceSlots.length === 0) {
+            content += `<div class="empty-msg">No active slots configured.</div>`;
+        }
+
+        pop.innerHTML = content;
+        document.body.appendChild(pop);
+
+        // Positioning
+        const roomRect = ev.currentTarget.getBoundingClientRect();
+        const popRect = pop.getBoundingClientRect();
+
+        let top = roomRect.top;
+        let left = roomRect.right + 20; // Default: Right side
+
+        // If not enough space on right, try left
+        if (left + popRect.width > window.innerWidth - 20) {
+            left = roomRect.left - popRect.width - 20;
+        }
+
+        // Clamp vertical
+        if (top + popRect.height > window.innerHeight - 20) {
+            top = window.innerHeight - popRect.height - 20;
+        }
+        if (top < 20) top = 20;
+
+        pop.style.top = top + 'px';
+        pop.style.left = left + 'px';
+    }
+
+    function hideRoomPopout() {
+        refs.grid.classList.remove('has-focus');
+        const pop = document.getElementById('active-room-popout');
+        if (pop) pop.remove();
     }
 })();

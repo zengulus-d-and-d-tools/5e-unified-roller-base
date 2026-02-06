@@ -480,6 +480,109 @@ canvas#vector-cloud {
     margin-top: 18px;
 }
 
+/* --- FOCUS & POPOUT --- */
+.hq-grid.has-focus .room {
+    transition: opacity 0.2s, filter 0.2s;
+}
+
+.hq-grid.has-focus .room:not(:hover) {
+    opacity: 0.3;
+    filter: blur(2px) grayscale(0.5);
+}
+
+.room-popout {
+    position: fixed;
+    z-index: 1000;
+    width: 280px;
+    background: color-mix(in srgb, var(--hq-surface) 90%, rgba(0, 0, 0, 0.95));
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(78, 205, 196, 0.2);
+    pointer-events: none;
+    animation: fadeIn 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.room-popout h4 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 8px;
+}
+
+.room-popout .meta {
+    font-size: 0.75rem;
+    color: var(--hq-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+}
+
+.room-popout .pop-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+    color: var(--text);
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.room-popout .pop-row:last-child {
+    border-bottom: none;
+}
+
+.room-popout .assignee {
+    color: var(--hq-soft);
+    font-weight: 600;
+}
+
+.room-popout .empty-msg {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
+
+
+.junior-ops-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.85rem;
+    color: var(--hq-muted);
+}
+
+.junior-ops-control .label {
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+}
+
+.junior-ops-control .count-display {
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.junior-ops-control .small-input {
+    width: 40px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: var(--text);
+    padding: 2px 4px;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
 @media (max-width: 1080px) {
     .hq-layout {
         grid-template-columns: 1fr;
