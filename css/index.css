@@ -65,16 +65,111 @@ body {
     border: 1px solid var(--hq-border);
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(22px);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
 }
 
-.roller-header h1 {
-    color: var(--accent-secondary);
+.header-brand {
+    flex-shrink: 0;
+}
+
+.header-roller {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 8px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.mini-log-display {
+    text-align: right;
+    min-width: 80px;
+}
+
+.mini-log-display .log-formula {
+    font-size: 0.7rem;
+    color: #888;
+    margin-bottom: 0;
+}
+
+.mini-log-display .log-result {
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+.mini-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.adv-group,
+.util-group {
+    display: flex;
+    gap: 4px;
+}
+
+.mini-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #aaa;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: bold;
+}
+
+.mini-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.mini-btn.active[data-mode="norm"] {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+}
+
+.mini-btn.active[data-mode="adv"] {
+    background: var(--res-bar);
+    color: #fff;
+    border-color: var(--res-bar);
+}
+
+.mini-btn.active[data-mode="dis"] {
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+}
+
+.mini-btn[data-chip="secret"].active {
+    background: var(--secret);
+    color: #fff;
+    border-color: var(--secret);
+    box-shadow: 0 0 8px var(--secret);
+}
+
+.mini-input {
+    width: 60px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--gold);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    text-align: center;
+    padding: 2px;
 }
 
 .roller-actions {
-    width: auto;
-    align-items: flex-end;
-    gap: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .control-block {
@@ -208,138 +303,8 @@ body {
     font-size: 0.9rem;
 }
 
-/* --- ROLL LOG PANEL --- */
-.roll-log-panel {
-    position: sticky;
-    top: calc(var(--roller-stick-offset, 180px) - clamp(4px, 1vw, 12px));
-    z-index: 880;
-    margin-top: calc(-1 * clamp(14px, 2vw, 22px));
-    padding-top: 0;
-}
-
-.roll-log-card {
-    position: relative;
-    width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: clamp(10px, 1vw, 14px);
-    padding: clamp(14px, 2vw, 20px);
-    border-radius: 0 0 18px 18px;
-    border: 1px solid color-mix(in srgb, var(--hq-border) 75%, rgba(255, 255, 255, 0.12));
-    border-top: none;
-    background: color-mix(in srgb, var(--surface-soft) 88%, rgba(0, 0, 0, 0.2));
-    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(16px);
-}
-
-.roll-log-card::before {
-    content: '';
-    position: absolute;
-    top: -12px;
-    left: clamp(20px, 3vw, 36px);
-    right: clamp(20px, 3vw, 36px);
-    height: 12px;
-    border-radius: 12px 12px 0 0;
-    background: color-mix(in srgb, var(--surface-soft) 65%, rgba(0, 0, 0, 0.5));
-    box-shadow: 0 -6px 12px rgba(0, 0, 0, 0.2);
-}
-
-.log-panel-meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: clamp(4px, 1vw, 12px);
-    padding-bottom: 6px;
-    border-bottom: 1px solid color-mix(in srgb, var(--hq-border) 60%, rgba(255, 255, 255, 0.08));
-}
-
-.log-panel-meta .log-hint {
-    flex: 1 1 280px;
-    margin: 0;
-    font-size: 0.78rem;
-    color: color-mix(in srgb, rgba(224, 224, 224, 0.8) 70%, var(--accent-muted) 30%);
-}
-
-.roll-strip {
-    display: flex;
-    gap: clamp(10px, 1vw, 16px);
-    align-items: stretch;
-    flex-wrap: nowrap;
-}
-
-.roll-strip .control-block {
-    min-width: 180px;
-}
-
-.roll-block {
-    flex: 1 1 0;
-}
-
-.log-area {
-    flex: 2 1 320px;
-    min-width: 240px;
-}
-
-@media (max-width: 1200px) {
-    .roll-strip {
-        flex-wrap: wrap;
-    }
-
-    .roll-block {
-        flex: 1 1 calc(50% - clamp(10px, 1vw, 16px));
-        min-width: 220px;
-    }
-}
-
-@media (max-width: 720px) {
-    .roll-strip {
-        flex-direction: column;
-    }
-
-    .log-area {
-        align-items: flex-start;
-        text-align: left;
-        width: 100%;
-        min-width: 0;
-    }
-}
-
-.log-eyebrow {
-    margin: 0;
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--accent-muted);
-}
-
-.log-hint {
-    margin: 4px 0 0;
-    color: rgba(224, 224, 224, 0.75);
-    font-size: 0.85rem;
-}
-
-.log-area {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    justify-content: center;
-    text-align: right;
-    padding: clamp(10px, 1.8vw, 16px);
-    min-width: 0;
-    border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--hq-border) 80%, rgba(255, 255, 255, 0.15));
-    background: color-mix(in srgb, var(--surface-soft) 80%, rgba(0, 0, 0, 0.45));
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-}
-
-.log-formula {
-    font-family: monospace;
-    font-size: clamp(0.72rem, 1.6vw, 0.85rem);
-    color: #888;
-    white-space: nowrap;
-    margin-bottom: 2px;
-}
+/* --- ROLL LOG PANEL REMOVED --- */
+/* Kept critical log styles for re-use */
 
 .log-result {
     font-family: sans-serif;
@@ -1863,12 +1828,22 @@ button {
 }
 
 /* Fixed HP Label Alignment */
-.hp-label-row {
+/* Fixed HP Label Alignment */
+.hp-box label {
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 4px;
     width: 100%;
+    min-height: 20px;
+    margin-bottom: 2px !important;
+    /* Reduce gap slightly to compensate for taller label */
+}
+
+/* Remove separate class definition if it exists, or just ensure this overrides */
+.hp-label-row {
+    /* Merged into .hp-box label above, kept for specific overrides if needed but reset here */
+    display: contents;
 }
 
 .hp-auto-span {
@@ -1909,6 +1884,7 @@ button {
 
 /* --- MOBILE RESPONSIVENESS --- */
 @media (max-width: 768px) {
+
     /* Stack Grids */
     .hp-grid {
         grid-template-columns: 1fr 1fr;
