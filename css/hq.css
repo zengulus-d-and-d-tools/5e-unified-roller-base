@@ -374,7 +374,8 @@ canvas#vector-cloud {
 .field select,
 .field textarea,
 .slot-item input,
-.slot-item select {
+.slot-item select,
+.slot-item textarea {
     background: color-mix(in srgb, var(--hq-surface) 60%, rgba(255, 255, 255, 0.04));
     border: 1px solid color-mix(in srgb, var(--hq-border) 70%, rgba(255, 255, 255, 0.15));
     border-radius: 10px;
@@ -507,6 +508,12 @@ canvas#vector-cloud {
     width: 100%;
 }
 
+.slot-item textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 60px;
+}
+
 .slot-info {
     font-size: 0.75rem;
     color: var(--hq-muted);
@@ -582,6 +589,10 @@ canvas#vector-cloud {
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.room-popout .pop-row.has-desc {
+    align-items: flex-start;
+}
+
 .room-popout .pop-row:last-child {
     border-bottom: none;
 }
@@ -589,6 +600,18 @@ canvas#vector-cloud {
 .room-popout .assignee {
     color: var(--hq-soft);
     font-weight: 600;
+}
+
+.room-popout .pop-label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.room-popout .pop-label small {
+    font-size: 0.7rem;
+    color: var(--hq-muted);
+    letter-spacing: 0.02em;
 }
 
 .room-popout .empty-msg {

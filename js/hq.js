@@ -17,6 +17,8 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
+    const formatMultiline = (str = '') => escapeHTML(str).replace(/\n/g, '<br>');
+
     const store = window.RTF_STORE;
     const hasStoreBridge = !!(store && typeof store.getHQLayout === 'function' && typeof store.updateHQLayout === 'function');
 
@@ -59,6 +61,12 @@
     let playerOptions = [];
     let requisitionOptions = [];
 
+    const getMaxJuniorOperatives = () => {
+        const domVal = refs.juniorOpsMax ? parseInt(refs.juniorOpsMax.value, 10) : NaN;
+        if (Number.isFinite(domVal) && domVal >= 0) return domVal;
+        return Number.isFinite(state.maxJuniorOperatives) ? state.maxJuniorOperatives : 0;
+    };
+
     const normalize = (str) => (str || '').trim().toLowerCase();
 
     const getPlayersFromStore = () => (store && typeof store.getPlayers === 'function') ? store.getPlayers() : [];
@@ -92,6 +100,7 @@
         refreshAssigneeLists();
         renderFloorTabs();
         renderRooms();
+        syncJuniorOpsMaxInput();
         updateDetailPanel();
         bindUI();
         window.addEventListener('focus', refreshAssigneeLists);
@@ -151,9 +160,11 @@
                 ? { id: uniqueId('slot'), label: slot, playerId: '' }
                 : { id: uniqueId('slot'), label: slot, requisitionId: '' };
         }
+        const descriptionSource = slot ? (slot.description ?? slot.benefit ?? slot.effect ?? slot.details ?? '') : '';
         const base = {
             id: slot.id || uniqueId('slot'),
-            label: slot.label || ''
+            label: slot.label || '',
+            description: typeof descriptionSource === 'string' ? descriptionSource : String(descriptionSource || '')
         };
         if (type === 'downtime') {
             base.playerId = slot.playerId || slot.assignedPlayerId || '';
@@ -366,7 +377,8 @@
         refs.resourceCount.textContent = resources;
 
         const used = getJuniorOpsCount();
-        const available = Math.max(0, state.maxJuniorOperatives - used);
+        const max = getMaxJuniorOperatives();
+        const available = Math.max(0, max - used);
         refs.juniorOpsDisplay.textContent = available;
     }
 
@@ -412,9 +424,13 @@
             const assignmentMarkup = type === 'downtime'
                 ? buildPlayerAssignment(slot)
                 : buildResourceAssignment(slot);
+            const descriptionField = type === 'downtime'
+                ? `<textarea class="slot-field slot-desc" data-field="description" rows="2" placeholder="Description / Benefit">${escapeHTML(slot.description || '')}</textarea>`
+                : '';
             item.innerHTML = `
                 <div class="slot-row">
-                    <input class="slot-label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
+                    <input class="slot-field slot-label" data-field="label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
+                    ${descriptionField}
                 </div>
                 ${assignmentMarkup}
                 <button class="btn ghost small" data-action="remove">Remove</button>
@@ -543,8 +559,8 @@
         refs.addDowntime.addEventListener('click', () => addSlot('downtime'));
         refs.addResource.addEventListener('click', () => addSlot('resource'));
 
-        refs.downtimeList.addEventListener('input', handleSlotLabelInput('downtime'));
-        refs.resourceList.addEventListener('input', handleSlotLabelInput('resource'));
+        refs.downtimeList.addEventListener('input', handleSlotFieldInput('downtime'));
+        refs.resourceList.addEventListener('input', handleSlotFieldInput('resource'));
         refs.downtimeList.addEventListener('change', handleSlotChange('downtime'));
         refs.resourceList.addEventListener('change', handleSlotChange('resource'));
         refs.downtimeList.addEventListener('click', handleSlotRemove('downtime'));
@@ -574,16 +590,18 @@
         refs.renameFloor.addEventListener('click', renameFloor);
         refs.deleteFloor.addEventListener('click', deleteFloor);
 
-        const onJuniorOpsInput = (ev) => syncJuniorOpsMaxInput(ev.target);
+        const onJuniorOpsInput = () => syncJuniorOpsMaxInput();
         refs.juniorOpsMax.addEventListener('input', onJuniorOpsInput);
         refs.juniorOpsMax.addEventListener('change', onJuniorOpsInput);
     }
 
-    function syncJuniorOpsMaxInput(inputEl) {
+    function syncJuniorOpsMaxInput(inputEl = refs.juniorOpsMax) {
         if (!inputEl) return;
         const used = getJuniorOpsCount();
         let val = parseInt(inputEl.value, 10);
-        if (!Number.isFinite(val)) val = 0;
+        if (!Number.isFinite(val)) {
+            val = Number.isFinite(state.maxJuniorOperatives) ? state.maxJuniorOperatives : 0;
+        }
         val = Math.max(used, Math.max(0, val)); // Cannot be less than currently assigned
         inputEl.value = val;
         const prev = state.maxJuniorOperatives;
@@ -600,8 +618,8 @@
         if (!room) return;
         const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
         list.push(type === 'downtime'
-            ? { id: uniqueId('slot'), label: 'Downtime Slot', playerId: '' }
-            : { id: uniqueId('slot'), label: 'Resource Bay', requisitionId: '' });
+            ? { id: uniqueId('slot'), label: 'Downtime Slot', description: '', playerId: '' }
+            : { id: uniqueId('slot'), label: 'Resource Bay', description: '', requisitionId: '' });
         persistState();
         updateDetailPanel();
         renderRooms();
@@ -629,9 +647,10 @@
             } else if (ev.target.classList.contains('slot-junior')) {
                 if (ev.target.checked) {
                     const used = getJuniorOpsCount();
-                    if (used >= state.maxJuniorOperatives) {
+                    const max = getMaxJuniorOperatives();
+                    if (used >= max) {
                         ev.target.checked = false;
-                        alert(`No Junior Operatives available! (Max: ${state.maxJuniorOperatives})`);
+                        alert(`No Junior Operatives available! (Max: ${max})`);
                         return;
                     }
                 }
@@ -647,9 +666,11 @@
         };
     }
 
-    function handleSlotLabelInput(type) {
+    function handleSlotFieldInput(type) {
         return (ev) => {
-            if (!ev.target.classList.contains('slot-label')) return;
+            if (!ev.target.classList.contains('slot-field')) return;
+            const field = ev.target.dataset.field;
+            if (!field) return;
             const room = getRoom(selectedRoomId);
             if (!room) return;
             const item = ev.target.closest('.slot-item');
@@ -658,7 +679,7 @@
             const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
             const slot = list.find(s => s.id === slotId);
             if (!slot) return;
-            slot.label = ev.target.value;
+            slot[field] = ev.target.value;
             persistState();
             renderRooms();
         };
@@ -817,6 +838,10 @@
                     state = sanitizeState(parsed);
                     selectedRoomId = null;
                     persistState();
+                    if (refs.juniorOpsMax) {
+                        refs.juniorOpsMax.value = state.maxJuniorOperatives;
+                        syncJuniorOpsMaxInput();
+                    }
                     renderFloorTabs();
                     renderRooms();
                     updateDetailPanel();
@@ -1088,7 +1113,9 @@
                 } else if (slot.legacyAssignee) {
                     assignee = slot.legacyAssignee;
                 }
-                content += `<div class="pop-row"><span>${escapeHTML(slot.label)}</span><span class="assignee">${escapeHTML(assignee)}</span></div>`;
+                const detail = slot.description ? `<small>${formatMultiline(slot.description)}</small>` : '';
+                const labelBlock = `<span>${escapeHTML(slot.label)}</span>${detail}`;
+                content += `<div class="pop-row${slot.description ? ' has-desc' : ''}"><div class="pop-label">${labelBlock}</div><span class="assignee">${escapeHTML(assignee)}</span></div>`;
             });
             content += `</div>`;
         }
