@@ -574,11 +574,12 @@ canvas#vector-cloud {
 
 .junior-ops-control .small-input {
     width: 40px;
+    height: 22px;
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 4px;
     color: var(--text);
-    padding: 2px 4px;
+    padding: 0 4px;
     font-size: 0.85rem;
     text-align: center;
 }

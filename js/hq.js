@@ -569,13 +569,12 @@
         refs.deleteFloor.addEventListener('click', deleteFloor);
 
         refs.juniorOpsMax.addEventListener('change', (ev) => {
-            const val = Math.max(0, parseInt(ev.target.value, 10));
+            const used = getJuniorOpsCount();
+            const val = Math.max(used, parseInt(ev.target.value, 10) || 0); // Cannot be less than currently assigned
             ev.target.value = val;
             state.maxJuniorOperatives = val;
             persistState();
             updateStats();
-            // Re-render rooms is needed to update checkboxes if we lowered the limit below consumption? 
-            // Actually no, we don't auto-uncheck, we just prevent new checks.
             updateDetailPanel();
         });
     }
@@ -590,6 +589,46 @@
         persistState();
         updateDetailPanel();
         renderRooms();
+    }
+
+    function handleSlotChange(type) {
+        return (ev) => {
+            const room = getRoom(selectedRoomId);
+            if (!room) return;
+            const item = ev.target.closest('.slot-item');
+            if (!item) return;
+            const slotId = item.dataset.id;
+            const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
+            const slot = list.find(s => s.id === slotId);
+            if (!slot) return;
+
+            if (ev.target.classList.contains('slot-select')) {
+                if (type === 'downtime') {
+                    slot.playerId = ev.target.value;
+                    if (slot.playerId) slot.junior = false; // Primary assignment overrides junior
+                } else {
+                    slot.requisitionId = ev.target.value;
+                }
+                slot.legacyAssignee = '';
+            } else if (ev.target.classList.contains('slot-junior')) {
+                if (ev.target.checked) {
+                    const used = getJuniorOpsCount();
+                    if (used >= state.maxJuniorOperatives) {
+                        ev.target.checked = false;
+                        alert(`No Junior Operatives available! (Max: ${state.maxJuniorOperatives})`);
+                        return;
+                    }
+                }
+                slot.junior = ev.target.checked;
+                if (slot.junior) slot.playerId = ''; // Junior overrides specific player
+            } else {
+                return;
+            }
+
+            persistState();
+            updateDetailPanel();
+            renderRooms();
+        };
     }
 
     function handleSlotLabelInput(type) {
