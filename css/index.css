@@ -244,9 +244,10 @@ body {
 }
 
 .log-console {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(220px, 0.85fr) minmax(320px, 1.15fr);
     gap: 18px;
+    align-items: stretch;
 }
 
 .log-eyebrow {
@@ -269,8 +270,8 @@ body {
     align-items: flex-end;
     justify-content: center;
     text-align: right;
-    min-width: 220px;
     padding: 18px 22px;
+    min-width: 0;
     border-radius: 16px;
     border: 1px solid color-mix(in srgb, var(--hq-border) 80%, rgba(255, 255, 255, 0.15));
     background: color-mix(in srgb, var(--hq-surface) 75%, rgba(0, 0, 0, 0.35));
@@ -282,8 +283,8 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .log-area {
-        min-width: 0;
+    .log-console {
+        grid-template-columns: 1fr;
     }
 }
 

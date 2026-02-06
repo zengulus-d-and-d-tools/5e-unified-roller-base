@@ -560,10 +560,10 @@ body.accent-panel-open {
     flex-direction: column;
     gap: 10px;
     align-items: flex-end;
-    flex: 0 1 420px;
-    min-width: 260px;
+    flex: 0 0 auto;
+    min-width: 200px;
+    width: auto;
     max-width: 420px;
-    width: 100%;
     text-align: right;
 }
 
@@ -572,7 +572,7 @@ body.accent-panel-open {
     flex-wrap: wrap;
     gap: 10px;
     justify-content: flex-end;
-    width: 100%;
+    width: auto;
 }
 
 .hero-action-bar.secondary {
@@ -665,6 +665,7 @@ body.accent-panel-open {
 
     .hero-action-bar {
         justify-content: flex-start;
+        width: 100%;
     }
 }
 
