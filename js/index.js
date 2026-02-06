@@ -41,6 +41,12 @@ let data = {}
 let consumeInspirationOnNextRoll = false;
 let secretMode = false;
 let rollerOffsetRaf = null;
+const STORAGE_KEYS = {
+    current: 'unifiedSheetData.json',
+    legacy: ['unifiedSheetDataV3', 'unifiedSheetDataV2']
+}
+
+    ;
 
 function updateRollerStickyOffset() {
     const hero = document.getElementById('rollerBar');
@@ -64,6 +70,24 @@ window.addEventListener('resize', queueRollerStickyOffset);
 window.addEventListener('orientationchange', queueRollerStickyOffset);
 window.addEventListener('load', queueRollerStickyOffset);
 queueRollerStickyOffset();
+
+function applySheetFlipState(isFlipped) {
+    if (!data.uiState) data.uiState = {}
+
+        ;
+    const flipper = document.getElementById('sheetFlipper');
+    const btn = document.getElementById('btnFlipSheet');
+    const nextVal = !!isFlipped;
+    if (flipper) flipper.classList.toggle('flipped', nextVal);
+    if (btn) btn.setAttribute('aria-pressed', nextVal ? 'true' : 'false');
+    data.uiState.isFlipped = nextVal;
+}
+
+function toggleSheetFlip() {
+    const current = data && data.uiState ? !!data.uiState.isFlipped : false;
+    applySheetFlipState(!current);
+    save();
+}
 
 // --- ACCORDION LOGIC ---
 function toggleSection(key) {
@@ -103,6 +127,81 @@ function toggleAccordion(trigger) {
             else card.classList.remove('card-collapsed');
         }
     }
+}
+
+function getDefaultInventory() {
+    return {
+
+        containers: {},
+        items: {},
+        looseItems: [],
+        rootOrder: []
+    }
+
+        ;
+}
+
+function ensureInventoryStructure(charData) {
+    if (!charData) return;
+    if (!charData.inventory || typeof charData.inventory !== 'object') {
+        charData.inventory = getDefaultInventory();
+    }
+
+    const inv = charData.inventory;
+    inv.containers = inv.containers || {};
+    inv.items = inv.items || {};
+    if (!Array.isArray(inv.looseItems)) inv.looseItems = [];
+    if (!Array.isArray(inv.rootOrder)) inv.rootOrder = [];
+
+    Object.keys(inv.containers).forEach(id => {
+        const container = inv.containers[id];
+        if (!container) {
+            delete inv.containers[id];
+            return;
+        }
+
+        container.id = container.id || id;
+        if (!Array.isArray(container.items)) container.items = [];
+        if (!Array.isArray(container.children)) container.children = [];
+        if (container.parentId && !inv.containers[container.parentId]) container.parentId = null;
+    });
+
+    Object.keys(inv.items).forEach(id => {
+        const item = inv.items[id];
+        if (!item) {
+            delete inv.items[id];
+            return;
+        }
+
+        item.id = item.id || id;
+        if (item.containerId && !inv.containers[item.containerId]) item.containerId = null;
+        const parsedQty = parseInt(item.quantity, 10);
+        item.quantity = Number.isFinite(parsedQty) ? Math.max(0, parsedQty) : 1;
+    });
+
+    inv.rootOrder = inv.rootOrder.filter((id, idx, arr) => inv.containers[id] && !inv.containers[id].parentId && arr.indexOf(id) === idx);
+    inv.looseItems = inv.looseItems.filter((id, idx, arr) => inv.items[id] && !inv.items[id].containerId && arr.indexOf(id) === idx);
+
+    Object.values(inv.containers).forEach(container => {
+        container.items = container.items.filter((itemId, idx, arr) => inv.items[itemId] && inv.items[itemId].containerId === container.id && arr.indexOf(itemId) === idx);
+        container.children = container.children.filter((childId, idx, arr) => inv.containers[childId] && inv.containers[childId].parentId === container.id && arr.indexOf(childId) === idx);
+    });
+
+    Object.values(inv.containers).forEach(container => {
+        if (!container.parentId && !inv.rootOrder.includes(container.id)) inv.rootOrder.push(container.id);
+    });
+
+    Object.values(inv.items).forEach(item => {
+        if (item.containerId) {
+            const parent = inv.containers[item.containerId];
+            if (parent && !parent.items.includes(item.id)) parent.items.push(item.id);
+        }
+
+        else {
+            item.containerId = null;
+            if (!inv.looseItems.includes(item.id)) inv.looseItems.push(item.id);
+        }
+    });
 }
 
 // --- CHARACTER SWITCHING LOGIC ---
@@ -182,8 +281,9 @@ function getDefaultChar() {
         rollMode: 'norm',
         uiState: {
             cardOrder: []
-        }
-    }
+        },
+        inventory: getDefaultInventory()
+}
 
         ;
     Object.keys(skillsMap).forEach(s => char.skills[s] = 0);
@@ -192,6 +292,63 @@ function getDefaultChar() {
         lvl: i, max: 0, used: 0
     });
     return char;
+}
+
+function createDefaultAllData() {
+    const id = 'char_default';
+
+    const base = {
+
+        activeId: id,
+        characters: {}
+    }
+
+        ;
+    base.characters[id] = getDefaultChar();
+    return base;
+}
+
+function tryParseStoredAllData(raw) {
+    if (!raw) return null;
+
+    try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || !parsed.characters || !parsed.activeId) return null;
+        return parsed;
+    }
+
+    catch (e) {
+        console.error('Corrupted data payload', e);
+        return null;
+    }
+}
+
+function tryParseLegacyV2(raw) {
+    if (!raw) return null;
+
+    try {
+        const oldChar = JSON.parse(raw);
+        const id = 'char_imported';
+
+        const bundle = {
+
+            activeId: id,
+            characters: {}
+        }
+
+            ;
+        bundle.characters[id] = oldChar;
+        if (!bundle.characters[id].uiState) bundle.characters[id].uiState = {}
+
+            ;
+        if (!bundle.characters[id].inventory) ensureInventoryStructure(bundle.characters[id]);
+        return bundle;
+    }
+
+    catch (e) {
+        console.error('Corrupted V2 payload', e);
+        return null;
+    }
 }
 
 function refreshCharSelect() {
@@ -247,102 +404,47 @@ function loadActiveChar() {
 
 // --- INITIALIZATION ---
 function init() {
-    const v3 = localStorage.getItem('unifiedSheetDataV3');
+    const existing = tryParseStoredAllData(localStorage.getItem(STORAGE_KEYS.current));
 
-    if (v3) {
-        try {
-            allData = JSON.parse(v3);
-
-            // VALIDATION
-            if (!allData || !allData.characters || !allData.activeId) {
-                throw new Error("Invalid V3 Data");
-            }
-        }
-
-        catch (e) {
-            console.error("Corrupted V3 Data", e);
-            // Fallback to default
-            const id = 'char_default';
-
-            allData = {
-
-                activeId: id,
-                characters: {}
-            }
-
-                ;
-            allData.characters[id] = getDefaultChar();
-        }
-    }
+    if (existing) allData = existing;
 
     else {
-        const v2 = localStorage.getItem('unifiedSheetDataV2');
+        let loaded = false;
 
-        if (v2) {
-            try {
-                const oldChar = JSON.parse(v2);
-                const id = 'char_imported';
+        for (const legacyKey of STORAGE_KEYS.legacy) {
+            const raw = localStorage.getItem(legacyKey);
+            if (!raw) continue;
 
-                allData = {
-
-                    activeId: id,
-                    characters: {}
+            if (legacyKey === 'unifiedSheetDataV2') {
+                const migrated = tryParseLegacyV2(raw);
+                if (migrated) {
+                    allData = migrated;
+                    loaded = true;
+                    break;
                 }
-
-                    ;
-                allData.characters[id] = oldChar;
-
-                if (!allData.characters[id].uiState) allData.characters[id].uiState = {}
-
-                    ;
             }
 
-            catch (e) {
-                const id = 'char_default';
-
-                allData = {
-
-                    activeId: id,
-                    characters: {}
+            else {
+                const parsed = tryParseStoredAllData(raw);
+                if (parsed) {
+                    allData = parsed;
+                    loaded = true;
+                    break;
                 }
-
-                    ;
-                allData.characters[id] = getDefaultChar();
             }
         }
 
-        else {
-            const id = 'char_default';
-
-            allData = {
-
-                activeId: id,
-                characters: {}
-            }
-
-                ;
-            allData.characters[id] = getDefaultChar();
-        }
-
+        if (!loaded) allData = createDefaultAllData();
         saveGlobal();
     }
 
-    // Final safety check
     if (!allData.characters[allData.activeId]) {
         const keys = Object.keys(allData.characters);
+
         if (keys.length > 0) allData.activeId = keys[0];
 
         else {
-            const id = 'char_rescue_' + Date.now();
-
-            allData = {
-
-                activeId: id,
-                characters: {}
-            }
-
-                ;
-            allData.characters[id] = getDefaultChar();
+            allData = createDefaultAllData();
         }
     }
 
@@ -372,6 +474,9 @@ function populateUI() {
     if (!data.skillOverrides) data.skillOverrides = {}
 
         ;
+
+    ensureInventoryStructure(data);
+    applySheetFlipState(data.uiState && data.uiState.isFlipped);
 
     document.getElementById('playerName').value = data.meta.player || '';
     document.getElementById('charName').value = data.meta.name || '';
@@ -469,13 +574,14 @@ function populateUI() {
     renderSpells();
     renderResources();
     refreshBuffsUI();
+    renderInventory();
     updateAll();
     setMode(data.rollMode || 'norm');
     isPopulating = false;
 }
 
 function saveGlobal() {
-    localStorage.setItem('unifiedSheetDataV3', JSON.stringify(allData));
+    localStorage.setItem(STORAGE_KEYS.current, JSON.stringify(allData));
 }
 
 function save() {
@@ -1699,6 +1805,395 @@ function renderResources() {
 
                     </div> </div> `
     }).join('');
+}
+
+// --- INVENTORY MANAGEMENT ---
+function renderInventory() {
+    if (!data || !data.inventory) return;
+    const root = document.getElementById('inventoryContainers');
+    const looseList = document.getElementById('inventoryLooseItems');
+    if (!root || !looseList) return;
+
+    ensureInventoryStructure(data);
+    const inv = data.inventory;
+    root.innerHTML = renderContainerList(inv.rootOrder, null);
+
+    if (inv.rootOrder.length === 0) {
+        root.insertAdjacentHTML('beforeend', '<div class="inventory-empty">No containers yet. Create one to start organizing your gear.</div>');
+    }
+
+    const looseMarkup = inv.looseItems.map(id => renderInventoryItem(inv.items[id])).join('');
+    looseList.innerHTML = looseMarkup;
+    const looseArea = looseList.closest('.inventory-loose-area');
+    if (looseArea) looseArea.setAttribute('data-empty', looseMarkup ? 'false' : 'true');
+}
+
+function renderContainerList(ids = [], parentId = null) {
+    if (!data || !data.inventory) return '';
+    const inv = data.inventory;
+    const targetParent = parentId === null ? 'null' : parentId;
+    let markup = '';
+
+    ids.forEach((containerId, idx) => {
+        markup += renderContainerDropSlot(targetParent, idx);
+        const container = inv.containers[containerId];
+        if (container) markup += renderInventoryContainerCard(container);
+    });
+
+    markup += renderContainerDropSlot(targetParent, ids.length);
+    return markup;
+}
+
+function renderInventoryContainerCard(container) {
+    const inv = data.inventory;
+    const validItems = (container.items || []).filter(id => inv.items[id]);
+    const itemsHtml = validItems.map(id => renderInventoryItem(inv.items[id])).join('');
+    const childHtml = renderContainerList(container.children || [], container.id);
+    const childEmpty = !container.children || container.children.length === 0;
+    const safeName = escapeHtml(container.name || 'Container');
+
+    return `<div class="inventory-container-card" data-container-id="${container.id}">
+        <div class="inventory-card-header">
+            <div class="inventory-card-title-row">
+                <span class="inventory-drag-handle" draggable="true" ondragstart="onInventoryContainerDragStart(event, '${container.id}')" ondragend="onInventoryDragEnd()">⠿</span>
+                <input type="text" value="${safeName}" placeholder="Container Name" oninput="renameContainer('${container.id}', this.value)">
+            </div>
+            <div class="inventory-card-controls">
+                <button type="button" class="inventory-delete-btn" onclick="deleteContainer('${container.id}')">&times;</button>
+            </div>
+        </div>
+        <div class="inventory-card-body">
+            <div class="inventory-items" data-empty="${validItems.length === 0 ? 'true' : 'false'}" ondragover="allowInventoryItemDrop(event)" ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryItemDrop(event, '${container.id}')">
+                ${itemsHtml}
+                <div class="inventory-add-item">
+                    <input type="text" id="addItemInput-${container.id}" placeholder="Add item" onkeydown="handleInventoryInputEnter(event, '${container.id}')">
+                    <button type="button" onclick="handleContainerAddItem('${container.id}')">Add</button>
+                </div>
+            </div>
+            <div class="inventory-children" data-empty="${childEmpty ? 'true' : 'false'}" ondragover="allowInventoryContainerDrop(event)" ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryContainerNest(event, '${container.id}')">
+                ${childHtml}
+            </div>
+        </div>
+    </div>`;
+}
+
+function renderInventoryItem(item) {
+    if (!item) return '';
+    const safeName = escapeHtml(item.name || 'Item');
+    const qty = Math.max(0, parseInt(item.quantity, 10) || 0);
+    return `<div class="inventory-item" data-item-id="${item.id}">
+        <span class="inventory-drag-handle" draggable="true" ondragstart="onInventoryItemDragStart(event, '${item.id}')" ondragend="onInventoryDragEnd()">⠿</span>
+        <input type="text" value="${safeName}" placeholder="Item Name" oninput="renameItem('${item.id}', this.value)">
+        <div class="inventory-qty-control">
+            <button type="button" class="inventory-qty-btn" onclick="adjustItemQuantity('${item.id}', -1)" aria-label="Decrease quantity">-</button>
+            <input type="number" class="inventory-qty-input" min="0" value="${qty}" onchange="setItemQuantity('${item.id}', this.value)" aria-label="Item quantity">
+            <button type="button" class="inventory-qty-btn" onclick="adjustItemQuantity('${item.id}', 1)" aria-label="Increase quantity">+</button>
+        </div>
+        <button type="button" class="inventory-delete-btn" onclick="deleteItem('${item.id}')">&times;</button>
+    </div>`;
+}
+
+function renderContainerDropSlot(parentId, index) {
+    return `<div class="inventory-drop-slot" data-parent-id="${parentId}" data-drop-index="${index}" ondragover="allowInventoryContainerDrop(event)" ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryContainerDrop(event, '${parentId}', '${index}')"></div>`;
+}
+
+function createContainer(parentId = null) {
+    ensureInventoryStructure(data);
+    const inv = data.inventory;
+    const normalizedParent = (parentId && inv.containers[parentId]) ? parentId : null;
+    const id = generateInventoryId('container');
+    inv.containers[id] = {
+        id,
+        name: 'New Container',
+        parentId: normalizedParent,
+        items: [],
+        children: []
+    }
+
+        ;
+    findContainerList(normalizedParent).push(id);
+    renderInventory();
+    saveGlobal();
+    return id;
+}
+
+function handleContainerAddItem(containerId) {
+    const input = document.getElementById(`addItemInput-${containerId}`);
+    if (!input) return;
+    const value = input.value.trim();
+    createItem(containerId, value);
+    input.value = '';
+}
+
+function handleLooseItemAdd() {
+    const input = document.getElementById('looseItemInput');
+    if (!input) return;
+    const value = input.value.trim();
+    createItem(null, value);
+    input.value = '';
+}
+
+function handleInventoryInputEnter(event, containerId) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (containerId === 'null') handleLooseItemAdd();
+
+    else handleContainerAddItem(containerId);
+}
+
+function createItem(containerId = null, label = '') {
+    ensureInventoryStructure(data);
+    const inv = data.inventory;
+    const normalized = (containerId && inv.containers[containerId]) ? containerId : null;
+    const id = generateInventoryId('item');
+    inv.items[id] = {
+        id,
+        name: label || 'New Item',
+        containerId: normalized,
+        quantity: 1
+    }
+
+        ;
+
+    if (normalized) inv.containers[normalized].items.push(id);
+
+    else inv.looseItems.push(id);
+
+    renderInventory();
+    saveGlobal();
+    return id;
+}
+
+function renameContainer(containerId, name) {
+    if (!data.inventory || !data.inventory.containers[containerId]) return;
+    data.inventory.containers[containerId].name = name;
+    saveGlobal();
+}
+
+function renameItem(itemId, name) {
+    if (!data.inventory || !data.inventory.items[itemId]) return;
+    data.inventory.items[itemId].name = name;
+    saveGlobal();
+}
+
+function applyItemQuantity(itemId, quantity) {
+    if (!data.inventory || !data.inventory.items[itemId]) return;
+    const item = data.inventory.items[itemId];
+    const next = Math.max(0, parseInt(quantity, 10) || 0);
+    item.quantity = next;
+    renderInventory();
+    saveGlobal();
+}
+
+function setItemQuantity(itemId, quantity) {
+    applyItemQuantity(itemId, quantity);
+}
+
+function adjustItemQuantity(itemId, delta) {
+    if (!data.inventory || !data.inventory.items[itemId]) return;
+    const current = parseInt(data.inventory.items[itemId].quantity, 10) || 0;
+    applyItemQuantity(itemId, current + delta);
+}
+
+function deleteContainer(containerId) {
+    if (!data.inventory || !data.inventory.containers[containerId]) return;
+    const inv = data.inventory;
+    const targets = [containerId];
+
+    while (targets.length) {
+        const current = targets.pop();
+        const container = inv.containers[current];
+        if (!container) continue;
+
+        [...container.items].forEach(itemId => deleteItem(itemId, { silent: true }));
+        targets.push(...container.children);
+        const list = findContainerList(container.parentId || null);
+        removeIdFromArray(list, current);
+        delete inv.containers[current];
+    }
+
+    renderInventory();
+    saveGlobal();
+}
+
+function deleteItem(itemId, options = {}) {
+    if (!data.inventory || !data.inventory.items[itemId]) return;
+    const inv = data.inventory;
+    const item = inv.items[itemId];
+    if (item.containerId && inv.containers[item.containerId]) {
+        removeIdFromArray(inv.containers[item.containerId].items, itemId);
+    }
+
+    else removeIdFromArray(inv.looseItems, itemId);
+
+    delete inv.items[itemId];
+    if (!options.silent) {
+        renderInventory();
+        saveGlobal();
+    }
+}
+
+function moveItem(itemId, targetContainerId = null) {
+    if (!data.inventory || !data.inventory.items[itemId]) return;
+    const inv = data.inventory;
+    const item = inv.items[itemId];
+    const normalizedTarget = (targetContainerId && inv.containers[targetContainerId]) ? targetContainerId : null;
+
+    if (item.containerId && inv.containers[item.containerId]) {
+        removeIdFromArray(inv.containers[item.containerId].items, itemId);
+    }
+
+    else removeIdFromArray(inv.looseItems, itemId);
+
+    item.containerId = normalizedTarget;
+
+    if (normalizedTarget) inv.containers[normalizedTarget].items.push(itemId);
+
+    else inv.looseItems.push(itemId);
+
+    renderInventory();
+    saveGlobal();
+}
+
+function nestContainer(containerId, parentId = null, dropIndex = null) {
+    if (!data.inventory || !data.inventory.containers[containerId]) return;
+    if (containerId === parentId) return;
+    const inv = data.inventory;
+    const normalizedParent = (parentId && inv.containers[parentId]) ? parentId : null;
+    if (normalizedParent && isInvalidContainerNest(containerId, normalizedParent)) return;
+
+    const currentParent = inv.containers[containerId].parentId || null;
+    const currentList = findContainerList(currentParent);
+    removeIdFromArray(currentList, containerId);
+
+    inv.containers[containerId].parentId = normalizedParent;
+    const targetList = findContainerList(normalizedParent);
+    let index = dropIndex;
+    if (typeof index !== 'number' || Number.isNaN(index)) index = targetList.length;
+    index = Math.max(0, Math.min(targetList.length, index));
+    targetList.splice(index, 0, containerId);
+
+    renderInventory();
+    saveGlobal();
+}
+
+function isInvalidContainerNest(childId, proposedParentId) {
+    if (childId === proposedParentId) return true;
+    let current = proposedParentId;
+    const inv = data.inventory;
+
+    while (current) {
+        if (current === childId) return true;
+        const ref = inv.containers[current];
+        current = ref ? (ref.parentId || null) : null;
+    }
+
+    return false;
+}
+
+function findContainerList(parentId) {
+    const inv = data.inventory;
+    if (!inv) return [];
+    if (!parentId) return inv.rootOrder;
+    const parent = inv.containers[parentId];
+    if (!parent) return inv.rootOrder;
+    if (!Array.isArray(parent.children)) parent.children = [];
+    return parent.children;
+}
+
+function removeIdFromArray(arr, id) {
+    if (!Array.isArray(arr)) return;
+    const idx = arr.indexOf(id);
+    if (idx > -1) arr.splice(idx, 1);
+}
+
+function generateInventoryId(prefix) {
+    return `${prefix}_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`;
+}
+
+function escapeHtml(str = '') {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+let inventoryDragPayload = null;
+
+function onInventoryItemDragStart(event, itemId) {
+    setInventoryDragPayload(event, { type: 'item', id: itemId });
+}
+
+function onInventoryContainerDragStart(event, containerId) {
+    setInventoryDragPayload(event, { type: 'container', id: containerId });
+}
+
+function setInventoryDragPayload(event, payload) {
+    inventoryDragPayload = payload;
+    if (event && event.dataTransfer) {
+        event.dataTransfer.setData('text/plain', JSON.stringify(payload));
+        event.dataTransfer.effectAllowed = 'move';
+    }
+}
+
+function onInventoryDragEnd() {
+    inventoryDragPayload = null;
+}
+
+function allowInventoryItemDrop(event) {
+    const payload = getInventoryDragPayload(event);
+    if (!payload || payload.type !== 'item') return;
+    event.preventDefault();
+    event.currentTarget.classList.add('drag-over');
+}
+
+function onInventoryDropLeave(event) {
+    event.currentTarget.classList.remove('drag-over');
+}
+
+function onInventoryItemDrop(event, targetId) {
+    const payload = getInventoryDragPayload(event);
+    event.currentTarget.classList.remove('drag-over');
+    if (!payload || payload.type !== 'item') return;
+    event.preventDefault();
+    moveItem(payload.id, targetId === 'null' ? null : targetId);
+    inventoryDragPayload = null;
+}
+
+function allowInventoryContainerDrop(event) {
+    const payload = getInventoryDragPayload(event);
+    if (!payload || payload.type !== 'container') return;
+    event.preventDefault();
+    event.currentTarget.classList.add('drag-over');
+}
+
+function onInventoryContainerDrop(event, parentId, index) {
+    const payload = getInventoryDragPayload(event);
+    event.currentTarget.classList.remove('drag-over');
+    if (!payload || payload.type !== 'container') return;
+    event.preventDefault();
+    nestContainer(payload.id, parentId === 'null' ? null : parentId, parseInt(index, 10));
+    inventoryDragPayload = null;
+}
+
+function onInventoryContainerNest(event, parentId) {
+    const payload = getInventoryDragPayload(event);
+    event.currentTarget.classList.remove('drag-over');
+    if (!payload || payload.type !== 'container') return;
+    event.preventDefault();
+    nestContainer(payload.id, parentId === 'null' ? null : parentId);
+    inventoryDragPayload = null;
+}
+
+function getInventoryDragPayload(event) {
+    if (inventoryDragPayload) return inventoryDragPayload;
+
+    try {
+        const raw = event && event.dataTransfer ? event.dataTransfer.getData('text/plain') : '';
+        if (!raw) return null;
+        return JSON.parse(raw);
+    }
+
+    catch (e) {
+        return null;
+    }
 }
 
 // --- DATA HELPERS ---

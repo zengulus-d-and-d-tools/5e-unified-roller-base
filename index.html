@@ -41,6 +41,8 @@
         </div>
 
         <div class="hero-actions roller-actions">
+            <button class="hero-btn ghost" id="btnFlipSheet" onclick="toggleSheetFlip()" title="Flip Sheet"
+                aria-pressed="false">🔁</button>
             <a href="tools.html" class="hero-btn ghost">Portal</a>
             <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨</button>
             <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌</button>
@@ -49,7 +51,10 @@
         <input type="color" id="accent-picker-input" style="visibility:hidden; width:0; height:0; position:absolute;"
             onchange="setAccentColor(this.value)">
     </header>
-    <div class="sheet-container">
+    <div class="scene" id="sheetScene">
+        <div class="sheet-flipper" id="sheetFlipper">
+            <div class="face front">
+                <div class="sheet-container">
         <!-- START CREATE BUTTON --><button onclick="openCharCreator()"
             style="background:var(--res-bar); color:#fff; width:100%; padding:15px; font-size:1.1rem; border:1px solid #2ecc71; box-shadow:0 4px 10px rgba(46, 204, 113, 0.2); margin-bottom:5px;">✨
             Start a new character </button>
@@ -330,6 +335,39 @@
                         Save</button><button style="flex:1; background:var(--accent); color:#000;"
                         onclick="importData()">Load Save</button></div>
                 <div id="ioMsg" style="text-align:center; color: var(--accent); font-size:0.8rem; margin-top:8px;">
+                </div>
+            </div>
+        </div>
+                </div>
+            </div>
+            <div class="face back">
+                <div class="inventory-sheet">
+                    <div class="inventory-header">
+                        <div>
+                            <p class="inventory-eyebrow">Back of Sheet</p>
+                            <h2>Inventory Management</h2>
+                        </div>
+                        <button class="inventory-create-btn" type="button" onclick="createContainer()">+ Create
+                            Container</button>
+                    </div>
+                    <div class="inventory-grid">
+                        <div class="inventory-main" id="inventoryContainers"></div>
+                        <aside class="inventory-sidebar">
+                            <div class="inventory-sidebar-header">
+                                <h3>Loose Loot / Unassigned</h3>
+                                <p>Drag items here to leave them unassigned.</p>
+                            </div>
+                            <div class="inventory-loose-area" ondragover="allowInventoryItemDrop(event)"
+                                ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryItemDrop(event, 'null')">
+                                <div class="inventory-loose-list" id="inventoryLooseItems"></div>
+                            </div>
+                            <div class="inventory-add-item">
+                                <input type="text" id="looseItemInput" placeholder="Add loose item"
+                                    onkeydown="handleInventoryInputEnter(event, 'null')">
+                                <button type="button" onclick="handleLooseItemAdd()">Add</button>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
             </div>
         </div>
