@@ -1,6 +1,6 @@
 # Campaign Hub (`hub.html`)
 
-Between-sessions control room for heat, guild standing, and downtime logistics. Pulls from the same data store as every other tool so NPC/Guild metadata stays aligned.
+Between-sessions control room for heat, guild standing, and downtime logistics. It pulls from the same unified store as the campaign-facing tools (Case Board, Player Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ) so NPC/Guild metadata stays aligned.
 
 ## Layout
 - **Case Prep Template** – The top card is a quick brief: title/logline, guilds in conflict, antagonist goal, legal & physical obstacles, and a set-piece outline. Use it as a one-page primer before the next mission.

@@ -15,11 +15,12 @@ Open **`tools.html`** in your browser. This is your portal to all available apps
 
 ### Key Features
 *   **Stats & Vitals:** Track HP, AC, and resource pools (Ki, Sorcery Points, etc).
-*   **Dice Roller:** Built-in 3D vector dice. Click the dice icons to roll. Hold `Shift` for Advantage or `Alt` for Disadvantage.
-*   **Inventory & Spells:** Manage your loadout and spell slots.
+*   **Command Console Roller:** Inline roller with Advantage/Disadvantage toggles, a `+Mod` field, and optional secret/Discord output so you never leave the sheet.
+*   **Inventory & Spells:** Manage your loadout, reusable attacks, spell slots, feats, and custom features.
 *   **Automation:**
     *   **Resting:** Use the Short/Long rest buttons to automatically reset resources and hit dice.
-    *   **Death Saves:** clickable interaction for success/failure tracking.
+    *   **Death Saves:** Click successes/failures and let the tracker handle the math.
+*   **Creator Overlay:** Tap **✨ Start a new character** (or the `+` next to the selector) to walkthrough race/class inputs and seed a fresh sheet fast.
 
 ### Shortcuts
 *   **`Shift` + Click Roll:** Roll with Advantage.
@@ -27,7 +28,7 @@ Open **`tools.html`** in your browser. This is your portal to all available apps
 
 ---
 
-## 🕸️ Investigation Board (`board.html`)
+## 🕸️ Case Board (`board.html`)
 **A collaborative whiteboard for solving cases.**
 
 Use this space to map out clues, suspects, and locations.
@@ -81,15 +82,22 @@ A high-level view of the entire party's vital statistics.
 
 ---
 
-## 🛠️ Other Tools
+## 🛠️ Operations & GM Tools
 
 | Tool | Description |
 | :--- | :--- |
-| **Main Hub** (`hub.html`) | View Guild Renown, Heat levels, and Campaign Downtime status. |
-| **Tournament** (`tourney.html`) | View active competition brackets. |
-| **HQ Layout Foundry** (`hq.html`) | (See section above) Collaborative home-base planner. |
+| **Tools Hub** (`tools.html`) | Import/export the shared store, set the table accent, and reveal DM-only shortcuts. |
+| **Campaign Hub** (`hub.html`) | Track guild reputation, crew Heat, and downtime payouts between sessions. |
+| **Mission Timeline** (`timeline.html`) | Chronicle ops with heat deltas, fallout notes, and filters for recap prep. |
+| **Requisition Vault** (`requisitions.html`) | Log gear requests, approvals, and delivery status so everyone knows what’s in the queue. |
+| **Encounter Recipes** (`encounters.html`) | Prep reusable fights, hazards, and rewards on cards that autosave to the shared store. |
+| **Clue Generator** (`clue.html`) | Pair signal vs noise evidence to keep investigations fresh, then drop results straight onto the Case Board. |
+| **Session Tracker** (`gm.html`) | DM deck for initiative, loot, and inline rolling. It saves to its own `gmDashboardData` key, so export/import inside the page when you need to share presets. |
+| **Narrative Engine** (`dm-screen.html`) | Prompt factory for hazards, NPC motivations, scene texture, and wrap-up headlines. |
+| **Tournament Bracket** (`tourney.html`) | Manage double-elimination brackets with auto-advancing brackets saved locally per browser. |
 
 ## 💾 Saving Data
-All data is saved automatically to your browser's **Local Storage**.
-*   **Export:** Use the "Export" button on the Portal (`tools.html`) to backup your data to a JSON file.
-*   **Import:** Restore your data on a new device or browser using "Import".
+Campaign tools share the `RTF_STORE` Local Storage object.
+*   **Import once:** Open `tools.html`, click Import, and every Hub/Board/Dashboard/Roster/Locations/Requisition/Timeline/Encounter/HQ tab will pick up that snapshot.
+*   **Export often:** Use the Tools Hub export to grab the unified JSON before/after sessions.
+*   **Standalone saves:** The Character Sheet, Session Tracker (`gmDashboardData`), Narrative Engine, Clue Generator, and Tournament Bracket keep their own lightweight storage. Use their built-in export/import (if available) when you need to move those between browsers.

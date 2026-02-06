@@ -9,5 +9,5 @@ At-a-glance matrix of every agent’s frontline stats. Ideal for table displays 
 
 ## Tips
 - Use the HP field for "Max / Current" to keep context, or track temp HP by appending `+` values.
-- Pair this page with the GM Session Tracker; both read/write the same `players` array, so hitting refresh keeps them consistent.
+- Pair this page with the Campaign Hub or HQ Layout Foundry—the shared `RTF_STORE` player list keeps downtime tracking consistent as long as you import once from the Tools Hub.
 - Add NPC allies when you need to remember their saves or passives alongside the PCs.

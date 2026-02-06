@@ -8,6 +8,7 @@ Landing grid for the entire suite. Open it first to import/export the unified da
 - **Secret Panel** – DM-only cards are tagged with 🔒-red borders; once the secret mode is active they fade in with a light animation.
 
 ## Tips
-- Always import campaign data here first—every tool reads from the same store, so one import primes the entire suite.
+- Always import campaign data here first—the Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, and HQ pages all read from the same store, so one import primes the entire campaign stack.
 - Use the accent picker before a session so all other pages inherit the same neon colorway.
 - Hide DM cards during open-table play so players only see approved utilities.
+- Import/export here touches the unified `RTF_STORE` stack (Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ). Standalone utilities like the Character Sheet, Session Tracker, Narrative Engine, and Tournament Bracket keep their own local saves.

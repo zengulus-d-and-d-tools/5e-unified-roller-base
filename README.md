@@ -2,9 +2,11 @@
 
 A suite of lightweight, offline-first HTML tools for 5th Edition tabletop roleplaying games. Zero dependencies—just open the files in your browser.
 
+Campaign management apps (Tools Hub, Campaign Hub, Case Board, Player Dashboard, NPC Roster, Locations DB, Requisition Vault, Mission Timeline, Encounter Recipes, HQ Foundry) share a unified Local Storage object (`RTF_STORE`). Import/export once from the Tools Hub and those pages stay in lockstep. Other utilities—Player Sheet, Session Tracker, Narrative Engine, Clue Generator, and Tournament Bracket—use their own lightweight storage or rely on inline data.
+
 ## Components
 
-Each tool runs offline and shares a single Local Storage object (`RTF_STORE`). Import once via the Tools Hub and the whole suite stays in sync.
+Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ) shares the `RTF_STORE` object, while utilities like the Player Sheet or Session Tracker keep their own saves.
 
 | Tool | File | Description |
 |------|------|-------------|
