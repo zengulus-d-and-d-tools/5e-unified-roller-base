@@ -199,7 +199,7 @@ body.accent-panel-open {
     margin: 0 auto 6px;
     border-radius: 50%;
     position: relative;
-    background: conic-gradient(from 0deg, #ff5f5f, #ffb347, #f9ff4c, #76ff4c, #4cfff0, #4c76ff, #c14cff, #ff4cf1, #ff5f5f);
+    background: conic-gradient(from 90deg, #ff5f5f, #ffb347, #f9ff4c, #76ff4c, #4cfff0, #4c76ff, #c14cff, #ff4cf1, #ff5f5f);
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
 }
 
