@@ -40,6 +40,30 @@ let isPopulating = false; // Guard to prevent saving during initial load
 
         let consumeInspirationOnNextRoll = false;
         let secretMode = false;
+        let rollerOffsetRaf = null;
+
+        function updateRollerStickyOffset() {
+            const hero = document.getElementById('rollerBar');
+            const root = document.documentElement;
+            if (!hero || !root) return;
+            const styles = getComputedStyle(hero);
+            const marginBottom = parseFloat(styles.marginBottom) || 0;
+            const offset = hero.offsetHeight + marginBottom + 12;
+            root.style.setProperty('--roller-stick-offset', `${offset}px`);
+        }
+
+        function queueRollerStickyOffset() {
+            if (rollerOffsetRaf) cancelAnimationFrame(rollerOffsetRaf);
+            rollerOffsetRaf = requestAnimationFrame(() => {
+                rollerOffsetRaf = null;
+                updateRollerStickyOffset();
+            });
+        }
+
+        window.addEventListener('resize', queueRollerStickyOffset);
+        window.addEventListener('orientationchange', queueRollerStickyOffset);
+        window.addEventListener('load', queueRollerStickyOffset);
+        queueRollerStickyOffset();
 
         // --- ACCORDION LOGIC ---
         function toggleSection(key) {
@@ -1255,17 +1279,22 @@ let isPopulating = false; // Guard to prevent saving during initial load
 
         function showLog(formula, result, isCrit = false, isFail = false) {
             const logArea = document.getElementById('logArea');
-            let resClass = 'log-result';
-            if (isCrit) resClass += ' crit-text';
-            if (isFail) resClass += ' fail-text';
+            if (!logArea) return;
+            const formulaEl = logArea.querySelector('.log-formula');
+            const resultEl = logArea.querySelector('.log-result');
 
-            logArea.innerHTML = `<div class="log-formula">${formula
-                }
+            if (formulaEl) formulaEl.textContent = formula;
+            if (resultEl) {
+                resultEl.textContent = result;
+                resultEl.className = 'log-result';
+                if (isCrit) resultEl.classList.add('crit-text');
+                if (isFail) resultEl.classList.add('fail-text');
 
-            </div><div class="${resClass}">${result
-                }
-
-            </div>`;
+                resultEl.style.animation = 'none';
+                // Force reflow to restart animation
+                resultEl.offsetHeight;
+                resultEl.style.animation = 'fadeIn 0.2s ease-out';
+            }
         }
 
 

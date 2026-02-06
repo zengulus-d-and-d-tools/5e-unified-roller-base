@@ -35,6 +35,7 @@
     --hq-soft: color-mix(in srgb, var(--accent) 60%, #ffffff 40%);
     --hq-muted: color-mix(in srgb, var(--text) 70%, var(--accent) 30%);
     --hq-warning: color-mix(in srgb, var(--accent) 30%, #facc15 70%);
+    --roller-stick-offset: 180px;
 }
 
 @keyframes fadeIn {
@@ -559,6 +560,11 @@ body.accent-panel-open {
     flex-direction: column;
     gap: 10px;
     align-items: flex-end;
+    flex: 0 1 420px;
+    min-width: 260px;
+    max-width: 420px;
+    width: 100%;
+    text-align: right;
 }
 
 .hero-action-bar {
@@ -566,6 +572,7 @@ body.accent-panel-open {
     flex-wrap: wrap;
     gap: 10px;
     justify-content: flex-end;
+    width: 100%;
 }
 
 .hero-action-bar.secondary {
@@ -588,9 +595,17 @@ body.accent-panel-open {
     gap: 6px;
 }
 
+.hero-btn.ghost {
+    border-color: color-mix(in srgb, var(--accent) 70%, rgba(255, 255, 255, 0.15));
+    color: var(--accent);
+    background: color-mix(in srgb, rgba(255, 255, 255, 0.02) 70%, var(--accent) 30%);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
 .hero-btn.ghost:hover {
     border-color: var(--accent);
-    color: #fff;
+    color: var(--accent-contrast);
+    background: var(--accent);
     box-shadow: 0 0 12px rgba(78, 205, 196, 0.4);
 }
 
@@ -641,6 +656,11 @@ body.accent-panel-open {
 
     .hero-actions {
         align-items: flex-start;
+        flex: initial;
+        min-width: 0;
+        max-width: none;
+        width: 100%;
+        text-align: left;
     }
 
     .hero-action-bar {

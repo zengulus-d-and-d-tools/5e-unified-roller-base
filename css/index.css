@@ -72,8 +72,9 @@ body {
 }
 
 .roller-actions {
-    width: 100%;
-    align-items: stretch;
+    width: auto;
+    align-items: flex-end;
+    gap: 10px;
 }
 
 .roller-controls {
@@ -216,7 +217,7 @@ body {
 /* --- ROLL LOG PANEL --- */
 .roll-log-panel {
     position: sticky;
-    top: clamp(120px, 22vh, 220px);
+    top: var(--roller-stick-offset, 180px);
     z-index: 850;
     margin-top: 12px;
 }
@@ -224,11 +225,10 @@ body {
 .roll-log-card {
     width: min(1180px, calc(100% - 40px));
     margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    padding: 18px 22px;
+    display: grid;
+    grid-template-columns: minmax(240px, 0.9fr) minmax(360px, 1.1fr);
+    gap: 24px;
+    padding: 24px 28px;
     border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--hq-border) 75%, rgba(255, 255, 255, 0.12));
     background: color-mix(in srgb, var(--hq-surface) 80%, rgba(0, 0, 0, 0.2));
@@ -237,7 +237,16 @@ body {
 }
 
 .log-panel-meta {
-    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: none;
+}
+
+.log-console {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
 }
 
 .log-eyebrow {
@@ -259,9 +268,23 @@ body {
     flex-direction: column;
     align-items: flex-end;
     justify-content: center;
-    flex: 1;
     text-align: right;
     min-width: 220px;
+    padding: 18px 22px;
+    border-radius: 16px;
+    border: 1px solid color-mix(in srgb, var(--hq-border) 80%, rgba(255, 255, 255, 0.15));
+    background: color-mix(in srgb, var(--hq-surface) 75%, rgba(0, 0, 0, 0.35));
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+@media (max-width: 960px) {
+    .roll-log-card {
+        grid-template-columns: 1fr;
+    }
+
+    .log-area {
+        min-width: 0;
+    }
 }
 
 @media (max-width: 720px) {
@@ -273,15 +296,11 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .roll-log-card {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
     .log-area {
         align-items: flex-start;
         text-align: left;
         width: 100%;
+        min-width: 0;
     }
 
     .log-result {
