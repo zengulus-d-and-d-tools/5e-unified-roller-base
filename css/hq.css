@@ -88,16 +88,16 @@ canvas#vector-cloud {
 }
 
 .btn.ghost:hover {
-    border-color: var(--accent);
-    color: #fff;
-    box-shadow: 0 0 12px rgba(78, 205, 196, 0.4);
+    border-color: var(--accent-secondary);
+    color: var(--accent-contrast);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-quaternary) 35%, rgba(0, 0, 0, 0.2));
 }
 
 .btn.accent {
-    background: var(--accent);
-    color: #0a0f15;
-    border-color: var(--accent);
-    box-shadow: 0 0 24px rgba(78, 205, 196, 0.35);
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+    color: var(--accent-contrast);
+    border-color: color-mix(in srgb, var(--accent-secondary) 70%, rgba(255, 255, 255, 0.08));
+    box-shadow: var(--btn-glow);
 }
 
 .btn.accent:hover {
@@ -176,9 +176,9 @@ canvas#vector-cloud {
 }
 
 .floor-tab.active {
-    border-color: var(--accent);
-    color: #0a0f15;
-    background: var(--accent);
+    border-color: var(--accent-tertiary);
+    color: var(--accent-contrast);
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
 }
 
 .floor-buttons {
@@ -273,7 +273,7 @@ canvas#vector-cloud {
 }
 
 .hq-grid::after {
-    background-image: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%);
+    background-image: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent-tertiary) 20%, transparent), transparent 55%);
 }
 
 .control-panel {

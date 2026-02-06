@@ -94,8 +94,8 @@ body {
 }
 
 .clock-seg.filled {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+    border-color: color-mix(in srgb, var(--accent-secondary) 70%, rgba(255, 255, 255, 0.08));
     box-shadow: 0 0 8px var(--accent-glow);
 }
 
@@ -127,9 +127,9 @@ body {
 }
 
 .btn:hover {
-    border-color: var(--accent);
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    border-color: color-mix(in srgb, var(--accent-tertiary) 55%, var(--accent-secondary));
+    background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-tertiary) 40%);
+    color: var(--accent-contrast);
 }
 
 .btn:active {
@@ -162,14 +162,14 @@ body {
 
 h2 {
     margin: 0 0 15px 0;
-    color: var(--accent);
+    color: var(--accent-secondary);
     text-transform: uppercase;
     font-size: 1rem;
     letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-tertiary) 35%, rgba(255, 255, 255, 0.08));
     padding-bottom: 8px;
 }
 
@@ -192,14 +192,14 @@ input:focus,
 textarea:focus,
 select:focus {
     outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 10px var(--accent-glow);
+    border-color: var(--accent-tertiary);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-quaternary) 55%, transparent);
 }
 
 .mini-label {
     font-size: 0.7rem;
     text-transform: uppercase;
-    color: #888;
+    color: color-mix(in srgb, #888 60%, var(--accent-quaternary) 40%);
     font-weight: bold;
     display: block;
     margin-bottom: 4px;

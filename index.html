@@ -38,29 +38,26 @@
                 <p class="log-eyebrow">Roll Log</p>
                 <p class="log-hint">Latest throws stay pinned here while the controls beside it handle advantage, secrets, and misc bonuses.</p>
             </div>
-            <div class="log-console">
+            <div class="roll-strip">
                 <div class="log-area">
                     <div class="log-formula">Ready...</div>
                     <div class="log-result">-</div>
                 </div>
-                <div class="roller-controls">
-                    <div class="control-block">
-                        <span class="control-label">Advantage Mode</span>
-                        <div class="adv-controls"><button class="adv-btn" onclick="setMode('dis')"
-                                data-mode="dis">DIS</button><button class="adv-btn active" onclick="setMode('norm')"
-                                data-mode="norm">NORM</button><button class="adv-btn" onclick="setMode('adv')"
-                                data-mode="adv">ADV</button></div>
+                <div class="control-block roll-block">
+                    <span class="control-label">Advantage Mode</span>
+                    <div class="adv-controls"><button class="adv-btn" onclick="setMode('dis')" data-mode="dis">DIS</button><button
+                            class="adv-btn active" onclick="setMode('norm')" data-mode="norm">NORM</button><button class="adv-btn"
+                            onclick="setMode('adv')" data-mode="adv">ADV</button></div>
+                </div>
+                <div class="control-block roll-block">
+                    <span class="control-label">Utilities</span>
+                    <div class="control-chip-row"><button id="btnSecret" class="chip-btn" data-chip="secret"
+                            onclick="toggleSecret()" title="Secret Roll (Discord Spoilers)">👁️ Secret</button>
                     </div>
-                    <div class="control-block">
-                        <span class="control-label">Utilities</span>
-                        <div class="control-chip-row"><button id="btnSecret" class="chip-btn" data-chip="secret"
-                                onclick="toggleSecret()" title="Secret Roll (Discord Spoilers)">👁️ Secret</button>
-                        </div>
-                    </div>
-                    <div class="control-block">
-                        <span class="control-label">Misc Bonus</span>
-                        <div class="misc-wrapper"><input type="text" id="globalMisc" placeholder="+0 or 1d4"></div>
-                    </div>
+                </div>
+                <div class="control-block roll-block">
+                    <span class="control-label">Misc Bonus</span>
+                    <div class="misc-wrapper"><input type="text" id="globalMisc" placeholder="+0 or 1d4"></div>
                 </div>
             </div>
         </div>

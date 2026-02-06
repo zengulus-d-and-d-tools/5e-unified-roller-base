@@ -1,7 +1,7 @@
 :root {
-            --panel-bg: color-mix(in srgb, #111826 80%, var(--accent) 20%);
-            --accent-dim: color-mix(in srgb, var(--accent) 25%, transparent);
-            --text-muted: color-mix(in srgb, var(--text) 75%, var(--accent) 10%);
+            --panel-bg: color-mix(in srgb, #111826 75%, var(--accent-secondary) 25%);
+            --accent-dim: color-mix(in srgb, var(--accent-tertiary) 25%, transparent);
+            --text-muted: color-mix(in srgb, var(--text) 70%, var(--accent-quaternary) 30%);
         }
 
         body {
@@ -77,8 +77,8 @@
         }
 
         .btn-gen {
-            background: var(--accent);
-            color: #0f0f13;
+            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            color: var(--accent-contrast);
             padding: 14px;
             border-radius: 8px;
             font-weight: 900;
@@ -91,7 +91,7 @@
         }
 
         .btn-gen:hover {
-            background: #fff;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--accent));
             transform: translateY(-2px);
             box-shadow: 0 4px 20px var(--accent-glow);
         }
@@ -125,9 +125,9 @@
         }
 
         .btn-small:hover {
-            border-color: var(--accent);
+            border-color: var(--accent-tertiary);
             color: #fff;
-            background: rgba(255, 255, 255, 0.1);
+            background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-quaternary) 40%);
         }
 
         /* --- OUTPUT BOXES --- */
@@ -190,7 +190,7 @@
         }
 
         .dispatch-val.highlight {
-            color: var(--accent);
+            color: var(--accent-secondary);
             font-weight: bold;
             text-shadow: 0 0 8px var(--accent-glow);
         }
@@ -213,7 +213,7 @@
         }
 
         .hl-txt {
-            color: var(--accent);
+            color: var(--accent-tertiary);
             font-weight: bold;
         }
 
@@ -251,7 +251,7 @@
         }
 
         .out-good {
-            color: var(--accent);
+            color: var(--accent-secondary);
         }
 
         /* --- ACCORDION & REFERENCE TABLES --- */
@@ -310,7 +310,7 @@
         }
 
         .ref-hl {
-            color: var(--accent);
+            color: var(--accent-tertiary);
             font-weight: bold;
         }
 

@@ -5,7 +5,7 @@
     --accent-tertiary: #4ecdc4;
     --accent-quaternary: #4ecdc4;
     --accent-contrast: #05070f;
-    --accent-muted: color-mix(in srgb, #e0e0e0 70%, var(--accent) 30%);
+    --accent-muted: color-mix(in srgb, #e0e0e0 70%, var(--accent-secondary) 30%);
     --accent-atk: #ff6b6b;
     --accent-feat: #3498db;
     --gold: #f1c40f;
@@ -14,11 +14,11 @@
     --hp-temp: rgba(59, 130, 246, 0.7);
     --slot: #9b59b6;
     --text: #e0e0e0;
-    --bg-top: color-mix(in srgb, #1a2337 65%, var(--accent) 35%);
-    --bg-bottom: color-mix(in srgb, #05070f 90%, var(--accent) 10%);
-    --card-bg: color-mix(in srgb, #080d18 80%, var(--accent) 20%);
-    --input-bg: color-mix(in srgb, #050910 70%, var(--accent) 30%);
-    --border: color-mix(in srgb, var(--accent) 40%, rgba(255, 255, 255, 0.08));
+    --bg-top: color-mix(in srgb, #1a2337 60%, var(--accent-secondary) 40%);
+    --bg-bottom: color-mix(in srgb, #05070f 85%, var(--accent-tertiary) 15%);
+    --card-bg: color-mix(in srgb, #080d18 78%, var(--accent) 22%);
+    --input-bg: color-mix(in srgb, #050910 70%, var(--accent-tertiary) 30%);
+    --border: color-mix(in srgb, var(--accent-quaternary) 40%, rgba(255, 255, 255, 0.08));
     --crit: #ffd700;
     --fail: #e74c3c;
     --res-bar: #27ae60;
@@ -29,21 +29,21 @@
     --blueprint-bg: #041126;
     --blueprint-grid: rgba(173, 216, 230, 0.08);
     --blueprint-glow: rgba(78, 205, 196, 0.4);
-    --panel-bg: color-mix(in srgb, #0c121f 85%, var(--accent) 15%);
-    --hq-surface: color-mix(in srgb, #040a16 85%, var(--accent) 15%);
-    --hq-border: color-mix(in srgb, var(--accent) 35%, transparent);
-    --hq-soft: color-mix(in srgb, var(--accent) 60%, #ffffff 40%);
-    --hq-muted: color-mix(in srgb, var(--text) 70%, var(--accent) 30%);
+    --panel-bg: color-mix(in srgb, #0c121f 80%, var(--accent-quaternary) 20%);
+    --hq-surface: color-mix(in srgb, #040a16 80%, var(--accent-tertiary) 20%);
+    --hq-border: color-mix(in srgb, var(--accent-quaternary) 45%, transparent);
+    --hq-soft: color-mix(in srgb, var(--accent-secondary) 55%, #ffffff 45%);
+    --hq-muted: color-mix(in srgb, var(--text) 65%, var(--accent-tertiary) 35%);
     --hq-warning: color-mix(in srgb, var(--accent) 30%, #facc15 70%);
     --roller-stick-offset: clamp(120px, 18vh, 180px);
     --page-max: 1200px;
     --page-inline-gutter: clamp(12px, 3vw, 32px);
-    --surface-strong: color-mix(in srgb, #050c18 75%, var(--accent) 25%);
-    --surface-soft: color-mix(in srgb, #050910 85%, var(--accent) 15%);
-    --btn-surface: color-mix(in srgb, var(--accent) 65%, rgba(5, 9, 16, 0.45));
-    --btn-surface-muted: color-mix(in srgb, var(--accent) 35%, rgba(5, 9, 16, 0.85));
-    --btn-border: color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.16));
-    --btn-glow: 0 12px 24px color-mix(in srgb, var(--accent) 35%, rgba(0, 0, 0, 0.8));
+    --surface-strong: color-mix(in srgb, #050c18 70%, var(--accent-secondary) 30%);
+    --surface-soft: color-mix(in srgb, #050910 80%, var(--accent-tertiary) 20%);
+    --btn-surface: color-mix(in srgb, var(--accent) 55%, var(--accent-quaternary) 45%);
+    --btn-surface-muted: color-mix(in srgb, var(--accent-tertiary) 35%, rgba(5, 9, 16, 0.85));
+    --btn-border: color-mix(in srgb, var(--accent-quaternary) 60%, rgba(255, 255, 255, 0.16));
+    --btn-glow: 0 12px 24px color-mix(in srgb, var(--accent-tertiary) 35%, rgba(0, 0, 0, 0.8));
 }
 
 @keyframes fadeIn {
@@ -418,7 +418,7 @@ body.accent-panel-open {
 .accordion-trigger-abs::after {
     content: '▼';
     font-size: 0.7rem;
-    color: #666;
+    color: color-mix(in srgb, var(--accent-tertiary) 55%, #555 45%);
     transition: transform 0.3s ease;
 }
 
@@ -443,10 +443,10 @@ body.accent-panel-open {
 /* --- SECTION TITLES --- */
 .section-title {
     margin: 0;
-    color: #888;
+    color: color-mix(in srgb, var(--accent-muted) 65%, #7a7a7a 35%);
     font-size: 0.85rem;
     text-transform: uppercase;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent-tertiary) 35%, rgba(255, 255, 255, 0.08));
     padding-bottom: 8px;
     margin-bottom: 12px;
     letter-spacing: 0.05em;
@@ -468,13 +468,15 @@ body.accent-panel-open {
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #444;
+    color: color-mix(in srgb, var(--accent-tertiary) 35%, #555 65%);
     font-size: 18px;
     cursor: grab;
     touch-action: none;
     border-radius: 12px 0 0 12px;
-    border-right: 1px solid #252525;
-    background: rgba(0, 0, 0, 0.1);
+    border-right: 1px solid color-mix(in srgb, var(--accent-quaternary) 25%, rgba(12, 18, 32, 0.85));
+    background: linear-gradient(180deg,
+            color-mix(in srgb, var(--accent-quaternary) 30%, rgba(0, 0, 0, 0.15)),
+            rgba(0, 0, 0, 0.08));
 }
 
 .drag-grip::after {
@@ -556,14 +558,14 @@ body.accent-panel-open {
     text-transform: uppercase;
     letter-spacing: 0.2em;
     font-size: 0.75rem;
-    color: var(--hq-soft);
+    color: color-mix(in srgb, var(--accent-tertiary) 65%, var(--hq-soft) 35%);
     margin: 0;
 }
 
 .hero-subtitle {
     margin: 0;
     max-width: 520px;
-    color: var(--hq-muted);
+    color: color-mix(in srgb, var(--accent-quaternary) 30%, var(--hq-muted) 70%);
     line-height: 1.4;
 }
 
@@ -609,24 +611,24 @@ body.accent-panel-open {
 }
 
 .hero-btn.ghost {
-    border-color: color-mix(in srgb, var(--accent) 70%, rgba(255, 255, 255, 0.15));
-    color: var(--accent);
-    background: color-mix(in srgb, rgba(255, 255, 255, 0.02) 70%, var(--accent) 30%);
+    border-color: color-mix(in srgb, var(--accent-secondary) 65%, rgba(255, 255, 255, 0.15));
+    color: var(--accent-secondary);
+    background: color-mix(in srgb, rgba(255, 255, 255, 0.02) 60%, var(--accent-tertiary) 40%);
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
 }
 
 .hero-btn.ghost:hover {
-    border-color: var(--accent);
+    border-color: var(--accent-secondary);
     color: var(--accent-contrast);
-    background: var(--accent);
-    box-shadow: 0 0 12px rgba(78, 205, 196, 0.4);
+    background: linear-gradient(120deg, var(--accent), var(--accent-secondary));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-quaternary) 35%, rgba(0, 0, 0, 0.2));
 }
 
 .hero-btn.accent {
-    background: var(--accent);
-    color: #0a0f15;
-    border-color: var(--accent);
-    box-shadow: 0 0 24px rgba(78, 205, 196, 0.35);
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+    color: var(--accent-contrast);
+    border-color: color-mix(in srgb, var(--accent-secondary) 70%, rgba(255, 255, 255, 0.08));
+    box-shadow: var(--btn-glow);
 }
 
 .hero-btn.accent:hover {
@@ -658,7 +660,7 @@ body.accent-panel-open {
 .hero-meta strong {
     font-size: 1rem;
     letter-spacing: 0.05em;
-    color: var(--hq-soft);
+    color: color-mix(in srgb, var(--accent-secondary) 70%, var(--hq-soft) 30%);
 }
 
 @media (max-width: 768px) {
@@ -679,13 +681,13 @@ body.accent-panel-open {
 }
 
 input:checked+.slider {
-    background-color: var(--accent);
-    border-color: var(--accent);
+    background: linear-gradient(120deg, var(--accent), var(--accent-secondary));
+    border-color: color-mix(in srgb, var(--accent-tertiary) 55%, var(--accent));
 }
 
 input:checked+.slider:before {
     transform: translateX(18px);
-    background-color: black;
+    background-color: var(--accent-contrast);
 }
 
 /* --- BUTTONS ENHANCEMENTS --- */
