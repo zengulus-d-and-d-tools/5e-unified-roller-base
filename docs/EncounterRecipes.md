@@ -1,19 +1,18 @@
 # Encounter Recipes (`encounters.html`)
 
-Prep modular enemy packages, hazards, and rewards that you can drop into any session without spreadsheet juggling.
+One-page prep cards for modular encounters. Everything saves to the shared data store so you can mix, match, and reuse fights across arcs.
 
-## Structure
-- **Encounter Cards** – Each card tracks name, location, threat rating, involved factions, and tactical notes.
-- **Enemy Blocks** – Record stat block shorthand (hp, ac, save DC, notable features) along with minion counts.
-- **Hazard/Complication Slots** – Attach lair actions, environmental twists, or social complications to remind you what makes the scene unique.
-- **Reward Tracker** – Log treasure parcels, intel payouts, or reputation adjustments tied to the encounter.
+## Card Anatomy
+- **Header** – Title plus tier tag (Routine → Cataclysmic). Inline select menus let you change location, objective, or tier without reopening the form.
+- **Opposition & Hazards** – Freeform text blocks for enemy lists, environmental twists, scripted beats, and rewards/fallout. Use one textarea per concept to keep the card scannable mid-session.
+- **Meta & Notes** – Tag fields (guild, district, keywords) and timestamp badges so you can filter later. A final notes box is perfect for scaling advice or "if/then" contingencies.
 
 ## Workflow
-1. **Draft** – Create a new encounter card for each reusable setup (e.g., “Boros checkpoint,” “Golgarian rot farm”).
-2. **Tune** – Adjust enemy counts, tactical plans, and complication clocks based on the party’s current tier.
-3. **Deploy** – When the scene triggers, open the card to follow the plan; mark which enemies/factors were used and jot quick notes for the timeline.
+1. **Add Recipe** – Click `+ New Recipe` to open the inline form. Fill in core fields (tier, location, objective) and drop bullet lists into opposition/hazard/reward boxes.
+2. **Filter & Search** – Use the search bar or tier filter to find the right prep packet moments before it goes live.
+3. **Run the Scene** – Keep the card open while adjudicating. Update notes, rewards, or tags in place; everything auto-saves.
 
 ## Tips
-- Tag cards with guild or district names so filtering mid-session is painless.
-- Store “escalation paths” in the hazard section (e.g., backup squads, magical failsafes).
-- Export along with the rest of the unified store data before a new arc so you always have prep history.
+- Keep hazards and beats in short phrases so they read at a glance next to your initiative tracker.
+- Tag by guild plus district (e.g., `Boros: Precinct One`) so you can pivot easily when players detour.
+- Export the store from the Tools Hub before a new chapter so you always have a library of proven encounters.

@@ -1,18 +1,18 @@
 # Mission Timeline (`timeline.html`)
 
-Lightweight chronicle for your campaign beats. Track scenes, fallout, and looming consequences without diving into a doc editor.
+Session chronicle for beats, fallout, and rolling heat. Designed for quick capture mid-play—no doc editor required.
 
 ## Layout
-- **Beat Log** – Each entry records scene title, summary, involved factions, Heat/Fallout adjustments, and a quick status (open, resolved, fallout pending).
-- **Heat Tracker** – Inline display mirrors the Campaign Hub, so you can see how the timeline is pushing the Task Force toward complications.
-- **Notes Drawer** – Use the free-form notes area for debrief summaries, lessons learned, or NPC reactions.
+- **Event Form** – Toggle the log form to add an operation title, focus/district, heat delta, tags, highlights, fallout, and follow-up notes. Everything saves directly into the unified store.
+- **Filter Bar** – Live search plus dropdowns for focus and sort order (Newest, Oldest, Heat). A checkbox isolates only high-impact entries if you’re prepping downtime fallout.
+- **Timeline List** – Cards display title, summary, tags, and Heat/Fallout chips. Use the built-in controls to mark events resolved or pending without leaving the page.
 
 ## Usage Flow
-1. **Start of Session** – Log the previous session’s fallout so you remember outstanding threats.
-2. **During Play** – Add new beats as they happen. The interface is optimized for quick keyboard entry.
-3. **After Action** – Tag beats as resolved or mark them for follow-up. Record any reward/penalty issued.
+1. **Prep** – Before session start, skim the previous beats via the Heat-only filter to remind the table what’s still hot.
+2. **Live Logging** – Add events as they happen; tagging by guild or location makes the filter bar priceless later.
+3. **Debrief** – After action, edit entries in place to mark rewards, note consequences, or log who handled the fallout.
 
 ## Tips
-- Prefix scene titles with episode numbers (e.g., `12.3 – Rooftop Pursuit`) so sorting stays chronological.
-- Use the Heat/Fallout fields in parallel with the Hub to keep both GM and players honest about consequences.
-- Export regularly from the portal to maintain a campaign log outside the browser.
+- Mirror the Campaign Hub’s Heat value manually or copy the delta text into the hub to keep both views synchronized.
+- Use tags like `fallout`, `intel`, or `debt` so searching weeks later is trivial.
+- Pair entries with Requisition or Encounter cards via consistent naming to reconstruct entire operations on demand.

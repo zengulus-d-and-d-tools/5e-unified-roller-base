@@ -1,19 +1,20 @@
 # Requisition Vault (`requisitions.html`)
 
-Shared inventory pipeline for the Task Force. Use it to triage kit requests, track approvals, and keep the squad aligned on who owes what paperwork.
+Shared pipeline for requisitions, approvals, and aftermath notes. Built for the same Local Storage store as the rest of the suite.
 
-## Views
-- **Request Grid** – Cards show item, requester, guild/source, priority, and current status. Everything is editable inline.
-- **Filters & Search** – Narrow the list by guild, status, or priority. The free-text search sweeps item names, purposes, notes, and tags.
-- **Quick Add Form** – Log a new pull request with requester, source guild, priority, estimated value, and justification.
+## Layout
+- **Hero Actions** – Jump back to the Portal, fire the accent/BG controls, or open the inline form via `+ New Request`.
+- **Request Form** – Capture item, requester, guild/source, priority (Routine → Emergency), status (Pending → Delivered/Denied), estimated value, purpose, notes, and tags. The form stays hidden until needed so the list remains compact.
+- **Filter Bar** – Live search (names, notes, tags) plus dropdowns for status, guild, and priority. Use it to zero in on emergency pulls or a specific faction’s queue.
+- **Request Cards** – Inline editable fields for every attribute, timestamp badges, and delete buttons. Priority and status selectors use color-coded pills for quick scanning.
 
 ## Workflow
-1. **Log the request** as soon as it’s made. Include notes on where the gear comes from and any complications.
-2. **Tag priority/status** to bubble emergencies to the top. The priority selector auto-sorts cards (Emergency > Tactical > Routine).
-3. **Update fields in place** (status, guild, requester, notes, tags). Edits auto-save via Local Storage and the unified store.
-4. **Archive/Delete** once gear is delivered or denied to keep the queue lean.
+1. **Capture Immediately** – Enter the request as soon as players pitch it so the backlog reflects reality.
+2. **Tag & Sort** – Use priority to float emergencies; the renderer sorts Routine < Tactical < Emergency automatically.
+3. **Update in Place** – As approvals land or sourcing changes, edit fields directly on the card. Everything persists instantly.
+4. **Close the Loop** – Delete fulfilled/denied cards or leave them tagged for audit trails before exporting to archive.
 
 ## Tips
-- Use tags such as `chem`, `intel`, `legal` to make future filtering painless.
-- The requester field supports free text—log both agent callsigns and outside contacts.
-- Export from `tools.html` to snapshot requisition history before downtime reviews.
+- Tags make the search bar extremely powerful—label chemical, legal, or magical pulls differently.
+- Use the Value field for GP cost or fictional favors owed; either way it reminds you of the debt when negotiating later.
+- Export from the Tools Hub before a downtime phase so you can review what gear was promised versus delivered.

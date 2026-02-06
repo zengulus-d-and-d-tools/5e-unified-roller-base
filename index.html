@@ -14,12 +14,15 @@
 
 <body>
     <canvas id="vector-cloud"></canvas>
-    <header class="roller-shell" id="rollerBar">
-        <div class="roller-inner">
-            <div class="roller-meta">
-                <p class="roller-eyebrow">Unified 5e Roller</p>
-                <h1>Command Console</h1>
-                <p class="roller-lede">Dial in advantage state, secret rolls, and background vibes while the accent palette keeps everything in sync.</p>
+    <header class="hero-header roller-header" id="rollerBar">
+        <div>
+            <p class="hero-eyebrow">Unified 5e Roller</p>
+            <h1>Command Console</h1>
+            <p class="hero-subtitle">Dial in advantage state, secret rolls, and background vibes while the accent palette keeps everything in sync.</p>
+        </div>
+        <div class="hero-actions roller-actions">
+            <div class="hero-action-bar primary">
+                <a href="tools.html" class="hero-btn ghost">Portal</a>
             </div>
             <div class="roller-controls">
                 <div class="control-block">
@@ -31,10 +34,10 @@
                 </div>
                 <div class="control-block">
                     <span class="control-label">Utilities</span>
-                    <div class="control-chip-row"><button id="btnSecret" class="chip-btn" onclick="toggleSecret()"
-                            title="Secret Roll (Discord Spoilers)">👁️ Secret</button>
-                        <button id="btn-bg-style" onclick="cycleBgStyle()" class="chip-btn">🌌 Field</button>
-                        <button class="chip-btn" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <div class="control-chip-row"><button id="btnSecret" class="chip-btn" data-chip="secret"
+                            onclick="toggleSecret()" title="Secret Roll (Discord Spoilers)">👁️ Secret</button>
+                        <button id="btn-bg-style" onclick="cycleBgStyle()" class="chip-btn" data-chip="bg">🌌 Field</button>
+                        <button class="chip-btn" data-chip="accent" onclick="triggerAccentPicker()">🎨 Accent</button>
                     </div>
                 </div>
                 <div class="control-block">

@@ -1,19 +1,18 @@
 # Campaign Hub (`hub.html`)
 
-A campaign-level dashboard for managing the strategic layer of the game, specifically tailored for Ravnica/Urban campaigns.
+Between-sessions control room for heat, guild standing, and downtime logistics. Pulls from the same data store as every other tool so NPC/Guild metadata stays aligned.
 
-## Features
+## Layout
+- **Case Prep Template** – The top card is a quick brief: title/logline, guilds in conflict, antagonist goal, legal & physical obstacles, and a set-piece outline. Use it as a one-page primer before the next mission.
+- **Global Status** – Grid of all ten guilds plus Guildless; click to cycle rep values from hostile to favored. A Heat meter with +/- buttons, a glowing fill, and warning copy keeps consequences front and center.
+- **Player Roster** – Mirrors the Task Force Dashboard but focuses on downtime: each player row tracks DP, status flags, clocks, and notes. Buttons at the bottom grant the standard +2 DP for closing a case or hard reset the entire hub.
 
-### Reputation & Heat
-- **Guild Standing**: Tracks the party's reputation with all ten guilds (Range: -2 to +2).
-- **Heat Meter**: Tracks overall "Heat" (0-6) representing law enforcement or faction scrutiny. Includes visual warnings for Complication Scenes.
+## Controls & Sync
+- **Portal/Dashboard Links** – Jump back to the Tools Hub or straight into the Player Dashboard to edit frontline stats.
+- **Import / Export** – Dedicated buttons let you trade just the hub state, while the Tools Hub import/export covers the full campaign.
+- **Accent/BG** – Hero controls ensure the strategic view matches whatever palette your table picked.
 
-### Downtime Management
-- **Downtime Points (DP)**: Tracks available time for each player. Standard gap = 2 DP.
-- **Project Clocks**: 
-    - **Personal Projects**: 4-segment clocks for long-term goals.
-    - **Professional Development**: 2-segment clocks for learning new languages or tools.
-
-### Usage
-- Used between sessions to manage the passage of time and consequences of player actions.
-- Data persists in Local Storage.
+## Tips
+- Log guild standing immediately after a scene; the Heat warning text will remind you when fallout scenes are due.
+- Use the Case Prep card for NPC clocks or looming threats so everyone knows what success/failure looks like before the next session.
+- When a player spends DP in the Roster card, jot the activity directly in their row so it travels into the HQ designer or downtime scenes later.
