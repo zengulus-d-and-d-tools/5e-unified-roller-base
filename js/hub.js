@@ -97,6 +97,14 @@ function modClock(idx, amt) {
     save();
 }
 
+function renderClockPie(value, total = 4, extraClass = '') {
+    const maxSegments = total === 6 ? 6 : 4;
+    const safeValue = Math.max(0, Math.min(maxSegments, Number(value) || 0));
+    const fill = (safeValue / maxSegments) * 360;
+    const className = extraClass ? `clock-pie ${extraClass}` : 'clock-pie';
+    return `<div class="${className}" style="--clock-total:${maxSegments}; --clock-fill:${fill.toFixed(2)}deg;" role="img" aria-label="Clock ${safeValue} of ${maxSegments}"></div>`;
+}
+
 function updatePlayer(idx, field, val) {
     getCampaign().players[idx][field] = val;
     save();
@@ -156,9 +164,10 @@ function render() {
                             ${projectRewards.map(r => `<option value="${r}">`).join('')}
                         </datalist>
                         <div class="clock-container" style="flex:1; justify-content:flex-end;">
-                            ${[1, 2, 3, 4].map(s => `<div class="clock-seg ${p.projectClock >= s ? 'filled' : ''}"></div>`).join('')}
-                            <button class="btn" onclick="modClock(${i},1)" style="margin-left:8px;">+</button>
-                            <button class="btn" onclick="modClock(${i},-1)">-</button>
+                            ${renderClockPie(p.projectClock, 4)}
+                            <span class="clock-readout">${p.projectClock || 0}/4</span>
+                            <button class="btn clock-btn" onclick="modClock(${i},1)">+</button>
+                            <button class="btn clock-btn" onclick="modClock(${i},-1)">-</button>
                         </div>
                     </div>
                 </div>

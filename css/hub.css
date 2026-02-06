@@ -80,23 +80,46 @@ body {
 /* Clocks */
 .clock-container {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     margin-top: 5px;
     align-items: center;
 }
 
-.clock-seg {
-    width: 18px;
-    height: 18px;
-    border: 1px solid #555;
-    border-radius: 3px;
-    background: rgba(0, 0, 0, 0.2);
+.clock-pie {
+    --clock-total: 4;
+    --clock-fill: 0deg;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 45%, rgba(255, 255, 255, 0.2));
+    background:
+        radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.24), transparent 45%),
+        conic-gradient(from -90deg, var(--accent) 0deg var(--clock-fill), rgba(0, 0, 0, 0.35) var(--clock-fill) 360deg);
+    box-shadow: 0 0 10px var(--accent-glow);
+    position: relative;
 }
 
-.clock-seg.filled {
-    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-    border-color: color-mix(in srgb, var(--accent-secondary) 70%, rgba(255, 255, 255, 0.08));
-    box-shadow: 0 0 8px var(--accent-glow);
+.clock-pie::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: repeating-conic-gradient(from -90deg,
+            transparent 0deg calc((360deg / var(--clock-total)) - 1deg),
+            rgba(6, 10, 20, 0.68) calc((360deg / var(--clock-total)) - 1deg) calc(360deg / var(--clock-total)));
+}
+
+.clock-readout {
+    min-width: 34px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--hq-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.clock-btn {
+    padding: 4px 10px;
+    line-height: 1;
 }
 
 /* Case Prep Layout */

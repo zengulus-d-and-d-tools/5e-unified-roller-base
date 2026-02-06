@@ -155,29 +155,32 @@
     }
 
     function sanitizeSlot(slot, type) {
+        const source = slot || {};
         if (typeof slot === 'string') {
             return type === 'downtime'
-                ? { id: uniqueId('slot'), label: slot, playerId: '' }
+                ? { id: uniqueId('slot'), label: slot, description: '', playerId: '', junior: false, clock: 0, clockTotal: 4 }
                 : { id: uniqueId('slot'), label: slot, requisitionId: '' };
         }
-        const descriptionSource = slot ? (slot.description ?? slot.benefit ?? slot.effect ?? slot.details ?? '') : '';
+        const descriptionSource = source.description ?? source.benefit ?? source.effect ?? source.details ?? '';
         const base = {
-            id: slot.id || uniqueId('slot'),
-            label: slot.label || '',
+            id: source.id || uniqueId('slot'),
+            label: source.label || '',
             description: typeof descriptionSource === 'string' ? descriptionSource : String(descriptionSource || '')
         };
         if (type === 'downtime') {
-            base.playerId = slot.playerId || slot.assignedPlayerId || '';
-            base.junior = !!slot.junior;
-            if (!base.playerId && slot.assigned) base.playerId = resolvePlayerIdByName(slot.assigned);
-            if (!base.playerId && slot.assignedName) base.playerId = resolvePlayerIdByName(slot.assignedName);
-            if (!base.playerId && slot.legacyAssignee) base.legacyAssignee = slot.legacyAssignee;
-            if (!base.playerId && slot.assigned && !base.legacyAssignee) base.legacyAssignee = slot.assigned;
+            base.playerId = source.playerId || source.assignedPlayerId || '';
+            base.junior = !!source.junior;
+            base.clockTotal = normalizeClockTotal(parseInt(source.clockTotal ?? source.totalSegments ?? source.segments, 10));
+            base.clock = clampClockValue(parseInt(source.clock ?? source.progress ?? source.value, 10) || 0, base.clockTotal);
+            if (!base.playerId && source.assigned) base.playerId = resolvePlayerIdByName(source.assigned);
+            if (!base.playerId && source.assignedName) base.playerId = resolvePlayerIdByName(source.assignedName);
+            if (!base.playerId && source.legacyAssignee) base.legacyAssignee = source.legacyAssignee;
+            if (!base.playerId && source.assigned && !base.legacyAssignee) base.legacyAssignee = source.assigned;
         } else {
-            base.requisitionId = slot.requisitionId || slot.assignedResourceId || slot.linkedRequisitionId || '';
-            if (!base.requisitionId && slot.assigned) base.requisitionId = resolveRequisitionIdByName(slot.assigned);
-            if (!base.requisitionId && slot.legacyAssignee) base.legacyAssignee = slot.legacyAssignee;
-            if (!base.requisitionId && slot.assigned && !base.legacyAssignee) base.legacyAssignee = slot.assigned;
+            base.requisitionId = source.requisitionId || source.assignedResourceId || source.linkedRequisitionId || '';
+            if (!base.requisitionId && source.assigned) base.requisitionId = resolveRequisitionIdByName(source.assigned);
+            if (!base.requisitionId && source.legacyAssignee) base.legacyAssignee = source.legacyAssignee;
+            if (!base.requisitionId && source.assigned && !base.legacyAssignee) base.legacyAssignee = source.assigned;
         }
         return base;
     }
@@ -427,16 +430,48 @@
             const descriptionField = type === 'downtime'
                 ? `<textarea class="slot-field slot-desc" data-field="description" rows="2" placeholder="Description / Benefit">${escapeHTML(slot.description || '')}</textarea>`
                 : '';
+            const clockControl = type === 'downtime' ? buildSlotClock(slot) : '';
             item.innerHTML = `
                 <div class="slot-row">
                     <input class="slot-field slot-label" data-field="label" type="text" placeholder="Slot name" value="${escapeHTML(slot.label)}">
                     ${descriptionField}
                 </div>
                 ${assignmentMarkup}
+                ${clockControl}
                 <button class="btn ghost small" data-action="remove">Remove</button>
             `;
             container.appendChild(item);
         });
+    }
+
+    function renderClockPie(value, total = 4, extraClass = '') {
+        const maxSegments = normalizeClockTotal(total);
+        const safeValue = clampClockValue(value, maxSegments);
+        const fill = (safeValue / maxSegments) * 360;
+        const className = extraClass ? `clock-pie ${extraClass}` : 'clock-pie';
+        return `<div class="${className}" style="--clock-total:${maxSegments}; --clock-fill:${fill.toFixed(2)}deg;" role="img" aria-label="Clock ${safeValue} of ${maxSegments}"></div>`;
+    }
+
+    function buildSlotClock(slot) {
+        const total = normalizeClockTotal(slot.clockTotal);
+        const value = clampClockValue(slot.clock, total);
+        const active4 = total === 4 ? ' active' : '';
+        const active6 = total === 6 ? ' active' : '';
+        return `
+            <div class="slot-row">
+                <label>Downtime Clock</label>
+                <div class="slot-clock-controls">
+                    ${renderClockPie(value, total, 'slot-clock-pie')}
+                    <span class="slot-clock-readout">${value}/${total}</span>
+                    <button class="btn ghost small clock-step" data-action="clock-down" aria-label="Decrease clock">-</button>
+                    <button class="btn ghost small clock-step" data-action="clock-up" aria-label="Increase clock">+</button>
+                    <div class="slot-clock-total" role="group" aria-label="Clock segment count">
+                        <button class="btn ghost small clock-total-btn${active4}" data-action="clock-total" data-total="4">4</button>
+                        <button class="btn ghost small clock-total-btn${active6}" data-action="clock-total" data-total="6">6</button>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
     function buildPlayerAssignment(slot) {
@@ -618,7 +653,7 @@
         if (!room) return;
         const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
         list.push(type === 'downtime'
-            ? { id: uniqueId('slot'), label: 'Downtime Slot', description: '', playerId: '' }
+            ? { id: uniqueId('slot'), label: 'Downtime Slot', description: '', playerId: '', junior: false, clock: 0, clockTotal: 4 }
             : { id: uniqueId('slot'), label: 'Resource Bay', description: '', requisitionId: '' });
         persistState();
         updateDetailPanel();
@@ -687,13 +722,32 @@
 
     function handleSlotRemove(type) {
         return (ev) => {
-            if (!ev.target.matches('button[data-action="remove"]')) return;
+            const action = ev.target.dataset.action;
+            if (!action) return;
             const room = getRoom(selectedRoomId);
             if (!room) return;
             const item = ev.target.closest('.slot-item');
             if (!item) return;
             const slotId = item.dataset.id;
             const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
+            const slot = list.find(s => s.id === slotId);
+            if (!slot) return;
+
+            if (type === 'downtime' && (action === 'clock-up' || action === 'clock-down' || action === 'clock-total')) {
+                if (action === 'clock-total') {
+                    slot.clockTotal = normalizeClockTotal(parseInt(ev.target.dataset.total, 10));
+                    slot.clock = clampClockValue(slot.clock, slot.clockTotal);
+                } else {
+                    const delta = action === 'clock-up' ? 1 : -1;
+                    slot.clock = clampClockValue((slot.clock || 0) + delta, normalizeClockTotal(slot.clockTotal));
+                }
+                persistState();
+                updateDetailPanel();
+                renderRooms();
+                return;
+            }
+
+            if (action !== 'remove') return;
             const idx = list.findIndex(s => s.id === slotId);
             if (idx >= 0) {
                 list.splice(idx, 1);
@@ -1080,6 +1134,15 @@
         return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
     }
 
+    function normalizeClockTotal(total) {
+        return total === 6 ? 6 : 4;
+    }
+
+    function clampClockValue(value, total = 4) {
+        const max = normalizeClockTotal(total);
+        return clampNumber(parseInt(value, 10) || 0, 0, max);
+    }
+
     function uniqueId(prefix) {
         return `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
     }
@@ -1113,9 +1176,12 @@
                 } else if (slot.legacyAssignee) {
                     assignee = slot.legacyAssignee;
                 }
+                const clockTotal = normalizeClockTotal(slot.clockTotal);
+                const clockValue = clampClockValue(slot.clock, clockTotal);
+                const assigneeWithClock = `${assignee} • ${clockValue}/${clockTotal}`;
                 const detail = slot.description ? `<small>${formatMultiline(slot.description)}</small>` : '';
                 const labelBlock = `<span>${escapeHTML(slot.label)}</span>${detail}`;
-                content += `<div class="pop-row${slot.description ? ' has-desc' : ''}"><div class="pop-label">${labelBlock}</div><span class="assignee">${escapeHTML(assignee)}</span></div>`;
+                content += `<div class="pop-row${slot.description ? ' has-desc' : ''}"><div class="pop-label">${labelBlock}</div><span class="assignee">${escapeHTML(assigneeWithClock)}</span></div>`;
             });
             content += `</div>`;
         }
