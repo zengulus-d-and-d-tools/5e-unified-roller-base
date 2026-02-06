@@ -752,7 +752,17 @@
         input.click();
     }
 
-    function takeScreenshot() {
+    function resolveColor(cssVal) {
+        if (!cssVal) return 'transparent';
+        const temp = document.createElement('div');
+        temp.style.color = cssVal;
+        document.body.appendChild(temp);
+        const resolved = getComputedStyle(temp).color;
+        document.body.removeChild(temp);
+        return resolved;
+    }
+
+    async function takeScreenshot() {
         const floor = getActiveFloor();
         const rooms = floor ? floor.rooms : [];
         const width = state.grid.cols * state.grid.cell;
@@ -762,59 +772,175 @@
         canvas.height = height;
         const ctx = canvas.getContext('2d');
 
-        const gradient = ctx.createLinearGradient(0, 0, width, height);
-        gradient.addColorStop(0, '#041229');
-        gradient.addColorStop(1, '#070c18');
-        ctx.fillStyle = gradient;
+        // Resolve CSS Variables using standard styling from body or :root
+        const style = getComputedStyle(document.body);
+        const bgTop = style.getPropertyValue('--bg-top').trim() || '#1a2337';
+        const bgBottom = style.getPropertyValue('--bg-bottom').trim() || '#05070f';
+        const gridColor = resolveColor(style.getPropertyValue('--blueprint-grid').trim()) || 'rgba(173, 216, 230, 0.08)';
+        const accentTertiary = style.getPropertyValue('--accent-tertiary').trim() || '#4ecdc4';
+        const textMain = resolveColor(style.getPropertyValue('--hq-soft').trim()) || '#e0e0e0';
+        const textMuted = resolveColor(style.getPropertyValue('--hq-muted').trim()) || '#888';
+        const roomBg = resolveColor(style.getPropertyValue('--panel-bg').trim()) || '#0c121f';
+        const resolvedBgTop = resolveColor(bgTop);
+        const resolvedBgBottom = resolveColor(bgBottom);
+
+        // 1. Draw Background Gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, resolvedBgTop);
+        grad.addColorStop(1, resolvedBgBottom);
+        ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        // 2. Draw Grid
+        ctx.strokeStyle = gridColor;
         ctx.lineWidth = 1;
+
+        ctx.beginPath();
         for (let x = 0; x <= state.grid.cols; x++) {
-            ctx.beginPath();
             ctx.moveTo(x * state.grid.cell, 0);
             ctx.lineTo(x * state.grid.cell, height);
-            ctx.stroke();
         }
         for (let y = 0; y <= state.grid.rows; y++) {
-            ctx.beginPath();
             ctx.moveTo(0, y * state.grid.cell);
             ctx.lineTo(width, y * state.grid.cell);
-            ctx.stroke();
         }
+        ctx.stroke();
 
+        // 3. Lighting Overlay (Radial)
+        ctx.save();
+        const radX = width * 0.2;
+        const radY = height * 0.2;
+        const radR = Math.max(width, height) * 0.8;
+        const lightGrad = ctx.createRadialGradient(radX, radY, 0, radX, radY, radR);
+        // Approximation of the complex CSS gradient
+        const accentColor = resolveColor(accentTertiary); // likely rgb(...)
+
+        // We want a subtle colored glow at top left, fading to transparent
+        // Use a low opacity version of the accent color
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 0.15; // 15% opacity overall for the gradient layer
+        lightGrad.addColorStop(0, accentColor);
+        lightGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = lightGrad;
+        ctx.fillRect(0, 0, width, height);
+        ctx.restore();
+
+        // 4. Draw Rooms
         rooms.forEach(room => {
             const type = getRoomType(room.type);
             const x = room.x * state.grid.cell;
             const y = room.y * state.grid.cell;
             const w = room.w * state.grid.cell;
             const h = room.h * state.grid.cell;
-            ctx.fillStyle = `${type.color}22`;
-            ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
-            ctx.strokeStyle = type.color;
-            ctx.lineWidth = 3;
-            ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-            ctx.fillStyle = '#e3f5ff';
-            ctx.font = '16px "Segoe UI", sans-serif';
-            ctx.fillText(room.name, x + 10, y + 24);
-            ctx.font = '12px "Segoe UI", sans-serif';
-            ctx.fillStyle = '#8abbdc';
-            ctx.fillText(`${getRoomType(room.type).label} | ⏱ ${room.downtimeSlots.length} ⚙ ${room.resourceSlots.length}`, x + 10, y + 40);
+
+            const rX = x + 4;
+            const rY = y + 4;
+            const rW = w - 8;
+            const rH = h - 8;
+            const radius = 12;
+
+            ctx.save();
+
+            // Room Shadow
+            ctx.shadowColor = 'rgba(0,0,0,0.4)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 10;
+
+            // Room Background
+            // Mix slightly to emulate backdrop
+            ctx.fillStyle = roomBg;
+            // We draw the bg first. 
+            // Note: Canvas doesn't do backdrop-filter (blur behind). We just use opacity.
+            ctx.globalAlpha = 0.85;
+
+            ctx.beginPath();
+            if (ctx.roundRect) {
+                ctx.roundRect(rX, rY, rW, rH, radius);
+            } else {
+                ctx.rect(rX, rY, rW, rH);
+            }
+            ctx.fill();
+
+            // Room Border & Color Glow
+            ctx.globalAlpha = 1.0;
+            ctx.shadowColor = resolveColor(type.color);
+            ctx.shadowBlur = 15; // Glow effect
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+
+            ctx.strokeStyle = resolveColor(type.color);
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+
+            // Text: Name
+            ctx.save();
+            ctx.fillStyle = textMain;
+            ctx.font = '600 15px "Segoe UI", Roboto, sans-serif';
+            ctx.textBaseline = 'top';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 4;
+            ctx.fillText(room.name, rX + 12, rY + 12);
+            ctx.restore();
+
+            // Text: Slots
+            ctx.save();
+            ctx.fillStyle = textMuted;
+            ctx.font = '12px "Segoe UI", Roboto, sans-serif';
+            ctx.textBaseline = 'top';
+            const slotText = `⏱ ${room.downtimeSlots.length}   ⚙ ${room.resourceSlots.length}`;
+            ctx.fillText(slotText, rX + 12, rY + 34);
+            ctx.restore();
+
+            // Designation Badge
+            const dText = type.label.toUpperCase();
+            ctx.save();
+            ctx.font = '10px "Segoe UI", Roboto, sans-serif';
+            const dMetrics = ctx.measureText(dText);
+            const dW = dMetrics.width + 16;
+            const dH = 20;
+            const badgeX = rX + 12;
+            const badgeY = (rY + rH) - dH - 10;
+
+            // Badge Bg
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(badgeX, badgeY, dW, dH, 10);
+            else ctx.rect(badgeX, badgeY, dW, dH);
+            ctx.fill();
+
+            // Badge Border
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Badge Text
+            ctx.fillStyle = textMain;
+            ctx.textBaseline = 'middle';
+            ctx.fillText(dText, badgeX + 8, badgeY + dH / 2 + 1); // +1 for visual centering
+            ctx.restore();
         });
 
-        ctx.fillStyle = '#9fd8ff';
+        // 5. Footer Metadata
+        ctx.save();
+        ctx.shadowColor = 'black';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = textMain;
         ctx.font = '18px "Segoe UI", sans-serif';
-        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 16, height - 36);
-        ctx.font = '13px "Segoe UI", sans-serif';
-        ctx.fillStyle = '#6aaad6';
-        ctx.fillText(`Exported ${new Date().toLocaleString()}`, 16, height - 16);
+        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 20, height - 40);
 
+        ctx.font = '13px "Segoe UI", sans-serif';
+        ctx.fillStyle = textMuted;
+        ctx.fillText(`Exported ${new Date().toLocaleString()}`, 20, height - 20);
+        ctx.restore();
+
+        // 6. Download
         canvas.toBlob(blob => {
             if (!blob) return;
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `hq_blueprint_${Date.now()}.png`;
+            link.download = `hq_blueprint_${new Date().toISOString().slice(0, 10)}.png`;
             link.click();
             setTimeout(() => URL.revokeObjectURL(url), 0);
         });

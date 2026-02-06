@@ -380,6 +380,7 @@ canvas#vector-cloud {
     padding: 8px 10px;
     color: var(--text);
     font-size: 0.9rem;
+    box-sizing: border-box;
 }
 
 .slot-item select {
@@ -397,7 +398,7 @@ canvas#vector-cloud {
     gap: 12px;
 }
 
-.field.two-col > div {
+.field.two-col>div {
     flex: 1;
 }
 
@@ -483,6 +484,7 @@ canvas#vector-cloud {
     .hq-layout {
         grid-template-columns: 1fr;
     }
+
     .header-actions {
         justify-content: flex-start;
     }
