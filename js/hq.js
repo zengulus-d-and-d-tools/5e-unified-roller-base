@@ -406,6 +406,9 @@
             const item = document.createElement('div');
             item.className = 'slot-item';
             item.dataset.id = slot.id;
+            if (type === 'downtime' && slot.junior) {
+                item.title = 'Junior operative';
+            }
             const assignmentMarkup = type === 'downtime'
                 ? buildPlayerAssignment(slot)
                 : buildResourceAssignment(slot);
@@ -424,15 +427,18 @@
         const options = playerOptions.map(p => `<option value="${p.id}" ${p.id === slot.playerId ? 'selected' : ''}>${escapeHTML(p.name || 'Unnamed')} (${p.dp ?? 0} DP)</option>`).join('');
         const info = buildSlotInfo('downtime', slot);
         const checked = slot.junior ? 'checked' : '';
+        const assignmentClass = `slot-assignment${slot.junior ? ' is-junior' : ''}`;
+        const selectAttrs = slot.junior ? ' disabled aria-hidden="true" tabindex="-1"' : '';
         return `
             <div class="slot-row">
                 <label>Assigned Operative</label>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <select class="slot-select" data-type="downtime" style="flex: 1;">
+                <div class="${assignmentClass}">
+                    <select class="slot-select" data-type="downtime"${selectAttrs}>
                         <option value="">Unassigned</option>
                         ${options}
                     </select>
-                    <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; white-space: nowrap; cursor: pointer;">
+                    <span class="junior-pill">Junior operative</span>
+                    <label class="slot-junior-toggle">
                         <input type="checkbox" class="slot-junior" ${checked}> Junior Op.
                     </label>
                 </div>
@@ -464,7 +470,7 @@
                 return `<div class="slot-info">${escapeHTML(player.name || 'Unnamed')} • ${player.dp ?? 0} DP${project}</div>`;
             }
             if (slot.junior) {
-                return `<div class="slot-info" style="color: var(--accent-tertiary);">Junior Operative Assigned</div>`;
+                return `<div class="slot-info" style="color: var(--accent-tertiary);">Junior operative</div>`;
             }
             if (slot.legacyAssignee) {
                 return `<div class="slot-info warning">Legacy assignment: ${escapeHTML(slot.legacyAssignee)}</div>`;
@@ -568,15 +574,25 @@
         refs.renameFloor.addEventListener('click', renameFloor);
         refs.deleteFloor.addEventListener('click', deleteFloor);
 
-        refs.juniorOpsMax.addEventListener('change', (ev) => {
-            const used = getJuniorOpsCount();
-            const val = Math.max(used, parseInt(ev.target.value, 10) || 0); // Cannot be less than currently assigned
-            ev.target.value = val;
-            state.maxJuniorOperatives = val;
+        const onJuniorOpsInput = (ev) => syncJuniorOpsMaxInput(ev.target);
+        refs.juniorOpsMax.addEventListener('input', onJuniorOpsInput);
+        refs.juniorOpsMax.addEventListener('change', onJuniorOpsInput);
+    }
+
+    function syncJuniorOpsMaxInput(inputEl) {
+        if (!inputEl) return;
+        const used = getJuniorOpsCount();
+        let val = parseInt(inputEl.value, 10);
+        if (!Number.isFinite(val)) val = 0;
+        val = Math.max(used, Math.max(0, val)); // Cannot be less than currently assigned
+        inputEl.value = val;
+        const prev = state.maxJuniorOperatives;
+        state.maxJuniorOperatives = val;
+        if (prev !== val) {
             persistState();
-            updateStats();
-            updateDetailPanel();
-        });
+        }
+        updateStats();
+        updateDetailPanel();
     }
 
     function addSlot(type) {
@@ -1068,7 +1084,7 @@
                     const p = findPlayerById(slot.playerId);
                     assignee = p ? p.name : 'Unknown Agent';
                 } else if (slot.junior) {
-                    assignee = 'Junior Operative';
+                    assignee = 'Junior operative';
                 } else if (slot.legacyAssignee) {
                     assignee = slot.legacyAssignee;
                 }
