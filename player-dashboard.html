@@ -325,6 +325,11 @@
             }
         };
 
+        window.addEventListener('rtf-store-updated', (event) => {
+            if (!event || !event.detail || event.detail.source !== 'remote') return;
+            render();
+        });
+
     </script>
     <script src="js/vector-field.js"></script>
 </body>

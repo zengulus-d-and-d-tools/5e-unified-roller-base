@@ -167,6 +167,7 @@ window.onload = () => {
     initToolbars();
     loadBoard();
     updateViewCSS();
+    window.addEventListener('rtf-store-updated', handleRemoteStoreUpdate);
     requestAnimationFrame(loop);
 };
 
@@ -175,6 +176,12 @@ window.onresize = () => resizeCanvas();
 function resizeCanvas() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+}
+
+function handleRemoteStoreUpdate(event) {
+    if (!event || !event.detail || event.detail.source !== 'remote') return;
+    loadBoard();
+    updateViewCSS();
 }
 
 function initToolbars() {

@@ -105,6 +105,18 @@
         updateDetailPanel();
         bindUI();
         window.addEventListener('focus', refreshAssigneeLists);
+        window.addEventListener('rtf-store-updated', handleStoreUpdated);
+    }
+
+    function handleStoreUpdated(event) {
+        if (!event || !event.detail || event.detail.source !== 'remote') return;
+        if (!hasStoreBridge) return;
+        state = sanitizeState(store.getHQLayout());
+        refreshAssigneeLists();
+        renderFloorTabs();
+        renderRooms();
+        syncJuniorOpsMaxInput();
+        updateDetailPanel();
     }
 
     function sanitizeState(raw) {

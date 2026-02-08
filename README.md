@@ -4,6 +4,8 @@ A suite of lightweight, offline-first HTML tools for 5th Edition tabletop rolepl
 
 Campaign management apps (Tools Hub, Campaign Hub, Case Board, Player Dashboard, NPC Roster, Locations DB, Requisition Vault, Mission Timeline, Encounter Recipes, HQ Foundry) share a unified Local Storage object (`RTF_STORE`). Import/export once from the Tools Hub and those pages stay in lockstep. Other utilities—Player Sheet, Session Tracker, Narrative Engine, Clue Generator, and Tournament Bracket—use their own lightweight storage or rely on inline data.
 
+Optional Supabase cloud sync is available for the shared `RTF_STORE` stack. See **[Supabase Sync Setup](docs/SupabaseSync.md)**.
+
 ## Components
 
 Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ) shares the `RTF_STORE` object, while utilities like the Player Sheet or Session Tracker keep their own saves.
@@ -28,6 +30,8 @@ Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locat
 
 ## Usage
 Open any `.html` file in a modern browser (Edge, Chrome, Firefox). Data writes to Local Storage automatically. Import/export JSON via the Tools Hub (or each page’s local buttons) to migrate between machines or share with your table.
+
+To enable multi-device player/DM sync on GitHub Pages deployments, configure Supabase from the Tools Hub panel after following **[Supabase Sync Setup](docs/SupabaseSync.md)**.
 
 For a comprehensive guide on using the player tools, see **[Player Guide](player.md)**.
 

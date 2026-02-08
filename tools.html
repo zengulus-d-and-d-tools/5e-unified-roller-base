@@ -55,6 +55,41 @@
             </div>
         </header>
 
+        <section class="sync-panel card" aria-label="Cloud Sync">
+            <h2 class="sync-title">Cloud Sync (Supabase)</h2>
+            <p class="sync-desc">
+                Realtime sync for campaign tools (Hub, Board, Roster, Timeline, etc). Character sheets stay local per browser by default.
+            </p>
+            <div class="sync-grid">
+                <div class="sync-field">
+                    <label for="sync-url">Project URL</label>
+                    <input id="sync-url" type="text" placeholder="https://YOUR_PROJECT.supabase.co">
+                </div>
+                <div class="sync-field">
+                    <label for="sync-key">Anon Key</label>
+                    <input id="sync-key" type="password" placeholder="eyJhbGciOi...">
+                </div>
+                <div class="sync-field">
+                    <label for="sync-campaign">Campaign ID</label>
+                    <input id="sync-campaign" type="text" placeholder="ravnica-main">
+                </div>
+                <div class="sync-field">
+                    <label for="sync-profile">Profile Name (Optional)</label>
+                    <input id="sync-profile" type="text" placeholder="DM Console">
+                </div>
+            </div>
+            <div class="sync-actions">
+                <button class="sync-btn" onclick="saveSyncConfig()">Save Config</button>
+                <button class="sync-btn primary" onclick="connectSync()">Connect</button>
+                <button class="sync-btn" onclick="disconnectSync()">Disconnect</button>
+                <button class="sync-btn" onclick="pullSyncNow()">Pull Latest</button>
+                <button class="sync-btn" onclick="pushSyncNow()">Push Now</button>
+                <button class="sync-btn" onclick="anonymousSignIn()">Anonymous Sign-In</button>
+                <button class="sync-btn" onclick="signOutSync()">Sign Out</button>
+            </div>
+            <div id="sync-status" class="sync-status">Cloud sync status: waiting for store...</div>
+        </section>
+
         <div class="grid">
             <a href="index.html">
                 <div class="card" style="border-color: var(--accent);">
@@ -210,6 +245,141 @@
                 alert("Store not loaded.");
             }
         }
+
+        function getSyncFormValues() {
+            return {
+                supabaseUrl: (document.getElementById('sync-url').value || '').trim(),
+                anonKey: (document.getElementById('sync-key').value || '').trim(),
+                campaignId: (document.getElementById('sync-campaign').value || '').trim(),
+                profileName: (document.getElementById('sync-profile').value || '').trim()
+            };
+        }
+
+        function applySyncConfigToForm(config) {
+            if (!config) return;
+            document.getElementById('sync-url').value = config.supabaseUrl || '';
+            document.getElementById('sync-key').value = config.anonKey || '';
+            document.getElementById('sync-campaign').value = config.campaignId || '';
+            document.getElementById('sync-profile').value = config.profileName || '';
+        }
+
+        function fmtSyncTime(ts) {
+            if (!ts) return '—';
+            try {
+                return new Date(ts).toLocaleString();
+            } catch (err) {
+                return '—';
+            }
+        }
+
+        function setSyncStatusText(status) {
+            const el = document.getElementById('sync-status');
+            if (!el) return;
+            if (!status) {
+                el.textContent = 'Cloud sync status unavailable.';
+                return;
+            }
+            const parts = [
+                `Mode: ${status.mode || 'unknown'}`,
+                `Connected: ${status.connected ? 'yes' : 'no'}`,
+                `Campaign: ${status.campaignId || '—'}`,
+                `User: ${status.userId ? status.userId.slice(0, 8) + '…' : '—'}`,
+                `Last Pull: ${fmtSyncTime(status.lastPullAt)}`,
+                `Last Push: ${fmtSyncTime(status.lastPushAt)}`,
+                status.pendingPush ? 'Pending Local Push: yes' : 'Pending Local Push: no',
+                status.message ? `Note: ${status.message}` : ''
+            ].filter(Boolean);
+            el.textContent = parts.join(' | ');
+        }
+
+        function saveSyncConfig() {
+            if (!window.RTF_STORE) {
+                alert('Store not loaded.');
+                return;
+            }
+            const form = getSyncFormValues();
+            window.RTF_STORE.setSyncConfig({
+                ...form,
+                enabled: true
+            }, { reconnect: false });
+            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
+            setSyncStatusText(window.RTF_STORE.getSyncStatus());
+            alert('Sync config saved locally.');
+        }
+
+        async function connectSync() {
+            if (!window.RTF_STORE) {
+                alert('Store not loaded.');
+                return;
+            }
+            const form = getSyncFormValues();
+            window.RTF_STORE.setSyncConfig({
+                ...form,
+                enabled: true
+            }, { reconnect: false });
+            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
+            const result = await window.RTF_STORE.connectSync();
+            if (!result.ok) {
+                const status = window.RTF_STORE.getSyncStatus();
+                alert(status.lastError || 'Failed to connect cloud sync.');
+            }
+        }
+
+        async function disconnectSync() {
+            if (!window.RTF_STORE) return;
+            await window.RTF_STORE.disconnectSync('manual');
+        }
+
+        async function pullSyncNow() {
+            if (!window.RTF_STORE) return;
+            const result = await window.RTF_STORE.pullFromCloud({ force: true });
+            if (!result.ok) {
+                const status = window.RTF_STORE.getSyncStatus();
+                alert(status.lastError || 'Cloud pull failed.');
+            }
+        }
+
+        async function pushSyncNow() {
+            if (!window.RTF_STORE) return;
+            const result = await window.RTF_STORE.pushToCloud();
+            if (!result.ok) {
+                const status = window.RTF_STORE.getSyncStatus();
+                alert(status.lastError || 'Cloud push failed.');
+            }
+        }
+
+        async function anonymousSignIn() {
+            if (!window.RTF_STORE) return;
+            const profile = (document.getElementById('sync-profile').value || '').trim();
+            const result = await window.RTF_STORE.signInAnonymously(profile);
+            if (!result.ok) {
+                const status = window.RTF_STORE.getSyncStatus();
+                alert(status.lastError || 'Anonymous sign-in failed.');
+            }
+        }
+
+        async function signOutSync() {
+            if (!window.RTF_STORE) return;
+            const result = await window.RTF_STORE.signOutSyncUser();
+            if (!result.ok) alert(result.error || 'Sign out failed.');
+        }
+
+        function initSyncPanel() {
+            if (!window.RTF_STORE) {
+                setTimeout(initSyncPanel, 120);
+                return;
+            }
+            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
+            setSyncStatusText(window.RTF_STORE.getSyncStatus());
+            window.RTF_STORE.onSyncStatus((status) => {
+                setSyncStatusText(status);
+            });
+        }
+
+        window.addEventListener('load', initSyncPanel);
+        window.addEventListener('rtf-sync-status', (event) => {
+            setSyncStatusText(event.detail);
+        });
     </script>
 </body>
 
