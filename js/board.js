@@ -1115,13 +1115,12 @@ function optimizeLayout(centerId) {
     const centerNode = nodes.find(n => n.id === centerId);
     if (!centerNode) { console.error("optimizeLayout: Node not found", centerId); return; }
 
-    // 1. Reset View to Center
-    // We want the centerNode to be at screen center (approx width/2, height/2)
-    // view.x + node.x * view.scale = screenCenter
-    // We'll just reset view to 0,0 and move the node to 0,0 (virtual coords) then build around it
-    // Actually simpler: Build layout around (0,0) in world space, then pan view to center O,O
+    // 1. Capture Center Node's Original Position
+    // We want to build the layout around this point in world space.
+    const originX = centerNode.x;
+    const originY = centerNode.y;
 
-    // BFS to assign layers
+    // BFS to assign layers (Connected Component Only)
     const layers = new Map(); // id -> distance
     const visited = new Set();
     const queue = [{ id: centerId, dist: 0 }];
@@ -1147,13 +1146,8 @@ function optimizeLayout(centerId) {
         });
     }
 
-    // Handle disconnected components (assign to generic outer layer)
-    const maxDist = Math.max(...layers.values());
-    nodes.forEach(n => {
-        if (!visited.has(n.id)) {
-            layers.set(n.id, maxDist + 2); // Push well outside connected graph
-        }
-    });
+    // REMOVED: Handling of disconnected components. 
+    // We only want to move nodes that are part of this connected graph.
 
     // 2. Assign Grid Positions
     // Grid Spacing
@@ -1168,7 +1162,7 @@ function optimizeLayout(centerId) {
     });
 
     const newPositions = new Map();
-    newPositions.set(centerId, { x: 0, y: 0 });
+    newPositions.set(centerId, { x: originX, y: originY });
 
     // Iterate layers
     for (let d = 1; d < groups.length; d++) {
@@ -1185,7 +1179,8 @@ function optimizeLayout(centerId) {
                 let sumAtan = 0;
                 parents.forEach(pid => {
                     const pPos = newPositions.get(pid);
-                    sumAtan += Math.atan2(pPos.y, pPos.x);
+                    // atan2 relative to origin
+                    sumAtan += Math.atan2(pPos.y - originY, pPos.x - originX);
                 });
                 return sumAtan / parents.length;
             };
@@ -1193,41 +1188,38 @@ function optimizeLayout(centerId) {
         });
 
         // Layout: concentric rectangle/circle
-        // Simple approach: Place in a ring roughly proportional to perimeters
         const items = layerNodes.length;
         const radius = d * Math.max(SPACING_X, SPACING_Y);
         const angleStep = (2 * Math.PI) / items;
 
         layerNodes.forEach((nid, idx) => {
             const angle = idx * angleStep;
-            // Snap to approximate grid?
-            // Let's stick to radial for "minimizing crossovers" efficiently, 
-            // but we can snap resultant positions to a grid if "grid" is strict.
-            // User asked for "Grid that minimises crossover".
-            // Let's map radial coords to nearest grid points to satisfy "Grid".
 
+            // Calculate relative to (0,0) first, then add origin
             let rx = Math.round((Math.cos(angle) * radius) / SPACING_X) * SPACING_X;
             let ry = Math.round((Math.sin(angle) * radius) / SPACING_Y) * SPACING_Y;
 
-            // Avoid collisions (rudimentary)
-            while (Array.from(newPositions.values()).some(p => p.x === rx && p.y === ry)) {
-                // If occupied, spiral out slightly? Or just shift.
-                rx += (Math.random() > 0.5 ? 1 : -1) * (SPACING_X / 2); // Jiggle
+            // Collision Avoidance (Rudimentary) relative to local cluster
+            // We check against newPositions which are already in World Space
+            let worldX = originX + rx;
+            let worldY = originY + ry;
+
+            while (Array.from(newPositions.values()).some(p => p.x === worldX && p.y === worldY)) {
+                // Spiral/Jiggle
+                worldX += (Math.random() > 0.5 ? 1 : -1) * (SPACING_X / 2);
             }
 
-            newPositions.set(nid, { x: rx, y: ry });
+            newPositions.set(nid, { x: worldX, y: worldY });
         });
     }
 
     // Apply New Positions
-    // Apply center offset so the CENTER node is at the current view center?
-    // User asked to "Centre this".
-    // Let's set View to focus on (0,0) and place CenterNode at (0,0).
 
-    // Reset View
-    view.x = window.innerWidth / 2;
-    view.y = window.innerHeight / 2;
-    view.scale = 1;
+    // Center View on the Origin Node
+    // viewportCenter = worldPos * scale + viewOffset
+    // viewOffset = viewportCenter - worldPos * scale
+    view.x = window.innerWidth / 2 - originX * view.scale;
+    view.y = window.innerHeight / 2 - originY * view.scale;
     updateViewCSS();
 
     newPositions.forEach((pos, id) => {
