@@ -55,6 +55,105 @@ const sanitizeText = (text = '') => String(text || '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 const sanitizeMultiline = (text = '') => sanitizeText(text).replace(/\n/g, '<br>');
+const LEGACY_BOARD_KEY = 'invBoardData';
+
+function sanitizeRichText(html = '') {
+    const template = document.createElement('template');
+    template.innerHTML = String(html || '');
+    const allowed = new Set(['BR', 'STRONG', 'B', 'EM', 'I', 'U', 'DIV', 'P', 'SPAN']);
+
+    const cleanNode = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return document.createTextNode(node.textContent || '');
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return document.createTextNode('');
+        }
+
+        const tag = node.tagName.toUpperCase();
+        if (!allowed.has(tag)) {
+            const fragment = document.createDocumentFragment();
+            Array.from(node.childNodes).forEach(child => fragment.appendChild(cleanNode(child)));
+            return fragment;
+        }
+
+        const clean = document.createElement(tag.toLowerCase());
+        Array.from(node.childNodes).forEach(child => clean.appendChild(cleanNode(child)));
+        return clean;
+    };
+
+    const wrapper = document.createElement('div');
+    Array.from(template.content.childNodes).forEach(node => wrapper.appendChild(cleanNode(node)));
+    return wrapper.innerHTML;
+}
+
+function sanitizeBoardPayload(payload) {
+    const source = payload && typeof payload === 'object' ? payload : {};
+    return {
+        name: typeof source.name === 'string' && source.name ? source.name : 'UNNAMED CASE',
+        nodes: Array.isArray(source.nodes) ? source.nodes : [],
+        connections: Array.isArray(source.connections) ? source.connections : []
+    };
+}
+
+function readStoreBoardPayload() {
+    if (!window.RTF_STORE) return null;
+    if (typeof window.RTF_STORE.getBoard === 'function') {
+        return sanitizeBoardPayload(window.RTF_STORE.getBoard());
+    }
+    if (window.RTF_STORE.state && window.RTF_STORE.state.board) {
+        return sanitizeBoardPayload(window.RTF_STORE.state.board);
+    }
+    return null;
+}
+
+function writeStoreBoardPayload(payload) {
+    if (!window.RTF_STORE) return false;
+    const clean = sanitizeBoardPayload(payload);
+    if (typeof window.RTF_STORE.updateBoard === 'function') {
+        window.RTF_STORE.updateBoard(clean);
+        return true;
+    }
+    if (window.RTF_STORE.state) {
+        window.RTF_STORE.state.board = clean;
+        if (typeof window.RTF_STORE.save === 'function') window.RTF_STORE.save();
+        return true;
+    }
+    return false;
+}
+
+function readLegacyBoardPayload() {
+    const raw = localStorage.getItem(LEGACY_BOARD_KEY);
+    if (!raw) return null;
+    try {
+        return sanitizeBoardPayload(JSON.parse(raw));
+    } catch (err) {
+        console.warn('Legacy board data is corrupted', err);
+        return null;
+    }
+}
+
+function hasBoardContent(payload) {
+    if (!payload) return false;
+    if ((payload.nodes && payload.nodes.length) || (payload.connections && payload.connections.length)) return true;
+    return payload.name && payload.name !== 'UNNAMED CASE' && payload.name !== 'UNNAMED';
+}
+
+function getPreferredBoardPayload() {
+    const storePayload = readStoreBoardPayload();
+    if (hasBoardContent(storePayload)) return storePayload;
+
+    const legacyPayload = readLegacyBoardPayload();
+    if (legacyPayload) {
+        writeStoreBoardPayload(legacyPayload);
+        localStorage.removeItem(LEGACY_BOARD_KEY);
+        return legacyPayload;
+    }
+
+    return storePayload;
+}
+
 const REQUISITION_STATUSES = ["Pending", "Approved", "In Transit", "Delivered", "Denied"];
 const REQUISITION_PRIORITIES = ["Routine", "Tactical", "Emergency"];
 const REQUISITION_PRIORITY_WEIGHT = REQUISITION_PRIORITIES.reduce((acc, val, idx) => {
@@ -176,17 +275,17 @@ function renderNPCs() {
         el.className = 'tool-item';
         el.draggable = true;
         // Map NPC data to Node content
-        let body = `${npc.guild || 'Unassigned'}`;
-        if (npc.wants) body += `<br><strong>Wants:</strong> ${npc.wants}`;
-        if (npc.leverage) body += `<br><strong>Lev:</strong>   ${npc.leverage}`;
-        if (npc.notes) body += `<br><strong>Note:</strong>  ${npc.notes}`;
+        let body = `${sanitizeText(npc.guild || 'Unassigned')}`;
+        if (npc.wants) body += `<br><strong>Wants:</strong> ${sanitizeMultiline(npc.wants)}`;
+        if (npc.leverage) body += `<br><strong>Lev:</strong> ${sanitizeMultiline(npc.leverage)}`;
+        if (npc.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(npc.notes)}`;
 
         const nodeData = {
-            title: npc.name,
+            title: npc.name || 'Unknown NPC',
             body: body
         };
         el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
-        el.innerHTML = `<div class="icon">👤</div><div class="label">${npc.name}</div>`;
+        el.innerHTML = `<div class="icon">👤</div><div class="label">${sanitizeText(npc.name)}</div>`;
         listContainer.appendChild(el);
     });
 }
@@ -237,16 +336,16 @@ function renderLocations() {
         const el = document.createElement('div');
         el.className = 'tool-item';
         el.draggable = true;
-        let body = `${loc.district || ''}`;
-        if (loc.desc) body += `<br>${loc.desc}`;
-        if (loc.notes) body += `<br><strong>Note:</strong>  ${loc.notes}`;
+        let body = `${sanitizeText(loc.district || '')}`;
+        if (loc.desc) body += `<br>${sanitizeMultiline(loc.desc)}`;
+        if (loc.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(loc.notes)}`;
 
         const nodeData = {
-            title: loc.name,
+            title: loc.name || 'Location',
             body: body
         };
         el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
-        el.innerHTML = `<div class="icon">📍</div><div class="label">${loc.name}</div>`;
+        el.innerHTML = `<div class="icon">📍</div><div class="label">${sanitizeText(loc.name)}</div>`;
         listContainer.appendChild(el);
     });
 }
@@ -816,13 +915,14 @@ function createNode(type, x, y, id = null, content = {}) {
 
     const iconMap = { person: '👤', location: '📍', clue: '🔍', note: '📝', event: '🕰️', requisition: '📦', azorius: '⚖️', boros: '⚔️', dimir: '👁️', golgari: '🍄', gruul: '🔥', izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬' };
     const icon = iconMap[type] || '❓';
-    const title = content.title || type.toUpperCase();
+    const title = sanitizeText(content.title || type.toUpperCase());
+    const bodyHtml = sanitizeRichText(content.body || '');
 
     nodeEl.innerHTML = `
         <div class="port top" data-port="top"></div><div class="port bottom" data-port="bottom"></div>
         <div class="port left" data-port="left"></div><div class="port right" data-port="right"></div>
         <div class="node-header"><div class="node-title">${title}</div><div class="node-icon">${icon}</div></div>
-        <div class="node-body">${content.body || ''}</div>
+        <div class="node-body">${bodyHtml}</div>
     `;
 
     nodeEl.onmousedown = (e) => {
@@ -958,13 +1058,14 @@ function saveBoard() {
             label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight
         }))
     };
-    localStorage.setItem('invBoardData', JSON.stringify(data));
+    if (!writeStoreBoardPayload(data)) {
+        localStorage.setItem(LEGACY_BOARD_KEY, JSON.stringify(sanitizeBoardPayload(data)));
+    }
 }
 
 function loadBoard() {
-    const raw = localStorage.getItem('invBoardData');
-    if (!raw) return;
-    const data = JSON.parse(raw);
+    const data = getPreferredBoardPayload();
+    if (!data) return;
     document.getElementById('caseName').innerText = data.name || "UNNAMED";
 
     container.innerHTML = '';
@@ -989,7 +1090,12 @@ function loadBoard() {
 
 function clearBoard() {
     if (confirm("Clear board?")) {
-        localStorage.removeItem('invBoardData');
+        if (window.RTF_STORE && typeof window.RTF_STORE.clearBoard === 'function') {
+            window.RTF_STORE.clearBoard();
+        } else if (!writeStoreBoardPayload({ name: "UNNAMED CASE", nodes: [], connections: [] })) {
+            localStorage.removeItem(LEGACY_BOARD_KEY);
+        }
+        localStorage.removeItem(LEGACY_BOARD_KEY);
         location.reload();
     }
 }

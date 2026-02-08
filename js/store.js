@@ -34,9 +34,112 @@
         hq: createDefaultHQState()
     };
 
+    const deepClone = (value) => JSON.parse(JSON.stringify(value));
+    const toNumber = (value, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const toNonNegativeInt = (value, fallback = 0) => {
+        const parsed = parseInt(value, 10);
+        if (!Number.isFinite(parsed)) return fallback;
+        return Math.max(0, parsed);
+    };
+
+    const sanitizeCase = (caseData) => {
+        const base = DEFAULT_STATE.campaign.case;
+        const source = caseData && typeof caseData === 'object' ? caseData : {};
+        return {
+            title: typeof source.title === 'string' ? source.title : base.title,
+            guilds: typeof source.guilds === 'string' ? source.guilds : base.guilds,
+            goal: typeof source.goal === 'string' ? source.goal : base.goal,
+            clock: typeof source.clock === 'string' ? source.clock : base.clock,
+            obstacles: typeof source.obstacles === 'string' ? source.obstacles : base.obstacles,
+            setPiece: typeof source.setPiece === 'string' ? source.setPiece : base.setPiece
+        };
+    };
+
+    const sanitizeRep = (rep) => {
+        const normalized = { ...DEFAULT_STATE.campaign.rep };
+        if (!rep || typeof rep !== 'object') return normalized;
+        Object.keys(normalized).forEach((guild) => {
+            normalized[guild] = toNumber(rep[guild], 0);
+        });
+        return normalized;
+    };
+
+    const sanitizeCampaign = (campaign) => {
+        const source = campaign && typeof campaign === 'object' ? campaign : {};
+        return {
+            rep: sanitizeRep(source.rep),
+            heat: toNumber(source.heat, 0),
+            players: Array.isArray(source.players) ? source.players : [],
+            npcs: Array.isArray(source.npcs) ? source.npcs : [],
+            locations: Array.isArray(source.locations) ? source.locations : [],
+            requisitions: Array.isArray(source.requisitions) ? source.requisitions : [],
+            events: Array.isArray(source.events) ? source.events : [],
+            encounters: Array.isArray(source.encounters) ? source.encounters : [],
+            case: sanitizeCase(source.case)
+        };
+    };
+
+    const sanitizeBoard = (board) => {
+        const source = board && typeof board === 'object' ? board : {};
+        return {
+            name: typeof source.name === 'string' && source.name ? source.name : DEFAULT_STATE.board.name,
+            nodes: Array.isArray(source.nodes) ? source.nodes : [],
+            connections: Array.isArray(source.connections) ? source.connections : []
+        };
+    };
+
+    const sanitizeHQ = (hq) => {
+        const base = createDefaultHQState();
+        const source = hq && typeof hq === 'object' ? hq : {};
+        const gridSource = source.grid && typeof source.grid === 'object' ? source.grid : {};
+        const grid = {
+            cols: Math.max(6, toNonNegativeInt(gridSource.cols, base.grid.cols)),
+            rows: Math.max(6, toNonNegativeInt(gridSource.rows, base.grid.rows)),
+            cell: Math.max(24, toNonNegativeInt(gridSource.cell, base.grid.cell))
+        };
+
+        const floors = Array.isArray(source.floors)
+            ? source.floors
+                .filter(floor => floor && typeof floor === 'object')
+                .map((floor, idx) => ({
+                    id: (typeof floor.id === 'string' && floor.id) ? floor.id : `floor_${idx}_${Math.random().toString(36).slice(2, 7)}`,
+                    name: (typeof floor.name === 'string' && floor.name) ? floor.name : `Level ${idx + 1}`,
+                    rooms: Array.isArray(floor.rooms) ? floor.rooms : []
+                }))
+            : deepClone(base.floors);
+
+        if (!floors.length) floors.push(...deepClone(base.floors));
+        const activeFloorId = floors.some(f => f.id === source.activeFloorId) ? source.activeFloorId : floors[0].id;
+        const maxJuniorOperatives = toNonNegativeInt(source.maxJuniorOperatives, 0);
+
+        return {
+            grid,
+            snapToGrid: source.snapToGrid !== undefined ? !!source.snapToGrid : base.snapToGrid,
+            floors,
+            activeFloorId,
+            maxJuniorOperatives
+        };
+    };
+
+    const sanitizeState = (state) => {
+        const source = state && typeof state === 'object' ? state : {};
+        const defaultMeta = deepClone(DEFAULT_STATE.meta);
+        const sourceMeta = source.meta && typeof source.meta === 'object' ? source.meta : {};
+        const version = toNonNegativeInt(sourceMeta.version, 1) || 1;
+        return {
+            meta: { ...defaultMeta, ...sourceMeta, version },
+            campaign: sanitizeCampaign(source.campaign),
+            board: sanitizeBoard(source.board),
+            hq: sanitizeHQ(source.hq)
+        };
+    };
+
     class Store {
         constructor() {
-            this.state = JSON.parse(JSON.stringify(DEFAULT_STATE)); // Deep copy
+            this.state = deepClone(DEFAULT_STATE);
             this.load();
         }
 
@@ -45,34 +148,25 @@
                 const raw = localStorage.getItem(STORE_KEY);
                 if (raw) {
                     const loaded = JSON.parse(raw);
-                    // Merge loaded state with default to ensure structural integrity
-                    this.state = { ...this.state, ...loaded };
-                    // Ensure deep objects exist
-                    if (!this.state.campaign) this.state.campaign = { ...DEFAULT_STATE.campaign };
-                    if (!this.state.board) this.state.board = { ...DEFAULT_STATE.board };
-                    // Ensure arrays exist
-                    if (!this.state.campaign.npcs) this.state.campaign.npcs = [];
-                    if (!this.state.campaign.locations) this.state.campaign.locations = [];
-                    if (!this.state.campaign.requisitions) this.state.campaign.requisitions = [];
-                    if (!this.state.campaign.events) this.state.campaign.events = [];
-                    if (!this.state.campaign.encounters) this.state.campaign.encounters = [];
-                    if (!this.state.hq) this.state.hq = createDefaultHQState();
-                    this.ensurePlayerIds();
-
+                    this.state = sanitizeState(loaded);
                     console.log("RTF_STORE: Loaded unified data.");
                 } else {
                     console.log("RTF_STORE: No unified data found. Attempting migration...");
                     this.migrate();
                 }
-                if (!this.state.hq) this.state.hq = createDefaultHQState();
+
+                this.state = sanitizeState(this.state);
                 this.ensurePlayerIds();
-                this.ingestPreloadedData();
+                if (this.ingestPreloadedData()) this.save();
             } catch (e) {
                 console.error("RTF_STORE: Load failed", e);
+                this.state = sanitizeState(null);
             }
         }
 
         ingestPreloadedData() {
+            let changed = false;
+
             // Seed NPCs
             if (window.PRELOADED_NPCS && Array.isArray(window.PRELOADED_NPCS)) {
                 const existingNames = new Set(this.state.campaign.npcs.map(n => n.name));
@@ -84,7 +178,10 @@
                         count++;
                     }
                 });
-                if (count > 0) console.log(`RTF_STORE: Seeded ${count} NPCs.`);
+                if (count > 0) {
+                    console.log(`RTF_STORE: Seeded ${count} NPCs.`);
+                    changed = true;
+                }
             }
 
             // Seed Locations
@@ -98,8 +195,13 @@
                         count++;
                     }
                 });
-                if (count > 0) console.log(`RTF_STORE: Seeded ${count} Locations.`);
+                if (count > 0) {
+                    console.log(`RTF_STORE: Seeded ${count} Locations.`);
+                    changed = true;
+                }
             }
+
+            return changed;
         }
 
         save() {
@@ -162,30 +264,46 @@
         }
 
         import() {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = 'application/json';
                 input.onchange = e => {
                     const file = e.target.files[0];
-                    if (!file) return;
+                    if (!file) {
+                        resolve(false);
+                        return;
+                    }
                     const reader = new FileReader();
                     reader.onload = event => {
                         try {
                             const loaded = JSON.parse(event.target.result);
-                            if (loaded.meta && loaded.campaign && loaded.board) {
-                                this.state = loaded;
-                                this.save();
-                                resolve(true);
-                            } else {
+                            if (!loaded || typeof loaded !== 'object') {
+                                alert("Invalid format: Expected JSON object.");
+                                resolve(false);
+                                return;
+                            }
+
+                            const hasKnownRoot = ['meta', 'campaign', 'board', 'hq'].some(key => Object.prototype.hasOwnProperty.call(loaded, key));
+                            if (!hasKnownRoot) {
                                 alert("Invalid format: Missing campaign or board data.");
                                 resolve(false);
+                                return;
                             }
+
+                            this.state = sanitizeState(loaded);
+                            this.ensurePlayerIds();
+                            this.save();
+                            resolve(true);
                         } catch (err) {
                             console.error(err);
                             alert("Invalid JSON file");
                             resolve(false);
                         }
+                    };
+                    reader.onerror = () => {
+                        alert("File reading failed.");
+                        resolve(false);
                     };
                     reader.readAsText(file);
                 };
@@ -303,13 +421,28 @@
             }
         }
 
+        getBoard() {
+            this.state.board = sanitizeBoard(this.state.board);
+            return this.state.board;
+        }
+
+        updateBoard(boardState) {
+            this.state.board = sanitizeBoard(boardState);
+            this.save();
+        }
+
+        clearBoard() {
+            this.state.board = sanitizeBoard(null);
+            this.save();
+        }
+
         getHQLayout() {
-            if (!this.state.hq) this.state.hq = createDefaultHQState();
-            return JSON.parse(JSON.stringify(this.state.hq));
+            this.state.hq = sanitizeHQ(this.state.hq);
+            return deepClone(this.state.hq);
         }
 
         updateHQLayout(hqState) {
-            this.state.hq = hqState;
+            this.state.hq = sanitizeHQ(hqState);
             this.save();
         }
     }

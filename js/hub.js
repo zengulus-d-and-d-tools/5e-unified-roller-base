@@ -5,6 +5,13 @@ const guilds = (window.RTF_DATA && window.RTF_DATA.guilds) ? window.RTF_DATA.gui
 // Rewards converted to a datalist for suggestions while allowing free text
 const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
 
+const escapeHtml = (str = '') => String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
 // Shortcut to Store Campaign Data
 function getCampaign() {
     if (!window.RTF_STORE) return null;
@@ -46,6 +53,7 @@ function saveCase() {
 function resetAll() {
     if (confirm("Reset everything? This will wipe the Unified Store.")) {
         localStorage.removeItem('ravnica_unified_v1');
+        localStorage.removeItem('invBoardData');
         location.reload();
     }
 }
@@ -115,6 +123,7 @@ function updatePlayer(idx, field, val) {
 function render() {
     const c = getCampaign();
     if (!c) return; // Wait for store load
+    const players = Array.isArray(c.players) ? c.players : [];
 
     // Render Case Info
     document.getElementById('caseTitle').value = c.case.title || "";
@@ -145,11 +154,17 @@ function render() {
     document.getElementById('heatWarning').innerText = warn;
 
     // Player List
-    document.getElementById('rosterList').innerHTML = (c.players || []).map((p, i) => `
+    document.getElementById('rosterList').innerHTML = players.map((p, i) => {
+        const safeName = escapeHtml(p.name || '');
+        const safeProjectName = escapeHtml(p.projectName || '');
+        const safeProjectReward = escapeHtml(p.projectReward || '');
+        const safeDP = Number.isFinite(Number(p.dp)) ? Number(p.dp) : 0;
+        const safeClock = Math.max(0, Math.min(4, Number(p.projectClock) || 0));
+        return `
             <div class="player-row">
                 <div>
-                    <input type="text" value="${p.name}" onchange="updatePlayer(${i}, 'name', this.value)">
-                    <div class="dp-counter" style="margin-top:12px;">${p.dp} DP</div>
+                    <input type="text" value="${safeName}" onchange="updatePlayer(${i}, 'name', this.value)">
+                    <div class="dp-counter" style="margin-top:12px;">${safeDP} DP</div>
                     <div style="display:flex; justify-content:center; gap:5px; margin-top:8px;">
                         <button class="btn" onclick="modDP(${i},-1)">Spend</button>
                         <button class="btn" onclick="modDP(${i},1)">Add</button>
@@ -157,15 +172,15 @@ function render() {
                 </div>
                 <div style="grid-column: span 2;">
                     <span class="mini-label">Active Project Clock (4 Segments)</span>
-                    <input type="text" placeholder="Project Name (e.g., Learn Draconic)..." value="${p.projectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
+                    <input type="text" placeholder="Project Name (e.g., Learn Draconic)..." value="${safeProjectName}" onchange="updatePlayer(${i}, 'projectName', this.value)" style="margin-bottom:8px;">
                     <div style="display:flex; gap:10px;">
-                        <input type="text" list="reward-options" placeholder="Reward Goal..." value="${p.projectReward}" onchange="updatePlayer(${i}, 'projectReward', this.value)" style="flex:2;">
+                        <input type="text" list="reward-options" placeholder="Reward Goal..." value="${safeProjectReward}" onchange="updatePlayer(${i}, 'projectReward', this.value)" style="flex:2;">
                         <datalist id="reward-options">
                             ${projectRewards.map(r => `<option value="${r}">`).join('')}
                         </datalist>
                         <div class="clock-container" style="flex:1; justify-content:flex-end;">
-                            ${renderClockPie(p.projectClock, 4)}
-                            <span class="clock-readout">${p.projectClock || 0}/4</span>
+                            ${renderClockPie(safeClock, 4)}
+                            <span class="clock-readout">${safeClock}/4</span>
                             <button class="btn clock-btn" onclick="modClock(${i},1)">+</button>
                             <button class="btn clock-btn" onclick="modClock(${i},-1)">-</button>
                         </div>
@@ -173,7 +188,8 @@ function render() {
                 </div>
                 <button class="btn" style="color:var(--danger); border-color:transparent;" onclick="if(confirm('Delete?')){getCampaign().players.splice(${i},1); save();}">&times;</button>
             </div>
-        `).join('');
+        `;
+    }).join('');
 
 
 }

@@ -3,14 +3,52 @@
 // Depends on pdf.min.js being loaded before this script
 
 const Importer = {
+    PDFJS_WORKER_CDN: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
+    LOCAL_WORKER_CANDIDATES: ['js/pdf.worker.min.js', 'js/pdf.min.js'],
+
     // Entry point
     init: function () {
         console.log("Importer initialized");
         if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            // Prefer local workers for true offline use; CDN is only a fallback.
+            pdfjsLib.GlobalWorkerOptions.workerSrc = this.LOCAL_WORKER_CANDIDATES[0];
         } else {
             console.error("pdfjsLib not found! Ensure pdf.min.js is loaded.");
         }
+    },
+
+    getWorkerCandidates: function () {
+        const candidates = [...this.LOCAL_WORKER_CANDIDATES];
+        if (typeof navigator === 'undefined' || navigator.onLine !== false) {
+            candidates.push(this.PDFJS_WORKER_CDN);
+        }
+        return candidates;
+    },
+
+    loadPdfDocument: async function (arrayBuffer) {
+        let lastError = null;
+        const candidates = this.getWorkerCandidates();
+
+        for (const workerSrc of candidates) {
+            try {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                return await loadingTask.promise;
+            } catch (error) {
+                lastError = error;
+                console.warn(`PDF worker attempt failed (${workerSrc})`, error);
+            }
+        }
+
+        // Final fallback for builds that can run in "fake worker" mode.
+        try {
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer, disableWorker: true });
+            return await loadingTask.promise;
+        } catch (error) {
+            lastError = error;
+        }
+
+        throw lastError || new Error("Unable to initialize PDF parser.");
     },
 
     // Trigger file selection
@@ -32,8 +70,7 @@ const Importer = {
 
         try {
             const arrayBuffer = await file.arrayBuffer();
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdf = await loadingTask.promise;
+            const pdf = await this.loadPdfDocument(arrayBuffer);
 
             console.log(`PDF loaded. Pages: ${pdf.numPages}`);
 

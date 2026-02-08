@@ -49,6 +49,7 @@
         floorTabs: document.getElementById('floor-tabs'),
         addFloor: document.getElementById('btn-add-floor'),
         renameFloor: document.getElementById('btn-rename-floor'),
+        deleteFloor: document.getElementById('btn-delete-floor'),
         juniorOpsDisplay: document.getElementById('junior-ops-display'),
         juniorOpsMax: document.getElementById('junior-ops-max')
     };
@@ -623,7 +624,7 @@
         });
         refs.addFloor.addEventListener('click', addFloor);
         refs.renameFloor.addEventListener('click', renameFloor);
-        refs.deleteFloor.addEventListener('click', deleteFloor);
+        if (refs.deleteFloor) refs.deleteFloor.addEventListener('click', deleteFloor);
 
         const onJuniorOpsInput = () => syncJuniorOpsMaxInput();
         refs.juniorOpsMax.addEventListener('input', onJuniorOpsInput);

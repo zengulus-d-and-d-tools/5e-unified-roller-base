@@ -211,6 +211,13 @@
     <script src="js/data-locations.js"></script>
     <script src="js/store.js"></script>
     <script>
+        const escapeHtml = (str = '') => String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
         const render = () => {
             const grid = document.getElementById('playerGrid');
             const empty = document.getElementById('emptyState');
@@ -225,11 +232,18 @@
             empty.style.display = 'none';
 
             players.forEach((p, i) => {
+                const name = escapeHtml(p.name || '');
+                const ac = Number.isFinite(Number(p.ac)) ? Number(p.ac) : 0;
+                const pp = Number.isFinite(Number(p.pp)) ? Number(p.pp) : 0;
+                const dc = Number.isFinite(Number(p.dc)) ? Number(p.dc) : 0;
+                const hpValue = escapeHtml(p.hp || 0);
+                const hpNum = parseInt(p.hp, 10);
+                const hpLow = !isNaN(hpNum) && hpNum < 10;
                 const card = document.createElement('div');
                 card.className = 'card';
                 card.innerHTML = `
         <div class="card-header">
-            <input type="text" class="input-name" value="${p.name || ''}"
+            <input type="text" class="input-name" value="${name}"
                 onchange="updatePlayer(${i}, 'name', this.value)" placeholder="AGENT NAME">
                 <button class="btn btn-del" onclick="deletePlayer(${i})">&times;</button>
         </div>
@@ -237,25 +251,25 @@
         <div class="stat-grid">
             <div class="stat-box">
                 <span class="stat-label">AC</span>
-                <input type="number" class="stat-val" value="${p.ac || 0}"
+                <input type="number" class="stat-val" value="${ac}"
                     onchange="updatePlayer(${i}, 'ac', parseInt(this.value))">
             </div>
             <div class="stat-box">
                 <span class="stat-label">Passive Perc</span>
-                <input type="number" class="stat-val" value="${p.pp || 0}"
-                    style="color: ${p.pp >= 15 ? 'var(--accent)' : 'inherit'}"
+                <input type="number" class="stat-val" value="${pp}"
+                    style="color: ${pp >= 15 ? 'var(--accent)' : 'inherit'}"
                     onchange="updatePlayer(${i}, 'pp', parseInt(this.value))">
             </div>
             <div class="stat-box">
                 <span class="stat-label">Save DC</span>
-                <input type="number" class="stat-val" value="${p.dc || 0}"
+                <input type="number" class="stat-val" value="${dc}"
                     onchange="updatePlayer(${i}, 'dc', parseInt(this.value))">
             </div>
         </div>
 
-        <div class="stat-box" style="margin-top: 5px; border-color: ${parseInt(p.hp) < 10 ? 'var(--danger)' : 'transparent'}">
-            <span class="stat-label" style="color:${parseInt(p.hp) < 10 ? 'var(--danger)' : '#888'}">Hit Points</span>
-            <input type="text" class="stat-val" value="${p.hp || 0}"
+        <div class="stat-box" style="margin-top: 5px; border-color: ${hpLow ? 'var(--danger)' : 'transparent'}">
+            <span class="stat-label" style="color:${hpLow ? 'var(--danger)' : '#888'}">Hit Points</span>
+            <input type="text" class="stat-val" value="${hpValue}"
                 onchange="updatePlayer(${i}, 'hp', this.value)" placeholder="Max/Curr">
         </div>
             `;
