@@ -1108,139 +1108,87 @@ function centerAndOptimize() {
 function optimizeLayout(centerId) {
     if (!centerId) { console.error("optimizeLayout: No Center ID"); return; }
 
-    // SYNC STATE: Ensure memory matches DOM before calculating
-    saveBoard();
-    loadBoard();
+    // 1. Identification: Split nodes into connected components (clusters)
+    const clusters = getConnectedComponents(nodes, connections);
 
-    const centerNode = nodes.find(n => n.id === centerId);
-    if (!centerNode) { console.error("optimizeLayout: Node not found", centerId); return; }
+    // 2. Find the Main Cluster (containing centerId)
+    let mainClusterIndex = clusters.findIndex(c => c.some(n => n.id === centerId));
+    if (mainClusterIndex === -1) mainClusterIndex = 0; // Should not happen if centerId is valid
 
-    // 1. Capture Center Node's Original Position
-    // We want to build the layout around this point in world space.
+    const mainCluster = clusters[mainClusterIndex];
+    const otherClusters = clusters.filter((_, i) => i !== mainClusterIndex);
+
+    // 3. Layout Main Cluster (Center it at original position)
     const originX = centerNode.x;
     const originY = centerNode.y;
 
-    // BFS to assign layers (Connected Component Only)
-    const layers = new Map(); // id -> distance
-    const visited = new Set();
-    const queue = [{ id: centerId, dist: 0 }];
-    visited.add(centerId);
-    layers.set(centerId, 0);
+    // Layout internally relative to (0,0)
+    const mainLayout = layoutCluster(mainCluster, centerId);
 
-    const adj = new Map();
-    nodes.forEach(n => adj.set(n.id, []));
-    connections.forEach(c => {
-        if (adj.has(c.from)) adj.get(c.from).push(c.to);
-        if (adj.has(c.to)) adj.get(c.to).push(c.from);
+    // Shift Main Cluster to Origin
+    const finalPositions = new Map();
+    mainLayout.forEach((pos, id) => {
+        finalPositions.set(id, { x: pos.x + originX, y: pos.y + originY });
     });
 
-    while (queue.length > 0) {
-        const curr = queue.shift();
-        const neighbors = adj.get(curr.id) || [];
-        neighbors.forEach(nid => {
-            if (!visited.has(nid)) {
-                visited.add(nid);
-                layers.set(nid, curr.dist + 1);
-                queue.push({ id: nid, dist: curr.dist + 1 });
-            }
+    // 4. Place Other Clusters
+    // We'll place them in a spiral around the main cluster
+    const placedRects = [];
+    // Add Main Cluster Rect
+    placedRects.push(getRect(finalPositions));
+
+    otherClusters.forEach(cluster => {
+        // Pick a "root" for this cluster (e.g., node with most connections, or just first)
+        // For simplicity, first one.
+        const root = cluster[0];
+        const layout = layoutCluster(cluster, root.id);
+
+        // Calculate its local bounding box to know its size
+        const localRect = getRect(layout); // Relative to its own 0,0
+        const items = cluster.length;
+
+        // Find a spot
+        // Spiral search from Main Center
+        const spot = findEmptySpot(localRect, placedRects, originX, originY);
+
+        // Apply offset
+        layout.forEach((pos, id) => {
+            finalPositions.set(id, { x: pos.x + spot.x, y: pos.y + spot.y });
         });
-    }
 
-    // REMOVED: Handling of disconnected components. 
-    // We only want to move nodes that are part of this connected graph.
-
-    // 2. Assign Grid Positions
-    // Grid Spacing
-    const SPACING_X = 250;
-    const SPACING_Y = 180;
-    const groups = [];
-
-    // Group by layer
-    layers.forEach((dist, id) => {
-        if (!groups[dist]) groups[dist] = [];
-        groups[dist].push(id);
+        // Add new rect to obstacles
+        const newRect = {
+            left: localRect.left + spot.x,
+            right: localRect.right + spot.x,
+            top: localRect.top + spot.y,
+            bottom: localRect.bottom + spot.y
+        };
+        placedRects.push(newRect);
     });
 
-    const newPositions = new Map();
-    newPositions.set(centerId, { x: originX, y: originY });
-
-    // Iterate layers
-    for (let d = 1; d < groups.length; d++) {
-        if (!groups[d]) continue;
-
-        let layerNodes = groups[d];
-
-        // Sort heuristic: Minimize crossing by sorting based on parent angle/position
-        // For each node, find average position of its parents in d-1
-        layerNodes.sort((a, b) => {
-            const getParentAvgAngle = (nid) => {
-                const parents = (adj.get(nid) || []).filter(pid => layers.get(pid) === d - 1);
-                if (parents.length === 0) return 0;
-                let sumAtan = 0;
-                parents.forEach(pid => {
-                    const pPos = newPositions.get(pid);
-                    // atan2 relative to origin
-                    sumAtan += Math.atan2(pPos.y - originY, pPos.x - originX);
-                });
-                return sumAtan / parents.length;
-            };
-            return getParentAvgAngle(a) - getParentAvgAngle(b);
-        });
-
-        // Layout: concentric rectangle/circle
-        const items = layerNodes.length;
-        const radius = d * Math.max(SPACING_X, SPACING_Y);
-        const angleStep = (2 * Math.PI) / items;
-
-        layerNodes.forEach((nid, idx) => {
-            const angle = idx * angleStep;
-
-            // Calculate relative to (0,0) first, then add origin
-            let rx = Math.round((Math.cos(angle) * radius) / SPACING_X) * SPACING_X;
-            let ry = Math.round((Math.sin(angle) * radius) / SPACING_Y) * SPACING_Y;
-
-            // Collision Avoidance (Rudimentary) relative to local cluster
-            // We check against newPositions which are already in World Space
-            let worldX = originX + rx;
-            let worldY = originY + ry;
-
-            while (Array.from(newPositions.values()).some(p => p.x === worldX && p.y === worldY)) {
-                // Spiral/Jiggle
-                worldX += (Math.random() > 0.5 ? 1 : -1) * (SPACING_X / 2);
-            }
-
-            newPositions.set(nid, { x: worldX, y: worldY });
-        });
-    }
-
-    // Apply New Positions
-
-    // Center View on the Origin Node
-    // viewportCenter = worldPos * scale + viewOffset
-    // viewOffset = viewportCenter - worldPos * scale
+    // 5. Apply Positions & View
     view.x = window.innerWidth / 2 - originX * view.scale;
     view.y = window.innerHeight / 2 - originY * view.scale;
     updateViewCSS();
 
-    newPositions.forEach((pos, id) => {
+    finalPositions.forEach((pos, id) => {
         const el = document.getElementById(id);
         if (el) {
             el.style.left = pos.x + 'px';
             el.style.top = pos.y + 'px';
-            // CRITICAL: Update the cache so physics sees the new position
             updateNodeCache(id);
         }
     });
 
     saveBoard();
 
-    // 3. Smart Port Optimization
-    // Now that nodes are in place, find the closest ports for every connection
+    // 6. Smart Port Optimization & Physics Reset
     connections.forEach(c => {
         const n1 = nodeCache.get(c.from);
         const n2 = nodeCache.get(c.to);
         if (!n1 || !n2) return;
 
+        // Optimization: pick closest ports
         let minD = Infinity;
         let best = { from: c.fromPort, to: c.toPort };
 
@@ -1255,40 +1203,216 @@ function optimizeLayout(centerId) {
                 }
             });
         });
-
         c.fromPort = best.from;
         c.toPort = best.to;
-    });
 
-    // Force physics wake-up & Reset string positions to straight lines
-    connections.forEach(c => {
+        // Reset Physics
         const idx = connToIndex.get(c.id);
         if (idx !== undefined) {
             sleepState[idx] = 1;
-
-            // Reset particles to a straight line between the new endpoints
-            const c1 = nodeCache.get(c.from);
-            const c2 = nodeCache.get(c.to);
-            if (c1 && c2) {
-                const p1 = getPortPos(c1, c.fromPort);
-                const p2 = getPortPos(c2, c.toPort);
-                const base = idx * BYTES_PER_CONN;
-
-                for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
-                    const t = i / (CONFIG.POINTS_COUNT - 1);
-                    const px = p1.x + (p2.x - p1.x) * t;
-                    const py = p1.y + (p2.y - p1.y) * t;
-
-                    const ptr = base + i * STRIDE;
-                    physicsBuffer[ptr] = px;        // x
-                    physicsBuffer[ptr + 1] = py;    // y
-                    physicsBuffer[ptr + 2] = px;    // oldx
-                    physicsBuffer[ptr + 3] = py;    // oldy
-                    physicsBuffer[ptr + 4] = 0;     // stress
-                }
+            const p1 = getPortPos(n1, c.fromPort);
+            const p2 = getPortPos(n2, c.toPort);
+            const base = idx * BYTES_PER_CONN;
+            for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
+                const t = i / (CONFIG.POINTS_COUNT - 1);
+                const px = p1.x + (p2.x - p1.x) * t;
+                const py = p1.y + (p2.y - p1.y) * t;
+                const ptr = base + i * STRIDE;
+                physicsBuffer[ptr] = px; physicsBuffer[ptr + 1] = py;
+                physicsBuffer[ptr + 2] = px; physicsBuffer[ptr + 3] = py;
+                physicsBuffer[ptr + 4] = 0;
             }
         }
     });
+}
+
+// --- LAYOUT HELPERS ---
+
+function getConnectedComponents(allNodes, allConns) {
+    const visited = new Set();
+    const clusters = [];
+
+    // Build Adjacency
+    const adj = new Map();
+    allNodes.forEach(n => adj.set(n.id, []));
+    allConns.forEach(c => {
+        if (adj.has(c.from)) adj.get(c.from).push(c.to);
+        if (adj.has(c.to)) adj.get(c.to).push(c.from);
+    });
+
+    allNodes.forEach(node => {
+        if (visited.has(node.id)) return;
+
+        const cluster = [];
+        const queue = [node.id];
+        visited.add(node.id);
+
+        while (queue.length > 0) {
+            const currId = queue.shift();
+            const n = allNodes.find(x => x.id === currId);
+            if (n) cluster.push(n);
+
+            const neighbors = adj.get(currId) || [];
+            neighbors.forEach(nid => {
+                if (!visited.has(nid)) {
+                    visited.add(nid);
+                    queue.push(nid);
+                }
+            });
+        }
+        clusters.push(cluster);
+    });
+    return clusters;
+}
+
+function layoutCluster(clusterNodes, rootId) {
+    const positions = new Map();
+    if (clusterNodes.length === 0) return positions;
+
+    // If root not in cluster (shouldn't happen if logic correct), pick first
+    if (!clusterNodes.some(n => n.id === rootId)) rootId = clusterNodes[0].id;
+
+    // BFS Layers
+    const layers = new Map();
+    const visited = new Set();
+    const queue = [{ id: rootId, dist: 0 }];
+    visited.add(rootId);
+    layers.set(rootId, 0);
+
+    // Local Adjacency
+    const adj = new Map();
+    clusterNodes.forEach(n => adj.set(n.id, []));
+    connections.forEach(c => {
+        // Only consider connections strictly within this cluster
+        const hasFrom = adj.has(c.from);
+        const hasTo = adj.has(c.to);
+        if (hasFrom && hasTo) {
+            adj.get(c.from).push(c.to);
+            adj.get(c.to).push(c.from);
+        }
+    });
+
+    while (queue.length > 0) {
+        const curr = queue.shift();
+        const neighbors = adj.get(curr.id) || [];
+        neighbors.forEach(nid => {
+            if (!visited.has(nid)) {
+                visited.add(nid);
+                layers.set(nid, curr.dist + 1);
+                queue.push({ id: nid, dist: curr.dist + 1 });
+            }
+        });
+    }
+
+    // Grid/Ring Layout
+    const SPACING_X = 250;
+    const SPACING_Y = 180;
+    const groups = [];
+    layers.forEach((dist, id) => {
+        if (!groups[dist]) groups[dist] = [];
+        groups[dist].push(id);
+    });
+
+    positions.set(rootId, { x: 0, y: 0 });
+
+    for (let d = 1; d < groups.length; d++) {
+        if (!groups[d]) continue;
+        const layerNodes = groups[d];
+
+        // Inherit heuristic
+        const getParentAvgAngle = (nid) => {
+            const parents = (adj.get(nid) || []).filter(pid => layers.get(pid) === d - 1);
+            if (parents.length === 0) return 0;
+            let sumAtan = 0;
+            parents.forEach(pid => {
+                const p = positions.get(pid);
+                if (p) sumAtan += Math.atan2(p.y, p.x);
+            });
+            return sumAtan / parents.length;
+        };
+        layerNodes.sort((a, b) => getParentAvgAngle(a) - getParentAvgAngle(b));
+
+        const radius = d * Math.max(SPACING_X, SPACING_Y);
+        const angleStep = (2 * Math.PI) / layerNodes.length;
+
+        layerNodes.forEach((nid, idx) => {
+            const angle = idx * angleStep;
+            let rx = Math.round((Math.cos(angle) * radius) / SPACING_X) * SPACING_X;
+            let ry = Math.round((Math.sin(angle) * radius) / SPACING_Y) * SPACING_Y;
+
+            // Collision with same cluster
+            let safety = 0;
+            while (safety++ < 50 && Array.from(positions.values()).some(p => p.x === rx && p.y === ry)) {
+                rx += (Math.random() > 0.5 ? 1 : -1) * (SPACING_X / 2);
+            }
+            positions.set(nid, { x: rx, y: ry });
+        });
+    }
+    return positions;
+}
+
+function getRect(posMap) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    if (posMap instanceof Map) {
+        posMap.forEach(p => {
+            if (p.x < minX) minX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y > maxY) maxY = p.y;
+        });
+    } else {
+        // Assume array if not map (not used currently but good safety)
+    }
+
+    // Pad slightly
+    const PAD = 50;
+    return { left: minX - PAD, top: minY - PAD, right: maxX + 150 + PAD, bottom: maxY + 80 + PAD };
+}
+
+function findEmptySpot(localRect, obstacles, centerX, centerY) {
+    // Spiral search
+    const width = localRect.right - localRect.left;
+    const height = localRect.bottom - localRect.top;
+
+    let angle = 0;
+    let rank = 1;
+    const SPACING = 400; // Gap between clusters
+
+    // Limit search to prevent infinite loop
+    for (let i = 0; i < 100; i++) {
+        // Try current spot
+        // Spiral: 
+        const r = rank * SPACING;
+        const x = centerX + Math.cos(angle) * r;
+        const y = centerY + Math.sin(angle) * r;
+
+        // Potential World Rect
+        const candidate = {
+            left: x + localRect.left,
+            right: x + localRect.right,
+            top: y + localRect.top,
+            bottom: y + localRect.bottom
+        };
+
+        // Check collision
+        const collide = obstacles.some(obs => {
+            return !(candidate.left > obs.right ||
+                candidate.right < obs.left ||
+                candidate.top > obs.bottom ||
+                candidate.bottom < obs.top);
+        });
+
+        if (!collide) return { x, y };
+
+        // Next
+        angle += 1; // ~57 degrees
+        if (angle > Math.PI * 2 * rank) {
+            angle = 0;
+            rank++;
+        }
+    }
+    // Fallback: far away
+    return { x: centerX + 2000, y: centerY + 2000 };
 }
 
 function startDragNew(e, type, data = {}) {
