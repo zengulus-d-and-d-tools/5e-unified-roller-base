@@ -283,7 +283,7 @@ function getDefaultChar() {
             cardOrder: []
         },
         inventory: getDefaultInventory()
-}
+    }
 
         ;
     Object.keys(skillsMap).forEach(s => char.skills[s] = 0);
@@ -491,9 +491,10 @@ function populateUI() {
     toggleDiscord(data.meta.discordActive);
 
     // FIX: Use (val !== undefined) check instead of (|| '') to allow 0 to persist
-    document.getElementById('hpCurr').value = (data.vitals.curr !== undefined && data.vitals.curr !== null) ? data.vitals.curr : '';
-    document.getElementById('hpMax').value = (data.vitals.max !== undefined && data.vitals.max !== null) ? data.vitals.max : '';
-    document.getElementById('hpTemp').value = (data.vitals.temp !== undefined && data.vitals.temp !== null) ? data.vitals.temp : '';
+    const safeDisplay = (val) => (val !== undefined && val !== null && !isNaN(val)) ? val : '';
+    document.getElementById('hpCurr').value = safeDisplay(data.vitals.curr);
+    document.getElementById('hpMax').value = safeDisplay(data.vitals.max);
+    document.getElementById('hpTemp').value = safeDisplay(data.vitals.temp);
     document.getElementById('inspirationVal').value = data.vitals.inspiration || 0;
 
     document.getElementById('hdDie').value = data.vitals.hdDie || 'd8';
@@ -3243,3 +3244,10 @@ catch (e) {
     console.error("Init failed", e);
     alert("Error loading character data. Check console or clear data.");
 }
+
+// Expose to window for Importer
+Object.defineProperty(window, 'data', { get: () => data });
+Object.defineProperty(window, 'allData', { get: () => allData });
+window.save = save;
+window.populateUI = populateUI;
+window.init = init;
