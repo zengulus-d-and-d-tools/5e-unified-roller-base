@@ -186,6 +186,62 @@
         };
     };
 
+    const isFiniteNum = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed);
+    };
+
+    const buildLocalOnlyBoardLayoutMap = (state) => {
+        const map = new Map();
+        const source = state && state.board && Array.isArray(state.board.nodes) ? state.board.nodes : [];
+        source.forEach((node) => {
+            if (!node || !node.id) return;
+            if (!isFiniteNum(node.x) || !isFiniteNum(node.y)) return;
+            map.set(node.id, { x: Number(node.x), y: Number(node.y) });
+        });
+        return map;
+    };
+
+    const mergeRemoteBoardWithLocalLayout = (remoteState, localState) => {
+        const merged = sanitizeState(remoteState);
+        const localLayout = buildLocalOnlyBoardLayoutMap(localState);
+
+        if (!merged.board || !Array.isArray(merged.board.nodes)) return merged;
+
+        merged.board.nodes = merged.board.nodes.map((node, idx) => {
+            const base = node && typeof node === 'object' ? { ...node } : {};
+            const local = base.id ? localLayout.get(base.id) : null;
+
+            if (local) {
+                base.x = local.x;
+                base.y = local.y;
+                return base;
+            }
+
+            if (!isFiniteNum(base.x)) base.x = 120 + (idx % 6) * 240;
+            else base.x = Number(base.x);
+            if (!isFiniteNum(base.y)) base.y = 120 + Math.floor(idx / 6) * 150;
+            else base.y = Number(base.y);
+            return base;
+        });
+
+        return merged;
+    };
+
+    const stripLocalOnlyFieldsForCloud = (state) => {
+        const cloud = sanitizeState(state);
+        if (cloud.board && Array.isArray(cloud.board.nodes)) {
+            cloud.board.nodes = cloud.board.nodes.map((node) => {
+                if (!node || typeof node !== 'object') return node;
+                const copy = { ...node };
+                delete copy.x;
+                delete copy.y;
+                return copy;
+            });
+        }
+        return cloud;
+    };
+
     const parseStoredSyncConfig = () => {
         try {
             const raw = localStorage.getItem(SYNC_CONFIG_KEY);
@@ -236,7 +292,8 @@
                 lastPushAt: 0,
                 lastPullAt: 0,
                 userId: '',
-                supabaseLoadPromise: null
+                supabaseLoadPromise: null,
+                lastCloudStateSig: ''
             };
 
             this.isApplyingRemote = false;
@@ -944,6 +1001,8 @@
                 return { ok: true, reason: 'empty', applied: false };
             }
 
+            this.sync.lastCloudStateSig = JSON.stringify(stripLocalOnlyFieldsForCloud(row.state));
+
             const remoteUpdatedAt = toTimestamp(row.updated_at, 0);
             const localUpdatedAt = toTimestamp(this.state.meta.updated, 0);
             const shouldApply = force || remoteUpdatedAt > localUpdatedAt;
@@ -1001,7 +1060,16 @@
 
             try {
                 const config = this.sync.config;
-                const payloadState = sanitizeState(this.state);
+                const payloadState = stripLocalOnlyFieldsForCloud(this.state);
+                const nextSig = JSON.stringify(payloadState);
+                if (nextSig === this.sync.lastCloudStateSig) {
+                    this.updateSyncStatus({
+                        mode: 'ready',
+                        connected: true,
+                        pendingPush: false
+                    });
+                    return { ok: true, reason: 'no-change' };
+                }
                 const updatedAt = Date.now();
                 payloadState.meta.updated = updatedAt;
 
@@ -1042,6 +1110,7 @@
                 }
 
                 this.sync.lastPushAt = Date.now();
+                this.sync.lastCloudStateSig = nextSig;
                 const seenAt = toTimestamp(result.data && result.data.updated_at, this.sync.lastPushAt);
                 if (seenAt > this.sync.lastRemoteSeenAt) this.sync.lastRemoteSeenAt = seenAt;
 
@@ -1077,7 +1146,7 @@
         }
 
         applyRemoteState(remoteState, meta = {}) {
-            const cleaned = sanitizeState(remoteState);
+            const cleaned = mergeRemoteBoardWithLocalLayout(remoteState, this.state);
             const localUpdated = toTimestamp(this.state.meta.updated, 0);
             const remoteUpdated = toTimestamp(meta.updatedAt, toTimestamp(cleaned.meta.updated, Date.now()));
 

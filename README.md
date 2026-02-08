@@ -32,6 +32,7 @@ Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locat
 Open any `.html` file in a modern browser (Edge, Chrome, Firefox). Data writes to Local Storage automatically. Import/export JSON via the Tools Hub (or each page’s local buttons) to migrate between machines or share with your table.
 
 To enable multi-device player/DM sync on GitHub Pages deployments, configure Supabase from the Tools Hub panel after following **[Supabase Sync Setup](docs/SupabaseSync.md)**.
+For simpler player onboarding, share/import a `connect.json` profile (also documented in **[Supabase Sync Setup](docs/SupabaseSync.md)**).
 
 For a comprehensive guide on using the player tools, see **[Player Guide](player.md)**.
 

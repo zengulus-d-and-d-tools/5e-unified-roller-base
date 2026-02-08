@@ -55,7 +55,7 @@
             </div>
         </header>
 
-        <section class="sync-panel card" aria-label="Cloud Sync">
+        <section class="sync-panel card" id="sync-panel" aria-label="Cloud Sync">
             <h2 class="sync-title">Cloud Sync (Supabase)</h2>
             <p class="sync-desc">
                 Realtime sync for campaign tools (Hub, Board, Roster, Timeline, etc). Character sheets stay local per browser by default.
@@ -86,8 +86,22 @@
                 <button class="sync-btn" onclick="pushSyncNow()">Push Now</button>
                 <button class="sync-btn" onclick="anonymousSignIn()">Anonymous Sign-In</button>
                 <button class="sync-btn" onclick="signOutSync()">Sign Out</button>
+                <button class="sync-btn" onclick="exportConnectFile()">Export connect.json</button>
             </div>
             <div id="sync-status" class="sync-status">Cloud sync status: waiting for store...</div>
+        </section>
+
+        <section class="sync-quick card" id="sync-quick" aria-label="Quick Cloud Connect">
+            <div class="sync-quick-head">
+                <h2 class="sync-quick-title">Cloud Connect</h2>
+            </div>
+            <p class="sync-quick-note">
+                Players: import a DM-provided <code>connect.json</code>. DM manual credentials are in secret mode (Alt+Shift+Click title).
+            </p>
+            <div class="sync-quick-actions">
+                <button class="sync-btn primary" onclick="importConnectFile()">Import connect.json</button>
+                <button class="sync-btn" onclick="useBundledConnect()">Use bundled connect.json</button>
+            </div>
         </section>
 
         <div class="grid">
@@ -209,6 +223,8 @@
     <script src="js/store.js"></script>
     <script src="js/vector-field.js"></script>
     <script>
+        let latestSyncStatus = null;
+
         // Secret Toggle Logic
         function trySecretToggle(e) {
             // Alt + Shift + Click
@@ -224,6 +240,8 @@
                     // Add animation class if needed
                     el.style.animation = isSecret ? 'fadeIn 0.5s' : '';
                 });
+
+                updateSyncPanelVisibility(latestSyncStatus);
             }
         }
 
@@ -253,6 +271,101 @@
                 campaignId: (document.getElementById('sync-campaign').value || '').trim(),
                 profileName: (document.getElementById('sync-profile').value || '').trim()
             };
+        }
+
+        function normalizeConnectPayload(raw) {
+            if (!raw || typeof raw !== 'object') return null;
+            const supabaseUrl = (raw.supabaseUrl || raw.projectUrl || raw.url || '').trim();
+            const anonKey = (raw.anonKey || raw.key || raw.publicKey || '').trim();
+            const campaignId = (raw.campaignId || raw.slug || raw.campaign || '').trim();
+            const profileName = (raw.profileName || raw.profile || '').trim();
+            if (!supabaseUrl || !anonKey || !campaignId) return null;
+            return {
+                supabaseUrl,
+                anonKey,
+                campaignId,
+                profileName,
+                enabled: true,
+                autoConnect: true
+            };
+        }
+
+        async function applyConnectProfile(raw, opts = {}) {
+            if (!window.RTF_STORE) return { ok: false, error: 'Store not loaded.' };
+            const options = opts && typeof opts === 'object' ? opts : {};
+            const payload = normalizeConnectPayload(raw);
+            if (!payload) return { ok: false, error: 'Invalid connect.json format.' };
+
+            window.RTF_STORE.setSyncConfig(payload, { reconnect: false });
+            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
+
+            if (options.connect === false) return { ok: true, connected: false };
+
+            const result = await window.RTF_STORE.connectSync();
+            if (!result.ok) {
+                const status = window.RTF_STORE.getSyncStatus();
+                return { ok: false, error: status.lastError || 'Connect failed.' };
+            }
+            return { ok: true, connected: true };
+        }
+
+        function importConnectFile() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json,.json';
+            input.onchange = async (event) => {
+                const file = event.target.files && event.target.files[0];
+                if (!file) return;
+                try {
+                    const text = await file.text();
+                    const parsed = JSON.parse(text);
+                    const result = await applyConnectProfile(parsed);
+                    if (!result.ok) {
+                        alert(result.error || 'Failed to import connect.json.');
+                        return;
+                    }
+                    alert('connect.json imported and sync connected.');
+                } catch (err) {
+                    alert('Invalid connect.json file.');
+                }
+            };
+            input.click();
+        }
+
+        async function readBundledConnect() {
+            try {
+                const response = await fetch('connect.json', { cache: 'no-store' });
+                if (!response.ok) return null;
+                const json = await response.json();
+                return normalizeConnectPayload(json);
+            } catch (err) {
+                return null;
+            }
+        }
+
+        async function useBundledConnect() {
+            const payload = await readBundledConnect();
+            if (!payload) {
+                alert('No valid bundled connect.json found at site root.');
+                return;
+            }
+            const result = await applyConnectProfile(payload);
+            if (!result.ok) {
+                alert(result.error || 'Failed using bundled connect.json.');
+                return;
+            }
+            alert('Bundled connect.json applied and connected.');
+        }
+
+        async function tryAutoConnectFromBundledDefault() {
+            if (!window.RTF_STORE) return;
+            const current = window.RTF_STORE.getSyncConfig();
+            const hasStoredConfig = !!(current && current.supabaseUrl && current.anonKey && current.campaignId);
+            if (hasStoredConfig) return;
+
+            const payload = await readBundledConnect();
+            if (!payload) return;
+            await applyConnectProfile(payload);
         }
 
         function applySyncConfigToForm(config) {
@@ -290,6 +403,16 @@
                 status.message ? `Note: ${status.message}` : ''
             ].filter(Boolean);
             el.textContent = parts.join(' | ');
+        }
+
+        function updateSyncPanelVisibility(status) {
+            const panel = document.getElementById('sync-panel');
+            if (!panel) return;
+
+            const isSecret = document.body.classList.contains('secret-active');
+
+            // Manual credentials/admin controls stay behind secret mode.
+            panel.style.display = isSecret ? 'flex' : 'none';
         }
 
         function saveSyncConfig() {
@@ -364,21 +487,55 @@
             if (!result.ok) alert(result.error || 'Sign out failed.');
         }
 
+        function exportConnectFile() {
+            if (!window.RTF_STORE) {
+                alert('Store not loaded.');
+                return;
+            }
+            const config = window.RTF_STORE.getSyncConfig();
+            const payload = {
+                supabaseUrl: config.supabaseUrl || '',
+                anonKey: config.anonKey || '',
+                campaignId: config.campaignId || '',
+                profileName: ''
+            };
+            if (!payload.supabaseUrl || !payload.anonKey || !payload.campaignId) {
+                alert('Missing URL, anon key, or campaign ID.');
+                return;
+            }
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'connect.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
         function initSyncPanel() {
             if (!window.RTF_STORE) {
                 setTimeout(initSyncPanel, 120);
                 return;
             }
             applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
-            setSyncStatusText(window.RTF_STORE.getSyncStatus());
+            latestSyncStatus = window.RTF_STORE.getSyncStatus();
+            setSyncStatusText(latestSyncStatus);
+            updateSyncPanelVisibility(latestSyncStatus);
             window.RTF_STORE.onSyncStatus((status) => {
+                latestSyncStatus = status;
                 setSyncStatusText(status);
+                updateSyncPanelVisibility(status);
             });
+            tryAutoConnectFromBundledDefault();
         }
 
         window.addEventListener('load', initSyncPanel);
         window.addEventListener('rtf-sync-status', (event) => {
-            setSyncStatusText(event.detail);
+            latestSyncStatus = event.detail || null;
+            setSyncStatusText(latestSyncStatus);
+            updateSyncPanelVisibility(latestSyncStatus);
         });
     </script>
 </body>

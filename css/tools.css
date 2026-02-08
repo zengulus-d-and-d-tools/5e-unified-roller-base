@@ -222,3 +222,39 @@ a {
     padding: 10px;
     line-height: 1.4;
 }
+
+.sync-quick {
+    width: 100%;
+    align-items: stretch;
+    text-align: left;
+    gap: 10px;
+    padding: 16px 18px;
+    z-index: 2;
+}
+
+.sync-quick-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.sync-quick-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #fff;
+}
+
+.sync-quick-note {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #9fb0c1;
+    line-height: 1.4;
+}
+
+.sync-quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}

@@ -4,7 +4,8 @@ Landing grid for the entire suite. Open it first to import/export the unified da
 
 ## Layout
 - **Hero Header** – Import/Export buttons live up top along with the accent picker and background cycler. Alt+Shift+Click the title to expose DM-only cards (Hub, GM deck, Clue tools, etc.).
-- **Cloud Sync Panel** – Configure Supabase URL/anon key/campaign ID, connect/disconnect, and run manual pull/push. Live status reports auth/user and last sync timestamps.
+- **Cloud Connect Panel** – Player-facing import for `connect.json` plus a bundled-default shortcut so clients can join without manual key entry.
+- **Cloud Sync Panel (Secret Mode)** – Manual Supabase URL/key/campaign controls, export of `connect.json`, and admin pull/push actions. This panel is intentionally behind Alt+Shift secret mode.
 - **Card Grid** – Responsive cards link to every HTML tool (player sheet, dashboards, HQ, timeline, etc.). Icons and short blurbs help the table pick the right door quickly.
 - **Secret Panel** – DM-only cards are tagged with 🔒-red borders; once the secret mode is active they fade in with a light animation.
 
