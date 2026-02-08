@@ -96,12 +96,13 @@
                 <h2 class="sync-quick-title">Cloud Connect</h2>
             </div>
             <p class="sync-quick-note">
-                Players: import a DM-provided <code>connect.json</code>. DM manual credentials are in secret mode (Alt+Shift+Click title).
+                Players: import a DM-provided <code>connect.json</code> and you should be online in a few seconds.
             </p>
             <div class="sync-quick-actions">
                 <button class="sync-btn primary" onclick="importConnectFile()">Import connect.json</button>
                 <button class="sync-btn" onclick="useBundledConnect()">Use bundled connect.json</button>
             </div>
+            <div id="sync-quick-status" class="sync-quick-status">Status: waiting for sync engine...</div>
         </section>
 
         <div class="grid">
@@ -317,15 +318,19 @@
                 const file = event.target.files && event.target.files[0];
                 if (!file) return;
                 try {
+                    setQuickStatus('importing connect.json...');
                     const text = await file.text();
                     const parsed = JSON.parse(text);
                     const result = await applyConnectProfile(parsed);
                     if (!result.ok) {
+                        setQuickStatus(result.error || 'failed to import connect.json.');
                         alert(result.error || 'Failed to import connect.json.');
                         return;
                     }
+                    setQuickStatus('connected.');
                     alert('connect.json imported and sync connected.');
                 } catch (err) {
+                    setQuickStatus('invalid connect.json file.');
                     alert('Invalid connect.json file.');
                 }
             };
@@ -344,16 +349,21 @@
         }
 
         async function useBundledConnect() {
+            setQuickStatus('checking bundled connect.json...');
             const payload = await readBundledConnect();
             if (!payload) {
+                setQuickStatus('no valid bundled connect.json found.');
                 alert('No valid bundled connect.json found at site root.');
                 return;
             }
+            setQuickStatus('connecting with bundled config...');
             const result = await applyConnectProfile(payload);
             if (!result.ok) {
+                setQuickStatus(result.error || 'failed using bundled connect.json.');
                 alert(result.error || 'Failed using bundled connect.json.');
                 return;
             }
+            setQuickStatus('connected.');
             alert('Bundled connect.json applied and connected.');
         }
 
@@ -405,14 +415,46 @@
             el.textContent = parts.join(' | ');
         }
 
+        function setQuickStatus(message) {
+            const el = document.getElementById('sync-quick-status');
+            if (!el) return;
+            el.textContent = `Status: ${message}`;
+        }
+
+        function setQuickStatusFromSync(status) {
+            if (!status) {
+                setQuickStatus('sync status unavailable.');
+                return;
+            }
+            if (status.connected) {
+                const campaign = status.campaignId || 'unknown';
+                const user = status.userId ? status.userId.slice(0, 8) + '…' : 'user';
+                setQuickStatus(`connected to "${campaign}" as ${user}.`);
+                return;
+            }
+            if (status.mode === 'connecting') {
+                setQuickStatus('connecting...');
+                return;
+            }
+            if (status.lastError) {
+                setQuickStatus(`error: ${status.lastError}`);
+                return;
+            }
+            setQuickStatus(status.message || 'not connected.');
+        }
+
         function updateSyncPanelVisibility(status) {
             const panel = document.getElementById('sync-panel');
-            if (!panel) return;
+            const quick = document.getElementById('sync-quick');
+            if (!panel || !quick) return;
 
             const isSecret = document.body.classList.contains('secret-active');
+            const connected = !!(status && status.connected);
 
             // Manual credentials/admin controls stay behind secret mode.
             panel.style.display = isSecret ? 'flex' : 'none';
+            // Quick connect is for onboarding only; hide after successful connection.
+            quick.style.display = connected ? 'none' : 'flex';
         }
 
         function saveSyncConfig() {
@@ -522,10 +564,12 @@
             applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
             latestSyncStatus = window.RTF_STORE.getSyncStatus();
             setSyncStatusText(latestSyncStatus);
+            setQuickStatusFromSync(latestSyncStatus);
             updateSyncPanelVisibility(latestSyncStatus);
             window.RTF_STORE.onSyncStatus((status) => {
                 latestSyncStatus = status;
                 setSyncStatusText(status);
+                setQuickStatusFromSync(status);
                 updateSyncPanelVisibility(status);
             });
             tryAutoConnectFromBundledDefault();
@@ -535,6 +579,7 @@
         window.addEventListener('rtf-sync-status', (event) => {
             latestSyncStatus = event.detail || null;
             setSyncStatusText(latestSyncStatus);
+            setQuickStatusFromSync(latestSyncStatus);
             updateSyncPanelVisibility(latestSyncStatus);
         });
     </script>
