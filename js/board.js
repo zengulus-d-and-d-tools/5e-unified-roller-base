@@ -1309,8 +1309,8 @@ function layoutCluster(clusterNodes, rootId) {
     }
 
     // Grid/Ring Layout
-    const SPACING_X = 300; // Increased spacing
-    const SPACING_Y = 200;
+    const SPACING_X = 350; // Increased spacing for lines
+    const SPACING_Y = 250;
 
     // Helper to get rect for a potential position
     const getRectForNode = (id, x, y) => {
@@ -1334,6 +1334,31 @@ function layoutCluster(clusterNodes, rootId) {
             r1.bottom < r2.top);
     };
 
+    // Helper: Line Intersects Rect
+    const lineIntersectsRect = (p1, p2, r) => {
+        // Quick bounding box check
+        const lineMinX = Math.min(p1.x, p2.x), lineMaxX = Math.max(p1.x, p2.x);
+        const lineMinY = Math.min(p1.y, p2.y), lineMaxY = Math.max(p1.y, p2.y);
+        if (lineMaxX < r.left || lineMinX > r.right || lineMaxY < r.top || lineMinY > r.bottom) return false;
+
+        // Check if point inside
+        if ((p1.x > r.left && p1.x < r.right && p1.y > r.top && p1.y < r.bottom) ||
+            (p2.x > r.left && p2.x < r.right && p2.y > r.top && p2.y < r.bottom)) return true;
+
+        // Check intersection with 4 sides
+        const segments = [
+            [{ x: r.left, y: r.top }, { x: r.right, y: r.top }],
+            [{ x: r.right, y: r.top }, { x: r.right, y: r.bottom }],
+            [{ x: r.right, y: r.bottom }, { x: r.left, y: r.bottom }],
+            [{ x: r.left, y: r.bottom }, { x: r.left, y: r.top }]
+        ];
+
+        const ccw = (a, b, c) => (c.y - a.y) * (b.x - a.x) > (b.y - a.y) * (c.x - a.x);
+        const intersect = (a, b, c, d) => ccw(a, c, d) !== ccw(b, c, d) && ccw(a, b, c) !== ccw(a, b, d);
+
+        return segments.some(s => intersect(p1, p2, s[0], s[1]));
+    };
+
     const groups = [];
     layers.forEach((dist, id) => {
         if (!groups[dist]) groups[dist] = [];
@@ -1342,6 +1367,9 @@ function layoutCluster(clusterNodes, rootId) {
 
     // Place Root
     positions.set(rootId, { x: 0, y: 0 });
+
+    // Track established edges to avoid placing nodes on them
+    const placedEdges = [];
 
     for (let d = 1; d < groups.length; d++) {
         if (!groups[d]) continue;
@@ -1378,29 +1406,76 @@ function layoutCluster(clusterNodes, rootId) {
             let spiralRank = 1;
             let spiralAngle = 0;
 
-            while (!placed && safety++ < 150) {
+            while (!placed && safety++ < 200) {
                 const candidateRect = getRectForNode(nid, rx, ry);
 
-                const collision = Array.from(positions.entries()).some(([pid, p]) => {
+                // 1. Check against Placed Nodes
+                const nodeCollision = Array.from(positions.entries()).some(([pid, p]) => {
                     const otherRect = getRectForNode(pid, p.x, p.y);
                     return isOverlapping(candidateRect, otherRect);
                 });
 
-                if (!collision) {
-                    placed = true;
-                } else {
+                if (nodeCollision) {
                     // Spiral move
-                    const r = spiralRank * (SPACING_X / 2);
+                    const r = spiralRank * (SPACING_X / 3);
                     rx += Math.cos(spiralAngle) * r;
                     ry += Math.sin(spiralAngle) * r;
                     spiralAngle += 1;
-                    if (spiralAngle > Math.PI * 2) {
-                        spiralAngle = 0;
-                        spiralRank++;
-                    }
+                    if (spiralAngle > Math.PI * 2) { spiralAngle = 0; spiralRank++; }
+                    continue; // Retry
                 }
+
+                // 2. Check against Placed Edges (Node overlaps existing edge)
+                const edgeCollision = placedEdges.some(edge =>
+                    lineIntersectsRect(edge.p1, edge.p2, candidateRect)
+                );
+
+                if (edgeCollision) {
+                    const r = spiralRank * (SPACING_X / 3);
+                    rx += Math.cos(spiralAngle) * r;
+                    ry += Math.sin(spiralAngle) * r;
+                    spiralAngle += 1;
+                    if (spiralAngle > Math.PI * 2) { spiralAngle = 0; spiralRank++; }
+                    continue;
+                }
+
+                // 3. Check NEW Edges (New edge overlaps existing node)
+                // Get all connections from `nid` to already placed nodes
+                const neighbors = adj.get(nid) || [];
+                const placedNeighbors = neighbors.filter(nid2 => positions.has(nid2));
+
+                const newEdgeCollision = placedNeighbors.some(nid2 => {
+                    const p2 = positions.get(nid2);
+                    // Check if line (rx,ry) -> (p2.x, p2.y) hits any *other* placed node
+                    return Array.from(positions.entries()).some(([pid, p]) => {
+                        if (pid === nid2) return false; // Don't check against the target node itself
+                        const rect = getRectForNode(pid, p.x, p.y);
+                        return lineIntersectsRect({ x: rx, y: ry }, p2, rect);
+                    });
+                });
+
+                if (newEdgeCollision) {
+                    const r = spiralRank * (SPACING_X / 3);
+                    rx += Math.cos(spiralAngle) * r;
+                    ry += Math.sin(spiralAngle) * r;
+                    spiralAngle += 1;
+                    if (spiralAngle > Math.PI * 2) { spiralAngle = 0; spiralRank++; }
+                    continue;
+                }
+
+                // Success
+                placed = true;
             }
             positions.set(nid, { x: rx, y: ry });
+
+            // Add new edges to placedEdges
+            const neighbors = adj.get(nid) || [];
+            neighbors.forEach(nid2 => {
+                if (positions.has(nid2)) {
+                    const p2 = positions.get(nid2);
+                    placedEdges.push({ p1: { x: rx, y: ry }, p2: p2 });
+                }
+            });
         });
     }
     return positions;
