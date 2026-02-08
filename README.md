@@ -33,3 +33,13 @@ For a comprehensive guide on using the player tools, see **[Player Guide](player
 
 ## License
 The Unlicense (Public Domain).
+
+## Legal
+This project is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
+
+**Specific IP Used:**
+* Setting: Ravnica, Guild names, and associated flavor are property of Wizards of the Coast.
+
+**Third-Party Libraries:**
+* [pdf-lib](https://github.com/Hopding/pdf-lib) - MIT License
+
