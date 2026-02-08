@@ -1398,6 +1398,8 @@ document.addEventListener('dblclick', (e) => {
         // RESET FOCUS
         focusMode = false;
         document.body.classList.remove('focus-active');
+        // Unblur all nodes explicitly
+        document.querySelectorAll('.node').forEach(el => el.classList.remove('blurred'));
     }
 });
 
