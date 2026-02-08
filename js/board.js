@@ -1286,14 +1286,11 @@ function layoutCluster(clusterNodes, rootId) {
     visited.add(rootId);
     layers.set(rootId, 0);
 
-    // Local Adjacency
+    // Local Adjacency for this cluster
     const adj = new Map();
     clusterNodes.forEach(n => adj.set(n.id, []));
     connections.forEach(c => {
-        // Only consider connections strictly within this cluster
-        const hasFrom = adj.has(c.from);
-        const hasTo = adj.has(c.to);
-        if (hasFrom && hasTo) {
+        if (adj.has(c.from) && adj.has(c.to)) {
             adj.get(c.from).push(c.to);
             adj.get(c.to).push(c.from);
         }
@@ -1312,14 +1309,38 @@ function layoutCluster(clusterNodes, rootId) {
     }
 
     // Grid/Ring Layout
-    const SPACING_X = 250;
-    const SPACING_Y = 180;
+    const SPACING_X = 300; // Increased spacing
+    const SPACING_Y = 200;
+
+    // Helper to get rect for a potential position
+    const getRectForNode = (id, x, y) => {
+        const cache = nodeCache.get(id);
+        const w = cache ? cache.w : 200;
+        const h = cache ? cache.h : 120;
+        // Pad strictly for safety
+        const PAD = 20;
+        return {
+            left: x - PAD,
+            top: y - PAD,
+            right: x + w + PAD,
+            bottom: y + h + PAD
+        };
+    };
+
+    const isOverlapping = (r1, r2) => {
+        return !(r1.left > r2.right ||
+            r1.right < r2.left ||
+            r1.top > r2.bottom ||
+            r1.bottom < r2.top);
+    };
+
     const groups = [];
     layers.forEach((dist, id) => {
         if (!groups[dist]) groups[dist] = [];
         groups[dist].push(id);
     });
 
+    // Place Root
     positions.set(rootId, { x: 0, y: 0 });
 
     for (let d = 1; d < groups.length; d++) {
@@ -1344,13 +1365,40 @@ function layoutCluster(clusterNodes, rootId) {
 
         layerNodes.forEach((nid, idx) => {
             const angle = idx * angleStep;
+
+            // Propose position
             let rx = Math.round((Math.cos(angle) * radius) / SPACING_X) * SPACING_X;
             let ry = Math.round((Math.sin(angle) * radius) / SPACING_Y) * SPACING_Y;
 
-            // Collision with same cluster
+            // Collision Check
             let safety = 0;
-            while (safety++ < 50 && Array.from(positions.values()).some(p => p.x === rx && p.y === ry)) {
-                rx += (Math.random() > 0.5 ? 1 : -1) * (SPACING_X / 2);
+            let placed = false;
+
+            // Spiral out if collision
+            let spiralRank = 1;
+            let spiralAngle = 0;
+
+            while (!placed && safety++ < 150) {
+                const candidateRect = getRectForNode(nid, rx, ry);
+
+                const collision = Array.from(positions.entries()).some(([pid, p]) => {
+                    const otherRect = getRectForNode(pid, p.x, p.y);
+                    return isOverlapping(candidateRect, otherRect);
+                });
+
+                if (!collision) {
+                    placed = true;
+                } else {
+                    // Spiral move
+                    const r = spiralRank * (SPACING_X / 2);
+                    rx += Math.cos(spiralAngle) * r;
+                    ry += Math.sin(spiralAngle) * r;
+                    spiralAngle += 1;
+                    if (spiralAngle > Math.PI * 2) {
+                        spiralAngle = 0;
+                        spiralRank++;
+                    }
+                }
             }
             positions.set(nid, { x: rx, y: ry });
         });
