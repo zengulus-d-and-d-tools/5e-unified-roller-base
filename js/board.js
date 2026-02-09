@@ -271,6 +271,7 @@ function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toP
         if (hasChanged) {
             existing.fromPort = nextFromPort;
             existing.toPort = nextToPort;
+            existing.portPinned = nextFromPort !== 'auto' || nextToPort !== 'auto';
             resetConnectionPhysicsFromNodeCache();
             saveBoard();
         }
@@ -287,6 +288,7 @@ function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toP
         to: toNodeId,
         fromPort: normalizedFromPort,
         toPort: normalizedToPort,
+        portPinned: normalizedFromPort !== 'auto' || normalizedToPort !== 'auto',
         label: '',
         arrowLeft: 0,
         arrowRight: 0,
@@ -322,6 +324,9 @@ function logBoardTimeline(entry, options = {}) {
     const logger = window.RTF_SESSION_LOG;
     if (!logger || typeof logger.logMajorEvent !== 'function') return;
     const details = entry && typeof entry === 'object' ? entry : {};
+    const kind = details.kind || 'board';
+    // Keep case-board timeline noise low: only clue discoveries from this board.
+    if (kind !== 'clue-discovered') return;
     const tags = Array.isArray(details.tags) ? details.tags : [];
 
     logger.logMajorEvent({
@@ -333,7 +338,7 @@ function logBoardTimeline(entry, options = {}) {
         fallout: details.fallout || '',
         followUp: details.followUp || '',
         source: 'board',
-        kind: details.kind || 'board'
+        kind
     }, options);
 }
 
@@ -349,16 +354,15 @@ function getSourceDescriptor(meta) {
 }
 
 function logNodeAddedToBoard(summary) {
-    if (!summary) return;
-    const typeLabel = getNodeTypeLabel(summary.type);
+    if (!summary || summary.type !== 'clue') return;
     const sourceSuffix = getSourceDescriptor(summary.meta);
     const sourceTag = summary.meta && summary.meta.sourceType ? [String(summary.meta.sourceType)] : [];
     logBoardTimeline({
-        title: `${typeLabel} Added to Case Board`,
-        kind: 'node-added',
-        tags: ['node-add', summary.type, ...sourceTag],
+        title: 'Clue Discovery Logged',
+        kind: 'clue-discovered',
+        tags: ['clue-discovery', ...sourceTag],
         highlights: `${summary.title}${sourceSuffix}.`
-    }, { dedupeKey: `board:add:${summary.id}` });
+    }, { dedupeKey: `board:clue-discovery:${summary.id}` });
 }
 
 function logNodeConnectedToCase(summary, otherSummary) {
@@ -946,8 +950,15 @@ function updatePhysics() {
 
         const basePtr = bufferIdx * BYTES_PER_CONN;
 
-        // 1. Pin Endpoints (auto edge anchors based on center-to-center line)
-        const endpoints = getConnectionEndpointPositions(c1, c2, conn);
+        // 1. Pin Endpoints.
+        // For auto endpoints, use nearby rope points as hints so anchors follow
+        // the actual rope direction at each node edge instead of side-center.
+        const secondPtr = basePtr + STRIDE;
+        const preLastPtr = basePtr + (CONFIG.POINTS_COUNT - 2) * STRIDE;
+        const endpoints = getConnectionEndpointPositions(c1, c2, conn, {
+            fromTarget: { x: physicsBuffer[secondPtr], y: physicsBuffer[secondPtr + 1] },
+            toTarget: { x: physicsBuffer[preLastPtr], y: physicsBuffer[preLastPtr + 1] }
+        });
         const p1 = endpoints.from;
         const p2 = endpoints.to;
 
@@ -1400,7 +1411,11 @@ function getRectEdgePointTowards(nodeData, targetPoint) {
     };
 }
 
-function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null) {
+function isFinitePoint(point) {
+    return !!point && Number.isFinite(point.x) && Number.isFinite(point.y);
+}
+
+function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null, hintTargets = null) {
     if (!nodeFrom || !nodeTo) {
         return { from: { x: 0, y: 0 }, to: { x: 0, y: 0 } };
     }
@@ -1417,9 +1432,16 @@ function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null) {
 
     const fromCenter = { x: nodeFrom.x + nodeFrom.w / 2, y: nodeFrom.y + nodeFrom.h / 2 };
     const toCenter = { x: nodeTo.x + nodeTo.w / 2, y: nodeTo.y + nodeTo.h / 2 };
+    const hintFromTarget = hintTargets && isFinitePoint(hintTargets.fromTarget) ? hintTargets.fromTarget : null;
+    const hintToTarget = hintTargets && isFinitePoint(hintTargets.toTarget) ? hintTargets.toTarget : null;
+
     return {
-        from: fromPort === 'auto' ? getRectEdgePointTowards(nodeFrom, toCenter) : getPortPos(nodeFrom, fromPort),
-        to: toPort === 'auto' ? getRectEdgePointTowards(nodeTo, fromCenter) : getPortPos(nodeTo, toPort)
+        from: fromPort === 'auto'
+            ? getRectEdgePointTowards(nodeFrom, hintFromTarget || toCenter)
+            : getPortPos(nodeFrom, fromPort),
+        to: toPort === 'auto'
+            ? getRectEdgePointTowards(nodeTo, hintToTarget || fromCenter)
+            : getPortPos(nodeTo, toPort)
     };
 }
 
@@ -1935,6 +1957,7 @@ function saveBoard() {
         nodes: nodeData,
         connections: connections.map(c => ({
             id: c.id, from: c.from, to: c.to, fromPort: c.fromPort, toPort: c.toPort,
+            portPinned: !!c.portPinned,
             label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight,
             relationshipLogged: !!c.relationshipLogged,
             colorIndex: clampConnectionColorIndex(c.colorIndex)
@@ -1977,10 +2000,14 @@ function loadBoard(options = {}) {
 
     (data.connections || []).forEach(c => {
         if (!c.id) c.id = 'conn_' + Date.now() + Math.random();
+        const isPinned = !!c.portPinned;
+        const hydratedFromPort = isPinned ? normalizeConnectionPort(c.fromPort) : 'auto';
+        const hydratedToPort = isPinned ? normalizeConnectionPort(c.toPort) : 'auto';
         const hydrated = {
             ...c,
-            fromPort: c.fromPort || 'auto',
-            toPort: c.toPort || 'auto',
+            fromPort: hydratedFromPort,
+            toPort: hydratedToPort,
+            portPinned: isPinned && (hydratedFromPort !== 'auto' || hydratedToPort !== 'auto'),
             relationshipLogged: !!c.relationshipLogged,
             colorIndex: clampConnectionColorIndex(c.colorIndex)
         };
