@@ -73,6 +73,13 @@
         };
     };
 
+    const DEFAULT_BOARD_STATE = {
+        name: "UNNAMED CASE",
+        nodes: [],
+        connections: []
+    };
+    const DEFAULT_CASE_NAME = 'Primary Case';
+
     const DEFAULT_STATE = {
         meta: { version: 1, created: Date.now() },
         campaign: {
@@ -86,10 +93,17 @@
             encounters: [],
             case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
         },
-        board: {
-            name: "UNNAMED CASE",
-            nodes: [],
-            connections: []
+        board: { ...DEFAULT_BOARD_STATE },
+        cases: {
+            activeCaseId: 'case_primary',
+            items: [
+                {
+                    id: 'case_primary',
+                    name: DEFAULT_CASE_NAME,
+                    board: { ...DEFAULT_BOARD_STATE },
+                    events: []
+                }
+            ]
         },
         hq: createDefaultHQState()
     };
@@ -192,10 +206,89 @@
     const sanitizeBoard = (board) => {
         const source = board && typeof board === 'object' ? board : {};
         return {
-            name: typeof source.name === 'string' && source.name ? source.name : DEFAULT_STATE.board.name,
+            name: typeof source.name === 'string' && source.name ? source.name : DEFAULT_BOARD_STATE.name,
             nodes: Array.isArray(source.nodes) ? source.nodes : [],
             connections: Array.isArray(source.connections) ? source.connections : []
         };
+    };
+
+    const sanitizeCaseId = (value, fallback = 'case') => {
+        const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+        const cleaned = raw
+            .replace(/[^a-z0-9_-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 64);
+        if (cleaned) return cleaned;
+        return sanitizeCaseId(fallback, 'case_primary');
+    };
+
+    const sanitizeCaseName = (value, fallback = DEFAULT_CASE_NAME) => {
+        const text = typeof value === 'string' ? value.trim() : '';
+        return text || fallback;
+    };
+
+    const sanitizeEventList = (events) => (
+        Array.isArray(events)
+            ? events
+                .filter((entry) => entry && typeof entry === 'object')
+                .map((entry) => ({ ...entry }))
+            : []
+    );
+
+    const sanitizeCases = (cases, campaign, board) => {
+        const source = cases && typeof cases === 'object' ? cases : {};
+        const baseCampaign = campaign && typeof campaign === 'object' ? campaign : {};
+        const legacyCase = baseCampaign.case && typeof baseCampaign.case === 'object' ? baseCampaign.case : {};
+        const legacyCaseTitle = sanitizeCaseName(legacyCase.title || '', DEFAULT_CASE_NAME);
+
+        const legacySeed = {
+            id: 'case_primary',
+            name: legacyCaseTitle,
+            board: sanitizeBoard(board),
+            events: sanitizeEventList(baseCampaign.events)
+        };
+
+        const listRaw = Array.isArray(source.items) ? source.items
+            : (Array.isArray(source.list) ? source.list : []);
+        const startingList = listRaw.length ? listRaw : [legacySeed];
+
+        const seen = new Set();
+        const items = [];
+
+        startingList.forEach((entry, idx) => {
+            const row = entry && typeof entry === 'object' ? entry : {};
+            const fallbackId = idx === 0 ? 'case_primary' : `case_${idx + 1}`;
+            let id = sanitizeCaseId(row.id, fallbackId);
+            if (seen.has(id)) {
+                let suffix = 2;
+                while (seen.has(`${id}_${suffix}`)) suffix += 1;
+                id = `${id}_${suffix}`;
+            }
+            seen.add(id);
+
+            const fallbackName = idx === 0 ? legacyCaseTitle : `Case ${idx + 1}`;
+            const normalized = {
+                id,
+                name: sanitizeCaseName(row.name, fallbackName),
+                board: sanitizeBoard(row.board),
+                events: sanitizeEventList(row.events)
+            };
+            items.push(normalized);
+        });
+
+        if (!items.length) {
+            items.push({
+                id: 'case_primary',
+                name: legacyCaseTitle,
+                board: sanitizeBoard(null),
+                events: []
+            });
+        }
+
+        const activeRaw = sanitizeCaseId(source.activeCaseId, items[0].id);
+        const activeCaseId = items.some((item) => item.id === activeRaw) ? activeRaw : items[0].id;
+        return { activeCaseId, items };
     };
 
     const sanitizeHQ = (hq) => {
@@ -243,6 +336,7 @@
             meta: { ...defaultMeta, ...sourceMeta, version, created, updated },
             campaign: sanitizeCampaign(source.campaign),
             board: sanitizeBoard(source.board),
+            cases: sanitizeCases(source.cases, source.campaign, source.board),
             hq: sanitizeHQ(source.hq)
         };
     };
@@ -253,25 +347,41 @@
     };
 
     const buildLocalOnlyBoardLayoutMap = (state) => {
-        const map = new Map();
-        const source = state && state.board && Array.isArray(state.board.nodes) ? state.board.nodes : [];
-        source.forEach((node) => {
-            if (!node || !node.id) return;
-            if (!isFiniteNum(node.x) || !isFiniteNum(node.y)) return;
-            map.set(node.id, { x: Number(node.x), y: Number(node.y) });
+        const perCaseLayouts = new Map();
+        const sourceCases = state && state.cases && Array.isArray(state.cases.items) ? state.cases.items : [];
+
+        sourceCases.forEach((caseEntry) => {
+            if (!caseEntry || !caseEntry.id || !caseEntry.board || !Array.isArray(caseEntry.board.nodes)) return;
+            const layout = new Map();
+            caseEntry.board.nodes.forEach((node) => {
+                if (!node || !node.id) return;
+                if (!isFiniteNum(node.x) || !isFiniteNum(node.y)) return;
+                layout.set(node.id, { x: Number(node.x), y: Number(node.y) });
+            });
+            perCaseLayouts.set(caseEntry.id, layout);
         });
-        return map;
+
+        if (!perCaseLayouts.size) {
+            const fallback = new Map();
+            const source = state && state.board && Array.isArray(state.board.nodes) ? state.board.nodes : [];
+            source.forEach((node) => {
+                if (!node || !node.id) return;
+                if (!isFiniteNum(node.x) || !isFiniteNum(node.y)) return;
+                fallback.set(node.id, { x: Number(node.x), y: Number(node.y) });
+            });
+            perCaseLayouts.set('case_primary', fallback);
+        }
+
+        return perCaseLayouts;
     };
 
-    const mergeRemoteBoardWithLocalLayout = (remoteState, localState) => {
-        const merged = sanitizeState(remoteState);
-        const localLayout = buildLocalOnlyBoardLayoutMap(localState);
+    const applyBoardLayout = (boardState, layoutMap) => {
+        const board = sanitizeBoard(boardState);
+        const layout = layoutMap instanceof Map ? layoutMap : new Map();
 
-        if (!merged.board || !Array.isArray(merged.board.nodes)) return merged;
-
-        merged.board.nodes = merged.board.nodes.map((node, idx) => {
+        board.nodes = board.nodes.map((node, idx) => {
             const base = node && typeof node === 'object' ? { ...node } : {};
-            const local = base.id ? localLayout.get(base.id) : null;
+            const local = base.id ? layout.get(base.id) : null;
 
             if (local) {
                 base.x = local.x;
@@ -286,20 +396,57 @@
             return base;
         });
 
+        return board;
+    };
+
+    const stripBoardNodeLocalFields = (boardState) => {
+        const board = sanitizeBoard(boardState);
+        board.nodes = board.nodes.map((node) => {
+            if (!node || typeof node !== 'object') return node;
+            const copy = { ...node };
+            delete copy.x;
+            delete copy.y;
+            return copy;
+        });
+        return board;
+    };
+
+    const mergeRemoteBoardWithLocalLayout = (remoteState, localState) => {
+        const merged = sanitizeState(remoteState);
+        const localLayouts = buildLocalOnlyBoardLayoutMap(localState);
+
+        if (merged.cases && Array.isArray(merged.cases.items)) {
+            merged.cases.items = merged.cases.items.map((caseEntry) => {
+                const localLayout = localLayouts.get(caseEntry.id) || new Map();
+                return {
+                    ...caseEntry,
+                    board: applyBoardLayout(caseEntry.board, localLayout)
+                };
+            });
+
+            const activeCase = merged.cases.items.find((item) => item.id === merged.cases.activeCaseId) || merged.cases.items[0];
+            if (activeCase) merged.board = activeCase.board;
+            return merged;
+        }
+
+        const fallbackLayout = localLayouts.get('case_primary') || new Map();
+        merged.board = applyBoardLayout(merged.board, fallbackLayout);
         return merged;
     };
 
     const stripLocalOnlyFieldsForCloud = (state) => {
         const cloud = sanitizeState(state);
-        if (cloud.board && Array.isArray(cloud.board.nodes)) {
-            cloud.board.nodes = cloud.board.nodes.map((node) => {
-                if (!node || typeof node !== 'object') return node;
-                const copy = { ...node };
-                delete copy.x;
-                delete copy.y;
-                return copy;
-            });
+        if (cloud.cases && Array.isArray(cloud.cases.items)) {
+            cloud.cases.items = cloud.cases.items.map((caseEntry) => ({
+                ...caseEntry,
+                board: stripBoardNodeLocalFields(caseEntry.board)
+            }));
+            const activeCase = cloud.cases.items.find((item) => item.id === cloud.cases.activeCaseId) || cloud.cases.items[0];
+            if (activeCase) cloud.board = activeCase.board;
+            return cloud;
         }
+
+        cloud.board = stripBoardNodeLocalFields(cloud.board);
         return cloud;
     };
 
@@ -390,6 +537,148 @@
             }
         }
 
+        ensureCaseStateIntegrity() {
+            if (!this.state || typeof this.state !== 'object') {
+                this.state = sanitizeState(null);
+            }
+            if (!this.state.campaign || typeof this.state.campaign !== 'object') {
+                this.state.campaign = sanitizeCampaign(null);
+            }
+
+            const cases = this.state.cases;
+            if (!cases || !Array.isArray(cases.items) || !cases.items.length) {
+                this.state.cases = sanitizeCases(this.state.cases, this.state.campaign, this.state.board);
+            }
+
+            if (!this.state.cases.items.some((entry) => entry && entry.id === this.state.cases.activeCaseId)) {
+                this.state.cases.activeCaseId = this.state.cases.items[0].id;
+            }
+
+            return this.state.cases;
+        }
+
+        getCaseEntry(caseId = null, options = {}) {
+            const opts = options && typeof options === 'object' ? options : {};
+            const createIfMissing = !!opts.createIfMissing;
+            const strict = !!opts.strict;
+            const cases = this.ensureCaseStateIntegrity();
+            const desiredId = sanitizeCaseId(caseId || cases.activeCaseId, cases.activeCaseId);
+            let entry = cases.items.find((item) => item && item.id === desiredId);
+
+            if (!entry && createIfMissing) {
+                const prettyName = sanitizeCaseName(String(desiredId || '').replace(/[-_]+/g, ' '), DEFAULT_CASE_NAME);
+                entry = {
+                    id: desiredId,
+                    name: prettyName,
+                    board: sanitizeBoard({ name: prettyName }),
+                    events: []
+                };
+                cases.items.push(entry);
+            }
+
+            if (!entry && strict) return null;
+            if (!entry) entry = cases.items.find((item) => item && item.id === cases.activeCaseId) || cases.items[0];
+            if (!entry.board || typeof entry.board !== 'object') entry.board = sanitizeBoard(null);
+            if (!Array.isArray(entry.events)) entry.events = [];
+            return entry || null;
+        }
+
+        syncActiveCaseLegacyState() {
+            const active = this.getCaseEntry();
+            if (!active) return;
+            // Backward compatibility: legacy state paths mirror current active case.
+            this.state.board = active.board;
+            this.state.campaign.events = active.events;
+        }
+
+        getCases() {
+            const cases = this.ensureCaseStateIntegrity();
+            return cases.items.map((entry) => ({
+                id: entry.id,
+                name: entry.name
+            }));
+        }
+
+        getActiveCaseId() {
+            const cases = this.ensureCaseStateIntegrity();
+            return cases.activeCaseId;
+        }
+
+        getActiveCase() {
+            const active = this.getCaseEntry();
+            return active ? deepClone({ id: active.id, name: active.name }) : null;
+        }
+
+        createCase(name = '') {
+            const cases = this.ensureCaseStateIntegrity();
+            const cleanName = sanitizeCaseName(name, 'New Case');
+            const baseId = sanitizeCaseId(cleanName, 'case');
+            let id = baseId;
+            let suffix = 2;
+            while (cases.items.some((entry) => entry && entry.id === id)) {
+                id = `${baseId}_${suffix}`;
+                suffix += 1;
+            }
+
+            const entry = {
+                id,
+                name: cleanName,
+                board: sanitizeBoard({ name: cleanName }),
+                events: []
+            };
+            cases.items.push(entry);
+            cases.activeCaseId = id;
+            this.syncActiveCaseLegacyState();
+            this.save();
+            return id;
+        }
+
+        renameCase(caseId, nextName) {
+            const target = this.getCaseEntry(caseId, { strict: true });
+            if (!target) return false;
+            const prevName = target.name;
+            const cleanName = sanitizeCaseName(nextName, prevName);
+            target.name = cleanName;
+            if (!target.board || typeof target.board !== 'object') {
+                target.board = sanitizeBoard({ name: cleanName });
+            } else {
+                const boardName = typeof target.board.name === 'string' ? target.board.name.trim() : '';
+                if (!boardName || boardName === prevName || boardName === DEFAULT_BOARD_STATE.name) {
+                    target.board.name = cleanName;
+                }
+            }
+            this.syncActiveCaseLegacyState();
+            this.save();
+            return true;
+        }
+
+        deleteCase(caseId) {
+            const cases = this.ensureCaseStateIntegrity();
+            if (cases.items.length <= 1) return false;
+            const targetId = sanitizeCaseId(caseId, cases.activeCaseId);
+            const idx = cases.items.findIndex((entry) => entry && entry.id === targetId);
+            if (idx < 0) return false;
+            cases.items.splice(idx, 1);
+            if (!cases.items.some((entry) => entry.id === cases.activeCaseId)) {
+                cases.activeCaseId = cases.items[Math.max(0, idx - 1)].id;
+            }
+            this.syncActiveCaseLegacyState();
+            this.save();
+            return true;
+        }
+
+        setActiveCase(caseId) {
+            const cases = this.ensureCaseStateIntegrity();
+            const targetId = sanitizeCaseId(caseId, cases.activeCaseId);
+            const exists = cases.items.some((entry) => entry && entry.id === targetId);
+            if (!exists) return false;
+            if (cases.activeCaseId === targetId) return true;
+            cases.activeCaseId = targetId;
+            this.syncActiveCaseLegacyState();
+            this.save();
+            return true;
+        }
+
         load() {
             try {
                 const raw = localStorage.getItem(STORE_KEY);
@@ -404,10 +693,12 @@
 
                 this.state = sanitizeState(this.state);
                 this.ensurePlayerIds(false);
+                this.syncActiveCaseLegacyState();
                 if (this.ingestPreloadedData()) this.save();
             } catch (e) {
                 console.error("RTF_STORE: Load failed", e);
                 this.state = sanitizeState(null);
+                this.syncActiveCaseLegacyState();
             }
         }
 
@@ -455,6 +746,7 @@
             const skipEvent = !!opts.skipEvent;
 
             try {
+                this.syncActiveCaseLegacyState();
                 this.state.meta.updated = Date.now();
                 localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
 
@@ -497,7 +789,11 @@
                 }
             }
 
-            if (migrated) this.save();
+            if (migrated) {
+                this.state.cases = sanitizeCases(null, this.state.campaign, this.state.board);
+                this.syncActiveCaseLegacyState();
+                this.save();
+            }
         }
 
         export() {
@@ -532,9 +828,9 @@
                                 return;
                             }
 
-                            const hasKnownRoot = ['meta', 'campaign', 'board', 'hq'].some(key => Object.prototype.hasOwnProperty.call(loaded, key));
+                            const hasKnownRoot = ['meta', 'campaign', 'board', 'cases', 'hq'].some(key => Object.prototype.hasOwnProperty.call(loaded, key));
                             if (!hasKnownRoot) {
-                                alert("Invalid format: Missing campaign or board data.");
+                                alert("Invalid format: Missing campaign/case/board data.");
                                 resolve(false);
                                 return;
                             }
@@ -1217,6 +1513,7 @@
             cleaned.meta.updated = remoteUpdated;
             this.state = cleaned;
             this.ensurePlayerIds(false);
+            this.syncActiveCaseLegacyState();
 
             try {
                 localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
@@ -1248,7 +1545,7 @@
         }
 
         refreshKnownViews() {
-            const handlers = ['render', 'renderRequisitions', 'renderTimeline', 'renderEncounters'];
+            const handlers = ['render', 'renderRequisitions', 'renderTimeline', 'renderEncounters', 'renderCaseSwitcher'];
             handlers.forEach((name) => {
                 const fn = global[name];
                 if (typeof fn === 'function') {
@@ -1331,31 +1628,37 @@
         }
 
         // Mission Events
-        getEvents() {
-            return this.state.campaign.events || [];
+        getEvents(caseId = null) {
+            const entry = this.getCaseEntry(caseId, { createIfMissing: true });
+            return entry ? entry.events : [];
         }
 
-        addEvent(evt) {
+        addEvent(evt, caseId = null) {
             if (!evt.id) evt.id = 'event_' + Date.now();
-            this.getEvents().push(evt);
+            const entry = this.getCaseEntry(caseId, { createIfMissing: true });
+            if (!entry) return '';
+            entry.events.push({ ...evt, caseId: entry.id });
+            this.syncActiveCaseLegacyState();
             this.save();
             return evt.id;
         }
 
-        updateEvent(id, updates) {
-            const list = this.getEvents();
+        updateEvent(id, updates, caseId = null) {
+            const list = this.getEvents(caseId);
             const idx = list.findIndex(e => e.id === id);
             if (idx >= 0) {
                 list[idx] = { ...list[idx], ...updates };
+                this.syncActiveCaseLegacyState();
                 this.save();
             }
         }
 
-        deleteEvent(id) {
-            const list = this.getEvents();
+        deleteEvent(id, caseId = null) {
+            const list = this.getEvents(caseId);
             const idx = list.findIndex(e => e.id === id);
             if (idx >= 0) {
                 list.splice(idx, 1);
+                this.syncActiveCaseLegacyState();
                 this.save();
             }
         }
@@ -1390,18 +1693,27 @@
             }
         }
 
-        getBoard() {
-            this.state.board = sanitizeBoard(this.state.board);
-            return this.state.board;
+        getBoard(caseId = null) {
+            const entry = this.getCaseEntry(caseId, { createIfMissing: true });
+            if (!entry) return sanitizeBoard(null);
+            entry.board = sanitizeBoard(entry.board);
+            if (!caseId || entry.id === this.getActiveCaseId()) this.syncActiveCaseLegacyState();
+            return entry.board;
         }
 
-        updateBoard(boardState) {
-            this.state.board = sanitizeBoard(boardState);
+        updateBoard(boardState, caseId = null) {
+            const entry = this.getCaseEntry(caseId, { createIfMissing: true });
+            if (!entry) return;
+            entry.board = sanitizeBoard(boardState);
+            this.syncActiveCaseLegacyState();
             this.save();
         }
 
-        clearBoard() {
-            this.state.board = sanitizeBoard(null);
+        clearBoard(caseId = null) {
+            const entry = this.getCaseEntry(caseId, { createIfMissing: true });
+            if (!entry) return;
+            entry.board = sanitizeBoard(null);
+            this.syncActiveCaseLegacyState();
             this.save();
         }
 

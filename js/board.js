@@ -229,6 +229,7 @@ function getClosestEdgeFromLocalPoint(localX, localY, width, height, thresholdPx
 
 function getEdgeTargetElement(nodeEl) {
     if (!nodeEl) return null;
+    if (nodeEl.classList && nodeEl.classList.contains('type-person')) return nodeEl;
     return nodeEl.querySelector('[data-edge-target]') || nodeEl;
 }
 
@@ -246,6 +247,13 @@ const VALID_CONNECTION_PORTS = new Set(['auto', 'top', 'right', 'bottom', 'left'
 function normalizeConnectionPort(port) {
     const candidate = typeof port === 'string' ? port : 'auto';
     return VALID_CONNECTION_PORTS.has(candidate) ? candidate : 'auto';
+}
+
+function getPortFromEventTarget(target) {
+    if (!target || typeof target.closest !== 'function') return 'auto';
+    const portEl = target.closest('.port[data-port]');
+    if (!portEl || !portEl.dataset) return 'auto';
+    return normalizeConnectionPort(portEl.dataset.port);
 }
 
 function findConnectionBetween(nodeAId, nodeBId) {
@@ -505,6 +513,39 @@ function getPreferredBoardPayload() {
     return storePayload;
 }
 
+function pruneBoardTimelineNoise() {
+    const store = window.RTF_STORE;
+    if (!store || typeof store.getEvents !== 'function') return;
+
+    const caseIds = (typeof store.getCases === 'function')
+        ? store.getCases().map((entry) => entry && entry.id).filter(Boolean)
+        : [null];
+    if (!caseIds.length) caseIds.push(null);
+
+    let removed = 0;
+    caseIds.forEach((caseId) => {
+        const events = store.getEvents(caseId);
+        if (!Array.isArray(events) || !events.length) return;
+
+        for (let i = events.length - 1; i >= 0; i -= 1) {
+            const evt = events[i];
+            if (!evt || typeof evt !== 'object') continue;
+            const source = String(evt.source || '').trim().toLowerCase();
+            const kind = String(evt.kind || '').trim();
+            const tags = String(evt.tags || '').toLowerCase();
+
+            const isBoardEvent = source === 'board' || tags.includes('case-board');
+            if (!isBoardEvent) continue;
+            if (kind === 'clue-discovered') continue;
+
+            events.splice(i, 1);
+            removed += 1;
+        }
+    });
+
+    if (removed && typeof store.save === 'function') store.save();
+}
+
 const REQUISITION_STATUSES = ["Pending", "Approved", "In Transit", "Delivered", "Denied"];
 const REQUISITION_PRIORITIES = ["Routine", "Tactical", "Emergency"];
 const REQUISITION_PRIORITY_WEIGHT = REQUISITION_PRIORITIES.reduce((acc, val, idx) => {
@@ -514,6 +555,7 @@ const REQUISITION_PRIORITY_WEIGHT = REQUISITION_PRIORITIES.reduce((acc, val, idx
 
 // --- INITIALIZATION ---
 window.onload = () => {
+    pruneBoardTimelineNoise();
     resizeCanvas();
     initToolbars();
     loadBoard();
@@ -1052,7 +1094,7 @@ function drawLayer() {
     if (isConnecting) {
         ctx.beginPath();
         const startNode = nodeCache.get(connectStart.id);
-        const startPos = connectStart.port
+        const startPos = (connectStart.port && connectStart.port !== 'auto')
             ? getPortPos(startNode, connectStart.port)
             : (startNode
                 ? getRectEdgePointTowards(startNode, { x: connectStart.currentX, y: connectStart.currentY })
@@ -1583,9 +1625,8 @@ document.addEventListener('mouseup', (e) => {
         if (e.target && typeof e.target.closest === 'function') {
             const node = e.target.closest('.node');
             if (node) {
-                const edge = getNodeEdgeFromEvent(e, node);
-                const port = (e.altKey && edge) ? edge : 'auto';
-                completeConnection(node, port);
+                const targetPort = e.altKey ? getPortFromEventTarget(e.target) : 'auto';
+                completeConnection(node, targetPort);
             }
         }
         isConnecting = false;
@@ -1725,14 +1766,27 @@ function createNode(type, x, y, id = null, content = {}) {
         ${createNodeMarkup(type, content)}
     `;
 
+    nodeEl.querySelectorAll('.port[data-port]').forEach((portEl) => {
+        portEl.onmousedown = (evt) => {
+            if (panMode || evt.button !== 0 || !evt.altKey) return;
+            const pinnedPort = normalizeConnectionPort(portEl.dataset.port);
+            if (pinnedPort === 'auto') return;
+            startConnectionDrag(evt, nodeEl, pinnedPort);
+        };
+    });
+
     nodeEl.onmousedown = (e) => {
         if (panMode || e.button !== 0) return;
 
-        const edge = getNodeEdgeFromEvent(e, nodeEl);
-        if (edge) {
-            // Edge drags default to auto edge intersection. Hold Alt to pin to the
-            // specific nearest edge side on connection creation.
-            startConnectionDrag(e, nodeEl, e.altKey ? edge : 'auto');
+        const sourcePort = e.altKey ? getPortFromEventTarget(e.target) : 'auto';
+        if (sourcePort !== 'auto') {
+            startConnectionDrag(e, nodeEl, sourcePort);
+            return;
+        }
+
+        if (getNodeEdgeFromEvent(e, nodeEl)) {
+            // Edge drags default to auto edge intersection.
+            startConnectionDrag(e, nodeEl, 'auto');
             return;
         }
 
@@ -1763,7 +1817,14 @@ function startConnectionDrag(e, node, port) {
     e.preventDefault();
     isConnecting = true;
     const wp = screenToWorld(e.clientX, e.clientY);
-    connectStart = { id: node.id, port, x: wp.x, y: wp.y, currentX: wp.x, currentY: wp.y };
+    connectStart = {
+        id: node.id,
+        port: normalizeConnectionPort(port),
+        x: wp.x,
+        y: wp.y,
+        currentX: wp.x,
+        currentY: wp.y
+    };
 }
 
 function syncPortPreviewState(isAltHeld) {

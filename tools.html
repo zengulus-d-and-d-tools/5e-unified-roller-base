@@ -55,6 +55,26 @@
             </div>
         </header>
 
+        <section class="case-switcher card" id="case-switcher" aria-label="Case Switcher">
+            <div class="case-switcher-head">
+                <h2 class="sync-title">Active Case Context</h2>
+                <div class="case-switcher-meta" id="case-switcher-meta">Waiting for store...</div>
+            </div>
+            <p class="sync-desc">
+                Board and Timeline are scoped to the selected case. NPC, location, requisition, and roster data remain shared across all cases.
+            </p>
+            <div class="case-switcher-row">
+                <select id="active-case-select" onchange="selectActiveCase(this.value)" aria-label="Select Active Case"></select>
+                <button class="sync-btn" id="case-rename-btn" onclick="renameActiveCase()">Rename</button>
+                <button class="sync-btn" id="case-delete-btn" onclick="deleteActiveCase()">Delete</button>
+            </div>
+            <div class="case-switcher-row">
+                <input id="new-case-name" type="text" placeholder="New case name">
+                <button class="sync-btn primary" id="case-create-btn" onclick="createCaseFromInput()">Create + Switch</button>
+            </div>
+            <div id="case-switcher-status" class="case-switcher-status">Case tools initializing...</div>
+        </section>
+
         <section class="sync-panel card" id="sync-panel" aria-label="Cloud Sync">
             <h2 class="sync-title">Cloud Sync (Supabase)</h2>
             <p class="sync-desc">
@@ -302,10 +322,147 @@
             if (window.RTF_STORE) {
                 window.RTF_STORE.import().then(success => {
                     if (success) alert("Data imported successfully!");
+                    renderCaseSwitcher();
                 });
             } else {
                 alert("Store not loaded.");
             }
+        }
+
+        function setCaseSwitcherStatus(message, isError = false) {
+            const el = document.getElementById('case-switcher-status');
+            if (!el) return;
+            el.textContent = message;
+            el.classList.toggle('is-error', !!isError);
+        }
+
+        function renderCaseSwitcher() {
+            const selectEl = document.getElementById('active-case-select');
+            const metaEl = document.getElementById('case-switcher-meta');
+            const deleteBtn = document.getElementById('case-delete-btn');
+            const renameBtn = document.getElementById('case-rename-btn');
+            const createBtn = document.getElementById('case-create-btn');
+            if (!selectEl || !metaEl) return;
+
+            if (!window.RTF_STORE || typeof window.RTF_STORE.getCases !== 'function') {
+                selectEl.innerHTML = '';
+                metaEl.textContent = 'Store unavailable';
+                if (deleteBtn) deleteBtn.disabled = true;
+                if (renameBtn) renameBtn.disabled = true;
+                if (createBtn) createBtn.disabled = true;
+                setCaseSwitcherStatus('Store not loaded yet.', true);
+                return;
+            }
+
+            const cases = window.RTF_STORE.getCases();
+            const activeId = window.RTF_STORE.getActiveCaseId();
+            const activeCase = typeof window.RTF_STORE.getActiveCase === 'function'
+                ? window.RTF_STORE.getActiveCase()
+                : null;
+
+            const previous = selectEl.value;
+            selectEl.innerHTML = '';
+            cases.forEach((entry) => {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = entry.name || entry.id;
+                selectEl.appendChild(option);
+            });
+
+            if (cases.some((entry) => entry.id === activeId)) {
+                selectEl.value = activeId;
+            } else if (cases.some((entry) => entry.id === previous)) {
+                selectEl.value = previous;
+            }
+
+            const count = cases.length;
+            const activeLabel = activeCase && activeCase.name ? activeCase.name : (selectEl.options[selectEl.selectedIndex] && selectEl.options[selectEl.selectedIndex].textContent) || '—';
+            metaEl.textContent = `${count} case${count === 1 ? '' : 's'} | Active: ${activeLabel}`;
+            if (deleteBtn) deleteBtn.disabled = count <= 1;
+            if (renameBtn) renameBtn.disabled = !count;
+            if (createBtn) createBtn.disabled = false;
+            setCaseSwitcherStatus(`Case context set to "${activeLabel}".`);
+        }
+
+        function selectActiveCase(caseId) {
+            if (!window.RTF_STORE || typeof window.RTF_STORE.setActiveCase !== 'function') {
+                setCaseSwitcherStatus('Case switching unavailable in this store version.', true);
+                return;
+            }
+            if (!window.RTF_STORE.setActiveCase(caseId)) {
+                setCaseSwitcherStatus('Could not switch to that case.', true);
+                renderCaseSwitcher();
+                return;
+            }
+            renderCaseSwitcher();
+        }
+
+        function createCaseFromInput() {
+            const input = document.getElementById('new-case-name');
+            if (!input) return;
+            if (!window.RTF_STORE || typeof window.RTF_STORE.createCase !== 'function') {
+                setCaseSwitcherStatus('Case creation unavailable in this store version.', true);
+                return;
+            }
+            const name = (input.value || '').trim();
+            if (!name) {
+                setCaseSwitcherStatus('Enter a case name first.', true);
+                input.focus();
+                return;
+            }
+            const id = window.RTF_STORE.createCase(name);
+            input.value = '';
+            renderCaseSwitcher();
+            if (id) setCaseSwitcherStatus(`Created and switched to "${name}".`);
+        }
+
+        function renameActiveCase() {
+            if (!window.RTF_STORE || typeof window.RTF_STORE.renameCase !== 'function') {
+                setCaseSwitcherStatus('Case rename unavailable in this store version.', true);
+                return;
+            }
+            const active = window.RTF_STORE.getActiveCase && window.RTF_STORE.getActiveCase();
+            if (!active || !active.id) {
+                setCaseSwitcherStatus('No active case to rename.', true);
+                return;
+            }
+            const next = prompt('Rename active case:', active.name || '');
+            if (next === null) return;
+            const trimmed = next.trim();
+            if (!trimmed) {
+                setCaseSwitcherStatus('Case name cannot be empty.', true);
+                return;
+            }
+            if (!window.RTF_STORE.renameCase(active.id, trimmed)) {
+                setCaseSwitcherStatus('Case rename failed.', true);
+                return;
+            }
+            renderCaseSwitcher();
+            setCaseSwitcherStatus(`Renamed case to "${trimmed}".`);
+        }
+
+        function deleteActiveCase() {
+            if (!window.RTF_STORE || typeof window.RTF_STORE.deleteCase !== 'function') {
+                setCaseSwitcherStatus('Case delete unavailable in this store version.', true);
+                return;
+            }
+            const active = window.RTF_STORE.getActiveCase && window.RTF_STORE.getActiveCase();
+            const allCases = window.RTF_STORE.getCases && window.RTF_STORE.getCases();
+            if (!active || !active.id) {
+                setCaseSwitcherStatus('No active case to delete.', true);
+                return;
+            }
+            if (!Array.isArray(allCases) || allCases.length <= 1) {
+                setCaseSwitcherStatus('At least one case must remain.', true);
+                return;
+            }
+            const ok = confirm(`Delete case "${active.name}"?\n\nThis removes that case's board and timeline events only.`);
+            if (!ok) return;
+            if (!window.RTF_STORE.deleteCase(active.id)) {
+                setCaseSwitcherStatus('Case delete failed.', true);
+                return;
+            }
+            renderCaseSwitcher();
         }
 
         function getSyncFormValues() {
@@ -817,6 +974,16 @@
                 setTimeout(initSyncPanel, 120);
                 return;
             }
+            renderCaseSwitcher();
+            const caseInput = document.getElementById('new-case-name');
+            if (caseInput && !caseInput.dataset.boundEnter) {
+                caseInput.dataset.boundEnter = '1';
+                caseInput.addEventListener('keydown', (event) => {
+                    if (event.key !== 'Enter') return;
+                    event.preventDefault();
+                    createCaseFromInput();
+                });
+            }
             loadCustomizeDefaults();
             applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
             latestSyncStatus = window.RTF_STORE.getSyncStatus();
@@ -833,6 +1000,9 @@
         }
 
         window.addEventListener('load', initSyncPanel);
+        window.addEventListener('rtf-store-updated', () => {
+            renderCaseSwitcher();
+        });
         window.addEventListener('rtf-sync-status', (event) => {
             latestSyncStatus = event.detail || null;
             setSyncStatusText(latestSyncStatus);
