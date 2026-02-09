@@ -7,6 +7,89 @@
         .replace(/'/g, '&#39;');
 
     const getStore = () => window.RTF_STORE;
+    let caseSwitcherBound = false;
+
+    function getCaseSwitcherElements() {
+        return {
+            selector: document.getElementById('caseSelector'),
+            createBtn: document.getElementById('caseCreateBtn'),
+            renameBtn: document.getElementById('caseRenameBtn'),
+            deleteBtn: document.getElementById('caseDeleteBtn')
+        };
+    }
+
+    function renderCaseSwitcher() {
+        const store = getStore();
+        const { selector, deleteBtn } = getCaseSwitcherElements();
+        if (!selector || !store || typeof store.getCases !== 'function') return;
+        const cases = store.getCases() || [];
+        const activeId = typeof store.getActiveCaseId === 'function' ? store.getActiveCaseId() : (cases[0] ? cases[0].id : '');
+        selector.innerHTML = cases.map((entry) => {
+            const label = entry && entry.name ? entry.name : 'Untitled Case';
+            const value = entry && entry.id ? entry.id : '';
+            return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+        }).join('');
+        if (activeId) selector.value = activeId;
+        if (deleteBtn) deleteBtn.disabled = cases.length <= 1;
+    }
+
+    function handleCaseSwitch() {
+        const store = getStore();
+        const { selector } = getCaseSwitcherElements();
+        if (!store || !selector || typeof store.setActiveCase !== 'function') return;
+        if (store.setActiveCase(selector.value)) {
+            renderTimeline();
+        }
+        renderCaseSwitcher();
+    }
+
+    function handleCaseCreate() {
+        const store = getStore();
+        if (!store || typeof store.createCase !== 'function') return;
+        const name = prompt('Name the new case:', '');
+        if (name === null) return;
+        const newId = store.createCase(name);
+        renderCaseSwitcher();
+        renderTimeline();
+        const { selector } = getCaseSwitcherElements();
+        if (selector && newId) selector.value = newId;
+    }
+
+    function handleCaseRename() {
+        const store = getStore();
+        if (!store || typeof store.renameCase !== 'function') return;
+        const active = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
+        if (!active) return;
+        const name = prompt('Rename case:', active.name || '');
+        if (name === null) return;
+        store.renameCase(active.id, name);
+        renderCaseSwitcher();
+        renderTimeline();
+    }
+
+    function handleCaseDelete() {
+        const store = getStore();
+        if (!store || typeof store.deleteCase !== 'function') return;
+        const active = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
+        if (!active) return;
+        if (!confirm(`Delete case "${active.name}"? This cannot be undone.`)) return;
+        if (store.deleteCase(active.id)) {
+            renderCaseSwitcher();
+            renderTimeline();
+        }
+    }
+
+    function initCaseSwitcher() {
+        if (caseSwitcherBound) return;
+        const { selector, createBtn, renameBtn, deleteBtn } = getCaseSwitcherElements();
+        if (!selector) return;
+        caseSwitcherBound = true;
+        selector.addEventListener('change', handleCaseSwitch);
+        if (createBtn) createBtn.addEventListener('click', handleCaseCreate);
+        if (renameBtn) renameBtn.addEventListener('click', handleCaseRename);
+        if (deleteBtn) deleteBtn.addEventListener('click', handleCaseDelete);
+        renderCaseSwitcher();
+    }
 
     function toggleEventForm() {
         const form = document.getElementById('eventForm');
@@ -168,6 +251,7 @@
     }
 
     function init() {
+        initCaseSwitcher();
         renderTimeline();
     }
 
@@ -184,6 +268,7 @@
     window.renderTimeline = renderTimeline;
     window.updateEventField = updateEventField;
     window.deleteTimelineEvent = deleteTimelineEvent;
+    window.renderCaseSwitcher = renderCaseSwitcher;
 
     window.addEventListener('load', waitForStore);
 })();

@@ -28,6 +28,12 @@
             <div class="hero-meta">Case File <strong id="caseName" contenteditable="true">UNNAMED</strong></div>
         </div>
         <div class="hero-actions">
+            <div class="hero-action-bar case-controls">
+                <select id="caseSelector" class="hero-select" aria-label="Active case"></select>
+                <button class="hero-btn ghost small" id="caseCreateBtn" type="button">New Case</button>
+                <button class="hero-btn ghost small" id="caseRenameBtn" type="button">Rename</button>
+                <button class="hero-btn danger small" id="caseDeleteBtn" type="button">Delete</button>
+            </div>
             <div class="hero-action-bar primary">
                 <a class="hero-btn ghost" href="tools.html">Portal</a>
                 <button class="hero-btn ghost" id="btn-pan" onclick="togglePanMode()">🖐️ Pan: OFF</button>
