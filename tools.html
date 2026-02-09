@@ -94,7 +94,7 @@
         <section class="sync-panel customize-panel card" id="customize-panel" aria-label="Customise Seed Data">
             <h2 class="sync-title">Customise Seed Data (Fork Tool)</h2>
             <p class="sync-desc">
-                Build fork-ready preload files from JSON. Download `data-npcs*.js` and `data-locations*.js` to seed fresh installs fast.
+                Build fork-ready preload files from JSON. Download `data-guilds*.js`, `data-npcs*.js`, and `data-locations*.js` to seed fresh installs fast.
             </p>
             <div class="sync-grid">
                 <div class="sync-field">
@@ -105,11 +105,17 @@
             <div class="customize-actions">
                 <button class="sync-btn" onclick="loadCustomizeDefaults()">Load Current Defaults</button>
                 <button class="sync-btn" onclick="loadCustomizeFromCampaign()">Load From Campaign Store</button>
+                <button class="sync-btn" onclick="downloadCustomDataFile('guilds')">Download data-guilds.js</button>
                 <button class="sync-btn" onclick="downloadCustomDataFile('npcs')">Download data-npcs.js</button>
                 <button class="sync-btn" onclick="downloadCustomDataFile('locations')">Download data-locations.js</button>
-                <button class="sync-btn primary" onclick="downloadCustomDataFiles()">Download Both</button>
+                <button class="sync-btn primary" onclick="downloadCustomDataFiles()">Download All</button>
             </div>
             <div class="sync-grid">
+                <div class="sync-field">
+                    <label for="customize-guilds-json">Guild/Faction Seed JSON</label>
+                    <textarea id="customize-guilds-json" spellcheck="false"
+                        placeholder='["Faction Alpha","Faction Beta","Free Agents"]'></textarea>
+                </div>
                 <div class="sync-field">
                     <label for="customize-npcs-json">NPC Seed JSON</label>
                     <textarea id="customize-npcs-json" spellcheck="false"
@@ -121,7 +127,7 @@
                         placeholder='[{"name":"Sunhome","district":"Boros Legion","desc":"Fortress and barracks","notes":"Heavy security"}]'></textarea>
                 </div>
             </div>
-            <p class="customize-hint">`name` is required for each record. Empty optional fields become empty strings.</p>
+            <p class="customize-hint"><code>name</code> is required for NPC/location records. Guild entries can be plain strings or objects with <code>name</code>.</p>
             <div id="customize-status" class="customize-status">Ready. Load defaults or campaign data to start.</div>
         </section>
 
@@ -255,6 +261,9 @@
 
         </div>
     </div>
+    <script src="js/data-guilds.js"></script>
+    <script src="js/data-npcs.js"></script>
+    <script src="js/data-locations.js"></script>
     <script src="js/store.js"></script>
     <script src="js/vector-field.js"></script>
     <script>
@@ -509,27 +518,61 @@
             return parsed;
         }
 
-        function normalizeNpcSeedRow(row, idx) {
+        function coerceGuildSeedEntry(entry) {
+            if (typeof entry === 'string') return entry.trim();
+            if (entry && typeof entry === 'object') return String(entry.name || '').trim();
+            return '';
+        }
+
+        function normalizeGuildSeedEntry(entry, idx) {
+            const name = coerceGuildSeedEntry(entry);
+            if (!name) throw new Error(`Guild row ${idx + 1} is missing "name".`);
+            return name;
+        }
+
+        function dedupeStringsPreserveOrder(values) {
+            const seen = new Set();
+            const out = [];
+            values.forEach((value) => {
+                const name = String(value || '').trim();
+                if (!name) return;
+                const key = name.toLowerCase();
+                if (seen.has(key)) return;
+                seen.add(key);
+                out.push(name);
+            });
+            return out;
+        }
+
+        function coerceNpcSeedRow(row) {
             const source = row && typeof row === 'object' ? row : {};
-            const item = {
+            return {
                 name: String(source.name || '').trim(),
                 guild: String(source.guild || '').trim(),
                 wants: String(source.wants || '').trim(),
                 leverage: String(source.leverage || '').trim(),
                 notes: String(source.notes || '').trim()
             };
+        }
+
+        function normalizeNpcSeedRow(row, idx) {
+            const item = coerceNpcSeedRow(row);
             if (!item.name) throw new Error(`NPC row ${idx + 1} is missing "name".`);
             return item;
         }
 
-        function normalizeLocationSeedRow(row, idx) {
+        function coerceLocationSeedRow(row) {
             const source = row && typeof row === 'object' ? row : {};
-            const item = {
+            return {
                 name: String(source.name || '').trim(),
                 district: String(source.district || '').trim(),
                 desc: String(source.desc || '').trim(),
                 notes: String(source.notes || '').trim()
             };
+        }
+
+        function normalizeLocationSeedRow(row, idx) {
+            const item = coerceLocationSeedRow(row);
             if (!item.name) throw new Error(`Location row ${idx + 1} is missing "name".`);
             return item;
         }
@@ -557,24 +600,34 @@
         }
 
         function getCustomizeSeedArrays() {
+            const guildsRaw = parseSeedArray(document.getElementById('customize-guilds-json').value, 'Guild seed');
             const npcsRaw = parseSeedArray(document.getElementById('customize-npcs-json').value, 'NPC seed');
             const locationsRaw = parseSeedArray(document.getElementById('customize-locations-json').value, 'Location seed');
             return {
+                guilds: dedupeStringsPreserveOrder(guildsRaw.map(normalizeGuildSeedEntry)),
                 npcs: npcsRaw.map(normalizeNpcSeedRow),
                 locations: locationsRaw.map(normalizeLocationSeedRow)
             };
         }
 
-        function writeCustomizeForm(npcs, locations) {
+        function writeCustomizeForm(guilds, npcs, locations) {
+            document.getElementById('customize-guilds-json').value = JSON.stringify(guilds, null, 2);
             document.getElementById('customize-npcs-json').value = JSON.stringify(npcs, null, 2);
             document.getElementById('customize-locations-json').value = JSON.stringify(locations, null, 2);
         }
 
         function loadCustomizeDefaults() {
-            const npcs = Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS.map(normalizeNpcSeedRow) : [];
-            const locations = Array.isArray(window.PRELOADED_LOCATIONS) ? window.PRELOADED_LOCATIONS.map(normalizeLocationSeedRow) : [];
-            writeCustomizeForm(npcs, locations);
-            setCustomizeStatus(`Loaded defaults (${npcs.length} NPCs, ${locations.length} Locations).`);
+            try {
+                const guilds = (typeof window.getRTFGuilds === 'function')
+                    ? window.getRTFGuilds({ includeGuildless: true }).map(coerceGuildSeedEntry).filter(Boolean)
+                    : (Array.isArray(window.PRELOADED_GUILDS) ? window.PRELOADED_GUILDS.map(coerceGuildSeedEntry).filter(Boolean) : []);
+                const npcs = Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS.map(coerceNpcSeedRow) : [];
+                const locations = Array.isArray(window.PRELOADED_LOCATIONS) ? window.PRELOADED_LOCATIONS.map(coerceLocationSeedRow) : [];
+                writeCustomizeForm(guilds, npcs, locations);
+                setCustomizeStatus(`Loaded defaults (${guilds.length} Guilds, ${npcs.length} NPCs, ${locations.length} Locations).`);
+            } catch (err) {
+                setCustomizeStatus(err && err.message ? err.message : 'Failed to load defaults.', true);
+            }
         }
 
         function loadCustomizeFromCampaign() {
@@ -582,11 +635,20 @@
                 setCustomizeStatus('Campaign store is not ready yet.', true);
                 return;
             }
-            const c = window.RTF_STORE.state.campaign;
-            const npcs = (Array.isArray(c.npcs) ? c.npcs : []).map(normalizeNpcSeedRow);
-            const locations = (Array.isArray(c.locations) ? c.locations : []).map(normalizeLocationSeedRow);
-            writeCustomizeForm(npcs, locations);
-            setCustomizeStatus(`Loaded campaign store (${npcs.length} NPCs, ${locations.length} Locations).`);
+            try {
+                const c = window.RTF_STORE.state.campaign;
+                const npcs = (Array.isArray(c.npcs) ? c.npcs : []).map(coerceNpcSeedRow);
+                const locations = (Array.isArray(c.locations) ? c.locations : []).map(coerceLocationSeedRow);
+                const guilds = dedupeStringsPreserveOrder([
+                    ...Object.keys(c.rep || {}),
+                    ...npcs.map((npc) => npc.guild),
+                    ...locations.map((loc) => loc.district)
+                ]);
+                writeCustomizeForm(guilds, npcs, locations);
+                setCustomizeStatus(`Loaded campaign store (${guilds.length} Guilds, ${npcs.length} NPCs, ${locations.length} Locations).`);
+            } catch (err) {
+                setCustomizeStatus(err && err.message ? err.message : 'Failed to load campaign data.', true);
+            }
         }
 
         function buildCustomDataFiles() {
@@ -595,6 +657,10 @@
             const label = normalizeFilenameLabel(labelRaw);
             const suffix = label ? `-${label}` : '';
             return {
+                guilds: {
+                    filename: `data-guilds${suffix}.js`,
+                    content: buildPreloadFile('PRELOADED_GUILDS', seed.guilds)
+                },
                 npcs: {
                     filename: `data-npcs${suffix}.js`,
                     content: buildPreloadFile('PRELOADED_NPCS', seed.npcs)
@@ -609,7 +675,9 @@
         function downloadCustomDataFile(kind) {
             try {
                 const files = buildCustomDataFiles();
-                const selected = kind === 'locations' ? files.locations : files.npcs;
+                const selected = kind === 'guilds'
+                    ? files.guilds
+                    : (kind === 'locations' ? files.locations : files.npcs);
                 downloadTextFile(selected.filename, selected.content, 'text/javascript');
                 setCustomizeStatus(`Downloaded ${selected.filename}.`);
             } catch (err) {
@@ -620,9 +688,10 @@
         function downloadCustomDataFiles() {
             try {
                 const files = buildCustomDataFiles();
+                downloadTextFile(files.guilds.filename, files.guilds.content, 'text/javascript');
                 downloadTextFile(files.npcs.filename, files.npcs.content, 'text/javascript');
                 downloadTextFile(files.locations.filename, files.locations.content, 'text/javascript');
-                setCustomizeStatus(`Downloaded ${files.npcs.filename} and ${files.locations.filename}.`);
+                setCustomizeStatus(`Downloaded ${files.guilds.filename}, ${files.npcs.filename}, and ${files.locations.filename}.`);
             } catch (err) {
                 setCustomizeStatus(err && err.message ? err.message : 'Failed to build data files.', true);
             }

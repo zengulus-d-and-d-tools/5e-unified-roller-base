@@ -8,6 +8,61 @@
     const STORE_UPDATED_EVENT = 'rtf-store-updated';
     const SUPABASE_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
+    const FALLBACK_GUILDS = [
+        "Azorius",
+        "Boros",
+        "Dimir",
+        "Golgari",
+        "Gruul",
+        "Izzet",
+        "Orzhov",
+        "Rakdos",
+        "Selesnya",
+        "Simic",
+        "Guildless"
+    ];
+
+    const normalizeGuildName = (value) => String(value || '').trim();
+
+    const dedupeGuildNames = (source) => {
+        const seen = new Set();
+        const out = [];
+        (Array.isArray(source) ? source : []).forEach((entry) => {
+            const name = normalizeGuildName(entry);
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            out.push(name);
+        });
+        return out;
+    };
+
+    const resolveDefaultGuildList = () => {
+        if (typeof global.getRTFGuilds === 'function') {
+            const byHelper = dedupeGuildNames(global.getRTFGuilds({ includeGuildless: true }));
+            if (byHelper.length) return byHelper;
+        }
+        if (global.RTF_DATA && Array.isArray(global.RTF_DATA.guilds)) {
+            const byData = dedupeGuildNames(global.RTF_DATA.guilds);
+            if (byData.length) return byData;
+        }
+        if (Array.isArray(global.PRELOADED_GUILDS)) {
+            const byPreload = dedupeGuildNames(global.PRELOADED_GUILDS);
+            if (byPreload.length) return byPreload;
+        }
+        return FALLBACK_GUILDS.slice();
+    };
+
+    const buildRepMapFromGuilds = (guilds) => {
+        const rep = {};
+        dedupeGuildNames(guilds).forEach((guild) => {
+            rep[guild] = 0;
+        });
+        if (!Object.keys(rep).length) rep[FALLBACK_GUILDS[0]] = 0;
+        return rep;
+    };
+
     const createDefaultHQState = () => {
         const baseId = 'floor_' + Math.random().toString(36).slice(2, 7);
         return {
@@ -21,7 +76,7 @@
     const DEFAULT_STATE = {
         meta: { version: 1, created: Date.now() },
         campaign: {
-            rep: { "Azorius": 0, "Boros": 0, "Dimir": 0, "Golgari": 0, "Gruul": 0, "Izzet": 0, "Orzhov": 0, "Rakdos": 0, "Selesnya": 0, "Simic": 0 },
+            rep: buildRepMapFromGuilds(resolveDefaultGuildList()),
             heat: 0,
             players: [],
             npcs: [],
@@ -105,10 +160,16 @@
     };
 
     const sanitizeRep = (rep) => {
-        const normalized = { ...DEFAULT_STATE.campaign.rep };
-        if (!rep || typeof rep !== 'object') return normalized;
+        const source = rep && typeof rep === 'object' ? rep : {};
+        const mergedKeys = [
+            ...Object.keys(DEFAULT_STATE.campaign.rep),
+            ...resolveDefaultGuildList(),
+            ...Object.keys(source)
+        ];
+        const normalized = buildRepMapFromGuilds(mergedKeys);
         Object.keys(normalized).forEach((guild) => {
-            normalized[guild] = toNumber(rep[guild], 0);
+            const fallback = toNumber(DEFAULT_STATE.campaign.rep[guild], 0);
+            normalized[guild] = toNumber(source[guild], fallback);
         });
         return normalized;
     };

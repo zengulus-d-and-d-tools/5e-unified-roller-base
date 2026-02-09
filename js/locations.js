@@ -1,6 +1,9 @@
 // Use global data if available
-const guilds = (window.RTF_DATA && window.RTF_DATA.guilds) ? window.RTF_DATA.guilds :
-    ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
+const guilds = (typeof window.getRTFGuilds === 'function')
+    ? window.getRTFGuilds({ includeGuildless: true })
+    : ((window.RTF_DATA && window.RTF_DATA.guilds)
+        ? window.RTF_DATA.guilds
+        : ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic", "Guildless"]);
 
 const escapeHtml = (str = '') => String(str)
     .replace(/&/g, '&amp;')

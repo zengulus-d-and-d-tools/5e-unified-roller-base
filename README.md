@@ -12,7 +12,7 @@ Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locat
 
 | Tool | File | Description |
 |------|------|-------------|
-| **[Tools Hub](docs/ToolsHub.md)** | `tools.html` | Launchpad with import/export controls, palette settings, and hidden DM utilities (cloud admin + fork seed-file generator). |
+| **[Tools Hub](docs/ToolsHub.md)** | `tools.html` | Launchpad with import/export controls, palette settings, and hidden DM utilities (cloud admin + fork seed-file generators for guilds/NPCs/locations). |
 | **[Player Sheet](docs/PlayerSheet.md)** | `index.html` | Command-console sheet with automation, roller, creator, and Discord/webhook hooks. |
 | **[Player Dashboard](docs/PlayerDashboard.md)** | `player-dashboard.html` | Grid of agent AC/HP/passives for table displays or DM quick reference. |
 | **[Campaign Hub](docs/CampaignHub.md)** | `hub.html` | Heat, guild reputation, case prep, and downtime roster tracking. |

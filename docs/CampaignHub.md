@@ -4,7 +4,7 @@ Between-sessions control room for heat, guild standing, and downtime logistics. 
 
 ## Layout
 - **Case Prep Template** – The top card is a quick brief: title/logline, guilds in conflict, antagonist goal, legal & physical obstacles, and a set-piece outline. Use it as a one-page primer before the next mission.
-- **Global Status** – Grid of all ten guilds plus Guildless; click to cycle rep values from hostile to favored. A Heat meter with +/- buttons, a glowing fill, and warning copy keeps consequences front and center.
+- **Global Status** – Grid of all configured guilds/factions (including optional independents like Guildless); click to cycle rep values from hostile to favored. A Heat meter with +/- buttons, a glowing fill, and warning copy keeps consequences front and center.
 - **Player Roster** – Mirrors the Task Force Dashboard but focuses on downtime: each player row tracks DP, status flags, clocks, and notes. Buttons at the bottom grant the standard +2 DP for closing a case or hard reset the entire hub.
 
 ## Controls & Sync

@@ -1,6 +1,9 @@
 // Use global data if available, fallback to hardcoded (safety)
-const guilds = (window.RTF_DATA && window.RTF_DATA.guilds) ? window.RTF_DATA.guilds :
-    ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
+const guilds = (typeof window.getRTFGuilds === 'function')
+    ? window.getRTFGuilds({ includeGuildless: true })
+    : ((window.RTF_DATA && window.RTF_DATA.guilds)
+        ? window.RTF_DATA.guilds
+        : ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic", "Guildless"]);
 
 // Rewards converted to a datalist for suggestions while allowing free text
 const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];

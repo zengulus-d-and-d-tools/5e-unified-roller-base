@@ -471,14 +471,65 @@ function initFormattingToolbar() {
     document.body.appendChild(tb);
 }
 
+function getBoardGuildNames() {
+    if (typeof window.getRTFGuilds === 'function') {
+        const list = window.getRTFGuilds({ includeGuildless: true });
+        if (Array.isArray(list) && list.length) return list;
+    }
+    if (window.RTF_DATA && Array.isArray(window.RTF_DATA.guilds) && window.RTF_DATA.guilds.length) {
+        return window.RTF_DATA.guilds;
+    }
+    return [];
+}
+
+function getBoardGuildEntries() {
+    const names = getBoardGuildNames();
+    const clueGuilds = (window.RTF_DATA && window.RTF_DATA.clue && Array.isArray(window.RTF_DATA.clue.guilds))
+        ? window.RTF_DATA.clue.guilds
+        : [];
+
+    const clueByName = new Map();
+    clueGuilds.forEach((entry) => {
+        if (!entry || !entry.name) return;
+        clueByName.set(String(entry.name).trim().toLowerCase(), entry);
+    });
+
+    const seenIds = new Set();
+    const out = [];
+    names.forEach((name, idx) => {
+        const cleanName = String(name || '').trim();
+        if (!cleanName) return;
+        const clue = clueByName.get(cleanName.toLowerCase());
+        let id = clue && clue.id ? String(clue.id).trim() : '';
+        if (!id) id = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        if (!id) id = `guild-${idx + 1}`;
+        if (seenIds.has(id)) id = `${id}-${idx + 1}`;
+        seenIds.add(id);
+
+        out.push({
+            id,
+            name: cleanName,
+            icon: clue && clue.icon ? clue.icon : '🏷️'
+        });
+    });
+
+    return out;
+}
+
 function initGuildToolbar() {
     const guildContainer = document.getElementById('guild-popup');
-    if (!guildContainer || !window.RTF_DATA || !window.RTF_DATA.clue) return;
+    if (!guildContainer) return;
 
     guildContainer.innerHTML = '<div id="guild-list-content"></div>';
     const list = document.getElementById('guild-list-content');
+    const entries = getBoardGuildEntries();
 
-    window.RTF_DATA.clue.guilds.forEach(g => {
+    if (!entries.length) {
+        list.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No guild entries available.</div>';
+        return;
+    }
+
+    entries.forEach(g => {
         const el = document.createElement('div');
         el.className = `tool-item g-${g.id}`;
         el.draggable = true;
@@ -506,7 +557,7 @@ function initNPCToolbar() {
             <input type="text" id="npc-search" class="filter-input" placeholder="Search NPCs..." oninput="renderNPCs()">
             <select id="npc-guild-filter" class="filter-select" onchange="renderNPCs()">
                 <option value="">All Guilds</option>
-                ${(window.RTF_DATA && window.RTF_DATA.guilds ? window.RTF_DATA.guilds.map(g => `<option value="${g}">${g}</option>`).join('') : '')}
+                ${getBoardGuildNames().map(g => `<option value="${g}">${g}</option>`).join('')}
             </select>
         </div>
         <div id="npc-list-content"></div>
@@ -572,7 +623,7 @@ function initLocationToolbar() {
             <input type="text" id="loc-search" class="filter-input" placeholder="Search Places..." oninput="renderLocations()">
             <select id="loc-guild-filter" class="filter-select" onchange="renderLocations()">
                 <option value="">All Districts</option>
-                ${(window.RTF_DATA && window.RTF_DATA.guilds ? window.RTF_DATA.guilds.map(g => `<option value="${g}">${g}</option>`).join('') : '')}
+                ${getBoardGuildNames().map(g => `<option value="${g}">${g}</option>`).join('')}
             </select>
         </div>
         <div id="loc-list-content"></div>

@@ -9,7 +9,7 @@
         return;
     }
 
-    const guilds = data.guilds;
+    const guilds = Array.isArray(data.guilds) ? data.guilds.filter(Boolean) : [];
     const actions = data.dm.actions;
     const whatsHappening = data.dm.whatsHappening;
     const { struct: txtStruct, guts: txtGuts, debris: txtDebris, atmos: txtAtmos } = data.dm.textures;
@@ -43,25 +43,25 @@
 
     function genStreetScene() {
         console.log("genStreetScene called");
-        const rollActor = d(12);
-        let actorName = '';
-        let actionList = [];
+        const fallbackGuilds = Object.keys(actions || {}).filter((key) => key !== 'Env' && key !== 'Guildless');
+        const activeGuilds = guilds.length ? guilds : fallbackGuilds;
+        const actorPool = [...activeGuilds, 'Environment', 'Guildless'];
+        const actorName = rand(actorPool);
 
-        if (rollActor <= 10) {
-            actorName = guilds[rollActor - 1];
-            actionList = actions[actorName];
-        } else if (rollActor === 11) {
-            actorName = 'Environment';
-            actionList = actions.Env;
+        let actionList = [];
+        if (actorName === 'Environment') {
+            actionList = actions.Env || [];
+        } else if (actorName === 'Guildless') {
+            actionList = actions.Guildless || [];
         } else {
-            actorName = 'Guildless';
-            actionList = actions.Guildless;
+            actionList = actions[actorName] || actions.Env || actions.Guildless || [];
         }
+        if (!actionList.length) actionList = ['Holding position'];
 
         const action = rand(actionList);
         const compl = rand(whatsHappening);
-        const rollSource = d(12);
-        const sourceName = rollSource <= 10 ? guilds[rollSource - 1] : (rollSource === 11 ? 'Hazard' : 'Gang');
+        const sourcePool = [...activeGuilds, 'Hazard', 'Gang'];
+        const sourceName = rand(sourcePool);
 
         const box = document.getElementById('out-street');
         if (box) {
@@ -100,7 +100,7 @@
         console.log("genNPC called");
         const roll = d(6) + d(6) - 2;
         const res = npcs[roll];
-        const g = rand(guilds);
+        const g = rand(guilds.length ? guilds : ['Unknown Faction']);
         setText('out-npc', `
             <div class="out-main"><span style="color:var(--accent)">${g}</span> NPC</div>
             <div style="margin-top:5px; font-size:0.9rem;"><strong>Wants:</strong> ${res.w}</div>
