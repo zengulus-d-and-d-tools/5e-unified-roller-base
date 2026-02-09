@@ -16,6 +16,37 @@
         .replace(/'/g, '&#39;');
 
     const getStore = () => window.RTF_STORE;
+    const getLogger = () => {
+        const logger = window.RTF_SESSION_LOG;
+        if (!logger || typeof logger.logMajorEvent !== 'function') return null;
+        return logger;
+    };
+
+    function logRequisitionGained(req) {
+        const logger = getLogger();
+        if (!logger || !req) return;
+        logger.logMajorEvent({
+            title: `Requisition Logged: ${req.item || 'Untitled Request'}`,
+            focus: req.guild || req.requester || 'Task Force',
+            tags: ['auto', 'requisition', 'gained'],
+            highlights: `${req.requester || 'Unknown requester'} logged ${req.item || 'a requisition'} (${req.priority || 'Routine'} priority).`,
+            source: 'requisitions',
+            kind: 'requisition-gained'
+        }, { dedupeKey: `req:gained:${req.id || req.item || ''}` });
+    }
+
+    function logRequisitionDelivered(req, prevStatus) {
+        const logger = getLogger();
+        if (!logger || !req) return;
+        logger.logMajorEvent({
+            title: `Requisition Delivered: ${req.item || 'Untitled Request'}`,
+            focus: req.guild || req.requester || 'Task Force',
+            tags: ['auto', 'requisition', 'delivered'],
+            highlights: `${req.item || 'Requisition'} marked Delivered${prevStatus ? ` (from ${prevStatus})` : ''}.`,
+            source: 'requisitions',
+            kind: 'requisition-delivered'
+        }, { dedupeKey: `req:delivered:${req.id || req.item || ''}` });
+    }
 
     function populateOptions() {
         const guildSelect = document.getElementById('reqGuild');
@@ -108,6 +139,7 @@
             created: new Date().toISOString()
         };
         store.addRequisition(data);
+        logRequisitionGained(data);
         resetForm();
         toggleReqForm();
         renderRequisitions();
@@ -116,7 +148,18 @@
     function updateReqField(id, field, value) {
         const store = getStore();
         if (!store) return;
+        const existing = (store.getRequisitions() || []).find(req => req.id === id) || null;
+        const prevStatus = existing && existing.status ? existing.status : '';
         store.updateRequisition(id, { [field]: value });
+
+        if (field === 'status') {
+            const nextStatus = String(value || '');
+            if (prevStatus !== 'Delivered' && nextStatus === 'Delivered') {
+                const latest = (store.getRequisitions() || []).find(req => req.id === id) || existing;
+                logRequisitionDelivered(latest, prevStatus);
+            }
+        }
+
         renderRequisitions();
     }
 

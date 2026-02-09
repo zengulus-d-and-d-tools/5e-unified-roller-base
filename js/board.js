@@ -47,6 +47,8 @@ let focusMode = false;
 let panMode = false;
 let isPanning = false;
 let panStart = { x: 0, y: 0 };
+let isHydratingBoard = false;
+let lastSavedCaseName = 'UNNAMED CASE';
 
 const sanitizeText = (text = '') => String(text || '')
     .replace(/&/g, '&amp;')
@@ -56,6 +58,187 @@ const sanitizeText = (text = '') => String(text || '')
     .replace(/'/g, '&#39;');
 const sanitizeMultiline = (text = '') => sanitizeText(text).replace(/\n/g, '<br>');
 const LEGACY_BOARD_KEY = 'invBoardData';
+const NODE_TYPE_LABELS = {
+    person: 'Person',
+    location: 'Location',
+    clue: 'Clue',
+    note: 'Note',
+    event: 'Event',
+    requisition: 'Requisition'
+};
+
+function normalizeCaseName(name) {
+    const cleaned = String(name || '').replace(/\s+/g, ' ').trim();
+    return cleaned || 'UNNAMED CASE';
+}
+
+function getCaseName() {
+    const el = document.getElementById('caseName');
+    return normalizeCaseName(el ? el.innerText : 'UNNAMED CASE');
+}
+
+function sanitizeNodeMeta(meta) {
+    if (!meta || typeof meta !== 'object') return null;
+    const clean = {};
+    Object.keys(meta).forEach((key) => {
+        const value = meta[key];
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            clean[key] = value;
+        }
+    });
+    return Object.keys(clean).length ? clean : null;
+}
+
+function setNodeMeta(el, meta) {
+    if (!el) return;
+    const clean = sanitizeNodeMeta(meta);
+    if (!clean) {
+        delete el.dataset.meta;
+        return;
+    }
+    el.dataset.meta = JSON.stringify(clean);
+}
+
+function getNodeMeta(el) {
+    if (!el || !el.dataset || !el.dataset.meta) return null;
+    try {
+        return sanitizeNodeMeta(JSON.parse(el.dataset.meta));
+    } catch (err) {
+        return null;
+    }
+}
+
+function getNodeTypeFromEl(el) {
+    if (!el || !el.classList) return '';
+    const cls = Array.from(el.classList).find(c => c.startsWith('type-')) || '';
+    return cls.replace('type-', '');
+}
+
+function getNodeSummary(nodeId) {
+    const el = document.getElementById(nodeId);
+    if (!el) return null;
+    const type = getNodeTypeFromEl(el);
+    const titleEl = el.querySelector('.node-title');
+    const bodyEl = el.querySelector('.node-body');
+    return {
+        id: nodeId,
+        type,
+        title: (titleEl ? titleEl.innerText : type.toUpperCase()).trim() || type.toUpperCase(),
+        bodyText: (bodyEl ? bodyEl.innerText : '').trim(),
+        meta: getNodeMeta(el)
+    };
+}
+
+function getNodeLinkCount(nodeId) {
+    let count = 0;
+    for (let i = 0; i < connections.length; i++) {
+        const conn = connections[i];
+        if (conn.from === nodeId || conn.to === nodeId) count++;
+    }
+    return count;
+}
+
+function getNodeTypeLabel(type) {
+    return NODE_TYPE_LABELS[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Node');
+}
+
+function getHeatDeltaFromNode(summary) {
+    if (!summary) return null;
+    const metaHeat = summary.meta && summary.meta.heatDelta;
+    const parsedMeta = Number(metaHeat);
+    if (Number.isFinite(parsedMeta)) return parsedMeta;
+
+    const match = (summary.bodyText || '').match(/\bHeat\s*:?\s*([+-]?\d+)/i);
+    if (!match) return null;
+    const parsedBody = Number(match[1]);
+    return Number.isFinite(parsedBody) ? parsedBody : null;
+}
+
+function logBoardTimeline(entry, options = {}) {
+    const logger = window.RTF_SESSION_LOG;
+    if (!logger || typeof logger.logMajorEvent !== 'function') return;
+    const details = entry && typeof entry === 'object' ? entry : {};
+    const tags = Array.isArray(details.tags) ? details.tags : [];
+
+    logger.logMajorEvent({
+        title: details.title || 'Case Board Event',
+        focus: getCaseName(),
+        heatDelta: details.heatDelta,
+        tags: ['auto', 'case-board', ...tags],
+        highlights: details.highlights || '',
+        fallout: details.fallout || '',
+        followUp: details.followUp || '',
+        source: 'board',
+        kind: details.kind || 'board'
+    }, options);
+}
+
+function getSourceDescriptor(meta) {
+    if (!meta || !meta.sourceType) return '';
+    const type = String(meta.sourceType);
+    if (type === 'npc') return ' from NPC roster';
+    if (type === 'location') return ' from locations database';
+    if (type === 'timeline-event') return ' from mission timeline';
+    if (type === 'requisition') return ' from requisitions';
+    if (type === 'guild') return ' from guild reference';
+    return '';
+}
+
+function logNodeAddedToBoard(summary) {
+    if (!summary) return;
+    const typeLabel = getNodeTypeLabel(summary.type);
+    const sourceSuffix = getSourceDescriptor(summary.meta);
+    const sourceTag = summary.meta && summary.meta.sourceType ? [String(summary.meta.sourceType)] : [];
+    logBoardTimeline({
+        title: `${typeLabel} Added to Case Board`,
+        kind: 'node-added',
+        tags: ['node-add', summary.type, ...sourceTag],
+        highlights: `${summary.title}${sourceSuffix}.`
+    }, { dedupeKey: `board:add:${summary.id}` });
+}
+
+function logNodeConnectedToCase(summary, otherSummary) {
+    if (!summary) return;
+    const typeLabel = getNodeTypeLabel(summary.type);
+    const otherTitle = otherSummary ? otherSummary.title : 'another node';
+    logBoardTimeline({
+        title: `${typeLabel} Connected to Case`,
+        kind: 'node-linked',
+        tags: ['node-link', summary.type],
+        highlights: `${summary.title} linked with ${otherTitle}.`
+    }, { dedupeKey: `board:first-link:${summary.id}` });
+
+    if (summary.type !== 'event') return;
+
+    logBoardTimeline({
+        title: 'Timeline Event Linked to Case',
+        kind: 'timeline-event-linked',
+        tags: ['event-link'],
+        highlights: `${summary.title} linked to the active case graph.`
+    }, { dedupeKey: `board:event-link:${summary.id}` });
+
+    const heat = getHeatDeltaFromNode(summary);
+    if (heat === null || heat === 0) return;
+
+    logBoardTimeline({
+        title: 'Heat-Impact Event Linked to Case',
+        kind: 'heat-event-linked',
+        tags: ['event-link', 'heat-impact'],
+        heatDelta: heat,
+        highlights: `${summary.title} carries Heat ${heat > 0 ? '+' : ''}${heat} and is now connected.`
+    }, { dedupeKey: `board:event-heat-link:${summary.id}` });
+}
+
+function initCaseNameTracking() {
+    const caseNameEl = document.getElementById('caseName');
+    if (!caseNameEl) return;
+    caseNameEl.addEventListener('blur', () => saveBoard());
+    caseNameEl.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        caseNameEl.blur();
+    });
+}
 
 function sanitizeRichText(html = '') {
     const template = document.createElement('template');
@@ -167,6 +350,7 @@ window.onload = () => {
     initToolbars();
     loadBoard();
     updateViewCSS();
+    initCaseNameTracking();
     window.addEventListener('rtf-store-updated', handleRemoteStoreUpdate);
     requestAnimationFrame(loop);
 };
@@ -230,7 +414,15 @@ function initGuildToolbar() {
         const el = document.createElement('div');
         el.className = `tool-item g-${g.id}`;
         el.draggable = true;
-        el.ondragstart = (e) => startDragNew(e, g.id, { title: g.name, body: 'Guild' });
+        el.ondragstart = (e) => startDragNew(e, g.id, {
+            title: g.name,
+            body: 'Guild',
+            meta: {
+                sourceType: 'guild',
+                guild: g.name,
+                guildId: g.id
+            }
+        });
         el.innerHTML = `<div class="icon">${g.icon}</div><div class="label">${g.name}</div>`;
         list.appendChild(el);
     });
@@ -289,7 +481,12 @@ function renderNPCs() {
 
         const nodeData = {
             title: npc.name || 'Unknown NPC',
-            body: body
+            body: body,
+            meta: {
+                sourceType: 'npc',
+                npcName: npc.name || 'Unknown NPC',
+                guild: npc.guild || ''
+            }
         };
         el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
         el.innerHTML = `<div class="icon">👤</div><div class="label">${sanitizeText(npc.name)}</div>`;
@@ -349,7 +546,12 @@ function renderLocations() {
 
         const nodeData = {
             title: loc.name || 'Location',
-            body: body
+            body: body,
+            meta: {
+                sourceType: 'location',
+                locationName: loc.name || 'Location',
+                district: loc.district || ''
+            }
         };
         el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
         el.innerHTML = `<div class="icon">📍</div><div class="label">${sanitizeText(loc.name)}</div>`;
@@ -420,7 +622,16 @@ function renderBoardEvents() {
         if (evt.fallout) lines.push(`<strong>Fallout:</strong><br>${sanitizeMultiline(evt.fallout)}`);
         if (evt.followUp) lines.push(`<strong>Next:</strong> ${sanitizeMultiline(evt.followUp)}`);
 
-        el.ondragstart = (e) => startDragNew(e, 'event', { title: evt.title || 'Event', body: lines.join('<br>') });
+        el.ondragstart = (e) => startDragNew(e, 'event', {
+            title: evt.title || 'Event',
+            body: lines.join('<br>'),
+            meta: {
+                sourceType: 'timeline-event',
+                eventId: evt.id || '',
+                heatDelta: !isNaN(heat) ? heat : '',
+                focus: evt.focus || ''
+            }
+        });
         listContainer.appendChild(el);
     });
 }
@@ -483,7 +694,16 @@ function renderBoardRequisitions() {
         if (req.purpose) lines.push(`<strong>Purpose:</strong> ${sanitizeMultiline(req.purpose)}`);
         if (req.notes) lines.push(`<strong>Notes:</strong> ${sanitizeMultiline(req.notes)}`);
 
-        el.ondragstart = (e) => startDragNew(e, 'requisition', { title: req.item || 'Requisition', body: lines.join('<br>') });
+        el.ondragstart = (e) => startDragNew(e, 'requisition', {
+            title: req.item || 'Requisition',
+            body: lines.join('<br>'),
+            meta: {
+                sourceType: 'requisition',
+                requisitionId: req.id || '',
+                status: req.status || 'Pending',
+                priority: req.priority || 'Routine'
+            }
+        });
         listContainer.appendChild(el);
     });
 }
@@ -914,6 +1134,7 @@ document.addEventListener('mouseup', (e) => {
 
 function createNode(type, x, y, id = null, content = {}) {
     const nodeId = id || 'node_' + Date.now();
+    const safeMeta = sanitizeNodeMeta(content.meta);
     const nodeEl = document.createElement('div');
     nodeEl.className = `node type-${type}`;
     nodeEl.id = nodeId;
@@ -942,10 +1163,18 @@ function createNode(type, x, y, id = null, content = {}) {
     );
 
     container.appendChild(nodeEl);
+    setNodeMeta(nodeEl, safeMeta);
     updateNodeCache(nodeId);
 
     // Ensure node is tracked in global state (both for new and loaded nodes)
-    nodes.push({ id: nodeId, type, x: x - 75, y: y - 40 });
+    nodes.push({
+        id: nodeId,
+        type,
+        x: x - 75,
+        y: y - 40,
+        title: content.title || type.toUpperCase(),
+        meta: safeMeta
+    });
 
     return nodeEl;
 }
@@ -961,16 +1190,24 @@ function startConnectionDrag(e, node, port) {
 function completeConnection(targetNode, targetPort) {
     if (targetNode.id === connectStart.id) return;
     if (connections.some(c => (c.from === connectStart.id && c.to === targetNode.id) || (c.from === targetNode.id && c.to === connectStart.id))) return;
+    const fromLinksBefore = getNodeLinkCount(connectStart.id);
+    const toLinksBefore = getNodeLinkCount(targetNode.id);
 
     const newConn = {
         id: 'conn_' + Date.now(),
         from: connectStart.id, to: targetNode.id,
         fromPort: connectStart.port, toPort: targetPort,
-        label: '', arrowLeft: 0, arrowRight: 0
+        label: '', arrowLeft: 0, arrowRight: 0, relationshipLogged: false
     };
 
     connections.push(newConn);
     registerConnection(newConn);
+
+    const fromSummary = getNodeSummary(connectStart.id);
+    const toSummary = getNodeSummary(targetNode.id);
+    if (fromLinksBefore === 0) logNodeConnectedToCase(fromSummary, toSummary);
+    if (toLinksBefore === 0) logNodeConnectedToCase(toSummary, fromSummary);
+
     saveBoard();
 }
 
@@ -990,7 +1227,27 @@ function createLabelDOM(conn) {
     input.className = 'label-input';
     input.contentEditable = true;
     input.innerText = conn.label || "";
-    input.oninput = (e) => { conn.label = e.target.innerText; saveBoard(); };
+    input.oninput = (e) => {
+        const previousLabel = (conn.label || '').trim();
+        const nextLabel = (e.target.innerText || '').trim();
+        conn.label = e.target.innerText;
+
+        if (!conn.relationshipLogged && !previousLabel && nextLabel) {
+            conn.relationshipLogged = true;
+            const fromSummary = getNodeSummary(conn.from);
+            const toSummary = getNodeSummary(conn.to);
+            const fromTitle = fromSummary ? fromSummary.title : 'Unknown';
+            const toTitle = toSummary ? toSummary.title : 'Unknown';
+            logBoardTimeline({
+                title: 'Case Relationship Named',
+                kind: 'relationship-named',
+                tags: ['relationship', 'connection'],
+                highlights: `${fromTitle} ↔ ${toTitle}: ${nextLabel}`
+            }, { dedupeKey: `board:relationship:${conn.id}` });
+        }
+
+        saveBoard();
+    };
     input.onmousedown = (e) => e.stopPropagation();
 
     const btnR = document.createElement('div');
@@ -1049,20 +1306,40 @@ document.addEventListener('mousedown', (e) => {
 });
 
 function saveBoard() {
-    const nodeData = Array.from(document.querySelectorAll('.node')).map(el => ({
-        id: el.id,
-        type: Array.from(el.classList).find(c => c.startsWith('type-')).replace('type-', ''),
-        x: parseInt(el.style.left), y: parseInt(el.style.top),
-        title: el.querySelector('.node-title').innerText,
-        body: el.querySelector('.node-body').innerHTML
-    }));
+    const caseNameEl = document.getElementById('caseName');
+    const caseName = normalizeCaseName(caseNameEl ? caseNameEl.innerText : 'UNNAMED CASE');
+    if (caseNameEl && caseNameEl.innerText !== caseName) caseNameEl.innerText = caseName;
+
+    if (!isHydratingBoard && lastSavedCaseName && caseName !== lastSavedCaseName) {
+        logBoardTimeline({
+            title: 'Case File Renamed',
+            kind: 'case-rename',
+            tags: ['case-name'],
+            highlights: `"${lastSavedCaseName}" renamed to "${caseName}".`
+        }, { dedupeKey: `board:case-rename:${lastSavedCaseName}->${caseName}` });
+    }
+    lastSavedCaseName = caseName;
+
+    const nodeData = Array.from(document.querySelectorAll('.node')).map(el => {
+        const nodeType = getNodeTypeFromEl(el);
+        return {
+            id: el.id,
+            type: nodeType,
+            x: parseInt(el.style.left, 10),
+            y: parseInt(el.style.top, 10),
+            title: el.querySelector('.node-title').innerText,
+            body: el.querySelector('.node-body').innerHTML,
+            meta: getNodeMeta(el)
+        };
+    });
 
     const data = {
-        name: document.getElementById('caseName').innerText,
+        name: caseName,
         nodes: nodeData,
         connections: connections.map(c => ({
             id: c.id, from: c.from, to: c.to, fromPort: c.fromPort, toPort: c.toPort,
-            label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight
+            label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight,
+            relationshipLogged: !!c.relationshipLogged
         }))
     };
     if (!writeStoreBoardPayload(data)) {
@@ -1073,7 +1350,9 @@ function saveBoard() {
 function loadBoard() {
     const data = getPreferredBoardPayload();
     if (!data) return;
-    document.getElementById('caseName').innerText = data.name || "UNNAMED";
+    const caseName = normalizeCaseName(data.name || 'UNNAMED CASE');
+    document.getElementById('caseName').innerText = caseName;
+    lastSavedCaseName = caseName;
 
     container.innerHTML = '';
     labelContainer.innerHTML = '';
@@ -1084,14 +1363,20 @@ function loadBoard() {
     nodes = [];
     connections = [];
 
-    (data.nodes || []).forEach(n => {
-        createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body });
-    });
+    isHydratingBoard = true;
+    try {
+        (data.nodes || []).forEach(n => {
+            createNode(n.type, n.x + 75, n.y + 40, n.id, { title: n.title, body: n.body, meta: n.meta });
+        });
+    } finally {
+        isHydratingBoard = false;
+    }
 
     (data.connections || []).forEach(c => {
         if (!c.id) c.id = 'conn_' + Date.now() + Math.random();
-        connections.push(c);
-        registerConnection(c);
+        const hydrated = { ...c, relationshipLogged: !!c.relationshipLogged };
+        connections.push(hydrated);
+        registerConnection(hydrated);
     });
 }
 
@@ -1195,6 +1480,18 @@ function editTargetNode() {
 function deleteTargetNode() {
     const id = contextMenu.dataset.target;
     if (!id) return;
+    const summary = getNodeSummary(id);
+    const linksBeforeDelete = getNodeLinkCount(id);
+    if (summary && linksBeforeDelete > 0) {
+        const plural = linksBeforeDelete === 1 ? '' : 's';
+        logBoardTimeline({
+            title: `${getNodeTypeLabel(summary.type)} Thread Removed`,
+            kind: 'node-removed',
+            tags: ['node-remove', summary.type],
+            highlights: `${summary.title} removed from active case map (${linksBeforeDelete} link${plural}).`
+        }, { dedupeKey: `board:remove:${id}` });
+    }
+
     const el = document.getElementById(id);
     if (el) el.remove();
 
@@ -1673,7 +1970,8 @@ document.body.ondrop = (e) => {
         try {
             const payload = JSON.parse(raw);
             const wp = screenToWorld(e.clientX, e.clientY);
-            createNode(payload.type, wp.x, wp.y, null, payload.data);
+            const node = createNode(payload.type, wp.x, wp.y, null, payload.data);
+            logNodeAddedToBoard(getNodeSummary(node.id));
             saveBoard();
         } catch (err) {
             console.error("Drop failed", err);
@@ -1683,7 +1981,8 @@ document.body.ondrop = (e) => {
         const type = e.dataTransfer.getData('text/plain');
         if (type) {
             const wp = screenToWorld(e.clientX, e.clientY);
-            createNode(type, wp.x, wp.y);
+            const node = createNode(type, wp.x, wp.y);
+            logNodeAddedToBoard(getNodeSummary(node.id));
             saveBoard();
         }
     }
