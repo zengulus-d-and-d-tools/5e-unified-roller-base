@@ -7,6 +7,34 @@
         .replace(/'/g, '&#39;');
 
     const getStore = () => window.RTF_STORE;
+    const HEAT_SYNC_KEY = 'rtf_timeline_auto_heat';
+    const HEAT_MIN = 0;
+    const HEAT_MAX = 6;
+
+    const parseHeatDelta = (value) => {
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const clampHeat = (value) => Math.max(HEAT_MIN, Math.min(HEAT_MAX, value));
+
+    const isHeatAutoSyncEnabled = () => {
+        const stored = localStorage.getItem(HEAT_SYNC_KEY);
+        if (stored === null) return true;
+        return stored === 'true';
+    };
+
+    const setHeatAutoSync = (enabled) => {
+        localStorage.setItem(HEAT_SYNC_KEY, String(Boolean(enabled)));
+    };
+
+    const applyHeatDelta = (delta, store) => {
+        if (!delta || !store || !store.state || !store.state.campaign) return;
+        if (!isHeatAutoSyncEnabled()) return;
+        const current = Number(store.state.campaign.heat) || 0;
+        store.state.campaign.heat = clampHeat(current + delta);
+        if (typeof store.save === 'function') store.save();
+    };
 
     function toggleEventForm() {
         const form = document.getElementById('eventForm');
@@ -46,6 +74,7 @@
             created: new Date().toISOString()
         };
         store.addEvent(data);
+        applyHeatDelta(parseHeatDelta(data.heatDelta), store);
         resetForm();
         toggleEventForm();
         renderTimeline();
@@ -54,7 +83,13 @@
     function updateEventField(id, field, value) {
         const store = getStore();
         if (!store) return;
+        const existing = (store.getEvents ? store.getEvents() : []).find(evt => evt.id === id);
+        const previousHeat = existing ? parseHeatDelta(existing.heatDelta) : 0;
         store.updateEvent(id, { [field]: value });
+        if (field === 'heatDelta') {
+            const nextHeat = parseHeatDelta(value);
+            applyHeatDelta(nextHeat - previousHeat, store);
+        }
         renderTimeline();
     }
 
@@ -62,7 +97,10 @@
         if (!confirm('Delete this logged event?')) return;
         const store = getStore();
         if (!store) return;
+        const existing = (store.getEvents ? store.getEvents() : []).find(evt => evt.id === id);
+        const previousHeat = existing ? parseHeatDelta(existing.heatDelta) : 0;
         store.deleteEvent(id);
+        applyHeatDelta(-previousHeat, store);
         renderTimeline();
     }
 
@@ -168,6 +206,13 @@
     }
 
     function init() {
+        const autoHeatToggle = document.getElementById('eventAutoHeat');
+        if (autoHeatToggle) {
+            autoHeatToggle.checked = isHeatAutoSyncEnabled();
+            autoHeatToggle.addEventListener('change', (event) => {
+                setHeatAutoSync(event.target.checked);
+            });
+        }
         renderTimeline();
     }
 
@@ -184,6 +229,7 @@
     window.renderTimeline = renderTimeline;
     window.updateEventField = updateEventField;
     window.deleteTimelineEvent = deleteTimelineEvent;
+    window.setHeatAutoSync = setHeatAutoSync;
 
     window.addEventListener('load', waitForStore);
 })();

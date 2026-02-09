@@ -194,6 +194,9 @@
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
                     <input type="checkbox" id="eventImpactOnly" onchange="renderTimeline()"> Heat / Fallout only
                 </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+                    <input type="checkbox" id="eventAutoHeat" onchange="setHeatAutoSync(this.checked)"> Auto-sync Heat
+                </label>
             </div>
 
             <div class="timeline-wrapper" id="timelineList"></div>
