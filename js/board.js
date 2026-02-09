@@ -1561,8 +1561,8 @@ document.addEventListener('mouseup', (e) => {
         if (e.target && typeof e.target.closest === 'function') {
             const node = e.target.closest('.node');
             if (node) {
-                const isPortTarget = e.altKey && e.target instanceof Element && e.target.classList.contains('port');
-                const port = isPortTarget ? e.target.dataset.port : 'auto';
+                const edge = getNodeEdgeFromEvent(e, node);
+                const port = (e.altKey && edge) ? edge : 'auto';
                 completeConnection(node, port);
             }
         }
@@ -1704,22 +1704,19 @@ function createNode(type, x, y, id = null, content = {}) {
     `;
 
     nodeEl.onmousedown = (e) => {
-        if (e.target.classList.contains('port')) return;
         if (panMode || e.button !== 0) return;
 
         const edge = getNodeEdgeFromEvent(e, nodeEl);
         if (edge) {
-            // Edge drags should use automatic edge intersection instead of fixed side pinning.
-            startConnectionDrag(e, nodeEl, 'auto');
+            // Edge drags default to auto edge intersection. Hold Alt to pin to the
+            // specific nearest edge side on connection creation.
+            startConnectionDrag(e, nodeEl, e.altKey ? edge : 'auto');
             return;
         }
 
         startDragNode(e, nodeEl);
     };
     nodeEl.oncontextmenu = (e) => showContextMenu(e, nodeEl);
-    nodeEl.querySelectorAll('.port').forEach(p =>
-        p.onmousedown = (e) => startConnectionDrag(e, nodeEl, e.altKey ? p.dataset.port : 'auto')
-    );
 
     container.appendChild(nodeEl);
     setNodeMeta(nodeEl, safeMeta);
@@ -1745,6 +1742,10 @@ function startConnectionDrag(e, node, port) {
     isConnecting = true;
     const wp = screenToWorld(e.clientX, e.clientY);
     connectStart = { id: node.id, port, x: wp.x, y: wp.y, currentX: wp.x, currentY: wp.y };
+}
+
+function syncPortPreviewState(isAltHeld) {
+    document.body.classList.toggle('show-ports', !!isAltHeld);
 }
 
 function completeConnection(targetNode, targetPort) {
@@ -1883,6 +1884,22 @@ document.addEventListener('mousedown', (e) => {
         document.body.style.cursor = "grabbing";
         e.preventDefault();
     }
+});
+
+document.addEventListener('keydown', (e) => {
+    syncPortPreviewState(e.altKey);
+});
+
+document.addEventListener('keyup', (e) => {
+    syncPortPreviewState(e.altKey);
+});
+
+window.addEventListener('blur', () => {
+    syncPortPreviewState(false);
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) syncPortPreviewState(false);
 });
 
 function saveBoard() {

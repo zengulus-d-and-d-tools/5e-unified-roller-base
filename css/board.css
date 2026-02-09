@@ -599,11 +599,11 @@ body:active {
     border-radius: 50%;
     opacity: 0;
     transition: opacity 0.2s, background 0.2s, transform 0.2s;
-    cursor: crosshair;
+    pointer-events: none;
     z-index: 25;
 }
 
-.node:hover .port {
+body.show-ports .node:hover .port {
     opacity: 0.6;
 }
 
