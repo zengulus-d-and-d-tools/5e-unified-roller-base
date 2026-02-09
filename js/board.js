@@ -66,10 +66,78 @@ const NODE_TYPE_LABELS = {
     event: 'Event',
     requisition: 'Requisition'
 };
+const NODE_TYPE_ICONS = {
+    person: '👤',
+    location: '📍',
+    clue: '🔍',
+    note: '📝',
+    event: '🕰️',
+    requisition: '📦',
+    azorius: '⚖️',
+    boros: '⚔️',
+    dimir: '👁️',
+    golgari: '🍄',
+    gruul: '🔥',
+    izzet: '⚡',
+    orzhov: '💰',
+    rakdos: '🎪',
+    selesnya: '🌳',
+    simic: '🧬'
+};
+const CONNECTION_COLOR_PALETTE = [
+    { name: 'Neutral', hex: '#f5f7fb' },
+    { name: 'Red', hex: '#ff5e57' },
+    { name: 'Blue', hex: '#4ea3ff' },
+    { name: 'Green', hex: '#53d37c' },
+    { name: 'Amber', hex: '#f3c34f' },
+    { name: 'Violet', hex: '#b691ff' }
+];
+const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
 
 function normalizeCaseName(name) {
     const cleaned = String(name || '').replace(/\s+/g, ' ').trim();
     return cleaned || 'UNNAMED CASE';
+}
+
+function sanitizeImageUrl(url = '') {
+    const candidate = String(url || '').trim();
+    if (!candidate) return '';
+
+    if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=]+$/i.test(candidate)) {
+        return candidate;
+    }
+
+    try {
+        const parsed = new URL(candidate, window.location.href);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:' || parsed.protocol === 'blob:') {
+            return parsed.href;
+        }
+    } catch (err) {
+        return '';
+    }
+
+    return '';
+}
+
+function clampConnectionColorIndex(index) {
+    const parsed = Number(index);
+    if (!Number.isInteger(parsed) || parsed < 0) return 0;
+    if (parsed >= CONNECTION_COLOR_PALETTE.length) return 0;
+    return parsed;
+}
+
+function getConnectionColorConfig(conn) {
+    const index = clampConnectionColorIndex(conn && conn.colorIndex);
+    return CONNECTION_COLOR_PALETTE[index];
+}
+
+function hexToRgba(hex, alpha = 1) {
+    const clean = String(hex || '').replace('#', '').trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(clean)) return `rgba(255,255,255,${alpha})`;
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function getCaseName() {
@@ -900,16 +968,13 @@ function drawLayer() {
         if (Math.max(p0x, pNx) < viewL || Math.min(p0x, pNx) > viewR) continue;
 
         const stress = physicsBuffer[base + 4];
-        const t = Math.min(1, stress / CONFIG.MAX_STRETCH);
-
-        if (t > 0.05) {
-            const gb = Math.floor(255 * (1 - t));
-            ctx.strokeStyle = `rgb(255, ${gb}, ${gb})`;
-            ctx.lineWidth = CONFIG.BASE_THICKNESS;
-        } else {
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = CONFIG.BASE_THICKNESS;
-        }
+        const color = getConnectionColorConfig(conn).hex;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = CONFIG.BASE_THICKNESS + Math.min(1.1, stress * 0.04);
+        ctx.shadowColor = hexToRgba(color, 0.45);
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
 
         ctx.beginPath();
         ctx.moveTo(p0x, physicsBuffer[base + 1]);
@@ -928,11 +993,13 @@ function drawLayer() {
 
         ctx.lineTo(pNx, physicsBuffer[lastPtr + 1]);
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         updateLabelPos(conn, base, alpha);
-        if (conn.arrowLeft || conn.arrowRight) drawArrows(ctx, conn, base);
+        if (conn.arrowLeft || conn.arrowRight) drawArrows(ctx, conn, base, color);
     }
 
+    ctx.globalAlpha = 1;
     ctx.restore();
 }
 
@@ -950,9 +1017,11 @@ function updateLabelPos(conn, basePtr, alpha) {
 
     let el = document.getElementById('lbl_' + conn.id);
     const isEditing = el && el.querySelector('.label-input') === document.activeElement;
+    const hasCustomColor = clampConnectionColorIndex(conn.colorIndex) !== 0;
 
-    if ((conn.label || isEditing) && alpha > 0.1) {
+    if ((conn.label || isEditing || hasCustomColor) && alpha > 0.1) {
         if (!el) el = createLabelDOM(conn);
+        if (el) syncConnectionLabelColor(conn, el, el.querySelector('.wax-btn'));
         el.style.transform = `translate(${x}px, ${y}px)`;
         el.style.display = 'flex';
         el.style.opacity = alpha;
@@ -961,7 +1030,7 @@ function updateLabelPos(conn, basePtr, alpha) {
     }
 }
 
-function drawArrows(ctx, conn, basePtr) {
+function drawArrows(ctx, conn, basePtr, color) {
     const drawHead = (idx, rev) => {
         const pIdx = basePtr + idx * STRIDE;
         const prevIdx = basePtr + (idx - 1) * STRIDE;
@@ -981,7 +1050,7 @@ function drawArrows(ctx, conn, basePtr) {
         ctx.moveTo(-8, -5);
         ctx.lineTo(8, 0);
         ctx.lineTo(-8, 5);
-        ctx.fillStyle = '#f1c40f';
+        ctx.fillStyle = color || '#f1c40f';
         ctx.fill();
         ctx.restore();
     };
@@ -1132,25 +1201,133 @@ document.addEventListener('mouseup', (e) => {
     }
 });
 
+function createNodeMarkup(type, content = {}) {
+    const title = sanitizeText(content.title || type.toUpperCase());
+    const bodyHtml = sanitizeRichText(content.body || '');
+    const icon = NODE_TYPE_ICONS[type] || '❓';
+    const withTitle = `<div class="node-title">${title}</div>`;
+
+    if (type === 'person') {
+        return `
+            <div class="node-bust-media node-media-shell" data-image-slot="portrait">
+                <div class="node-media-fallback">${icon}</div>
+            </div>
+            <div class="node-bust-base">
+                ${withTitle}
+                <div class="node-body">${bodyHtml}</div>
+            </div>
+        `;
+    }
+
+    if (type === 'location') {
+        return `
+            <div class="node-postcard-photo node-media-shell" data-image-slot="photo">
+                <div class="node-media-fallback">${icon}</div>
+                <div class="node-title-strip">${withTitle}</div>
+            </div>
+            <div class="node-body">${bodyHtml}</div>
+        `;
+    }
+
+    if (type === 'clue') {
+        return `
+            <div class="node-evidence-stage">
+                <div class="node-clue-media node-media-shell node-media-contain" data-image-slot="evidence">
+                    <div class="node-media-fallback">${icon}</div>
+                </div>
+                <div class="evidence-tag">${withTitle}</div>
+            </div>
+            <div class="node-body">${bodyHtml}</div>
+        `;
+    }
+
+    if (type === 'note') {
+        return `
+            <div class="sticky-sheet">
+                ${withTitle}
+                <div class="node-body">${bodyHtml}</div>
+            </div>
+        `;
+    }
+
+    if (type === 'event') {
+        return `
+            <div class="node-timestamp-header">
+                <div class="timestamp-caption">TIMESTAMP</div>
+                ${withTitle}
+            </div>
+            <div class="node-body">${bodyHtml}</div>
+        `;
+    }
+
+    if (type === 'requisition') {
+        return `
+            <div class="invoice-watermark" aria-hidden="true">[CONFIDENTIAL]</div>
+            ${withTitle}
+            <div class="node-body">${bodyHtml}</div>
+        `;
+    }
+
+    return `
+        <div class="node-header">
+            ${withTitle}
+            <div class="node-icon">${icon}</div>
+        </div>
+        <div class="node-body">${bodyHtml}</div>
+    `;
+}
+
+function applyNodeImage(nodeEl, imageUrl = '') {
+    if (!nodeEl) return;
+    const clean = sanitizeImageUrl(imageUrl);
+    const slots = nodeEl.querySelectorAll('[data-image-slot]');
+    if (!slots.length) return;
+
+    slots.forEach((slot) => {
+        if (clean) {
+            slot.classList.add('has-image');
+            slot.style.backgroundImage = `url("${clean}")`;
+        } else {
+            slot.classList.remove('has-image');
+            slot.style.removeProperty('background-image');
+        }
+    });
+}
+
+function updateNodeImageMeta(nodeEl, imageUrl = '') {
+    if (!nodeEl) return;
+    const existing = getNodeMeta(nodeEl) || {};
+    const clean = sanitizeImageUrl(imageUrl);
+    if (clean) {
+        existing.imageUrl = clean;
+    } else {
+        delete existing.imageUrl;
+    }
+    setNodeMeta(nodeEl, existing);
+    applyNodeImage(nodeEl, clean);
+}
+
 function createNode(type, x, y, id = null, content = {}) {
     const nodeId = id || 'node_' + Date.now();
-    const safeMeta = sanitizeNodeMeta(content.meta);
+    let safeMeta = sanitizeNodeMeta(content.meta);
+    const requestedImageUrl = sanitizeImageUrl(content.imageUrl || (safeMeta && safeMeta.imageUrl) || '');
+    if (requestedImageUrl) {
+        safeMeta = { ...(safeMeta || {}), imageUrl: requestedImageUrl };
+    } else if (safeMeta && Object.prototype.hasOwnProperty.call(safeMeta, 'imageUrl')) {
+        delete safeMeta.imageUrl;
+        if (!Object.keys(safeMeta).length) safeMeta = null;
+    }
+
     const nodeEl = document.createElement('div');
     nodeEl.className = `node type-${type}`;
     nodeEl.id = nodeId;
     nodeEl.style.left = (x - 75) + 'px';
     nodeEl.style.top = (y - 40) + 'px';
 
-    const iconMap = { person: '👤', location: '📍', clue: '🔍', note: '📝', event: '🕰️', requisition: '📦', azorius: '⚖️', boros: '⚔️', dimir: '👁️', golgari: '🍄', gruul: '🔥', izzet: '⚡', orzhov: '💰', rakdos: '🎪', selesnya: '🌳', simic: '🧬' };
-    const icon = iconMap[type] || '❓';
-    const title = sanitizeText(content.title || type.toUpperCase());
-    const bodyHtml = sanitizeRichText(content.body || '');
-
     nodeEl.innerHTML = `
         <div class="port top" data-port="top"></div><div class="port bottom" data-port="bottom"></div>
         <div class="port left" data-port="left"></div><div class="port right" data-port="right"></div>
-        <div class="node-header"><div class="node-title">${title}</div><div class="node-icon">${icon}</div></div>
-        <div class="node-body">${bodyHtml}</div>
+        ${createNodeMarkup(type, content)}
     `;
 
     nodeEl.onmousedown = (e) => {
@@ -1164,6 +1341,7 @@ function createNode(type, x, y, id = null, content = {}) {
 
     container.appendChild(nodeEl);
     setNodeMeta(nodeEl, safeMeta);
+    applyNodeImage(nodeEl, requestedImageUrl);
     updateNodeCache(nodeId);
 
     // Ensure node is tracked in global state (both for new and loaded nodes)
@@ -1197,7 +1375,7 @@ function completeConnection(targetNode, targetPort) {
         id: 'conn_' + Date.now(),
         from: connectStart.id, to: targetNode.id,
         fromPort: connectStart.port, toPort: targetPort,
-        label: '', arrowLeft: 0, arrowRight: 0, relationshipLogged: false
+        label: '', arrowLeft: 0, arrowRight: 0, relationshipLogged: false, colorIndex: 0
     };
 
     connections.push(newConn);
@@ -1211,7 +1389,21 @@ function completeConnection(targetNode, targetPort) {
     saveBoard();
 }
 
+function syncConnectionLabelColor(conn, labelEl, waxBtn = null) {
+    const color = getConnectionColorConfig(conn);
+    if (labelEl) {
+        labelEl.style.setProperty('--string-color', color.hex);
+        labelEl.style.setProperty('--string-glow', hexToRgba(color.hex, 0.45));
+    }
+    if (waxBtn) {
+        waxBtn.style.background = color.hex;
+        waxBtn.title = `Wax Seal: ${color.name}`;
+    }
+}
+
 function createLabelDOM(conn) {
+    conn.colorIndex = clampConnectionColorIndex(conn.colorIndex);
+
     const el = document.createElement('div');
     el.id = 'lbl_' + conn.id;
     el.className = 'string-label';
@@ -1221,7 +1413,25 @@ function createLabelDOM(conn) {
     const btnL = document.createElement('div');
     btnL.className = `arrow-btn ${conn.arrowLeft ? 'active' : ''}`;
     btnL.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowLeft || 0];
-    btnL.onclick = (e) => { conn.arrowLeft = ((conn.arrowLeft || 0) + 1) % 3; saveBoard(); };
+    btnL.onclick = (e) => {
+        e.stopPropagation();
+        conn.arrowLeft = ((conn.arrowLeft || 0) + 1) % 3;
+        btnL.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowLeft || 0];
+        btnL.classList.toggle('active', !!conn.arrowLeft);
+        saveBoard();
+    };
+
+    const waxBtn = document.createElement('button');
+    waxBtn.type = 'button';
+    waxBtn.className = 'wax-btn';
+    waxBtn.innerText = '◉';
+    waxBtn.onmousedown = (e) => e.stopPropagation();
+    waxBtn.onclick = (e) => {
+        e.stopPropagation();
+        conn.colorIndex = (clampConnectionColorIndex(conn.colorIndex) + 1) % CONNECTION_COLOR_PALETTE.length;
+        syncConnectionLabelColor(conn, el, waxBtn);
+        saveBoard();
+    };
 
     const input = document.createElement('div');
     input.className = 'label-input';
@@ -1253,9 +1463,16 @@ function createLabelDOM(conn) {
     const btnR = document.createElement('div');
     btnR.className = `arrow-btn ${conn.arrowRight ? 'active' : ''}`;
     btnR.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowRight || 0];
-    btnR.onclick = (e) => { conn.arrowRight = ((conn.arrowRight || 0) + 1) % 3; saveBoard(); };
+    btnR.onclick = (e) => {
+        e.stopPropagation();
+        conn.arrowRight = ((conn.arrowRight || 0) + 1) % 3;
+        btnR.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowRight || 0];
+        btnR.classList.toggle('active', !!conn.arrowRight);
+        saveBoard();
+    };
 
-    el.append(btnL, input, btnR);
+    syncConnectionLabelColor(conn, el, waxBtn);
+    el.append(btnL, waxBtn, input, btnR);
     labelContainer.appendChild(el);
     return el;
 }
@@ -1339,7 +1556,8 @@ function saveBoard() {
         connections: connections.map(c => ({
             id: c.id, from: c.from, to: c.to, fromPort: c.fromPort, toPort: c.toPort,
             label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight,
-            relationshipLogged: !!c.relationshipLogged
+            relationshipLogged: !!c.relationshipLogged,
+            colorIndex: clampConnectionColorIndex(c.colorIndex)
         }))
     };
     if (!writeStoreBoardPayload(data)) {
@@ -1374,7 +1592,11 @@ function loadBoard() {
 
     (data.connections || []).forEach(c => {
         if (!c.id) c.id = 'conn_' + Date.now() + Math.random();
-        const hydrated = { ...c, relationshipLogged: !!c.relationshipLogged };
+        const hydrated = {
+            ...c,
+            relationshipLogged: !!c.relationshipLogged,
+            colorIndex: clampConnectionColorIndex(c.colorIndex)
+        };
         connections.push(hydrated);
         registerConnection(hydrated);
     });
@@ -1398,6 +1620,12 @@ function showContextMenu(e, node) {
     contextMenu.style.left = e.clientX + 'px';
     contextMenu.style.top = e.clientY + 'px';
     contextMenu.dataset.target = node.id;
+
+    const setImageItem = document.getElementById('menu-set-image');
+    if (setImageItem) {
+        const type = getNodeTypeFromEl(node);
+        setImageItem.style.display = IMAGE_EDITABLE_NODE_TYPES.has(type) ? 'block' : 'none';
+    }
 }
 window.onclick = (e) => {
     if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
@@ -1419,6 +1647,40 @@ window.togglePopup = function (id) {
 
 function closePopups() {
     document.querySelectorAll('.popup-menu').forEach(p => p.classList.remove('active'));
+}
+
+function setTargetNodeImageUrl() {
+    const id = contextMenu.dataset.target;
+    const el = id ? document.getElementById(id) : null;
+    if (!el) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+    const type = getNodeTypeFromEl(el);
+    if (!IMAGE_EDITABLE_NODE_TYPES.has(type)) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+
+    const meta = getNodeMeta(el) || {};
+    const current = typeof meta.imageUrl === 'string' ? meta.imageUrl : '';
+    const imageLabel = type === 'person' ? 'portrait' : (type === 'location' ? 'location image' : 'clue image');
+    const nextRaw = prompt(`Set ${imageLabel} URL (blank clears image):`, current);
+    if (nextRaw === null) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+
+    const trimmed = String(nextRaw).trim();
+    if (trimmed && !sanitizeImageUrl(trimmed)) {
+        alert('Please provide a valid image URL.');
+        return;
+    }
+
+    updateNodeImageMeta(el, trimmed);
+    updateNodeCache(el.id);
+    saveBoard();
+    contextMenu.style.display = 'none';
 }
 
 function editTargetNode() {

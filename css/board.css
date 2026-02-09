@@ -178,22 +178,22 @@ body:active {
 /* --- NODES --- */
 .node {
     position: absolute;
-    min-width: 150px;
-    min-height: 80px;
+    min-width: 180px;
+    min-height: 110px;
     background: rgba(30, 30, 35, 0.7);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 10px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 8px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     cursor: grab;
     z-index: 20;
     transition: box-shadow 0.2s, transform 0.1s, border-color 0.2s, filter 0.5s, opacity 0.5s;
     pointer-events: auto;
-    /* Re-enable interaction */
+    overflow: visible;
 }
 
 .node:active {
@@ -234,33 +234,298 @@ body:active {
     cursor: text;
 }
 
-/* --- GUILD STYLES --- */
+/* Shared image slot */
+.node-media-shell {
+    background: radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.12), rgba(15, 15, 20, 0.88));
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+    position: relative;
+}
+
+.node-media-shell.node-media-contain {
+    background-size: contain;
+    background-color: rgba(8, 8, 10, 0.82);
+}
+
+.node-media-fallback {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.2rem;
+    opacity: 0.55;
+    text-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+}
+
+.node-media-shell.has-image .node-media-fallback {
+    opacity: 0;
+}
+
+/* Person: The Bust */
 .type-person {
-    border-left: 4px solid var(--accent-atk);
+    width: 220px;
+    min-height: 210px;
+    padding: 56px 12px 12px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
 }
 
+.type-person .node-bust-media {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 3px solid rgba(229, 234, 242, 0.95);
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), 0 0 18px rgba(113, 153, 255, 0.3);
+    z-index: 3;
+}
+
+.type-person .node-bust-base {
+    background: linear-gradient(165deg, rgba(30, 34, 44, 0.94), rgba(20, 22, 29, 0.94));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-top: 3px solid rgba(150, 184, 255, 0.9);
+    border-radius: 16px 16px 10px 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    padding: 12px 12px 10px;
+    min-height: 145px;
+}
+
+.type-person .node-title {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+}
+
+/* Location: The Postcard */
 .type-location {
-    border-left: 4px solid var(--gold);
+    width: 300px;
+    min-height: 205px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    overflow: visible;
+    background: rgba(15, 17, 22, 0.95);
 }
 
+.type-location .node-postcard-photo {
+    min-height: 122px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 11px 11px 0 0;
+    overflow: hidden;
+}
+
+.type-location .node-title-strip {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to top, rgba(4, 6, 10, 0.92), rgba(4, 6, 10, 0));
+    padding: 22px 12px 10px;
+}
+
+.type-location .node-title {
+    color: #f8fcff;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
+    font-size: 0.95rem;
+}
+
+.type-location .node-body {
+    padding: 11px 12px 12px;
+    margin: 0;
+    background: rgba(8, 10, 14, 0.45);
+}
+
+/* Clue: The Evidence Bag */
 .type-clue {
-    border-left: 4px solid var(--res-bar);
+    width: 220px;
+    min-height: 220px;
+    padding: 10px;
+    border: 1px solid rgba(209, 184, 152, 0.35);
+    border-radius: 10px;
+    background: linear-gradient(160deg, rgba(42, 33, 27, 0.9), rgba(24, 20, 18, 0.9));
 }
 
+.type-clue .node-evidence-stage {
+    position: relative;
+    min-height: 126px;
+    border: 1px dashed rgba(222, 198, 157, 0.45);
+    border-radius: 8px;
+    background: rgba(11, 10, 10, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
+
+.type-clue .node-clue-media {
+    width: 100%;
+    height: 112px;
+    border-radius: 6px;
+    background-size: contain;
+    background-color: rgba(7, 7, 7, 0.92);
+}
+
+.type-clue .evidence-tag {
+    position: absolute;
+    right: -8px;
+    top: -13px;
+    background: linear-gradient(145deg, #f6dba8, #d7b882);
+    color: #3b2b14;
+    border: 1px solid rgba(90, 60, 25, 0.4);
+    border-radius: 4px;
+    padding: 5px 8px;
+    transform: rotate(8deg);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    max-width: 140px;
+}
+
+.type-clue .evidence-tag .node-title {
+    color: inherit;
+    font-size: 0.66rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.15;
+}
+
+.type-clue .node-body {
+    margin-top: 9px;
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+/* Note: The Sticky */
 .type-note {
-    border-left: 4px solid #999;
-    background: rgba(255, 255, 200, 0.15);
-    color: #fff;
+    width: 210px;
+    min-height: 165px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
 }
 
+.type-note .sticky-sheet {
+    min-height: 165px;
+    padding: 12px 14px;
+    border-radius: 4px;
+    background: linear-gradient(165deg, #fef6a8, #f2e47c);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+    transform: rotate(-1.8deg);
+    border: 1px solid rgba(138, 124, 52, 0.45);
+}
+
+.type-note .node-title,
+.type-note .node-body {
+    font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+    color: #4b420f;
+}
+
+.type-note .node-title {
+    font-size: 1rem;
+    margin-bottom: 8px;
+}
+
+.type-note .node-body {
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
+/* Event: The Timestamp */
 .type-event {
-    border-left: 4px solid var(--accent-feat);
-    box-shadow: 0 2px 10px rgba(52, 152, 219, 0.15);
+    width: 180px;
+    min-height: 250px;
+    padding: 0;
+    border: 1px solid rgba(152, 191, 255, 0.35);
+    border-radius: 10px;
+    overflow: visible;
+    background: linear-gradient(160deg, rgba(12, 18, 28, 0.94), rgba(7, 10, 18, 0.94));
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
 }
 
+.type-event .node-timestamp-header {
+    padding: 10px 10px 12px;
+    border-bottom: 1px solid rgba(166, 212, 255, 0.3);
+    background: linear-gradient(to bottom, rgba(28, 45, 70, 0.95), rgba(12, 20, 33, 0.95));
+}
+
+.type-event .timestamp-caption {
+    font-family: "Courier New", monospace;
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    color: rgba(158, 204, 255, 0.75);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+
+.type-event .node-title {
+    font-family: "Courier New", monospace;
+    font-size: 1.08rem;
+    letter-spacing: 0.07em;
+    color: #9dffbf;
+    text-shadow: 0 0 12px rgba(107, 255, 164, 0.28);
+    line-height: 1.2;
+}
+
+.type-event .node-body {
+    padding: 11px;
+    font-size: 0.78rem;
+    color: #d5e5ff;
+}
+
+/* Requisition: The Invoice */
 .type-requisition {
-    border-left: 4px solid var(--accent-atk);
-    background: rgba(255, 107, 107, 0.08);
+    width: 260px;
+    min-height: 170px;
+    padding: 14px 14px 12px;
+    border: 3px double rgba(45, 45, 45, 0.9);
+    border-radius: 2px;
+    background: #ece8dc;
+    color: #1c1c1c;
+    box-shadow: 0 7px 18px rgba(0, 0, 0, 0.35);
+    position: relative;
+    overflow: visible;
+    font-family: "Courier New", monospace;
+}
+
+.type-requisition .invoice-watermark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(143, 35, 35, 0.11);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    font-size: 1.45rem;
+    transform: rotate(-20deg);
+    pointer-events: none;
+}
+
+.type-requisition .node-title,
+.type-requisition .node-body {
+    color: #1e1e1e;
+    position: relative;
+}
+
+.type-requisition .node-title {
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 0.07em;
+    border-bottom: 1px dashed rgba(40, 40, 40, 0.6);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+}
+
+.type-requisition .node-body {
+    font-size: 0.78rem;
+    line-height: 1.45;
 }
 
 /* Guild Colors (Approx) */
@@ -381,14 +646,39 @@ body:active {
     background: rgba(0, 0, 0, 0.2);
 }
 
+.type-person.editing {
+    background: transparent;
+    box-shadow: none;
+}
+
+.type-person.editing .node-bust-base {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(241, 196, 15, 0.45);
+}
+
+.type-note.editing {
+    background: transparent;
+    box-shadow: none;
+}
+
+.type-note.editing .sticky-sheet {
+    box-shadow: 0 0 18px rgba(241, 196, 15, 0.45), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.type-requisition.editing {
+    background: #f2eddf;
+}
+
 
 /* --- STRING LABELS --- */
 .string-label {
     position: absolute;
-    background: rgba(20, 20, 20, 0.95);
-    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 60%, rgba(255, 255, 255, 0.1));
-    color: var(--accent-secondary);
-    font-size: 0.7rem;
+    --string-color: #f5f7fb;
+    --string-glow: rgba(245, 247, 251, 0.4);
+    background: rgba(14, 14, 18, 0.95);
+    border: 1px solid var(--string-color);
+    color: var(--string-color);
+    font-size: 0.72rem;
     padding: 2px;
     border-radius: 4px;
     pointer-events: auto;
@@ -401,7 +691,7 @@ body:active {
     max-width: 250px;
     /* Cap width */
     text-align: center;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 14px var(--string-glow), 0 7px 15px rgba(0, 0, 0, 0.5);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -410,13 +700,13 @@ body:active {
 }
 
 .string-label:focus-within {
-    outline: 2px solid var(--gold);
+    outline: 1px solid var(--string-color);
     z-index: 60;
 }
 
 .label-input {
-    background: rgba(0, 0, 0, 0.2);
-    border: none;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid transparent;
     color: inherit;
     min-width: 20px;
     width: auto;
@@ -434,7 +724,31 @@ body:active {
     display: inline-block;
     word-break: break-word;
     flex-grow: 1;
-    /* Grow to fill flex parent */
+}
+
+.label-input:focus {
+    border-color: var(--string-color);
+}
+
+.wax-btn {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    color: rgba(10, 10, 12, 0.9);
+    font-size: 0.62rem;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.32), inset 0 -2px 4px rgba(0, 0, 0, 0.28);
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.wax-btn:hover {
+    transform: scale(1.08);
 }
 
 .arrow-btn {
@@ -453,11 +767,11 @@ body:active {
 
 .arrow-btn:hover {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.18);
 }
 
 .arrow-btn.active {
-    color: var(--gold);
+    color: var(--string-color);
     opacity: 1;
     font-weight: bold;
 }
@@ -509,6 +823,10 @@ body.focus-active .header-overlay {
     cursor: pointer;
     font-size: 0.85rem;
     color: #eee;
+}
+
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.08);
 }
 
 .menu-item.delete:hover {
