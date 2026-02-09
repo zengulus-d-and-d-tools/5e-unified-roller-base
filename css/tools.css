@@ -186,6 +186,25 @@ a {
     box-shadow: 0 0 8px var(--accent-glow);
 }
 
+.sync-field textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    min-height: 180px;
+    resize: vertical;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.sync-field textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
 .sync-actions {
     display: flex;
     flex-wrap: wrap;
@@ -221,6 +240,39 @@ a {
     font-size: 0.82rem;
     padding: 10px;
     line-height: 1.4;
+}
+
+.customize-panel {
+    display: none;
+}
+
+.customize-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.customize-hint {
+    margin: 0;
+    color: #92a2b4;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.customize-status {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.25);
+    color: #d1dee8;
+    font-size: 0.82rem;
+    padding: 10px;
+    line-height: 1.4;
+}
+
+.customize-status.is-error {
+    border-color: rgba(255, 68, 68, 0.65);
+    color: #ffb5b5;
 }
 
 .sync-quick {

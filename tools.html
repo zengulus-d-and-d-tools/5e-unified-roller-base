@@ -91,6 +91,40 @@
             <div id="sync-status" class="sync-status">Cloud sync status: waiting for store...</div>
         </section>
 
+        <section class="sync-panel customize-panel card" id="customize-panel" aria-label="Customise Seed Data">
+            <h2 class="sync-title">Customise Seed Data (Fork Tool)</h2>
+            <p class="sync-desc">
+                Build fork-ready preload files from JSON. Download `data-npcs*.js` and `data-locations*.js` to seed fresh installs fast.
+            </p>
+            <div class="sync-grid">
+                <div class="sync-field">
+                    <label for="customize-label">File Label (Optional)</label>
+                    <input id="customize-label" type="text" placeholder="myfork">
+                </div>
+            </div>
+            <div class="customize-actions">
+                <button class="sync-btn" onclick="loadCustomizeDefaults()">Load Current Defaults</button>
+                <button class="sync-btn" onclick="loadCustomizeFromCampaign()">Load From Campaign Store</button>
+                <button class="sync-btn" onclick="downloadCustomDataFile('npcs')">Download data-npcs.js</button>
+                <button class="sync-btn" onclick="downloadCustomDataFile('locations')">Download data-locations.js</button>
+                <button class="sync-btn primary" onclick="downloadCustomDataFiles()">Download Both</button>
+            </div>
+            <div class="sync-grid">
+                <div class="sync-field">
+                    <label for="customize-npcs-json">NPC Seed JSON</label>
+                    <textarea id="customize-npcs-json" spellcheck="false"
+                        placeholder='[{"name":"Captain Mira Kord","guild":"Boros Legion","wants":"Results","leverage":"Acts first","notes":"Precinct Commander"}]'></textarea>
+                </div>
+                <div class="sync-field">
+                    <label for="customize-locations-json">Location Seed JSON</label>
+                    <textarea id="customize-locations-json" spellcheck="false"
+                        placeholder='[{"name":"Sunhome","district":"Boros Legion","desc":"Fortress and barracks","notes":"Heavy security"}]'></textarea>
+                </div>
+            </div>
+            <p class="customize-hint">`name` is required for each record. Empty optional fields become empty strings.</p>
+            <div id="customize-status" class="customize-status">Ready. Load defaults or campaign data to start.</div>
+        </section>
+
         <section class="sync-quick card" id="sync-quick" aria-label="Quick Cloud Connect">
             <div class="sync-quick-head">
                 <h2 class="sync-quick-title">Cloud Connect</h2>
@@ -443,8 +477,160 @@
             setQuickStatus(status.message || 'not connected.');
         }
 
+        function setCustomizeStatus(message, isError = false) {
+            const el = document.getElementById('customize-status');
+            if (!el) return;
+            el.textContent = message;
+            el.classList.toggle('is-error', !!isError);
+        }
+
+        function normalizeFilenameLabel(raw) {
+            return String(raw || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9_-]+/g, '-')
+                .replace(/-+/g, '-')
+                .replace(/^-|-$/g, '')
+                .slice(0, 40);
+        }
+
+        function parseSeedArray(rawText, label) {
+            const text = String(rawText || '').trim();
+            if (!text) return [];
+            let parsed = null;
+            try {
+                parsed = JSON.parse(text);
+            } catch (err) {
+                throw new Error(`${label} JSON is invalid.`);
+            }
+            if (!Array.isArray(parsed)) {
+                throw new Error(`${label} JSON must be an array.`);
+            }
+            return parsed;
+        }
+
+        function normalizeNpcSeedRow(row, idx) {
+            const source = row && typeof row === 'object' ? row : {};
+            const item = {
+                name: String(source.name || '').trim(),
+                guild: String(source.guild || '').trim(),
+                wants: String(source.wants || '').trim(),
+                leverage: String(source.leverage || '').trim(),
+                notes: String(source.notes || '').trim()
+            };
+            if (!item.name) throw new Error(`NPC row ${idx + 1} is missing "name".`);
+            return item;
+        }
+
+        function normalizeLocationSeedRow(row, idx) {
+            const source = row && typeof row === 'object' ? row : {};
+            const item = {
+                name: String(source.name || '').trim(),
+                district: String(source.district || '').trim(),
+                desc: String(source.desc || '').trim(),
+                notes: String(source.notes || '').trim()
+            };
+            if (!item.name) throw new Error(`Location row ${idx + 1} is missing "name".`);
+            return item;
+        }
+
+        function buildPreloadFile(varName, items) {
+            const json = JSON.stringify(items, null, 4);
+            const indentedJson = json
+                .split('\n')
+                .map((line, idx) => (idx === 0 ? line : `    ${line}`))
+                .join('\n');
+
+            return `(function (global) {\n    global.${varName} = ${indentedJson};\n})(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));\n`;
+        }
+
+        function downloadTextFile(filename, text, type = 'text/javascript') {
+            const blob = new Blob([text], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function getCustomizeSeedArrays() {
+            const npcsRaw = parseSeedArray(document.getElementById('customize-npcs-json').value, 'NPC seed');
+            const locationsRaw = parseSeedArray(document.getElementById('customize-locations-json').value, 'Location seed');
+            return {
+                npcs: npcsRaw.map(normalizeNpcSeedRow),
+                locations: locationsRaw.map(normalizeLocationSeedRow)
+            };
+        }
+
+        function writeCustomizeForm(npcs, locations) {
+            document.getElementById('customize-npcs-json').value = JSON.stringify(npcs, null, 2);
+            document.getElementById('customize-locations-json').value = JSON.stringify(locations, null, 2);
+        }
+
+        function loadCustomizeDefaults() {
+            const npcs = Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS.map(normalizeNpcSeedRow) : [];
+            const locations = Array.isArray(window.PRELOADED_LOCATIONS) ? window.PRELOADED_LOCATIONS.map(normalizeLocationSeedRow) : [];
+            writeCustomizeForm(npcs, locations);
+            setCustomizeStatus(`Loaded defaults (${npcs.length} NPCs, ${locations.length} Locations).`);
+        }
+
+        function loadCustomizeFromCampaign() {
+            if (!window.RTF_STORE || !window.RTF_STORE.state || !window.RTF_STORE.state.campaign) {
+                setCustomizeStatus('Campaign store is not ready yet.', true);
+                return;
+            }
+            const c = window.RTF_STORE.state.campaign;
+            const npcs = (Array.isArray(c.npcs) ? c.npcs : []).map(normalizeNpcSeedRow);
+            const locations = (Array.isArray(c.locations) ? c.locations : []).map(normalizeLocationSeedRow);
+            writeCustomizeForm(npcs, locations);
+            setCustomizeStatus(`Loaded campaign store (${npcs.length} NPCs, ${locations.length} Locations).`);
+        }
+
+        function buildCustomDataFiles() {
+            const seed = getCustomizeSeedArrays();
+            const labelRaw = document.getElementById('customize-label').value;
+            const label = normalizeFilenameLabel(labelRaw);
+            const suffix = label ? `-${label}` : '';
+            return {
+                npcs: {
+                    filename: `data-npcs${suffix}.js`,
+                    content: buildPreloadFile('PRELOADED_NPCS', seed.npcs)
+                },
+                locations: {
+                    filename: `data-locations${suffix}.js`,
+                    content: buildPreloadFile('PRELOADED_LOCATIONS', seed.locations)
+                }
+            };
+        }
+
+        function downloadCustomDataFile(kind) {
+            try {
+                const files = buildCustomDataFiles();
+                const selected = kind === 'locations' ? files.locations : files.npcs;
+                downloadTextFile(selected.filename, selected.content, 'text/javascript');
+                setCustomizeStatus(`Downloaded ${selected.filename}.`);
+            } catch (err) {
+                setCustomizeStatus(err && err.message ? err.message : 'Failed to build data file.', true);
+            }
+        }
+
+        function downloadCustomDataFiles() {
+            try {
+                const files = buildCustomDataFiles();
+                downloadTextFile(files.npcs.filename, files.npcs.content, 'text/javascript');
+                downloadTextFile(files.locations.filename, files.locations.content, 'text/javascript');
+                setCustomizeStatus(`Downloaded ${files.npcs.filename} and ${files.locations.filename}.`);
+            } catch (err) {
+                setCustomizeStatus(err && err.message ? err.message : 'Failed to build data files.', true);
+            }
+        }
+
         function updateSyncPanelVisibility(status) {
             const panel = document.getElementById('sync-panel');
+            const customize = document.getElementById('customize-panel');
             const quick = document.getElementById('sync-quick');
             if (!panel || !quick) return;
 
@@ -453,6 +639,7 @@
 
             // Manual credentials/admin controls stay behind secret mode.
             panel.style.display = isSecret ? 'flex' : 'none';
+            if (customize) customize.style.display = isSecret ? 'flex' : 'none';
             // Quick connect is for onboarding only; hide after successful connection.
             quick.style.display = connected ? 'none' : 'flex';
         }
@@ -561,6 +748,7 @@
                 setTimeout(initSyncPanel, 120);
                 return;
             }
+            loadCustomizeDefaults();
             applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
             latestSyncStatus = window.RTF_STORE.getSyncStatus();
             setSyncStatusText(latestSyncStatus);
