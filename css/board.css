@@ -608,26 +608,26 @@ body:active {
 }
 
 .port.top {
-    top: -6px;
-    left: 50%;
+    top: var(--port-top-y, -6px);
+    left: var(--port-center-x, 50%);
     transform: translateX(-50%);
 }
 
 .port.bottom {
-    bottom: -6px;
-    left: 50%;
+    top: var(--port-bottom-y, calc(100% - 6px));
+    left: var(--port-center-x, 50%);
     transform: translateX(-50%);
 }
 
 .port.left {
-    left: -6px;
-    top: 50%;
+    left: var(--port-left-x, -6px);
+    top: var(--port-middle-y, 50%);
     transform: translateY(-50%);
 }
 
 .port.right {
-    right: -6px;
-    top: 50%;
+    left: var(--port-right-x, calc(100% - 6px));
+    top: var(--port-middle-y, 50%);
     transform: translateY(-50%);
 }
 

@@ -94,7 +94,7 @@ const CONNECTION_COLOR_PALETTE = [
     { name: 'Violet', hex: '#b691ff' }
 ];
 const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
-const EDGE_CONNECT_ZONE_PX = 14;
+const EDGE_CONNECT_ZONE_PX = 18;
 
 function normalizeCaseName(name) {
     const cleaned = String(name || '').replace(/\s+/g, ' ').trim();
@@ -227,9 +227,15 @@ function getClosestEdgeFromLocalPoint(localX, localY, width, height, thresholdPx
     return distances[0].edge;
 }
 
+function getEdgeTargetElement(nodeEl) {
+    if (!nodeEl) return null;
+    return nodeEl.querySelector('[data-edge-target]') || nodeEl;
+}
+
 function getNodeEdgeFromEvent(event, nodeEl, thresholdPx = EDGE_CONNECT_ZONE_PX) {
     if (!event || !nodeEl || typeof nodeEl.getBoundingClientRect !== 'function') return null;
-    const rect = nodeEl.getBoundingClientRect();
+    const edgeTarget = getEdgeTargetElement(nodeEl) || nodeEl;
+    const rect = edgeTarget.getBoundingClientRect();
     const localX = event.clientX - rect.left;
     const localY = event.clientY - rect.top;
     return getClosestEdgeFromLocalPoint(localX, localY, rect.width, rect.height, thresholdPx);
@@ -1158,7 +1164,10 @@ function updateLabelPos(conn, basePtr, alpha) {
 
     if ((conn.label || isEditing || hasCustomColor) && alpha > 0.1) {
         if (!el) el = createLabelDOM(conn);
-        if (el) syncConnectionLabelColor(conn, el, el.querySelector('.wax-btn'));
+        if (el) {
+            syncConnectionLabelColor(conn, el, el.querySelector('.wax-btn'));
+            syncConnectionArrowButtons(conn, el);
+        }
         el.style.left = `${x}px`;
         el.style.top = `${y}px`;
         el.style.display = 'flex';
@@ -1195,11 +1204,77 @@ function drawArrows(ctx, conn, basePtr, color) {
         ctx.restore();
     };
 
-    const leftIdx = Math.max(1, Math.min(CONFIG.POINTS_COUNT - 2, Math.floor((CONFIG.POINTS_COUNT - 1) * 0.25)));
-    const rightIdx = Math.max(1, Math.min(CONFIG.POINTS_COUNT - 2, Math.floor((CONFIG.POINTS_COUNT - 1) * 0.75)));
+    const leftIdx = getArrowSampleIndex('left');
+    const rightIdx = getArrowSampleIndex('right');
 
     if (conn.arrowLeft) drawHead(leftIdx, conn.arrowLeft === 1);
     if (conn.arrowRight) drawHead(rightIdx, conn.arrowRight === 1);
+}
+
+function getArrowSampleIndex(side) {
+    const isLeft = side === 'left';
+    const t = isLeft ? 0.25 : 0.75;
+    return Math.max(1, Math.min(CONFIG.POINTS_COUNT - 2, Math.floor((CONFIG.POINTS_COUNT - 1) * t)));
+}
+
+function angleToArrowGlyph(angle) {
+    if (!Number.isFinite(angle)) return '→';
+    const dirs = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];
+    const full = Math.PI * 2;
+    let a = angle % full;
+    if (a < 0) a += full;
+    const idx = Math.round(a / (Math.PI / 4)) % 8;
+    return dirs[idx];
+}
+
+function getConnectionFlowAngle(conn, side) {
+    const bIdx = connToIndex.get(conn.id);
+    if (bIdx !== undefined) {
+        const basePtr = bIdx * BYTES_PER_CONN;
+        const idx = getArrowSampleIndex(side);
+        const prev = Math.max(0, idx - 1);
+        const next = Math.min(CONFIG.POINTS_COUNT - 1, idx + 1);
+        const prevPtr = basePtr + prev * STRIDE;
+        const nextPtr = basePtr + next * STRIDE;
+        const dx = physicsBuffer[nextPtr] - physicsBuffer[prevPtr];
+        const dy = physicsBuffer[nextPtr + 1] - physicsBuffer[prevPtr + 1];
+        if (Math.abs(dx) > 0.0001 || Math.abs(dy) > 0.0001) {
+            return Math.atan2(dy, dx);
+        }
+    }
+
+    const fromNode = nodeCache.get(conn.from);
+    const toNode = nodeCache.get(conn.to);
+    if (fromNode && toNode) {
+        const fromCenter = { x: fromNode.x + fromNode.w / 2, y: fromNode.y + fromNode.h / 2 };
+        const toCenter = { x: toNode.x + toNode.w / 2, y: toNode.y + toNode.h / 2 };
+        return Math.atan2(toCenter.y - fromCenter.y, toCenter.x - fromCenter.x);
+    }
+
+    return 0;
+}
+
+function getArrowButtonGlyph(conn, side) {
+    const value = side === 'left' ? (conn.arrowLeft || 0) : (conn.arrowRight || 0);
+    if (!value) return '—';
+    let angle = getConnectionFlowAngle(conn, side);
+    if (value === 1) angle += Math.PI;
+    return angleToArrowGlyph(angle);
+}
+
+function syncConnectionArrowButtons(conn, labelEl) {
+    if (!labelEl) return;
+    const leftBtn = labelEl.querySelector('.arrow-left');
+    const rightBtn = labelEl.querySelector('.arrow-right');
+
+    if (leftBtn) {
+        leftBtn.classList.toggle('active', !!conn.arrowLeft);
+        leftBtn.innerText = getArrowButtonGlyph(conn, 'left');
+    }
+    if (rightBtn) {
+        rightBtn.classList.toggle('active', !!conn.arrowRight);
+        rightBtn.innerText = getArrowButtonGlyph(conn, 'right');
+    }
 }
 
 // --- DATA MANAGEMENT ---
@@ -1326,8 +1401,48 @@ function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null) {
 function updateNodeCache(id) {
     const el = document.getElementById(id);
     if (el) {
-        const data = { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+        const edgeTarget = getEdgeTargetElement(el) || el;
+        const outerX = el.offsetLeft;
+        const outerY = el.offsetTop;
+        const outerW = el.offsetWidth;
+        const outerH = el.offsetHeight;
+
+        let relLeft = 0;
+        let relTop = 0;
+        let anchorW = outerW;
+        let anchorH = outerH;
+        let anchorX = outerX;
+        let anchorY = outerY;
+
+        if (edgeTarget !== el) {
+            relLeft = edgeTarget.offsetLeft;
+            relTop = edgeTarget.offsetTop;
+            anchorW = edgeTarget.offsetWidth;
+            anchorH = edgeTarget.offsetHeight;
+            anchorX = outerX + relLeft;
+            anchorY = outerY + relTop;
+        }
+
+        const data = {
+            x: anchorX,
+            y: anchorY,
+            w: anchorW,
+            h: anchorH,
+            relX: relLeft,
+            relY: relTop,
+            layoutW: outerW,
+            layoutH: outerH
+        };
         nodeCache.set(id, data);
+
+        // Keep visual port markers aligned to the same edge-target used by connection logic.
+        el.style.setProperty('--port-center-x', `${relLeft + anchorW / 2}px`);
+        el.style.setProperty('--port-middle-y', `${relTop + anchorH / 2}px`);
+        el.style.setProperty('--port-top-y', `${relTop - 6}px`);
+        el.style.setProperty('--port-bottom-y', `${relTop + anchorH - 6}px`);
+        el.style.setProperty('--port-left-x', `${relLeft - 6}px`);
+        el.style.setProperty('--port-right-x', `${relLeft + anchorW - 6}px`);
+
         wakeConnected(id);
     } else {
         nodeCache.delete(id);
@@ -1360,7 +1475,10 @@ document.addEventListener('mousemove', (e) => {
         const newX = dragStart.nodeX + dx;
         const newY = dragStart.nodeY + dy;
         const cache = nodeCache.get(draggedNode.id);
-        if (cache) { cache.x = newX; cache.y = newY; }
+        if (cache) {
+            cache.x = newX + (cache.relX || 0);
+            cache.y = newY + (cache.relY || 0);
+        }
         wakeConnected(draggedNode.id);
     }
 
@@ -1443,7 +1561,7 @@ function createNodeMarkup(type, content = {}) {
             <div class="node-bust-media node-media-shell" data-image-slot="portrait">
                 <div class="node-media-fallback">${icon}</div>
             </div>
-            <div class="node-bust-base">
+            <div class="node-bust-base" data-edge-target>
                 ${withTitle}
                 <div class="node-body">${bodyHtml}</div>
             </div>
@@ -1474,7 +1592,7 @@ function createNodeMarkup(type, content = {}) {
 
     if (type === 'note') {
         return `
-            <div class="sticky-sheet">
+            <div class="sticky-sheet" data-edge-target>
                 ${withTitle}
                 <div class="node-body">${bodyHtml}</div>
             </div>
@@ -1631,13 +1749,11 @@ function createLabelDOM(conn) {
     el.style.left = '0'; el.style.top = '0';
 
     const btnL = document.createElement('div');
-    btnL.className = `arrow-btn ${conn.arrowLeft ? 'active' : ''}`;
-    btnL.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowLeft || 0];
+    btnL.className = `arrow-btn arrow-left ${conn.arrowLeft ? 'active' : ''}`;
     btnL.onclick = (e) => {
         e.stopPropagation();
         conn.arrowLeft = ((conn.arrowLeft || 0) + 1) % 3;
-        btnL.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowLeft || 0];
-        btnL.classList.toggle('active', !!conn.arrowLeft);
+        syncConnectionArrowButtons(conn, el);
         saveBoard();
     };
 
@@ -1681,13 +1797,11 @@ function createLabelDOM(conn) {
     input.onmousedown = (e) => e.stopPropagation();
 
     const btnR = document.createElement('div');
-    btnR.className = `arrow-btn ${conn.arrowRight ? 'active' : ''}`;
-    btnR.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowRight || 0];
+    btnR.className = `arrow-btn arrow-right ${conn.arrowRight ? 'active' : ''}`;
     btnR.onclick = (e) => {
         e.stopPropagation();
         conn.arrowRight = ((conn.arrowRight || 0) + 1) % 3;
-        btnR.innerText = { 0: '—', 1: '◀', 2: '▶' }[conn.arrowRight || 0];
-        btnR.classList.toggle('active', !!conn.arrowRight);
+        syncConnectionArrowButtons(conn, el);
         saveBoard();
     };
 
@@ -1696,6 +1810,7 @@ function createLabelDOM(conn) {
     controls.className = 'string-controls';
     controls.append(btnL, waxBtn, btnR);
     el.append(controls, input);
+    syncConnectionArrowButtons(conn, el);
     labelContainer.appendChild(el);
     return el;
 }
@@ -2275,8 +2390,8 @@ function layoutCluster(clusterNodes, rootId) {
     // Helper to get rect for a potential position
     const getRectForNode = (id, x, y) => {
         const cache = nodeCache.get(id);
-        const w = cache ? cache.w : 200;
-        const h = cache ? cache.h : 120;
+        const w = cache ? (cache.layoutW || cache.w) : 200;
+        const h = cache ? (cache.layoutH || cache.h) : 120;
         // Pad strictly for safety
         const PAD = 20;
         return {
