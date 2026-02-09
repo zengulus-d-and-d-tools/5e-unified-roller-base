@@ -43,6 +43,7 @@
             highlights: document.getElementById('eventHighlights').value,
             fallout: document.getElementById('eventFallout').value,
             followUp: document.getElementById('eventFollow').value,
+            resolved: false,
             created: new Date().toISOString()
         };
         store.addEvent(data);
@@ -86,12 +87,18 @@
             ? `<span class="tag-pill" style="border-color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}; color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}">Heat ${heat > 0 ? '+' : ''}${heat}</span>`
             : '';
         const focusDisplay = evt.focus ? `<span class="tag-pill">${escapeHtml(evt.focus)}</span>` : '';
+        const resolved = Boolean(evt.resolved);
+        const statusPill = `<span class="status-pill ${resolved ? 'resolved' : 'pending'}">${resolved ? 'Resolved' : 'Pending'}</span>`;
 
         return `
         <div class="event-card">
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
                     onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem;">
+                    <input type="checkbox" ${resolved ? 'checked' : ''} onchange="updateEventField('${evt.id}', 'resolved', this.checked)">
+                    ${statusPill}
+                </label>
             </div>
             <div class="event-meta">
                 <div>
@@ -146,6 +153,7 @@
         const focusFilter = document.getElementById('eventFocusFilter').value;
         const sort = document.getElementById('eventSort').value;
         const impactOnly = document.getElementById('eventImpactOnly').checked;
+        const hideResolved = document.getElementById('eventHideResolved').checked;
 
         const filtered = events.filter(evt => {
             const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
@@ -153,7 +161,8 @@
             const matchesFocus = focusFilter ? evt.focus === focusFilter : true;
             const heat = parseInt(evt.heatDelta, 10);
             const matchesImpact = impactOnly ? (!isNaN(heat) && heat !== 0) || (evt.fallout && evt.fallout.trim()) : true;
-            return matchesSearch && matchesFocus && matchesImpact;
+            const matchesResolved = hideResolved ? !evt.resolved : true;
+            return matchesSearch && matchesFocus && matchesImpact && matchesResolved;
         });
 
         filtered.sort((a, b) => {
