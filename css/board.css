@@ -679,11 +679,11 @@ body:active {
     border: 1px solid var(--string-color);
     color: var(--string-color);
     font-size: 0.72rem;
-    padding: 2px;
+    padding: 3px 4px 4px 4px;
     border-radius: 4px;
     pointer-events: auto;
     cursor: move;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, 0);
     min-width: 40px;
     /* Base width */
     width: max-content;
@@ -693,9 +693,10 @@ body:active {
     text-align: center;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 14px var(--string-glow), 0 7px 15px rgba(0, 0, 0, 0.5);
     display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 3px;
     z-index: 50;
 }
 
@@ -704,12 +705,20 @@ body:active {
     z-index: 60;
 }
 
+.string-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+}
+
 .label-input {
     background: rgba(0, 0, 0, 0.25);
     border: 1px solid transparent;
     color: inherit;
-    min-width: 20px;
-    width: auto;
+    min-width: 54px;
+    width: 100%;
     min-height: 14px;
     text-align: center;
     font-family: inherit;
@@ -721,9 +730,9 @@ body:active {
     padding: 2px 5px;
     border-radius: 2px;
     cursor: text;
-    display: inline-block;
+    display: block;
     word-break: break-word;
-    flex-grow: 1;
+    box-sizing: border-box;
 }
 
 .label-input:focus {
@@ -813,7 +822,7 @@ body.focus-active .header-overlay {
     border: 1px solid #444;
     border-radius: 6px;
     padding: 5px 0;
-    width: 150px;
+    width: 190px;
     z-index: 1000;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
 }
@@ -827,6 +836,14 @@ body.focus-active .header-overlay {
 
 .menu-item:hover {
     background: rgba(255, 255, 255, 0.08);
+}
+
+.menu-item.disabled,
+.menu-item.disabled:hover {
+    opacity: 0.45;
+    cursor: default;
+    background: transparent;
+    pointer-events: none;
 }
 
 .menu-item.delete:hover {

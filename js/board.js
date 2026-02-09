@@ -1,9 +1,9 @@
 // --- CONFIGURATION ---
 const CONFIG = {
-    PHYSICS_STEPS: 3,
+    PHYSICS_STEPS: 2,
     GRAVITY: 0.6,
-    SEGMENT_LENGTH: 18,
-    POINTS_COUNT: 9,
+    SEGMENT_LENGTH: 24,
+    POINTS_COUNT: 7,
     SLEEP_THRESHOLD: 0.1,
     MAX_CONNECTIONS: 2000,
     VIEW_SCALE_MIN: 0.2,
@@ -49,6 +49,7 @@ let isPanning = false;
 let panStart = { x: 0, y: 0 };
 let isHydratingBoard = false;
 let lastSavedCaseName = 'UNNAMED CASE';
+let lastOptimizeSnapshot = null;
 
 const sanitizeText = (text = '') => String(text || '')
     .replace(/&/g, '&amp;')
@@ -208,6 +209,46 @@ function getNodeLinkCount(nodeId) {
 
 function getNodeTypeLabel(type) {
     return NODE_TYPE_LABELS[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Node');
+}
+
+function connectionExistsBetween(nodeAId, nodeBId) {
+    return connections.some((c) =>
+        (c.from === nodeAId && c.to === nodeBId) ||
+        (c.from === nodeBId && c.to === nodeAId)
+    );
+}
+
+function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toPort = null) {
+    if (!fromNodeId || !toNodeId) return false;
+    if (fromNodeId === toNodeId) return false;
+    if (connectionExistsBetween(fromNodeId, toNodeId)) return false;
+
+    const fromLinksBefore = getNodeLinkCount(fromNodeId);
+    const toLinksBefore = getNodeLinkCount(toNodeId);
+
+    const newConn = {
+        id: 'conn_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+        from: fromNodeId,
+        to: toNodeId,
+        fromPort: fromPort || 'auto',
+        toPort: toPort || 'auto',
+        label: '',
+        arrowLeft: 0,
+        arrowRight: 0,
+        relationshipLogged: false,
+        colorIndex: 0
+    };
+
+    connections.push(newConn);
+    registerConnection(newConn);
+
+    const fromSummary = getNodeSummary(fromNodeId);
+    const toSummary = getNodeSummary(toNodeId);
+    if (fromLinksBefore === 0) logNodeConnectedToCase(fromSummary, toSummary);
+    if (toLinksBefore === 0) logNodeConnectedToCase(toSummary, fromSummary);
+
+    saveBoard();
+    return true;
 }
 
 function getHeatDeltaFromNode(summary) {
@@ -850,9 +891,10 @@ function updatePhysics() {
 
         const basePtr = bufferIdx * BYTES_PER_CONN;
 
-        // 1. Pin Endpoints
-        const p1 = getPortPos(c1, conn.fromPort);
-        const p2 = getPortPos(c2, conn.toPort);
+        // 1. Pin Endpoints (auto edge anchors based on center-to-center line)
+        const endpoints = getConnectionEndpointPositions(c1, c2);
+        const p1 = endpoints.from;
+        const p2 = endpoints.to;
 
         physicsBuffer[basePtr] = p1.x;
         physicsBuffer[basePtr + 1] = p1.y;
@@ -885,7 +927,7 @@ function updatePhysics() {
 
         // 3. Constraints
         let maxStress = 0;
-        const stepCount = CONFIG.PHYSICS_STEPS;
+        const stepCount = len > 140 ? 1 : CONFIG.PHYSICS_STEPS;
 
         for (let step = 0; step < stepCount; step++) {
             for (let i = 0; i < CONFIG.POINTS_COUNT - 1; i++) {
@@ -943,7 +985,12 @@ function drawLayer() {
 
     if (isConnecting) {
         ctx.beginPath();
-        const startPos = getPortPos(nodeCache.get(connectStart.id), connectStart.port);
+        const startNode = nodeCache.get(connectStart.id);
+        const startPos = connectStart.port
+            ? getPortPos(startNode, connectStart.port)
+            : (startNode
+                ? getRectEdgePointTowards(startNode, { x: connectStart.currentX, y: connectStart.currentY })
+                : { x: connectStart.x || 0, y: connectStart.y || 0 });
         ctx.moveTo(startPos.x, startPos.y);
         ctx.lineTo(connectStart.currentX, connectStart.currentY);
         ctx.strokeStyle = '#f1c40f';
@@ -957,6 +1004,7 @@ function drawLayer() {
     ctx.lineJoin = 'round';
 
     const len = connections.length;
+    const renderRopeDetail = len <= 140;
 
     // --- PASS 1: SHADOWS ---
     ctx.beginPath();
@@ -1021,7 +1069,8 @@ function drawLayer() {
         const stress = physicsBuffer[base + 4];
         const color = getConnectionColorConfig(conn).hex;
         ctx.strokeStyle = color;
-        ctx.lineWidth = CONFIG.BASE_THICKNESS + Math.min(1.1, stress * 0.04);
+        const ropeWidth = CONFIG.BASE_THICKNESS + Math.min(1.1, stress * 0.04);
+        ctx.lineWidth = ropeWidth;
         ctx.shadowColor = hexToRgba(color, 0.45);
         ctx.shadowBlur = 10;
         ctx.shadowOffsetX = 0;
@@ -1045,6 +1094,19 @@ function drawLayer() {
         ctx.lineTo(pNx, physicsBuffer[lastPtr + 1]);
         ctx.stroke();
         ctx.shadowBlur = 0;
+
+        if (renderRopeDetail && alpha > 0.14) {
+            // Cosmetic rope detail masks lower simulation point density.
+            ctx.lineWidth = Math.max(1, ropeWidth * 0.4);
+            ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+            ctx.stroke();
+
+            ctx.lineWidth = Math.max(0.8, ropeWidth * 0.22);
+            ctx.setLineDash([3, 4]);
+            ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
 
         updateLabelPos(conn, base, alpha);
         if (conn.arrowLeft || conn.arrowRight) drawArrows(ctx, conn, base, color);
@@ -1082,6 +1144,8 @@ function updateLabelPos(conn, basePtr, alpha) {
 }
 
 function drawArrows(ctx, conn, basePtr, color) {
+    if (CONFIG.POINTS_COUNT < 3) return;
+
     const drawHead = (idx, rev) => {
         const pIdx = basePtr + idx * STRIDE;
         const prevIdx = basePtr + (idx - 1) * STRIDE;
@@ -1106,8 +1170,11 @@ function drawArrows(ctx, conn, basePtr, color) {
         ctx.restore();
     };
 
-    if (conn.arrowLeft) drawHead(2, conn.arrowLeft === 1);
-    if (conn.arrowRight) drawHead(6, conn.arrowRight === 1);
+    const leftIdx = Math.max(1, Math.min(CONFIG.POINTS_COUNT - 2, Math.floor((CONFIG.POINTS_COUNT - 1) * 0.25)));
+    const rightIdx = Math.max(1, Math.min(CONFIG.POINTS_COUNT - 2, Math.floor((CONFIG.POINTS_COUNT - 1) * 0.75)));
+
+    if (conn.arrowLeft) drawHead(leftIdx, conn.arrowLeft === 1);
+    if (conn.arrowRight) drawHead(rightIdx, conn.arrowRight === 1);
 }
 
 // --- DATA MANAGEMENT ---
@@ -1123,8 +1190,9 @@ function registerConnection(conn) {
     const c2 = nodeCache.get(conn.to);
 
     if (c1 && c2) {
-        const p1 = getPortPos(c1, conn.fromPort);
-        const p2 = getPortPos(c2, conn.toPort);
+        const endpoints = getConnectionEndpointPositions(c1, c2);
+        const p1 = endpoints.from;
+        const p2 = endpoints.to;
         const base = idx * BYTES_PER_CONN;
 
         for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
@@ -1160,12 +1228,63 @@ function wakeConnected(nodeId) {
 // --- DOM & INTERACTION ---
 
 function getPortPos(nodeData, port) {
+    if (!nodeData) return { x: 0, y: 0 };
     const { x, y, w, h } = nodeData;
     if (port === 'top') return { x: x + w / 2, y: y };
     if (port === 'bottom') return { x: x + w / 2, y: y + h };
     if (port === 'left') return { x: x, y: y + h / 2 };
     if (port === 'right') return { x: x + w, y: y + h / 2 };
     return { x: x + w / 2, y: y + h / 2 };
+}
+
+function getRectEdgePointTowards(nodeData, targetPoint) {
+    if (!nodeData) {
+        return {
+            x: targetPoint && Number.isFinite(targetPoint.x) ? targetPoint.x : 0,
+            y: targetPoint && Number.isFinite(targetPoint.y) ? targetPoint.y : 0
+        };
+    }
+    const { x, y, w, h } = nodeData;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const hw = w / 2;
+    const hh = h / 2;
+
+    const dx = (targetPoint.x - cx);
+    const dy = (targetPoint.y - cy);
+
+    if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) {
+        return { x: cx + hw, y: cy };
+    }
+
+    if (Math.abs(dx) < 0.0001) {
+        return { x: cx, y: cy + (dy > 0 ? hh : -hh) };
+    }
+
+    if (Math.abs(dy) < 0.0001) {
+        return { x: cx + (dx > 0 ? hw : -hw), y: cy };
+    }
+
+    const tx = hw / Math.abs(dx);
+    const ty = hh / Math.abs(dy);
+    const t = Math.min(tx, ty);
+
+    return {
+        x: cx + dx * t,
+        y: cy + dy * t
+    };
+}
+
+function getConnectionEndpointPositions(nodeFrom, nodeTo) {
+    if (!nodeFrom || !nodeTo) {
+        return { from: { x: 0, y: 0 }, to: { x: 0, y: 0 } };
+    }
+    const fromCenter = { x: nodeFrom.x + nodeFrom.w / 2, y: nodeFrom.y + nodeFrom.h / 2 };
+    const toCenter = { x: nodeTo.x + nodeTo.w / 2, y: nodeTo.y + nodeTo.h / 2 };
+    return {
+        from: getRectEdgePointTowards(nodeFrom, toCenter),
+        to: getRectEdgePointTowards(nodeTo, fromCenter)
+    };
 }
 
 function updateNodeCache(id) {
@@ -1191,6 +1310,7 @@ function startDragNode(e, el) {
 
     updateNodeCache(el.id);
     el.style.willChange = 'transform';
+    el.style.pointerEvents = 'none';
 }
 
 document.addEventListener('mousemove', (e) => {
@@ -1230,19 +1350,41 @@ document.addEventListener('mouseup', (e) => {
         const finalX = dragStart.nodeX + dx;
         const finalY = dragStart.nodeY + dy;
 
-        draggedNode.style.left = finalX + 'px';
-        draggedNode.style.top = finalY + 'px';
-        draggedNode.style.transform = 'none';
-        draggedNode.style.willChange = 'auto';
+        const sourceNode = draggedNode;
+        const sourceNodeId = sourceNode.id;
+        sourceNode.style.pointerEvents = '';
+        const dropNode = (e.target && typeof e.target.closest === 'function') ? e.target.closest('.node') : null;
+        const draggedDistance = Math.hypot(dx, dy);
+        const canCreateConnection = draggedDistance > 8 &&
+            dropNode &&
+            dropNode.id !== sourceNodeId &&
+            !e.altKey;
 
-        updateNodeCache(draggedNode.id);
-        saveBoard();
+        if (canCreateConnection) {
+            sourceNode.style.left = dragStart.nodeX + 'px';
+            sourceNode.style.top = dragStart.nodeY + 'px';
+            sourceNode.style.transform = 'none';
+            sourceNode.style.willChange = 'auto';
+            updateNodeCache(sourceNodeId);
+            createConnectionBetweenNodes(sourceNodeId, dropNode.id);
+        } else {
+            sourceNode.style.left = finalX + 'px';
+            sourceNode.style.top = finalY + 'px';
+            sourceNode.style.transform = 'none';
+            sourceNode.style.willChange = 'auto';
+            updateNodeCache(sourceNodeId);
+            saveBoard();
+        }
+
         draggedNode = null;
     }
     if (isConnecting) {
-        if (e.target.classList.contains('port')) {
+        if (e.target && typeof e.target.closest === 'function') {
             const node = e.target.closest('.node');
-            completeConnection(node, e.target.dataset.port);
+            if (node) {
+                const port = e.target.classList.contains('port') ? e.target.dataset.port : null;
+                completeConnection(node, port);
+            }
         }
         isConnecting = false;
     }
@@ -1417,27 +1559,8 @@ function startConnectionDrag(e, node, port) {
 }
 
 function completeConnection(targetNode, targetPort) {
-    if (targetNode.id === connectStart.id) return;
-    if (connections.some(c => (c.from === connectStart.id && c.to === targetNode.id) || (c.from === targetNode.id && c.to === connectStart.id))) return;
-    const fromLinksBefore = getNodeLinkCount(connectStart.id);
-    const toLinksBefore = getNodeLinkCount(targetNode.id);
-
-    const newConn = {
-        id: 'conn_' + Date.now(),
-        from: connectStart.id, to: targetNode.id,
-        fromPort: connectStart.port, toPort: targetPort,
-        label: '', arrowLeft: 0, arrowRight: 0, relationshipLogged: false, colorIndex: 0
-    };
-
-    connections.push(newConn);
-    registerConnection(newConn);
-
-    const fromSummary = getNodeSummary(connectStart.id);
-    const toSummary = getNodeSummary(targetNode.id);
-    if (fromLinksBefore === 0) logNodeConnectedToCase(fromSummary, toSummary);
-    if (toLinksBefore === 0) logNodeConnectedToCase(toSummary, fromSummary);
-
-    saveBoard();
+    if (!targetNode || !connectStart || !connectStart.id) return;
+    createConnectionBetweenNodes(connectStart.id, targetNode.id, connectStart.port, targetPort);
 }
 
 function syncConnectionLabelColor(conn, labelEl, waxBtn = null) {
@@ -1523,7 +1646,10 @@ function createLabelDOM(conn) {
     };
 
     syncConnectionLabelColor(conn, el, waxBtn);
-    el.append(btnL, waxBtn, input, btnR);
+    const controls = document.createElement('div');
+    controls.className = 'string-controls';
+    controls.append(btnL, waxBtn, btnR);
+    el.append(controls, input);
     labelContainer.appendChild(el);
     return el;
 }
@@ -1616,7 +1742,8 @@ function saveBoard() {
     }
 }
 
-function loadBoard() {
+function loadBoard(options = {}) {
+    const opts = options && typeof options === 'object' ? options : {};
     const data = getPreferredBoardPayload();
     if (!data) return;
     const caseName = normalizeCaseName(data.name || 'UNNAMED CASE');
@@ -1631,6 +1758,10 @@ function loadBoard() {
     allocatedCount = 0;
     nodes = [];
     connections = [];
+    if (!opts.preserveOptimizeSnapshot) {
+        lastOptimizeSnapshot = null;
+        updateUndoOptimizeMenuState();
+    }
 
     isHydratingBoard = true;
     try {
@@ -1645,6 +1776,8 @@ function loadBoard() {
         if (!c.id) c.id = 'conn_' + Date.now() + Math.random();
         const hydrated = {
             ...c,
+            fromPort: c.fromPort || 'auto',
+            toPort: c.toPort || 'auto',
             relationshipLogged: !!c.relationshipLogged,
             colorIndex: clampConnectionColorIndex(c.colorIndex)
         };
@@ -1655,6 +1788,8 @@ function loadBoard() {
 
 function clearBoard() {
     if (confirm("Clear board?")) {
+        lastOptimizeSnapshot = null;
+        updateUndoOptimizeMenuState();
         if (window.RTF_STORE && typeof window.RTF_STORE.clearBoard === 'function') {
             window.RTF_STORE.clearBoard();
         } else if (!writeStoreBoardPayload({ name: "UNNAMED CASE", nodes: [], connections: [] })) {
@@ -1677,6 +1812,17 @@ function showContextMenu(e, node) {
         const type = getNodeTypeFromEl(node);
         setImageItem.style.display = IMAGE_EDITABLE_NODE_TYPES.has(type) ? 'block' : 'none';
     }
+    updateUndoOptimizeMenuState();
+}
+
+function updateUndoOptimizeMenuState() {
+    const undoItem = document.getElementById('menu-undo-optimize');
+    if (!undoItem) return;
+    const enabled = !!lastOptimizeSnapshot;
+    undoItem.classList.toggle('disabled', !enabled);
+    undoItem.title = enabled
+        ? 'Restore layout from before the most recent optimize.'
+        : 'No optimize snapshot available yet.';
 }
 window.onclick = (e) => {
     if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
@@ -1824,8 +1970,93 @@ function deleteTargetNode() {
 function centerAndOptimize() {
     const id = contextMenu.dataset.target;
     if (!id) return;
+    lastOptimizeSnapshot = captureLayoutSnapshot();
+    updateUndoOptimizeMenuState();
     optimizeLayout(id);
     contextMenu.style.display = 'none';
+}
+
+function undoLastOptimize() {
+    if (!lastOptimizeSnapshot) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+
+    const snapshot = lastOptimizeSnapshot;
+    lastOptimizeSnapshot = null;
+    updateUndoOptimizeMenuState();
+    applyLayoutSnapshot(snapshot);
+    contextMenu.style.display = 'none';
+}
+
+function captureLayoutSnapshot() {
+    const nodePositions = Array.from(document.querySelectorAll('.node')).map((el) => ({
+        id: el.id,
+        x: Number.isFinite(parseInt(el.style.left, 10)) ? parseInt(el.style.left, 10) : el.offsetLeft,
+        y: Number.isFinite(parseInt(el.style.top, 10)) ? parseInt(el.style.top, 10) : el.offsetTop
+    }));
+
+    return {
+        nodePositions,
+        view: {
+            x: view.x,
+            y: view.y,
+            scale: view.scale
+        }
+    };
+}
+
+function resetConnectionPhysicsFromNodeCache() {
+    connections.forEach((conn) => {
+        const n1 = nodeCache.get(conn.from);
+        const n2 = nodeCache.get(conn.to);
+        if (!n1 || !n2) return;
+
+        const idx = connToIndex.get(conn.id);
+        if (idx === undefined) return;
+
+        sleepState[idx] = 1;
+        const endpoints = getConnectionEndpointPositions(n1, n2);
+        const p1 = endpoints.from;
+        const p2 = endpoints.to;
+        const base = idx * BYTES_PER_CONN;
+
+        for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
+            const t = i / (CONFIG.POINTS_COUNT - 1);
+            const px = p1.x + (p2.x - p1.x) * t;
+            const py = p1.y + (p2.y - p1.y) * t;
+            const ptr = base + i * STRIDE;
+            physicsBuffer[ptr] = px;
+            physicsBuffer[ptr + 1] = py;
+            physicsBuffer[ptr + 2] = px;
+            physicsBuffer[ptr + 3] = py;
+            physicsBuffer[ptr + 4] = 0;
+        }
+    });
+}
+
+function applyLayoutSnapshot(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.nodePositions)) return;
+
+    const byId = new Map(snapshot.nodePositions.map((entry) => [entry.id, entry]));
+    byId.forEach((entry, id) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.left = `${entry.x}px`;
+        el.style.top = `${entry.y}px`;
+        updateNodeCache(id);
+    });
+
+    const snapView = snapshot.view || {};
+    if (Number.isFinite(snapView.scale)) {
+        view.scale = Math.max(CONFIG.VIEW_SCALE_MIN, Math.min(snapView.scale, CONFIG.VIEW_SCALE_MAX));
+    }
+    if (Number.isFinite(snapView.x)) view.x = snapView.x;
+    if (Number.isFinite(snapView.y)) view.y = snapView.y;
+    updateViewCSS();
+
+    resetConnectionPhysicsFromNodeCache();
+    saveBoard();
 }
 
 function optimizeLayout(centerId) {
@@ -1833,7 +2064,7 @@ function optimizeLayout(centerId) {
 
     // SYNC STATE: Ensure memory matches DOM before calculating
     saveBoard();
-    loadBoard();
+    loadBoard({ preserveOptimizeSnapshot: true });
 
     const centerNode = nodes.find(n => n.id === centerId);
     if (!centerNode) { console.error("optimizeLayout: Node not found", centerId); return; }
@@ -1912,48 +2143,8 @@ function optimizeLayout(centerId) {
 
     saveBoard();
 
-    // 6. Smart Port Optimization & Physics Reset
-    connections.forEach(c => {
-        const n1 = nodeCache.get(c.from);
-        const n2 = nodeCache.get(c.to);
-        if (!n1 || !n2) return;
-
-        // Optimization: pick closest ports
-        let minD = Infinity;
-        let best = { from: c.fromPort, to: c.toPort };
-
-        ['top', 'bottom', 'left', 'right'].forEach(p1 => {
-            const pos1 = getPortPos(n1, p1);
-            ['top', 'bottom', 'left', 'right'].forEach(p2 => {
-                const pos2 = getPortPos(n2, p2);
-                const d = Math.hypot(pos1.x - pos2.x, pos1.y - pos2.y);
-                if (d < minD) {
-                    minD = d;
-                    best = { from: p1, to: p2 };
-                }
-            });
-        });
-        c.fromPort = best.from;
-        c.toPort = best.to;
-
-        // Reset Physics
-        const idx = connToIndex.get(c.id);
-        if (idx !== undefined) {
-            sleepState[idx] = 1;
-            const p1 = getPortPos(n1, c.fromPort);
-            const p2 = getPortPos(n2, c.toPort);
-            const base = idx * BYTES_PER_CONN;
-            for (let i = 0; i < CONFIG.POINTS_COUNT; i++) {
-                const t = i / (CONFIG.POINTS_COUNT - 1);
-                const px = p1.x + (p2.x - p1.x) * t;
-                const py = p1.y + (p2.y - p1.y) * t;
-                const ptr = base + i * STRIDE;
-                physicsBuffer[ptr] = px; physicsBuffer[ptr + 1] = py;
-                physicsBuffer[ptr + 2] = px; physicsBuffer[ptr + 3] = py;
-                physicsBuffer[ptr + 4] = 0;
-            }
-        }
-    });
+    // 6. Physics Reset for new edge-anchored rope endpoints
+    resetConnectionPhysicsFromNodeCache();
 }
 
 // --- LAYOUT HELPERS ---
