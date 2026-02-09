@@ -2,6 +2,7 @@
 const CONFIG = {
     PHYSICS_STEPS: 2,
     GRAVITY: 0.6,
+    ANCHOR_OUTSET: 2,
     SEGMENT_LENGTH: 24,
     POINTS_COUNT: 7,
     SLEEP_THRESHOLD: 0.1,
@@ -229,7 +230,6 @@ function getClosestEdgeFromLocalPoint(localX, localY, width, height, thresholdPx
 
 function getEdgeTargetElement(nodeEl) {
     if (!nodeEl) return null;
-    if (nodeEl.classList && nodeEl.classList.contains('type-person')) return nodeEl;
     return nodeEl.querySelector('[data-edge-target]') || nodeEl;
 }
 
@@ -993,14 +993,9 @@ function updatePhysics() {
         const basePtr = bufferIdx * BYTES_PER_CONN;
 
         // 1. Pin Endpoints.
-        // For auto endpoints, use nearby rope points as hints so anchors follow
-        // the actual rope direction at each node edge instead of side-center.
-        const secondPtr = basePtr + STRIDE;
-        const preLastPtr = basePtr + (CONFIG.POINTS_COUNT - 2) * STRIDE;
-        const endpoints = getConnectionEndpointPositions(c1, c2, conn, {
-            fromTarget: { x: physicsBuffer[secondPtr], y: physicsBuffer[secondPtr + 1] },
-            toTarget: { x: physicsBuffer[preLastPtr], y: physicsBuffer[preLastPtr + 1] }
-        });
+        // Keep auto anchors stable from node-to-node direction; using rope-point
+        // hints can drag anchors downward as the rope sags.
+        const endpoints = getConnectionEndpointPositions(c1, c2, conn);
         const p1 = endpoints.from;
         const p2 = endpoints.to;
 
@@ -1094,11 +1089,14 @@ function drawLayer() {
     if (isConnecting) {
         ctx.beginPath();
         const startNode = nodeCache.get(connectStart.id);
-        const startPos = (connectStart.port && connectStart.port !== 'auto')
+        const rawStartPos = (connectStart.port && connectStart.port !== 'auto')
             ? getPortPos(startNode, connectStart.port)
             : (startNode
                 ? getRectEdgePointTowards(startNode, { x: connectStart.currentX, y: connectStart.currentY })
                 : { x: connectStart.x || 0, y: connectStart.y || 0 });
+        const startPos = startNode
+            ? offsetAnchorOutward(startNode, rawStartPos, { x: connectStart.currentX, y: connectStart.currentY })
+            : rawStartPos;
         ctx.moveTo(startPos.x, startPos.y);
         ctx.lineTo(connectStart.currentX, connectStart.currentY);
         ctx.strokeStyle = '#f1c40f';
@@ -1457,6 +1455,28 @@ function isFinitePoint(point) {
     return !!point && Number.isFinite(point.x) && Number.isFinite(point.y);
 }
 
+function offsetAnchorOutward(nodeData, point, fallbackDirectionPoint = null, distance = CONFIG.ANCHOR_OUTSET) {
+    if (!nodeData || !isFinitePoint(point) || !Number.isFinite(distance) || distance <= 0) return point;
+
+    const cx = nodeData.x + nodeData.w / 2;
+    const cy = nodeData.y + nodeData.h / 2;
+    let dx = point.x - cx;
+    let dy = point.y - cy;
+
+    if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001 && isFinitePoint(fallbackDirectionPoint)) {
+        dx = fallbackDirectionPoint.x - cx;
+        dy = fallbackDirectionPoint.y - cy;
+    }
+
+    const mag = Math.hypot(dx, dy);
+    if (mag < 0.0001) return point;
+
+    return {
+        x: point.x + (dx / mag) * distance,
+        y: point.y + (dy / mag) * distance
+    };
+}
+
 function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null, hintTargets = null) {
     if (!nodeFrom || !nodeTo) {
         return { from: { x: 0, y: 0 }, to: { x: 0, y: 0 } };
@@ -1465,25 +1485,23 @@ function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null, hintTarge
     const fromPort = conn && typeof conn.fromPort === 'string' ? conn.fromPort : 'auto';
     const toPort = conn && typeof conn.toPort === 'string' ? conn.toPort : 'auto';
 
-    if (fromPort !== 'auto' && toPort !== 'auto') {
-        return {
-            from: getPortPos(nodeFrom, fromPort),
-            to: getPortPos(nodeTo, toPort)
-        };
-    }
-
     const fromCenter = { x: nodeFrom.x + nodeFrom.w / 2, y: nodeFrom.y + nodeFrom.h / 2 };
     const toCenter = { x: nodeTo.x + nodeTo.w / 2, y: nodeTo.y + nodeTo.h / 2 };
     const hintFromTarget = hintTargets && isFinitePoint(hintTargets.fromTarget) ? hintTargets.fromTarget : null;
     const hintToTarget = hintTargets && isFinitePoint(hintTargets.toTarget) ? hintTargets.toTarget : null;
+    const fromTarget = hintFromTarget || toCenter;
+    const toTarget = hintToTarget || fromCenter;
+
+    const fromRaw = fromPort === 'auto'
+        ? getRectEdgePointTowards(nodeFrom, fromTarget)
+        : getPortPos(nodeFrom, fromPort);
+    const toRaw = toPort === 'auto'
+        ? getRectEdgePointTowards(nodeTo, toTarget)
+        : getPortPos(nodeTo, toPort);
 
     return {
-        from: fromPort === 'auto'
-            ? getRectEdgePointTowards(nodeFrom, hintFromTarget || toCenter)
-            : getPortPos(nodeFrom, fromPort),
-        to: toPort === 'auto'
-            ? getRectEdgePointTowards(nodeTo, hintToTarget || fromCenter)
-            : getPortPos(nodeTo, toPort)
+        from: offsetAnchorOutward(nodeFrom, fromRaw, fromTarget),
+        to: offsetAnchorOutward(nodeTo, toRaw, toTarget)
     };
 }
 
