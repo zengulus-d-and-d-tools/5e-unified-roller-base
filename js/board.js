@@ -51,6 +51,21 @@ let panStart = { x: 0, y: 0 };
 let isHydratingBoard = false;
 let lastSavedCaseName = 'UNNAMED CASE';
 let lastOptimizeSnapshot = null;
+const MOBILE_BREAKPOINT_PX = 900;
+const coarsePointerQuery = (typeof window.matchMedia === 'function')
+    ? window.matchMedia('(pointer: coarse)')
+    : null;
+let mobileMode = false;
+let mobileHandlersBound = false;
+
+const touchState = {
+    dragTouchId: null,
+    panTouchId: null,
+    pinchIds: null,
+    pinchDist: 0,
+    lastClientX: 0,
+    lastClientY: 0
+};
 
 const sanitizeText = (text = '') => String(text || '')
     .replace(/&/g, '&amp;')
@@ -96,6 +111,45 @@ const CONNECTION_COLOR_PALETTE = [
 ];
 const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
 const EDGE_CONNECT_ZONE_PX = 18;
+
+function isMobileInteractionMode() {
+    return window.innerWidth <= MOBILE_BREAKPOINT_PX || !!(coarsePointerQuery && coarsePointerQuery.matches);
+}
+
+function applyMobileModeClass() {
+    mobileMode = isMobileInteractionMode();
+    document.body.classList.toggle('mobile-board', mobileMode);
+}
+
+function findTouchByIdentifier(touches, identifier) {
+    if (!touches || identifier === null || identifier === undefined) return null;
+    for (let i = 0; i < touches.length; i++) {
+        if (touches[i].identifier === identifier) return touches[i];
+    }
+    return null;
+}
+
+function getTouchDistance(a, b) {
+    if (!a || !b) return 0;
+    return Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+}
+
+function getTouchMidpoint(a, b) {
+    return {
+        x: (a.clientX + b.clientX) * 0.5,
+        y: (a.clientY + b.clientY) * 0.5
+    };
+}
+
+function isEditableTouchTarget(target) {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest('input, textarea, select, button, a, [contenteditable="true"], .label-input');
+}
+
+function isTouchUIArea(target) {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest('.toolbar-scroll-wrapper, .popup-menu, .hero-header, #toolbar-toggle, .context-menu, .string-label');
+}
 
 function normalizeCaseName(name) {
     const cleaned = String(name || '').replace(/\s+/g, ' ').trim();
@@ -553,8 +607,87 @@ const REQUISITION_PRIORITY_WEIGHT = REQUISITION_PRIORITIES.reduce((acc, val, idx
     return acc;
 }, {});
 
+function setMobileToolSpawnData(el, type, data = null) {
+    if (!el || !el.dataset) return;
+    if (!type) {
+        delete el.dataset.mobileSpawnType;
+        delete el.dataset.mobileSpawnData;
+        return;
+    }
+    el.dataset.mobileSpawnType = String(type);
+    if (data && typeof data === 'object' && Object.keys(data).length) {
+        el.dataset.mobileSpawnData = JSON.stringify(data);
+    } else {
+        delete el.dataset.mobileSpawnData;
+    }
+}
+
+function parseMobileToolSpawnData(el) {
+    if (!el || !el.dataset) return null;
+    const type = String(el.dataset.mobileSpawnType || el.dataset.nodeType || '').trim();
+    if (!type) return null;
+    let data = {};
+    const raw = el.dataset.mobileSpawnData;
+    if (raw) {
+        try {
+            data = JSON.parse(raw);
+        } catch (err) {
+            data = {};
+        }
+    }
+    return { type, data };
+}
+
+function handleMobileToolTapInsert(event) {
+    if (!mobileMode) return;
+    const target = event.target;
+    const toolEl = target && typeof target.closest === 'function' ? target.closest('.tool-item') : null;
+    if (!toolEl) return;
+    if (toolEl.id && toolEl.id.startsWith('btn-')) return;
+    if (!toolEl.closest('.toolbar') && !toolEl.closest('.popup-menu')) return;
+
+    const config = parseMobileToolSpawnData(toolEl);
+    if (!config) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const spawn = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+    const node = createNode(config.type, spawn.x, spawn.y, null, config.data || {});
+    logNodeAddedToBoard(getNodeSummary(node.id));
+    saveBoard();
+
+    if (toolEl.closest('.popup-menu')) closePopups();
+}
+
 // --- INITIALIZATION ---
+function bindMobileHandlers() {
+    if (mobileHandlersBound) return;
+    mobileHandlersBound = true;
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+    document.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    document.addEventListener('click', handleMobileToolTapInsert);
+
+    if (coarsePointerQuery) {
+        if (typeof coarsePointerQuery.addEventListener === 'function') {
+            coarsePointerQuery.addEventListener('change', applyMobileModeClass);
+        } else if (typeof coarsePointerQuery.addListener === 'function') {
+            coarsePointerQuery.addListener(applyMobileModeClass);
+        }
+    }
+}
+
+function handleBoardResize() {
+    resizeCanvas();
+    applyMobileModeClass();
+}
+
 window.onload = () => {
+    applyMobileModeClass();
+    bindMobileHandlers();
     pruneBoardTimelineNoise();
     resizeCanvas();
     initToolbars();
@@ -565,7 +698,7 @@ window.onload = () => {
     requestAnimationFrame(loop);
 };
 
-window.onresize = () => resizeCanvas();
+window.onresize = () => handleBoardResize();
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -675,7 +808,7 @@ function initGuildToolbar() {
         const el = document.createElement('div');
         el.className = `tool-item g-${g.id}`;
         el.draggable = true;
-        el.ondragstart = (e) => startDragNew(e, g.id, {
+        const nodeData = {
             title: g.name,
             body: 'Guild',
             meta: {
@@ -683,7 +816,9 @@ function initGuildToolbar() {
                 guild: g.name,
                 guildId: g.id
             }
-        });
+        };
+        el.ondragstart = (e) => startDragNew(e, g.id, nodeData);
+        setMobileToolSpawnData(el, g.id, nodeData);
         el.innerHTML = `<div class="icon">${g.icon}</div><div class="label">${g.name}</div>`;
         list.appendChild(el);
     });
@@ -750,6 +885,7 @@ function renderNPCs() {
             }
         };
         el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
+        setMobileToolSpawnData(el, 'person', nodeData);
         el.innerHTML = `<div class="icon">👤</div><div class="label">${sanitizeText(npc.name)}</div>`;
         listContainer.appendChild(el);
     });
@@ -815,6 +951,7 @@ function renderLocations() {
             }
         };
         el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
+        setMobileToolSpawnData(el, 'location', nodeData);
         el.innerHTML = `<div class="icon">📍</div><div class="label">${sanitizeText(loc.name)}</div>`;
         listContainer.appendChild(el);
     });
@@ -883,7 +1020,7 @@ function renderBoardEvents() {
         if (evt.fallout) lines.push(`<strong>Fallout:</strong><br>${sanitizeMultiline(evt.fallout)}`);
         if (evt.followUp) lines.push(`<strong>Next:</strong> ${sanitizeMultiline(evt.followUp)}`);
 
-        el.ondragstart = (e) => startDragNew(e, 'event', {
+        const nodeData = {
             title: evt.title || 'Event',
             body: lines.join('<br>'),
             meta: {
@@ -892,7 +1029,9 @@ function renderBoardEvents() {
                 heatDelta: !isNaN(heat) ? heat : '',
                 focus: evt.focus || ''
             }
-        });
+        };
+        el.ondragstart = (e) => startDragNew(e, 'event', nodeData);
+        setMobileToolSpawnData(el, 'event', nodeData);
         listContainer.appendChild(el);
     });
 }
@@ -955,7 +1094,7 @@ function renderBoardRequisitions() {
         if (req.purpose) lines.push(`<strong>Purpose:</strong> ${sanitizeMultiline(req.purpose)}`);
         if (req.notes) lines.push(`<strong>Notes:</strong> ${sanitizeMultiline(req.notes)}`);
 
-        el.ondragstart = (e) => startDragNew(e, 'requisition', {
+        const nodeData = {
             title: req.item || 'Requisition',
             body: lines.join('<br>'),
             meta: {
@@ -964,7 +1103,9 @@ function renderBoardRequisitions() {
                 status: req.status || 'Pending',
                 priority: req.priority || 'Routine'
             }
-        });
+        };
+        el.ondragstart = (e) => startDragNew(e, 'requisition', nodeData);
+        setMobileToolSpawnData(el, 'requisition', nodeData);
         listContainer.appendChild(el);
     });
 }
@@ -1557,7 +1698,7 @@ function updateNodeCache(id) {
 }
 
 function startDragNode(e, el) {
-    if (el.classList.contains('editing') || e.button !== 0) return;
+    if (el.classList.contains('editing') || (e.button !== undefined && e.button !== 0)) return;
     draggedNode = el;
 
     const worldPos = screenToWorld(e.clientX, e.clientY);
@@ -1571,22 +1712,198 @@ function startDragNode(e, el) {
     el.style.pointerEvents = 'none';
 }
 
+function updateDraggedNodeFromClient(clientX, clientY) {
+    if (!draggedNode) return;
+    const worldPos = screenToWorld(clientX, clientY);
+    const dx = worldPos.x - dragStart.x;
+    const dy = worldPos.y - dragStart.y;
+    draggedNode.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    const newX = dragStart.nodeX + dx;
+    const newY = dragStart.nodeY + dy;
+    const cache = nodeCache.get(draggedNode.id);
+    if (cache) {
+        cache.x = newX + (cache.relX || 0);
+        cache.y = newY + (cache.relY || 0);
+    }
+    wakeConnected(draggedNode.id);
+}
+
+function finalizeDraggedNode(clientX, clientY, options = {}) {
+    if (!draggedNode) return;
+    const opts = options && typeof options === 'object' ? options : {};
+    const allowConnection = opts.allowConnection !== false;
+    const explicitDropTarget = opts.dropTarget || null;
+    const worldPos = screenToWorld(clientX, clientY);
+    const dx = worldPos.x - dragStart.x;
+    const dy = worldPos.y - dragStart.y;
+
+    const finalX = dragStart.nodeX + dx;
+    const finalY = dragStart.nodeY + dy;
+
+    const sourceNode = draggedNode;
+    const sourceNodeId = sourceNode.id;
+    sourceNode.style.pointerEvents = '';
+
+    let dropNode = null;
+    if (explicitDropTarget && typeof explicitDropTarget.closest === 'function') {
+        dropNode = explicitDropTarget.closest('.node');
+    }
+    if (!dropNode) {
+        const dropEl = document.elementFromPoint(clientX, clientY);
+        if (dropEl && typeof dropEl.closest === 'function') {
+            dropNode = dropEl.closest('.node');
+        }
+    }
+
+    const draggedDistance = Math.hypot(dx, dy);
+    const canCreateConnection = allowConnection &&
+        draggedDistance > 8 &&
+        dropNode &&
+        dropNode.id !== sourceNodeId;
+
+    if (canCreateConnection) {
+        sourceNode.style.left = dragStart.nodeX + 'px';
+        sourceNode.style.top = dragStart.nodeY + 'px';
+        sourceNode.style.transform = 'none';
+        sourceNode.style.willChange = 'auto';
+        updateNodeCache(sourceNodeId);
+        createConnectionBetweenNodes(sourceNodeId, dropNode.id);
+    } else {
+        sourceNode.style.left = finalX + 'px';
+        sourceNode.style.top = finalY + 'px';
+        sourceNode.style.transform = 'none';
+        sourceNode.style.willChange = 'auto';
+        updateNodeCache(sourceNodeId);
+        saveBoard();
+    }
+
+    draggedNode = null;
+}
+
+function handleTouchStart(event) {
+    if (!mobileMode) return;
+    if (!event.touches || !event.touches.length) return;
+
+    if (event.touches.length >= 2) {
+        if (draggedNode || isTouchUIArea(event.target)) return;
+        const touchA = event.touches[0];
+        const touchB = event.touches[1];
+        touchState.pinchIds = [touchA.identifier, touchB.identifier];
+        touchState.pinchDist = getTouchDistance(touchA, touchB);
+        touchState.panTouchId = null;
+        touchState.dragTouchId = null;
+        isPanning = false;
+        document.body.style.cursor = panMode ? 'grab' : 'default';
+        event.preventDefault();
+        return;
+    }
+
+    const touch = event.touches[0];
+    const target = event.target;
+    const node = target && typeof target.closest === 'function' ? target.closest('.node') : null;
+
+    if (node && !node.classList.contains('editing') && !isEditableTouchTarget(target)) {
+        startDragNode({ button: 0, clientX: touch.clientX, clientY: touch.clientY }, node);
+        touchState.dragTouchId = touch.identifier;
+        touchState.lastClientX = touch.clientX;
+        touchState.lastClientY = touch.clientY;
+        event.preventDefault();
+        return;
+    }
+
+    if (isTouchUIArea(target)) return;
+
+    touchState.panTouchId = touch.identifier;
+    panStart = { x: touch.clientX, y: touch.clientY };
+    isPanning = true;
+    document.body.style.cursor = 'grabbing';
+    event.preventDefault();
+}
+
+function handleTouchMove(event) {
+    if (!mobileMode) return;
+
+    if (touchState.pinchIds && touchState.pinchIds.length === 2) {
+        const touchA = findTouchByIdentifier(event.touches, touchState.pinchIds[0]);
+        const touchB = findTouchByIdentifier(event.touches, touchState.pinchIds[1]);
+        if (!touchA || !touchB) return;
+
+        const distance = getTouchDistance(touchA, touchB);
+        if (!distance || !touchState.pinchDist) return;
+
+        const midpoint = getTouchMidpoint(touchA, touchB);
+        const factor = distance / touchState.pinchDist;
+        if (!Number.isFinite(factor) || factor === 0) return;
+
+        const worldX = (midpoint.x - view.x) / view.scale;
+        const worldY = (midpoint.y - view.y) / view.scale;
+        const nextScale = Math.max(CONFIG.VIEW_SCALE_MIN, Math.min(view.scale * factor, CONFIG.VIEW_SCALE_MAX));
+        view.scale = nextScale;
+        view.x = midpoint.x - worldX * view.scale;
+        view.y = midpoint.y - worldY * view.scale;
+        touchState.pinchDist = distance;
+        updateViewCSS();
+        event.preventDefault();
+        return;
+    }
+
+    if (touchState.dragTouchId !== null && draggedNode) {
+        const touch = findTouchByIdentifier(event.touches, touchState.dragTouchId);
+        if (!touch) return;
+        updateDraggedNodeFromClient(touch.clientX, touch.clientY);
+        touchState.lastClientX = touch.clientX;
+        touchState.lastClientY = touch.clientY;
+        event.preventDefault();
+        return;
+    }
+
+    if (touchState.panTouchId !== null && isPanning) {
+        const touch = findTouchByIdentifier(event.touches, touchState.panTouchId);
+        if (!touch) return;
+        view.x += touch.clientX - panStart.x;
+        view.y += touch.clientY - panStart.y;
+        panStart = { x: touch.clientX, y: touch.clientY };
+        updateViewCSS();
+        event.preventDefault();
+    }
+}
+
+function handleTouchEnd(event) {
+    if (!mobileMode) return;
+
+    if (touchState.pinchIds && event.touches.length < 2) {
+        touchState.pinchIds = null;
+        touchState.pinchDist = 0;
+    }
+
+    if (touchState.dragTouchId !== null) {
+        const stillActive = findTouchByIdentifier(event.touches, touchState.dragTouchId);
+        if (!stillActive) {
+            const endedTouch = findTouchByIdentifier(event.changedTouches, touchState.dragTouchId);
+            const endX = endedTouch ? endedTouch.clientX : touchState.lastClientX;
+            const endY = endedTouch ? endedTouch.clientY : touchState.lastClientY;
+            finalizeDraggedNode(endX, endY, { allowConnection: true });
+            touchState.dragTouchId = null;
+            event.preventDefault();
+        }
+    }
+
+    if (touchState.panTouchId !== null) {
+        const stillPanning = findTouchByIdentifier(event.touches, touchState.panTouchId);
+        if (!stillPanning) {
+            touchState.panTouchId = null;
+            isPanning = false;
+            document.body.style.cursor = panMode ? 'grab' : 'default';
+        }
+    }
+}
+
 document.addEventListener('mousemove', (e) => {
     const worldPos = screenToWorld(e.clientX, e.clientY);
 
     if (draggedNode) {
-        const dx = worldPos.x - dragStart.x;
-        const dy = worldPos.y - dragStart.y;
-        draggedNode.style.transform = `translate(${dx}px, ${dy}px)`;
-
-        const newX = dragStart.nodeX + dx;
-        const newY = dragStart.nodeY + dy;
-        const cache = nodeCache.get(draggedNode.id);
-        if (cache) {
-            cache.x = newX + (cache.relX || 0);
-            cache.y = newY + (cache.relY || 0);
-        }
-        wakeConnected(draggedNode.id);
+        updateDraggedNodeFromClient(e.clientX, e.clientY);
     }
 
     if (isConnecting) {
@@ -1604,40 +1921,10 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', (e) => {
     if (draggedNode) {
-        const worldPos = screenToWorld(e.clientX, e.clientY);
-        const dx = worldPos.x - dragStart.x;
-        const dy = worldPos.y - dragStart.y;
-
-        const finalX = dragStart.nodeX + dx;
-        const finalY = dragStart.nodeY + dy;
-
-        const sourceNode = draggedNode;
-        const sourceNodeId = sourceNode.id;
-        sourceNode.style.pointerEvents = '';
-        const dropNode = (e.target && typeof e.target.closest === 'function') ? e.target.closest('.node') : null;
-        const draggedDistance = Math.hypot(dx, dy);
-        const canCreateConnection = draggedDistance > 8 &&
-            dropNode &&
-            dropNode.id !== sourceNodeId &&
-            !e.altKey;
-
-        if (canCreateConnection) {
-            sourceNode.style.left = dragStart.nodeX + 'px';
-            sourceNode.style.top = dragStart.nodeY + 'px';
-            sourceNode.style.transform = 'none';
-            sourceNode.style.willChange = 'auto';
-            updateNodeCache(sourceNodeId);
-            createConnectionBetweenNodes(sourceNodeId, dropNode.id);
-        } else {
-            sourceNode.style.left = finalX + 'px';
-            sourceNode.style.top = finalY + 'px';
-            sourceNode.style.transform = 'none';
-            sourceNode.style.willChange = 'auto';
-            updateNodeCache(sourceNodeId);
-            saveBoard();
-        }
-
-        draggedNode = null;
+        finalizeDraggedNode(e.clientX, e.clientY, {
+            allowConnection: !e.altKey,
+            dropTarget: e.target
+        });
     }
     if (isConnecting) {
         if (e.target && typeof e.target.closest === 'function') {

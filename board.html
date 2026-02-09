@@ -3,10 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ravnica Investigation Board</title>
     <link rel="stylesheet" href="css/theme.css">
-    <link rel="stylesheet" href="css/board.css?v=20260209b">
+    <link rel="stylesheet" href="css/board.css?v=20260209c">
     <meta name="theme-color" content="#1e1e1e">
 </head>
 
@@ -14,7 +14,7 @@
     <canvas id="vector-cloud"></canvas>
 
     <div id="mobile-warning" class="mobile-only-warning">
-        ⚠️ Best Experience on Desktop
+        Mobile mode: drag nodes with one finger, pinch to zoom, tap tools to spawn nodes.
     </div>
 
     <!-- Canvas for drawing physics strings -->
@@ -55,19 +55,19 @@
         <div class="toolbar">
             <!-- CORE TOOLS -->
             <div class="tool-group">
-                <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'person')">
+                <div class="tool-item" data-node-type="person" draggable="true" ondragstart="startDragNew(event, 'person')">
                     <div class="icon">👤</div>
                     <div class="label">Person</div>
                 </div>
-                <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'location')">
+                <div class="tool-item" data-node-type="location" draggable="true" ondragstart="startDragNew(event, 'location')">
                     <div class="icon">📍</div>
                     <div class="label">Location</div>
                 </div>
-                <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'clue')">
+                <div class="tool-item" data-node-type="clue" draggable="true" ondragstart="startDragNew(event, 'clue')">
                     <div class="icon">🔍</div>
                     <div class="label">Clue</div>
                 </div>
-                <div class="tool-item" draggable="true" ondragstart="startDragNew(event, 'note')">
+                <div class="tool-item" data-node-type="note" draggable="true" ondragstart="startDragNew(event, 'note')">
                     <div class="icon">📝</div>
                     <div class="label">Note</div>
                 </div>
@@ -133,7 +133,7 @@
     <script src="js/store.js"></script>
     <script src="js/session-log.js"></script>
     <script src="js/vector-field.js"></script>
-    <script src="js/board.js?v=20260209b"></script>
+    <script src="js/board.js?v=20260209c"></script>
 </body>
 
 </html>
