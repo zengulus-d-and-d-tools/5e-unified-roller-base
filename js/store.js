@@ -706,11 +706,31 @@
             let changed = false;
 
             if (window.PRELOADED_NPCS && Array.isArray(window.PRELOADED_NPCS)) {
+                const normalizeNPCField = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+                const buildNPCSignature = (npc) => [
+                    normalizeNPCField(npc && npc.name),
+                    normalizeNPCField(npc && npc.guild),
+                    normalizeNPCField(npc && npc.wants),
+                    normalizeNPCField(npc && npc.leverage),
+                    normalizeNPCField(npc && npc.notes)
+                ].join('|');
+                const preloadedSignatures = new Set(window.PRELOADED_NPCS.map(buildNPCSignature));
+
+                // Backfill source markers for existing exact preloaded records.
+                this.state.campaign.npcs.forEach((npc) => {
+                    if (!npc || typeof npc !== 'object') return;
+                    if (npc.__rtfSource) return;
+                    if (preloadedSignatures.has(buildNPCSignature(npc))) {
+                        npc.__rtfSource = 'preloaded';
+                        changed = true;
+                    }
+                });
+
                 const existingNames = new Set(this.state.campaign.npcs.map(n => n.name));
                 let count = 0;
                 window.PRELOADED_NPCS.forEach(n => {
                     if (!existingNames.has(n.name)) {
-                        this.state.campaign.npcs.push({ ...n });
+                        this.state.campaign.npcs.push({ ...n, __rtfSource: 'preloaded' });
                         existingNames.add(n.name);
                         count++;
                     }

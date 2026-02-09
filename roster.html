@@ -59,7 +59,10 @@
                 <div style="margin-bottom: 10px;">
                     <textarea id="npcNotes" rows="2" placeholder="Notes / Description..."></textarea>
                 </div>
-                <button class="btn btn-dp" onclick="addNPC()">Save NPC</button>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="btn btn-dp" id="npcSaveBtn" onclick="addNPC()">Save NPC</button>
+                    <button class="btn" id="npcCancelBtn" onclick="cancelNPCEdit()" style="display:none;">Cancel Edit</button>
+                </div>
             </div>
 
             <div class="filter-bar">
