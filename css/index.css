@@ -100,6 +100,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 900;
+    box-sizing: border-box;
     width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
     margin: 0 auto clamp(12px, 2vw, 18px);
     background: color-mix(in srgb, var(--surface-strong) 70%, rgba(0, 0, 0, 0.3));
@@ -2329,6 +2330,9 @@ button {
         margin: 0 8px 10px;
         padding: 10px;
         gap: 10px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        align-items: stretch;
     }
 
     .header-brand,
@@ -2338,37 +2342,59 @@ button {
         min-width: 0;
     }
 
+    .header-brand h1 {
+        margin: 0 0 4px;
+        font-size: clamp(1.2rem, 5.6vw, 1.45rem);
+    }
+
     .header-roller {
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: 10px;
         padding: 8px 10px;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .mini-log-display {
         min-width: 0;
         text-align: left;
-        flex: 1 1 120px;
+        width: 100%;
     }
 
     .mini-controls {
-        flex: 1 1 210px;
+        width: 100%;
+        flex: 0 1 auto;
         min-width: 0;
+    }
+
+    .adv-group {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .util-group {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 6px;
+        align-items: center;
     }
 
     .mini-btn {
         min-height: 34px;
         padding: 4px 10px;
+        min-width: 0;
     }
 
     .mini-input {
-        width: 72px;
+        width: 100%;
         min-height: 34px;
+        min-width: 0;
     }
 
     .roller-actions {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
     }
 
@@ -2377,6 +2403,10 @@ button {
         min-height: 40px;
         padding: 8px 10px;
         font-size: 0.82rem;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     /* Stack Grids */
@@ -2440,10 +2470,36 @@ button {
         border-radius: 0;
     }
 
+    .modal-footer {
+        flex-wrap: wrap;
+    }
+
+    .modal-footer button {
+        flex: 1 1 0;
+        min-width: 0 !important;
+    }
+
     .stat-val-chip {
         width: 38px;
         height: 38px;
         font-size: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .roller-header {
+        width: calc(100% - 12px);
+        margin: 0 6px 8px;
+        padding: 8px;
+    }
+
+    .mini-log-display .log-result {
+        font-size: 1.2rem;
+    }
+
+    .roller-actions .hero-btn {
+        padding: 8px 6px;
+        font-size: 0.78rem;
     }
 }
 
