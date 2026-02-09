@@ -241,17 +241,42 @@ function getNodeEdgeFromEvent(event, nodeEl, thresholdPx = EDGE_CONNECT_ZONE_PX)
     return getClosestEdgeFromLocalPoint(localX, localY, rect.width, rect.height, thresholdPx);
 }
 
-function connectionExistsBetween(nodeAId, nodeBId) {
-    return connections.some((c) =>
+const VALID_CONNECTION_PORTS = new Set(['auto', 'top', 'right', 'bottom', 'left']);
+
+function normalizeConnectionPort(port) {
+    const candidate = typeof port === 'string' ? port : 'auto';
+    return VALID_CONNECTION_PORTS.has(candidate) ? candidate : 'auto';
+}
+
+function findConnectionBetween(nodeAId, nodeBId) {
+    return connections.find((c) =>
         (c.from === nodeAId && c.to === nodeBId) ||
         (c.from === nodeBId && c.to === nodeAId)
-    );
+    ) || null;
 }
 
 function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toPort = null) {
     if (!fromNodeId || !toNodeId) return false;
     if (fromNodeId === toNodeId) return false;
-    if (connectionExistsBetween(fromNodeId, toNodeId)) return false;
+    const normalizedFromPort = normalizeConnectionPort(fromPort);
+    const normalizedToPort = normalizeConnectionPort(toPort);
+
+    const existing = findConnectionBetween(fromNodeId, toNodeId);
+    if (existing) {
+        const sameDirection = existing.from === fromNodeId;
+        const nextFromPort = sameDirection ? normalizedFromPort : normalizedToPort;
+        const nextToPort = sameDirection ? normalizedToPort : normalizedFromPort;
+        const hasChanged = existing.fromPort !== nextFromPort || existing.toPort !== nextToPort;
+
+        if (hasChanged) {
+            existing.fromPort = nextFromPort;
+            existing.toPort = nextToPort;
+            resetConnectionPhysicsFromNodeCache();
+            saveBoard();
+        }
+
+        return hasChanged;
+    }
 
     const fromLinksBefore = getNodeLinkCount(fromNodeId);
     const toLinksBefore = getNodeLinkCount(toNodeId);
@@ -260,8 +285,8 @@ function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toP
         id: 'conn_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
         from: fromNodeId,
         to: toNodeId,
-        fromPort: fromPort || 'auto',
-        toPort: toPort || 'auto',
+        fromPort: normalizedFromPort,
+        toPort: normalizedToPort,
         label: '',
         arrowLeft: 0,
         arrowRight: 0,
@@ -1536,9 +1561,8 @@ document.addEventListener('mouseup', (e) => {
         if (e.target && typeof e.target.closest === 'function') {
             const node = e.target.closest('.node');
             if (node) {
-                const port = e.target.classList.contains('port')
-                    ? e.target.dataset.port
-                    : getNodeEdgeFromEvent(e, node);
+                const isPortTarget = e.altKey && e.target instanceof Element && e.target.classList.contains('port');
+                const port = isPortTarget ? e.target.dataset.port : 'auto';
                 completeConnection(node, port);
             }
         }
@@ -1685,7 +1709,8 @@ function createNode(type, x, y, id = null, content = {}) {
 
         const edge = getNodeEdgeFromEvent(e, nodeEl);
         if (edge) {
-            startConnectionDrag(e, nodeEl, edge);
+            // Edge drags should use automatic edge intersection instead of fixed side pinning.
+            startConnectionDrag(e, nodeEl, 'auto');
             return;
         }
 
@@ -1693,7 +1718,7 @@ function createNode(type, x, y, id = null, content = {}) {
     };
     nodeEl.oncontextmenu = (e) => showContextMenu(e, nodeEl);
     nodeEl.querySelectorAll('.port').forEach(p =>
-        p.onmousedown = (e) => startConnectionDrag(e, nodeEl, p.dataset.port)
+        p.onmousedown = (e) => startConnectionDrag(e, nodeEl, e.altKey ? p.dataset.port : 'auto')
     );
 
     container.appendChild(nodeEl);
