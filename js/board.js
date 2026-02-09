@@ -94,6 +94,7 @@ const CONNECTION_COLOR_PALETTE = [
     { name: 'Violet', hex: '#b691ff' }
 ];
 const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
+const EDGE_CONNECT_ZONE_PX = 14;
 
 function normalizeCaseName(name) {
     const cleaned = String(name || '').replace(/\s+/g, ' ').trim();
@@ -209,6 +210,29 @@ function getNodeLinkCount(nodeId) {
 
 function getNodeTypeLabel(type) {
     return NODE_TYPE_LABELS[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Node');
+}
+
+function getClosestEdgeFromLocalPoint(localX, localY, width, height, thresholdPx = EDGE_CONNECT_ZONE_PX) {
+    if (!Number.isFinite(localX) || !Number.isFinite(localY) || !Number.isFinite(width) || !Number.isFinite(height)) return null;
+    if (localX < 0 || localY < 0 || localX > width || localY > height) return null;
+
+    const distances = [
+        { edge: 'top', d: localY },
+        { edge: 'bottom', d: height - localY },
+        { edge: 'left', d: localX },
+        { edge: 'right', d: width - localX }
+    ];
+    distances.sort((a, b) => a.d - b.d);
+    if (distances[0].d > thresholdPx) return null;
+    return distances[0].edge;
+}
+
+function getNodeEdgeFromEvent(event, nodeEl, thresholdPx = EDGE_CONNECT_ZONE_PX) {
+    if (!event || !nodeEl || typeof nodeEl.getBoundingClientRect !== 'function') return null;
+    const rect = nodeEl.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    return getClosestEdgeFromLocalPoint(localX, localY, rect.width, rect.height, thresholdPx);
 }
 
 function connectionExistsBetween(nodeAId, nodeBId) {
@@ -892,7 +916,7 @@ function updatePhysics() {
         const basePtr = bufferIdx * BYTES_PER_CONN;
 
         // 1. Pin Endpoints (auto edge anchors based on center-to-center line)
-        const endpoints = getConnectionEndpointPositions(c1, c2);
+        const endpoints = getConnectionEndpointPositions(c1, c2, conn);
         const p1 = endpoints.from;
         const p2 = endpoints.to;
 
@@ -1135,7 +1159,8 @@ function updateLabelPos(conn, basePtr, alpha) {
     if ((conn.label || isEditing || hasCustomColor) && alpha > 0.1) {
         if (!el) el = createLabelDOM(conn);
         if (el) syncConnectionLabelColor(conn, el, el.querySelector('.wax-btn'));
-        el.style.transform = `translate(${x}px, ${y}px)`;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
         el.style.display = 'flex';
         el.style.opacity = alpha;
     } else if (el) {
@@ -1190,7 +1215,7 @@ function registerConnection(conn) {
     const c2 = nodeCache.get(conn.to);
 
     if (c1 && c2) {
-        const endpoints = getConnectionEndpointPositions(c1, c2);
+        const endpoints = getConnectionEndpointPositions(c1, c2, conn);
         const p1 = endpoints.from;
         const p2 = endpoints.to;
         const base = idx * BYTES_PER_CONN;
@@ -1275,15 +1300,26 @@ function getRectEdgePointTowards(nodeData, targetPoint) {
     };
 }
 
-function getConnectionEndpointPositions(nodeFrom, nodeTo) {
+function getConnectionEndpointPositions(nodeFrom, nodeTo, conn = null) {
     if (!nodeFrom || !nodeTo) {
         return { from: { x: 0, y: 0 }, to: { x: 0, y: 0 } };
     }
+
+    const fromPort = conn && typeof conn.fromPort === 'string' ? conn.fromPort : 'auto';
+    const toPort = conn && typeof conn.toPort === 'string' ? conn.toPort : 'auto';
+
+    if (fromPort !== 'auto' && toPort !== 'auto') {
+        return {
+            from: getPortPos(nodeFrom, fromPort),
+            to: getPortPos(nodeTo, toPort)
+        };
+    }
+
     const fromCenter = { x: nodeFrom.x + nodeFrom.w / 2, y: nodeFrom.y + nodeFrom.h / 2 };
     const toCenter = { x: nodeTo.x + nodeTo.w / 2, y: nodeTo.y + nodeTo.h / 2 };
     return {
-        from: getRectEdgePointTowards(nodeFrom, toCenter),
-        to: getRectEdgePointTowards(nodeTo, fromCenter)
+        from: fromPort === 'auto' ? getRectEdgePointTowards(nodeFrom, toCenter) : getPortPos(nodeFrom, fromPort),
+        to: toPort === 'auto' ? getRectEdgePointTowards(nodeTo, fromCenter) : getPortPos(nodeTo, toPort)
     };
 }
 
@@ -1382,7 +1418,9 @@ document.addEventListener('mouseup', (e) => {
         if (e.target && typeof e.target.closest === 'function') {
             const node = e.target.closest('.node');
             if (node) {
-                const port = e.target.classList.contains('port') ? e.target.dataset.port : null;
+                const port = e.target.classList.contains('port')
+                    ? e.target.dataset.port
+                    : getNodeEdgeFromEvent(e, node);
                 completeConnection(node, port);
             }
         }
@@ -1525,7 +1563,15 @@ function createNode(type, x, y, id = null, content = {}) {
 
     nodeEl.onmousedown = (e) => {
         if (e.target.classList.contains('port')) return;
-        if (!panMode) startDragNode(e, nodeEl);
+        if (panMode || e.button !== 0) return;
+
+        const edge = getNodeEdgeFromEvent(e, nodeEl);
+        if (edge) {
+            startConnectionDrag(e, nodeEl, edge);
+            return;
+        }
+
+        startDragNode(e, nodeEl);
     };
     nodeEl.oncontextmenu = (e) => showContextMenu(e, nodeEl);
     nodeEl.querySelectorAll('.port').forEach(p =>
@@ -2016,7 +2062,7 @@ function resetConnectionPhysicsFromNodeCache() {
         if (idx === undefined) return;
 
         sleepState[idx] = 1;
-        const endpoints = getConnectionEndpointPositions(n1, n2);
+        const endpoints = getConnectionEndpointPositions(n1, n2, conn);
         const p1 = endpoints.from;
         const p2 = endpoints.to;
         const base = idx * BYTES_PER_CONN;
