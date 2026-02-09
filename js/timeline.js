@@ -71,6 +71,7 @@
             highlights: document.getElementById('eventHighlights').value,
             fallout: document.getElementById('eventFallout').value,
             followUp: document.getElementById('eventFollow').value,
+            resolved: false,
             created: new Date().toISOString()
         };
         store.addEvent(data);
@@ -111,18 +112,31 @@
             .join('');
     }
 
+    function normalizeRecapText(value) {
+        if (!value) return '—';
+        const cleaned = String(value).trim();
+        if (!cleaned) return '—';
+        return cleaned.replace(/\s*\n+\s*/g, ' ');
+    }
+
     function buildEventCard(evt) {
         const heat = parseInt(evt.heatDelta, 10);
         const heatText = !isNaN(heat) && heat !== 0
             ? `<span class="tag-pill" style="border-color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}; color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}">Heat ${heat > 0 ? '+' : ''}${heat}</span>`
             : '';
         const focusDisplay = evt.focus ? `<span class="tag-pill">${escapeHtml(evt.focus)}</span>` : '';
+        const resolved = Boolean(evt.resolved);
+        const statusPill = `<span class="status-pill ${resolved ? 'resolved' : 'pending'}">${resolved ? 'Resolved' : 'Pending'}</span>`;
 
         return `
         <div class="event-card">
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
                     onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem;">
+                    <input type="checkbox" ${resolved ? 'checked' : ''} onchange="updateEventField('${evt.id}', 'resolved', this.checked)">
+                    ${statusPill}
+                </label>
             </div>
             <div class="event-meta">
                 <div>
@@ -165,10 +179,11 @@
         }
     }
 
-    function renderTimeline() {
+    function getFilteredEvents() {
         const store = getStore();
-        const container = document.getElementById('timelineList');
-        if (!store || !container) return;
+        if (!store) {
+            return { filtered: [], filters: null };
+        }
         const events = (store.getEvents() || []).slice();
         populateFocusFilter(events);
 
@@ -176,6 +191,7 @@
         const focusFilter = document.getElementById('eventFocusFilter').value;
         const sort = document.getElementById('eventSort').value;
         const impactOnly = document.getElementById('eventImpactOnly').checked;
+        const hideResolved = document.getElementById('eventHideResolved').checked;
 
         const filtered = events.filter(evt => {
             const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
@@ -183,7 +199,8 @@
             const matchesFocus = focusFilter ? evt.focus === focusFilter : true;
             const heat = parseInt(evt.heatDelta, 10);
             const matchesImpact = impactOnly ? (!isNaN(heat) && heat !== 0) || (evt.fallout && evt.fallout.trim()) : true;
-            return matchesSearch && matchesFocus && matchesImpact;
+            const matchesResolved = hideResolved ? !evt.resolved : true;
+            return matchesSearch && matchesFocus && matchesImpact && matchesResolved;
         });
 
         filtered.sort((a, b) => {
@@ -199,6 +216,80 @@
             }
             return bTime.localeCompare(aTime);
         });
+
+        return {
+            filtered,
+            filters: {
+                search,
+                focusFilter,
+                sort,
+                impactOnly
+            }
+        };
+    }
+
+    function buildExportRecap(events, filters) {
+        const lines = [];
+        lines.push('# Mission Timeline Recap');
+        lines.push(`Generated: ${new Date().toLocaleString()}`);
+        lines.push('');
+        lines.push('## Active Filters');
+        lines.push(`- Search: ${filters.search ? `"${filters.search}"` : 'None'}`);
+        lines.push(`- Focus: ${filters.focusFilter || 'All'}`);
+        lines.push(`- Sort: ${filters.sort}`);
+        lines.push(`- Impact only: ${filters.impactOnly ? 'Yes' : 'No'}`);
+        lines.push('');
+
+        events.forEach(evt => {
+            const title = normalizeRecapText(evt.title);
+            const focus = normalizeRecapText(evt.focus);
+            const heat = parseInt(evt.heatDelta, 10);
+            const heatDisplay = Number.isNaN(heat) ? '—' : `${heat > 0 ? '+' : ''}${heat}`;
+            lines.push(`### ${title}`);
+            lines.push(`- Focus: ${focus}`);
+            lines.push(`- Heat Δ: ${heatDisplay}`);
+            lines.push(`- Highlights: ${normalizeRecapText(evt.highlights)}`);
+            lines.push(`- Fallout: ${normalizeRecapText(evt.fallout)}`);
+            lines.push(`- Follow-up: ${normalizeRecapText(evt.followUp)}`);
+            lines.push('');
+        });
+
+        return lines.join('\n').trim() + '\n';
+    }
+
+    function triggerRecapDownload(text) {
+        const dateStamp = new Date().toISOString().slice(0, 10);
+        const blob = new Blob([text], { type: 'text/markdown' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `mission-timeline-recap-${dateStamp}.md`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(link.href), 500);
+    }
+
+    function exportTimelineRecap() {
+        const { filtered, filters } = getFilteredEvents();
+        if (!filters) return;
+        if (!filtered.length) {
+            alert('No matching events to export.');
+            return;
+        }
+        const recapText = buildExportRecap(filtered, filters);
+        triggerRecapDownload(recapText);
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(recapText).catch(() => {
+                // Clipboard may be blocked; download already started.
+            });
+        }
+    }
+
+    function renderTimeline() {
+        const container = document.getElementById('timelineList');
+        if (!container) return;
+        const { filtered } = getFilteredEvents();
 
         container.innerHTML = filtered.length
             ? filtered.map(buildEventCard).join('')
@@ -230,6 +321,7 @@
     window.updateEventField = updateEventField;
     window.deleteTimelineEvent = deleteTimelineEvent;
     window.setHeatAutoSync = setHeatAutoSync;
+    window.exportTimelineRecap = exportTimelineRecap;
 
     window.addEventListener('load', waitForStore);
 })();
