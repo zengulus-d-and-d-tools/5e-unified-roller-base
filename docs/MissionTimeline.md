@@ -13,7 +13,7 @@ Session chronicle for beats, fallout, and rolling heat. Designed for quick captu
 3. **Debrief** – After action, edit entries in place to mark rewards, note consequences, or flip the resolved status when fallout is handled.
 
 ## Tips
-- Mirror the Campaign Hub’s Heat value manually or copy the delta text into the hub to keep both views synchronized.
+- Toggle **Auto-sync Heat** in the filter bar to automatically apply event Heat deltas to the Campaign Hub heat meter (clamped 0–6). Disable it if your table prefers manual control.
 - Use tags like `fallout`, `intel`, or `debt` so searching weeks later is trivial.
 - Pair entries with Requisition or Encounter cards via consistent naming to reconstruct entire operations on demand.
 - Hide resolved entries during prep to keep the timeline focused on active leads.

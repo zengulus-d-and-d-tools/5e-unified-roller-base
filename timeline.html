@@ -216,6 +216,8 @@
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
                     <input type="checkbox" id="eventImpactOnly" onchange="renderTimeline()"> Heat / Fallout only
                 </label>
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
+                    <input type="checkbox" id="eventAutoHeat" onchange="setHeatAutoSync(this.checked)"> Auto-sync Heat
                 <button class="btn btn-dp" id="exportRecapBtn" onclick="exportTimelineRecap()">Export Recap</button>
                 <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem;">
                     <input type="checkbox" id="eventHideResolved" onchange="renderTimeline()"> Hide Resolved
