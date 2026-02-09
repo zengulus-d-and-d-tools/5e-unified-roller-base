@@ -69,6 +69,10 @@ function queueRollerStickyOffset() {
 window.addEventListener('resize', queueRollerStickyOffset);
 window.addEventListener('orientationchange', queueRollerStickyOffset);
 window.addEventListener('load', queueRollerStickyOffset);
+if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', queueRollerStickyOffset);
+    window.visualViewport.addEventListener('scroll', queueRollerStickyOffset);
+}
 queueRollerStickyOffset();
 
 function applySheetFlipState(isFlipped) {
