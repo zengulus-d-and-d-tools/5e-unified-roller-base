@@ -9,6 +9,56 @@ let gmData = {
     rollLevel: 1
 };
 
+const delegatedHandlerEvents = ['click', 'change', 'input'];
+const delegatedHandlerCache = new Map();
+let delegatedHandlersBound = false;
+
+function getDelegatedHandlerFn(code) {
+    if (!delegatedHandlerCache.has(code)) {
+        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+    }
+    return delegatedHandlerCache.get(code);
+}
+
+function runDelegatedHandler(el, attrName, event) {
+    const code = el.getAttribute(attrName);
+    if (!code) return;
+
+    try {
+        const result = getDelegatedHandlerFn(code).call(el, event);
+        if (result === false) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+    catch (err) {
+        console.error(`Delegated handler failed for ${attrName}:`, code, err);
+    }
+}
+
+function handleDelegatedDataEvent(event) {
+    const attrName = `data-on${event.type}`;
+    let node = event.target instanceof Element ? event.target : null;
+
+    while (node) {
+        if (node.hasAttribute(attrName)) {
+            runDelegatedHandler(node, attrName, event);
+            if (event.cancelBubble) break;
+        }
+        node = node.parentElement;
+    }
+}
+
+function bindDelegatedDataHandlers() {
+    if (delegatedHandlersBound) return;
+    delegatedHandlersBound = true;
+    delegatedHandlerEvents.forEach((eventName) => {
+        document.addEventListener(eventName, handleDelegatedDataEvent);
+    });
+}
+
+bindDelegatedDataHandlers();
+
 // ... existing vars ...
 
 // --- BESTIARY LOGIC ---
@@ -51,14 +101,17 @@ function renderBestiary() {
     const list = document.getElementById('bestiaryList');
     if (!list || !gmData.bestiary) return;
 
-    if (gmData.bestiary.length === 0) { list.innerHTML = '<div style="color:#666; font-style:italic; padding:10px;">No presets saved.</div>'; return; }
+    if (gmData.bestiary.length === 0) {
+        list.innerHTML = '<div class="gm-bestiary-empty">No presets saved.</div>';
+        return;
+    }
 
     list.innerHTML = gmData.bestiary.map((b, i) => `
-                <div style="display:flex; justify-content:space-between; align-items:center; background:#111; padding:8px; border-radius:6px; border:1px solid #333;">
-                    <span style="font-weight:bold; color:#ddd;">${b.name}</span>
-                    <div style="display:flex; gap:5px;">
-                        <button class="btn-sec btn-sm" onclick="loadMobPreset(${i})">Load</button>
-                        <button class="btn-danger btn-sm" onclick="delMobPreset(${i})">&times;</button>
+                <div class="gm-bestiary-item">
+                    <span class="gm-bestiary-item-name">${b.name}</span>
+                    <div class="gm-bestiary-item-actions">
+                        <button class="btn-sec btn-sm" data-onclick="loadMobPreset(${i})">Load</button>
+                        <button class="btn-danger btn-sm" data-onclick="delMobPreset(${i})">&times;</button>
                     </div>
                 </div>
             `).join('');
@@ -369,7 +422,14 @@ function genMobs() {
     sortCombat();
     saveGM();
     renderCombat();
-    document.getElementById('mobBody').style.display = 'none';
+    const mobBody = document.getElementById('mobBody');
+    if (mobBody) mobBody.classList.remove('open');
+}
+
+function toggleMobBody() {
+    const mobBody = document.getElementById('mobBody');
+    if (!mobBody) return;
+    mobBody.classList.toggle('open');
 }
 
 function renderCombat() {
@@ -380,12 +440,12 @@ function renderCombat() {
         const activeClass = (i === gmData.activeIdx) ? 'active' : '';
         let hpHtml = '';
         if (c.hp !== null) {
-            const bloodied = (c.hp <= c.maxHp / 2) ? 'color:#e74c3c;' : 'color:#2ecc71;';
+            const bloodiedClass = (c.hp <= c.maxHp / 2) ? 'hp-bloodied' : 'hp-healthy';
             hpHtml = `
                     <div class="hp-controls">
-                        <button class="btn-dmg-qs" onclick="modHP(${i}, -1)">-1</button>
-                        <button class="btn-dmg-qs" onclick="modHP(${i}, -5)">-5</button>
-                        <div class="hp-display" style="${bloodied}" onclick="setHP(${i})">${c.hp}</div>
+                        <button class="btn-dmg-qs" data-onclick="modHP(${i}, -1)">-1</button>
+                        <button class="btn-dmg-qs" data-onclick="modHP(${i}, -5)">-5</button>
+                        <div class="hp-display ${bloodiedClass}" data-onclick="setHP(${i})">${c.hp}</div>
                     </div>
                 `;
         }
@@ -398,11 +458,11 @@ function renderCombat() {
                 </div>
                 <div class="name-box">
                     <div class="name-main">${c.name}</div>
-                    ${activeClass ? '<div class="name-meta" style="color:var(--accent);">Taking Turn...</div>' : ''}
+                    ${activeClass ? '<div class="name-meta name-meta-active">Taking Turn...</div>' : ''}
                 </div>
-                <div style="display:flex; align-items:center;">
+                <div class="combat-actions">
                     ${hpHtml}
-                    <button class="btn-del" onclick="delCombatant(${i})">&times;</button>
+                    <button class="btn-del" data-onclick="delCombatant(${i})">&times;</button>
                 </div>
             </div>
             `;
@@ -472,12 +532,17 @@ function renderConditions() {
     const div = document.getElementById('conditionsList');
     div.innerHTML = Object.keys(conditions).map(k => `
             <div>
-                <button class="accordion-btn" onclick="this.nextElementSibling.classList.toggle('show')">${k}</button>
+                <button class="accordion-btn" data-onclick="toggleConditionBody(this)">${k}</button>
                 <div class="accordion-body">
                     <span class="cond-tag">${k.toUpperCase()}</span> ${conditions[k]}
                 </div>
             </div>
         `).join('');
+}
+
+function toggleConditionBody(buttonEl) {
+    const bodyEl = buttonEl ? buttonEl.nextElementSibling : null;
+    if (bodyEl) bodyEl.classList.toggle('show');
 }
 
 function genLoot(type) {
@@ -537,11 +602,13 @@ function genLoot(type) {
     }
 }
 
-function switchTab(id) {
+function switchTab(id, triggerEvent) {
     document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + id).classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    if (triggerEvent && triggerEvent.currentTarget) {
+        triggerEvent.currentTarget.classList.add('active');
+    }
 }
 
 init();

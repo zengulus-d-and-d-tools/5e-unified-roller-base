@@ -22,6 +22,53 @@
 
     const rand = (arr) => arr[Math.floor(Math.random() * arr.length)];
     const d = (n) => Math.floor(Math.random() * n) + 1;
+    const delegatedHandlerEvents = ['click', 'change', 'input'];
+    const delegatedHandlerCache = new Map();
+    let delegatedHandlersBound = false;
+
+    function getDelegatedHandlerFn(code) {
+        if (!delegatedHandlerCache.has(code)) {
+            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        }
+        return delegatedHandlerCache.get(code);
+    }
+
+    function runDelegatedHandler(el, attrName, event) {
+        const code = el.getAttribute(attrName);
+        if (!code) return;
+
+        try {
+            const result = getDelegatedHandlerFn(code).call(el, event);
+            if (result === false) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }
+        catch (err) {
+            console.error(`Delegated handler failed for ${attrName}:`, code, err);
+        }
+    }
+
+    function handleDelegatedDataEvent(event) {
+        const attrName = `data-on${event.type}`;
+        let node = event.target instanceof Element ? event.target : null;
+
+        while (node) {
+            if (node.hasAttribute(attrName)) {
+                runDelegatedHandler(node, attrName, event);
+                if (event.cancelBubble) break;
+            }
+            node = node.parentElement;
+        }
+    }
+
+    function bindDelegatedDataHandlers() {
+        if (delegatedHandlersBound) return;
+        delegatedHandlersBound = true;
+        delegatedHandlerEvents.forEach((eventName) => {
+            document.addEventListener(eventName, handleDelegatedDataEvent);
+        });
+    }
 
     function setText(id, html) {
         console.log("setText called for id:", id);
@@ -102,9 +149,9 @@
         const res = npcs[roll];
         const g = rand(guilds.length ? guilds : ['Unknown Faction']);
         setText('out-npc', `
-            <div class="out-main"><span style="color:var(--accent)">${g}</span> NPC</div>
-            <div style="margin-top:5px; font-size:0.9rem;"><strong>Wants:</strong> ${res.w}</div>
-            <div style="margin-top:2px; font-size:0.9rem;"><strong>Leverage:</strong> ${res.l}</div>
+            <div class="out-main"><span class="dm-npc-guild">${g}</span> NPC</div>
+            <div class="dm-sub-line dm-sub-line-wants"><strong>Wants:</strong> ${res.w}</div>
+            <div class="dm-sub-line"><strong>Leverage:</strong> ${res.l}</div>
         `);
     }
 
@@ -129,7 +176,7 @@
         setText('out-hazard', `
             <div class="out-main out-heat">${s.n}</div>
             <div class="out-sub">${s.e}</div>
-            <div class="out-sub" style="margin-top:4px;">Roll: ${roll}</div>
+            <div class="out-sub dm-roll-line">Roll: ${roll}</div>
         `);
     }
 
@@ -145,7 +192,7 @@
         setText('out-paper', `
             <div class="out-main">${p.n}</div>
             <div class="out-sub">Tone: ${p.t}</div>
-            <div class="${cls}" style="font-weight:bold; font-size:0.8rem; margin-top:5px;">${p.e}</div>
+            <div class="${cls} dm-paper-effect">${p.e}</div>
         `);
     }
 
@@ -166,14 +213,16 @@
             console.log("Filling accordion content for:", id);
             if (id === 'clue-ref') {
                 body.innerHTML = clueSigs.map(c => `
-                    <tr><td class="ref-hl">${c.g}</td><td><span class="clue-type">PHYSICAL:</span> ${c.p}<br><span class="clue-type" style="margin-top:4px;">SOCIAL:</span> ${c.s}<br><span class="clue-type" style="margin-top:4px; color:var(--accent-dim); text-shadow:0 0 1px var(--accent);">ARCANE:</span> ${c.a}</td></tr>
+                    <tr><td class="ref-hl">${c.g}</td><td><span class="clue-type">PHYSICAL:</span> ${c.p}<br><span class="clue-type dm-clue-type-gap">SOCIAL:</span> ${c.s}<br><span class="clue-type dm-clue-type-arcane">ARCANE:</span> ${c.a}</td></tr>
                 `).join('');
             } else if (id === 'guild-ref') {
-                body.innerHTML = guildRefs.map(g => `<tr><td class="ref-hl">${g.n}</td><td>${g.j}</td><td style="color:#fff;">${g.b}</td></tr>`).join('');
+                body.innerHTML = guildRefs.map(g => `<tr><td class="ref-hl">${g.n}</td><td>${g.j}</td><td class="dm-guild-perk">${g.b}</td></tr>`).join('');
             }
         }
         el.classList.toggle('open');
     }
+
+    bindDelegatedDataHandlers();
 
     // Expose to window explicitly
     window.genStreetScene = genStreetScene;

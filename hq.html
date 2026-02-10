@@ -30,11 +30,11 @@
                     <button id="btn-screenshot" class="btn hero-btn accent">Take Screenshot</button>
                 </div>
                 <div class="action-bar hero-action-bar secondary">
-                    <button class="btn hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="btn hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="btn hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="btn hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
-                <input type="color" id="accent-picker-input" style="position:absolute; opacity:0; pointer-events:none;"
-                    onchange="setAccentColor(this.value)">
+                <input type="color" id="accent-picker-input" class="hq-accent-picker-input"
+                    data-onchange="setAccentColor(this.value)">
             </div>
         </header>
 

@@ -75,6 +75,66 @@ if (window.visualViewport) {
 }
 queueRollerStickyOffset();
 
+const delegatedHandlerEvents = [
+    'click',
+    'change',
+    'input',
+    'keydown',
+    'dragstart',
+    'dragend',
+    'dragover',
+    'dragleave',
+    'drop'
+];
+const delegatedHandlerCache = new Map();
+let delegatedHandlersBound = false;
+
+function getDelegatedHandlerFn(code) {
+    if (!delegatedHandlerCache.has(code)) {
+        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+    }
+    return delegatedHandlerCache.get(code);
+}
+
+function runDelegatedHandler(el, attrName, event) {
+    const code = el.getAttribute(attrName);
+    if (!code) return;
+
+    try {
+        const result = getDelegatedHandlerFn(code).call(el, event);
+        if (result === false) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+    catch (err) {
+        console.error(`Delegated handler failed for ${attrName}:`, code, err);
+    }
+}
+
+function handleDelegatedDataEvent(event) {
+    const attrName = `data-on${event.type}`;
+    let node = event.target instanceof Element ? event.target : null;
+
+    while (node) {
+        if (node.hasAttribute(attrName)) {
+            runDelegatedHandler(node, attrName, event);
+            if (event.cancelBubble) break;
+        }
+        node = node.parentElement;
+    }
+}
+
+function bindDelegatedDataHandlers() {
+    if (delegatedHandlersBound) return;
+    delegatedHandlersBound = true;
+    delegatedHandlerEvents.forEach((eventName) => {
+        document.addEventListener(eventName, handleDelegatedDataEvent);
+    });
+}
+
+bindDelegatedDataHandlers();
+
 function applySheetFlipState(isFlipped) {
     if (!data.uiState) data.uiState = {}
 
@@ -1091,7 +1151,7 @@ function renderAcList() {
     list.innerHTML = data.ac.bonuses.map((b, i) => ` <div class="ac-row ${b.active ? '' : 'inactive'}" > <label class="toggle-switch" ><input type="checkbox"${b.active ? 'checked' : ''
         }
 
-                onchange="toggleAcBonus(${i})" ><span class="slider" ></span></label> <input type="text" value="${b.name}" placeholder="Source (Shield)" onchange="updateAcBonus(${i}, 'name', this.value)" > <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" onchange="updateAcBonus(${i}, 'val', this.value)" > <button class="btn-del" style="margin-left:auto;" onclick="delAcBonus(${i})" >&times; </button> </div> `).join('');
+                data-onchange="toggleAcBonus(${i})" ><span class="slider" ></span></label> <input type="text" value="${b.name}" placeholder="Source (Shield)" data-onchange="updateAcBonus(${i}, 'name', this.value)" > <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" data-onchange="updateAcBonus(${i}, 'val', this.value)" > <button class="btn-del js-ml-auto" data-onclick="delAcBonus(${i})" >&times; </button> </div> `).join('');
 }
 
 function addAcBonus() {
@@ -1591,10 +1651,10 @@ function renderStats() {
     document.getElementById('statsGrid').innerHTML = stats.map(s => ` <div class="stat-card" > <h3>${s.toUpperCase()
         }
 
-                </h3> <input type="number" class="score-input" value="${data.stats[s].val}" onchange="updateStat('${s}', this.value)" > <div class="mod-display" id="mod-${s}" >+0</div> <div class="save-prof" onclick="toggleSave('${s}', event)" ><input type="checkbox"${data.stats[s].save ? 'checked' : ''
+                </h3> <input type="number" class="score-input" value="${data.stats[s].val}" data-onchange="updateStat('${s}', this.value)" > <div class="mod-display" id="mod-${s}" >+0</div> <div class="save-prof" data-onclick="toggleSave('${s}', event)" ><input type="checkbox"${data.stats[s].save ? 'checked' : ''
         }
 
-                > Def Prof</div> <div class="defense-box" ><div class="defense-val" id="def-${s}" >11</div></div> <div class="stat-btn-row" > <button class="btn-sm-roll" onclick="rollCheck('${s}')" >Check</button> <button class="btn-sm-save" onclick="rollSave('${s}')" >Save</button> </div> </div> `).join('');
+                > Def Prof</div> <div class="defense-box" ><div class="defense-val" id="def-${s}" >11</div></div> <div class="stat-btn-row" > <button class="btn-sm-roll" data-onclick="rollCheck('${s}')" >Check</button> <button class="btn-sm-save" data-onclick="rollSave('${s}')" >Save</button> </div> </div> `).join('');
 }
 
 function renderSkills() {
@@ -1610,16 +1670,16 @@ function renderSkills() {
         // NEW: Get saved misc value
         const miscVal = (data.skillMisc && data.skillMisc[s]) ? data.skillMisc[s] : "";
 
-        return ` <div class="skill-row" > <span class="prof-toggle ${cls}" onclick="cycleSkill('${s}')" >${icon
+        return ` <div class="skill-row" > <span class="prof-toggle ${cls}" data-onclick="cycleSkill('${s}')" >${icon
             }
 
-                    </span> <span class="skill-attr ${isOverridden ? 'overridden' : ''}" onclick="cycleSkillAttr('${s}')" title="Click to change Attribute" >${activeStat.toUpperCase().substr(0, 3)
+                    </span> <span class="skill-attr ${isOverridden ? 'overridden' : ''}" data-onclick="cycleSkillAttr('${s}')" title="Click to change Attribute" >${activeStat.toUpperCase().substr(0, 3)
             }
 
                     </span> <span class="skill-name" >${s.charAt(0).toUpperCase() + s.slice(1)
             }
 
-                    </span> <span style="font-weight:bold; color:#ddd;" id="skill-bonus-${s}" >+0</span> <input type="text" class="skill-misc" placeholder="+0" value="${miscVal}" onchange="updateSkillMisc('${s}', this.value)" title="Enter flat bonus (2) or stat name (cha)" > <button class="btn-roll-skill" onclick="rollSkill('${s}')" >🎲</button> </div>`;
+                    </span> <span class="skill-bonus" id="skill-bonus-${s}" >+0</span> <input type="text" class="skill-misc" placeholder="+0" value="${miscVal}" data-onchange="updateSkillMisc('${s}', this.value)" title="Enter flat bonus (2) or stat name (cha)" > <button class="btn-roll-skill" data-onclick="rollSkill('${s}')" >🎲</button> </div>`;
     }).join('');
 }
 
@@ -1646,7 +1706,7 @@ function getSkillMiscBonus(skill) {
 }
 
 function renderAttacks() {
-    document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${atk.name}" onchange="updateAttack(${i}, 'name', this.value)" > <div class="atk-stats-line" > <input type="text" placeholder="1d8" value="${atk.dmg}" onchange="updateAttack(${i}, 'dmg', this.value)" > <select onchange="updateAttack(${i}, 'stat', this.value)" > <option value="none"${atk.stat === 'none' ? 'selected' : ''
+    document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${atk.name}" data-onchange="updateAttack(${i}, 'name', this.value)" > <div class="atk-stats-line" > <input type="text" placeholder="1d8" value="${atk.dmg}" data-onchange="updateAttack(${i}, 'dmg', this.value)" > <select data-onchange="updateAttack(${i}, 'stat', this.value)" > <option value="none"${atk.stat === 'none' ? 'selected' : ''
         }
 
                 >NONE</option> ${stats.map(s => `<option value="${s}"${atk.stat === s ? 'selected' : ''
@@ -1658,17 +1718,17 @@ function renderAttacks() {
                         </option>`).join('')
         }
 
-                </select> </div> <textarea class="atk-desc" placeholder="Attack description / effect..." onchange="updateAttack(${i}, 'desc', this.value)" >${atk.desc || ''
+                </select> </div> <textarea class="atk-desc" placeholder="Attack description / effect..." data-onchange="updateAttack(${i}, 'desc', this.value)" >${atk.desc || ''
         }
 
-                </textarea> <div class="atk-controls" > <button style="background:var(--accent); color:#000;" onclick="rollAttack(${i})" >Atk</button> <button style="background:#333; color:#ccc; border:1px solid #444;" onclick="rollDamage(${i})" >Dmg</button> <button style="background:transparent; color:#666; font-size:1.5rem;" onclick="delAttack(${i})" >&times; </button> </div> </div> `).join('');
+                </textarea> <div class="atk-controls" > <button class="atk-btn-atk" data-onclick="rollAttack(${i})" >Atk</button> <button class="atk-btn-dmg" data-onclick="rollDamage(${i})" >Dmg</button> <button class="atk-btn-del" data-onclick="delAttack(${i})" >&times; </button> </div> </div> `).join('');
 }
 
 function renderFeatures() {
-    document.getElementById('featureList').innerHTML = data.features.map((feat, i) => ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${feat.name}" onchange="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc" style="min-height:60px;" placeholder="Feature description..." onchange="updateFeature(${i}, 'desc', this.value)" >${feat.desc || ''
+    document.getElementById('featureList').innerHTML = data.features.map((feat, i) => ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${feat.name}" data-onchange="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc feat-desc" placeholder="Feature description..." data-onchange="updateFeature(${i}, 'desc', this.value)" >${feat.desc || ''
         }
 
-                </textarea> <div class="atk-controls" style="grid-template-columns: 1fr auto;" > <button style="background:var(--accent-feat); color:#fff;" onclick="postFeature(${i})" >📢 Post to Chat</button> <button style="background:transparent; color:#666; font-size:1.5rem;" onclick="delFeature(${i})" >&times; </button> </div> </div> `).join('');
+                </textarea> <div class="atk-controls feat-controls" > <button class="feat-post-btn" data-onclick="postFeature(${i})" >📢 Post to Chat</button> <button class="atk-btn-del" data-onclick="delFeature(${i})" >&times; </button> </div> </div> `).join('');
 }
 
 function renderSpells() {
@@ -1680,7 +1740,7 @@ function renderSpells() {
 
         for (let i = 0; i < slot.max; i++) {
             const isUsed = i < slot.used;
-            bubblesHtml += `<div class="bubble ${isUsed ? 'used' : ''}" onclick="toggleSpellSlot(${idx}, ${i})" ></div>`;
+            bubblesHtml += `<div class="bubble ${isUsed ? 'used' : ''}" data-onclick="toggleSpellSlot(${idx}, ${i})" ></div>`;
         }
 
         const div = document.createElement('div');
@@ -1689,7 +1749,7 @@ function renderSpells() {
         div.innerHTML = ` <div class="spell-lvl" >Lvl ${slot.lvl
             }
 
-                    </div> <input type="number" class="spell-max" value="${slot.max}" placeholder="0" onchange="updateSpellMax(${idx}, this.value)" > <div class="spell-bubbles" >${bubblesHtml
+                    </div> <input type="number" class="spell-max" value="${slot.max}" placeholder="0" data-onchange="updateSpellMax(${idx}, this.value)" > <div class="spell-bubbles" >${bubblesHtml
             }
 
                     </div> `;
@@ -1764,7 +1824,7 @@ function renderResources() {
         if (display === 'bar') {
             let pct = 0; if (res.max > 0) pct = (res.curr / res.max) * 100;
             if (pct > 100) pct = 100;
-            vizHtml = `<div class="res-viz-bar" onclick="setResValue(${i})" ><div class="res-bar-fill" style="width:${pct}%" ></div></div>`;
+            vizHtml = `<div class="res-viz-bar" data-onclick="setResValue(${i})" ><div class="res-bar-fill" data-res-fill="${pct}" ></div></div>`;
         }
 
         else if (display === 'bubble') {
@@ -1772,7 +1832,7 @@ function renderResources() {
 
             for (let b = 0; b < res.max; b++) {
                 const filled = b < res.curr ? 'filled' : '';
-                bubbles += `<div class="res-bubble-item ${filled}" onclick="toggleResBubble(${i}, ${b})" ></div>`;
+                bubbles += `<div class="res-bubble-item ${filled}" data-onclick="toggleResBubble(${i}, ${b})" ></div>`;
             }
 
             vizHtml = `<div class="res-viz-bubbles" >${bubbles
@@ -1781,7 +1841,7 @@ function renderResources() {
                         </div>`;
         }
 
-        return ` <div class="resource-row" > <div class="res-top" > <input type="text" class="res-name" placeholder="Resource Name" value="${res.name}" onchange="updateRes(${i}, 'name', this.value)" > <select class="res-style-select" onchange="updateRes(${i}, 'display', this.value)" > <option value="none"${display === 'none' ? 'selected' : ''
+        return ` <div class="resource-row" > <div class="res-top" > <input type="text" class="res-name" placeholder="Resource Name" value="${res.name}" data-onchange="updateRes(${i}, 'name', this.value)" > <select class="res-style-select" data-onchange="updateRes(${i}, 'display', this.value)" > <option value="none"${display === 'none' ? 'selected' : ''
             }
 
                     >None</option> <option value="bubble"${display === 'bubble' ? 'selected' : ''
@@ -1790,10 +1850,10 @@ function renderResources() {
                     >Bubbles</option> <option value="bar"${display === 'bar' ? 'selected' : ''
             }
 
-                    >Bar</option> </select> <button class="btn-del-res" onclick="delRes(${i})" >&times; </button> </div> <div class="res-controls-row" > <button class="btn-res-mod btn-res-minus" onclick="modifyRes(${i}, -1)" >-</button> <input type="number" class="res-val" value="${res.curr}" onchange="updateRes(${i}, 'curr', this.value)" > <span class="res-sep" >/</span> <input type="number" class="res-val" value="${res.max}" onchange="updateRes(${i}, 'max', this.value)" > <button class="btn-res-mod btn-res-plus" onclick="modifyRes(${i}, 1)" >+</button> </div> ${vizHtml
+                    >Bar</option> </select> <button class="btn-del-res" data-onclick="delRes(${i})" >&times; </button> </div> <div class="res-controls-row" > <button class="btn-res-mod btn-res-minus" data-onclick="modifyRes(${i}, -1)" >-</button> <input type="number" class="res-val" value="${res.curr}" data-onchange="updateRes(${i}, 'curr', this.value)" > <span class="res-sep" >/</span> <input type="number" class="res-val" value="${res.max}" data-onchange="updateRes(${i}, 'max', this.value)" > <button class="btn-res-mod btn-res-plus" data-onclick="modifyRes(${i}, 1)" >+</button> </div> ${vizHtml
             }
 
-                    <div class="res-bottom" > <select class="res-reset-select" onchange="updateRes(${i}, 'rest', this.value)" > <option value="none"${rest === 'none' ? 'selected' : ''
+                    <div class="res-bottom" > <select class="res-reset-select" data-onchange="updateRes(${i}, 'rest', this.value)" > <option value="none"${rest === 'none' ? 'selected' : ''
             }
 
                     >Manual Reset</option> <option value="sr"${rest === 'sr' ? 'selected' : ''
@@ -1802,14 +1862,20 @@ function renderResources() {
                     >Reset: Short Rest</option> <option value="lr"${rest === 'lr' ? 'selected' : ''
             }
 
-                    >Reset: Long Rest</option> </select> <label style="display:flex; align-items:center; gap:4px; margin:0 8px; font-size:1.2rem; cursor:pointer;" title="Enable Dice Recharge" > 🎲 <input type="checkbox"${res.rCheck ? 'checked' : ''
+                    >Reset: Long Rest</option> </select> <label class="res-recharge-toggle" title="Enable Dice Recharge" > 🎲 <input type="checkbox"${res.rCheck ? 'checked' : ''
             }
 
-                    onchange="updateRes(${i}, 'rCheck', this.checked)" > </label> ${res.rCheck ? ` <input type="text" style="width:60px !important; height:35px; text-align:center;" placeholder="1d6" value="${res.rFormula || '1d6'}" onchange="updateRes(${i}, 'rFormula', this.value)" > <button class="btn-res-roll" onclick="rollResRecharge(${i})" >Recharge</button> ` : ''
+                    data-onchange="updateRes(${i}, 'rCheck', this.checked)" > </label> ${res.rCheck ? ` <input type="text" class="res-recharge-input" placeholder="1d6" value="${res.rFormula || '1d6'}" data-onchange="updateRes(${i}, 'rFormula', this.value)" > <button class="btn-res-roll" data-onclick="rollResRecharge(${i})" >Recharge</button> ` : ''
             }
 
                     </div> </div> `
     }).join('');
+
+    list.querySelectorAll('.res-bar-fill[data-res-fill]').forEach((fillEl) => {
+        const pct = parseFloat(fillEl.getAttribute('data-res-fill') || '0');
+        const safePct = Number.isFinite(pct) ? Math.max(0, Math.min(100, pct)) : 0;
+        fillEl.style.width = `${safePct}%`;
+    });
 }
 
 // --- INVENTORY MANAGEMENT ---
@@ -1860,22 +1926,22 @@ function renderInventoryContainerCard(container) {
     return `<div class="inventory-container-card" data-container-id="${container.id}">
         <div class="inventory-card-header">
             <div class="inventory-card-title-row">
-                <span class="inventory-drag-handle" draggable="true" ondragstart="onInventoryContainerDragStart(event, '${container.id}')" ondragend="onInventoryDragEnd()">⠿</span>
-                <input type="text" value="${safeName}" placeholder="Container Name" oninput="renameContainer('${container.id}', this.value)">
+                <span class="inventory-drag-handle" draggable="true" data-ondragstart="onInventoryContainerDragStart(event, '${container.id}')" data-ondragend="onInventoryDragEnd()">⠿</span>
+                <input type="text" value="${safeName}" placeholder="Container Name" data-oninput="renameContainer('${container.id}', this.value)">
             </div>
             <div class="inventory-card-controls">
-                <button type="button" class="inventory-delete-btn" onclick="deleteContainer('${container.id}')">&times;</button>
+                <button type="button" class="inventory-delete-btn" data-onclick="deleteContainer('${container.id}')">&times;</button>
             </div>
         </div>
         <div class="inventory-card-body">
-            <div class="inventory-items" data-empty="${validItems.length === 0 ? 'true' : 'false'}" ondragover="allowInventoryItemDrop(event)" ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryItemDrop(event, '${container.id}')">
+            <div class="inventory-items" data-empty="${validItems.length === 0 ? 'true' : 'false'}" data-ondragover="allowInventoryItemDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryItemDrop(event, '${container.id}')">
                 ${itemsHtml}
                 <div class="inventory-add-item">
-                    <input type="text" id="addItemInput-${container.id}" placeholder="Add item" onkeydown="handleInventoryInputEnter(event, '${container.id}')">
-                    <button type="button" onclick="handleContainerAddItem('${container.id}')">Add</button>
+                    <input type="text" id="addItemInput-${container.id}" placeholder="Add item" data-onkeydown="handleInventoryInputEnter(event, '${container.id}')">
+                    <button type="button" data-onclick="handleContainerAddItem('${container.id}')">Add</button>
                 </div>
             </div>
-            <div class="inventory-children" data-empty="${childEmpty ? 'true' : 'false'}" ondragover="allowInventoryContainerDrop(event)" ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryContainerNest(event, '${container.id}')">
+            <div class="inventory-children" data-empty="${childEmpty ? 'true' : 'false'}" data-ondragover="allowInventoryContainerDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryContainerNest(event, '${container.id}')">
                 ${childHtml}
             </div>
         </div>
@@ -1887,19 +1953,19 @@ function renderInventoryItem(item) {
     const safeName = escapeHtml(item.name || 'Item');
     const qty = Math.max(0, parseInt(item.quantity, 10) || 0);
     return `<div class="inventory-item" data-item-id="${item.id}">
-        <span class="inventory-drag-handle" draggable="true" ondragstart="onInventoryItemDragStart(event, '${item.id}')" ondragend="onInventoryDragEnd()">⠿</span>
-        <input type="text" value="${safeName}" placeholder="Item Name" oninput="renameItem('${item.id}', this.value)">
+        <span class="inventory-drag-handle" draggable="true" data-ondragstart="onInventoryItemDragStart(event, '${item.id}')" data-ondragend="onInventoryDragEnd()">⠿</span>
+        <input type="text" value="${safeName}" placeholder="Item Name" data-oninput="renameItem('${item.id}', this.value)">
         <div class="inventory-qty-control">
-            <button type="button" class="inventory-qty-btn" onclick="adjustItemQuantity('${item.id}', -1)" aria-label="Decrease quantity">-</button>
-            <input type="number" class="inventory-qty-input" min="0" value="${qty}" onchange="setItemQuantity('${item.id}', this.value)" aria-label="Item quantity">
-            <button type="button" class="inventory-qty-btn" onclick="adjustItemQuantity('${item.id}', 1)" aria-label="Increase quantity">+</button>
+            <button type="button" class="inventory-qty-btn" data-onclick="adjustItemQuantity('${item.id}', -1)" aria-label="Decrease quantity">-</button>
+            <input type="number" class="inventory-qty-input" min="0" value="${qty}" data-onchange="setItemQuantity('${item.id}', this.value)" aria-label="Item quantity">
+            <button type="button" class="inventory-qty-btn" data-onclick="adjustItemQuantity('${item.id}', 1)" aria-label="Increase quantity">+</button>
         </div>
-        <button type="button" class="inventory-delete-btn" onclick="deleteItem('${item.id}')">&times;</button>
+        <button type="button" class="inventory-delete-btn" data-onclick="deleteItem('${item.id}')">&times;</button>
     </div>`;
 }
 
 function renderContainerDropSlot(parentId, index) {
-    return `<div class="inventory-drop-slot" data-parent-id="${parentId}" data-drop-index="${index}" ondragover="allowInventoryContainerDrop(event)" ondragleave="onInventoryDropLeave(event)" ondrop="onInventoryContainerDrop(event, '${parentId}', '${index}')"></div>`;
+    return `<div class="inventory-drop-slot" data-parent-id="${parentId}" data-drop-index="${index}" data-ondragover="allowInventoryContainerDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryContainerDrop(event, '${parentId}', '${index}')"></div>`;
 }
 
 function createContainer(parentId = null) {
@@ -2819,7 +2885,7 @@ function renderStatPool() {
         const isAssigned = Object.values(ccAssigned).includes(i); // We store index in assigned
         return `<div class="stat-val-chip ${isAssigned ? 'assigned' : ''} ${ccSelectedValIdx === i ? 'selected' : ''}"
 
-                    onclick="selectPoolVal(${i})" >${val
+                    data-onclick="selectPoolVal(${i})" >${val
             }
 
                     </div>`;
@@ -2848,7 +2914,7 @@ function renderAssignRows() {
         return ` <div class="assign-row" > <span class="assign-stat-label" >${s.toUpperCase()
             }
 
-                    </span> <div class="assign-target ${assignedIdx !== null ? 'filled' : ''}" onclick="assignToStat('${s}')" > ${displayVal
+                    </span> <div class="assign-target ${assignedIdx !== null ? 'filled' : ''}" data-onclick="assignToStat('${s}')" > ${displayVal
             }
 
                     </div> </div>`;
@@ -2875,7 +2941,7 @@ function ccUpdateHPPreview() {
     const isAuto = document.getElementById('ccAutoHP').checked;
 
     if (!isAuto) {
-        document.getElementById('ccHpPreview').innerHTML = 'Calculated Max HP: <span style="font-weight:normal">Manual</span>';
+        document.getElementById('ccHpPreview').innerHTML = 'Calculated Max HP: <span class="cc-hp-manual">Manual</span>';
         return;
     }
 
@@ -2895,7 +2961,7 @@ function ccUpdateHPPreview() {
     let max = (hd + conMod + bonus) + ((lvl - 1) * (avg + conMod + bonus));
     max = Math.max(1, max);
 
-    document.getElementById('ccHpPreview').innerHTML = `Calculated Max HP: <span style="color:var(--hp-max); font-weight:bold; font-size:1.1rem;">${max
+    document.getElementById('ccHpPreview').innerHTML = `Calculated Max HP: <span class="cc-hp-max">${max
         }</span> (Con Mod: ${conMod >= 0 ? '+' : ''}${conMod})`;
 }
 
@@ -2903,16 +2969,16 @@ function ccUpdateHPPreview() {
 function renderCCRaceFeats() {
     const list = document.getElementById('ccRaceFeatsList');
     if (ccRaceFeats.length === 0) {
-        list.innerHTML = '<div style="color:#666; font-style:italic;">No traits added.</div>';
+        list.innerHTML = '<div class="cc-empty">No traits added.</div>';
         return;
     }
     list.innerHTML = ccRaceFeats.map((f, i) => `
                 <div class="cc-feat-item">
                     <div>
                         <strong>${f.name}</strong>
-                        <div style="color:#aaa;">${f.desc}</div>
+                        <div class="cc-feat-desc">${f.desc}</div>
                     </div>
-                    <button class="cc-feat-btn" onclick="removeCcFeat('race', ${i})">&times;</button>
+                    <button class="cc-feat-btn" data-onclick="removeCcFeat('race', ${i})">&times;</button>
                 </div>
             `).join('');
 }
@@ -2957,16 +3023,16 @@ function removeCcFeat(type, idx) {
 function renderCCClassFeats() {
     const list = document.getElementById('ccClassFeatsList');
     if (ccClassFeats.length === 0) {
-        list.innerHTML = '<div style="color:#666; font-style:italic;">No features added.</div>';
+        list.innerHTML = '<div class="cc-empty">No features added.</div>';
         return;
     }
     list.innerHTML = ccClassFeats.map((f, i) => `
                 <div class="cc-feat-item">
                     <div>
                         <strong>${f.name}</strong>
-                        <div style="color:#aaa;">${f.desc}</div>
+                        <div class="cc-feat-desc">${f.desc}</div>
                     </div>
-                    <button class="cc-feat-btn" onclick="removeCcFeat('class', ${i})">&times;</button>
+                    <button class="cc-feat-btn" data-onclick="removeCcFeat('class', ${i})">&times;</button>
                 </div>
             `).join('');
 }
@@ -2975,9 +3041,9 @@ function renderCCSkills() {
     const container = document.getElementById('ccValidSkills');
     container.innerHTML = Object.keys(skillsMap).map(s => {
         const isSel = ccSelectedSkills.has(s);
-        return `<div class="skill-select-item ${isSel ? 'selected' : ''}" onclick="toggleCCSkill('${s}')">
+        return `<div class="skill-select-item ${isSel ? 'selected' : ''}" data-onclick="toggleCCSkill('${s}')">
                     <span>${s.charAt(0).toUpperCase() + s.slice(1)}</span>
-                    <span style="font-size:0.7rem; color:#888; margin-left:auto;">(${skillsMap[s].toUpperCase()})</span>
+                    <span class="cc-skill-attr">(${skillsMap[s].toUpperCase()})</span>
                 </div>`;
     }).join('');
 }
@@ -3025,7 +3091,7 @@ function generateReview() {
 
                         ${m
 
-                }) <span style="color:#666; font-size:0.8rem;" >(Base ${base
+                }) <span class="cc-review-meta" >(Base ${base
                 }
 
                         + ${mod
@@ -3034,7 +3100,7 @@ function generateReview() {
 
     const sList = Array.from(ccSelectedSkills).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
     if (sList) {
-        summary += `<br><strong>Skills:</strong><br><span style="color:#ddd;">${sList}</span><br>`;
+        summary += `<br><strong>Skills:</strong><br><span class="cc-review-skills">${sList}</span><br>`;
     }
 
     const rfCount = ccRaceFeats.length;

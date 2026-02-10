@@ -11,6 +11,55 @@ const escapeHtml = (str = '') => String(str)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+const delegatedHandlerEvents = ['click', 'change', 'input'];
+const delegatedHandlerCache = new Map();
+let delegatedHandlersBound = false;
+
+function getDelegatedHandlerFn(code) {
+    if (!delegatedHandlerCache.has(code)) {
+        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+    }
+    return delegatedHandlerCache.get(code);
+}
+
+function runDelegatedHandler(el, attrName, event) {
+    const code = el.getAttribute(attrName);
+    if (!code) return;
+
+    try {
+        const result = getDelegatedHandlerFn(code).call(el, event);
+        if (result === false) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+    catch (err) {
+        console.error(`Delegated handler failed for ${attrName}:`, code, err);
+    }
+}
+
+function handleDelegatedDataEvent(event) {
+    const attrName = `data-on${event.type}`;
+    let node = event.target instanceof Element ? event.target : null;
+
+    while (node) {
+        if (node.hasAttribute(attrName)) {
+            runDelegatedHandler(node, attrName, event);
+            if (event.cancelBubble) break;
+        }
+        node = node.parentElement;
+    }
+}
+
+function bindDelegatedDataHandlers() {
+    if (delegatedHandlersBound) return;
+    delegatedHandlersBound = true;
+    delegatedHandlerEvents.forEach((eventName) => {
+        document.addEventListener(eventName, handleDelegatedDataEvent);
+    });
+}
+
+bindDelegatedDataHandlers();
 
 function getCampaign() {
     if (!window.RTF_STORE) return null;
@@ -18,24 +67,37 @@ function getCampaign() {
 }
 
 function save() {
-    if (window.RTF_STORE) window.RTF_STORE.save();
+    if (window.RTF_STORE) window.RTF_STORE.save({ scope: 'campaign.locations' });
     render();
 }
 
-function toggleLocationForm() {
-    const f = document.getElementById('locationForm');
-    f.style.display = f.style.display === 'none' ? 'block' : 'none';
-
-    // Populate District Dropdown if empty
-    const sel = document.getElementById('locDistrict');
-    if (sel.options.length <= 1) {
+function ensureDistrictOptions() {
+    const formSelect = document.getElementById('locDistrict');
+    if (formSelect && formSelect.options.length <= 1) {
         guilds.forEach(g => {
             const opt = document.createElement('option');
             opt.value = g;
             opt.innerText = g;
-            sel.appendChild(opt);
+            formSelect.appendChild(opt);
         });
     }
+
+    const filterSelect = document.getElementById('districtFilter');
+    if (filterSelect && filterSelect.options.length <= 1) {
+        guilds.forEach(g => {
+            const opt = document.createElement('option');
+            opt.value = g;
+            opt.innerText = g;
+            filterSelect.appendChild(opt);
+        });
+    }
+}
+
+function toggleLocationForm() {
+    const f = document.getElementById('locationForm');
+    if (!f) return;
+    f.classList.toggle('locations-hidden');
+    ensureDistrictOptions();
 }
 
 function addLocation() {
@@ -74,16 +136,7 @@ function render() {
     const search = document.getElementById('searchFilter').value.toLowerCase();
     const districtFilter = document.getElementById('districtFilter').value;
 
-    // Populate Filter if empty
-    const dFilter = document.getElementById('districtFilter');
-    if (dFilter.options.length <= 1) {
-        guilds.forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = g;
-            opt.innerText = g;
-            dFilter.appendChild(opt);
-        });
-    }
+    ensureDistrictOptions();
 
     const container = document.getElementById('locationList');
     if (!container) return;
@@ -102,20 +155,20 @@ function render() {
     });
 
     container.innerHTML = filtered.map(loc => `
-        <div style="position:relative; display:grid; grid-template-columns: 1.5fr 1fr 2fr; gap:10px; align-items:start; padding:15px; padding-right:40px; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.1); margin-bottom:5px; border-radius:4px;">
-            <div style="font-weight:bold; font-size:1.1rem;">${escapeHtml(loc.name)}</div>
-            <div style="color:var(--accent); font-weight:bold;">${escapeHtml(loc.district || 'Unassigned')}</div>
+        <div class="locations-row">
+            <div class="locations-name">${escapeHtml(loc.name)}</div>
+            <div class="locations-district">${escapeHtml(loc.district || 'Unassigned')}</div>
             
-            <div style="font-size:0.9rem;">
-                <div style="color:#888; font-size:0.8rem; text-transform:uppercase;">Description</div>
+            <div class="locations-desc-block">
+                <div class="locations-desc-label">Description</div>
                 ${escapeHtml(loc.desc || '-')}
             </div>
             
-            <div style="grid-column: 1 / -1; margin-top:5px; font-size:0.9rem; color:#aaa; font-style:italic; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
+            <div class="locations-notes">
                 ${escapeHtml(loc.notes || '')}
             </div>
 
-            <button class="btn" onclick="deleteLocation(${loc.origIdx})" style="position:absolute; right:10px; top:10px; padding:4px 8px; color:var(--danger); border:none; background:transparent; font-size:1.2rem; cursor:pointer;" title="Delete Location">&times;</button>
+            <button class="btn locations-delete-btn" data-onclick="deleteLocation(${loc.origIdx})" title="Delete Location">&times;</button>
         </div>
     `).join('');
 }

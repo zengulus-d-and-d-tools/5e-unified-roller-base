@@ -18,6 +18,52 @@
         .replace(/'/g, '&#39;');
 
     const formatMultiline = (str = '') => escapeHTML(str).replace(/\n/g, '<br>');
+    const delegatedHandlerEvents = ['click', 'change', 'input'];
+    const delegatedHandlerCache = new Map();
+    let delegatedHandlersBound = false;
+
+    const getDelegatedHandlerFn = (code) => {
+        if (!delegatedHandlerCache.has(code)) {
+            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        }
+        return delegatedHandlerCache.get(code);
+    };
+
+    const runDelegatedHandler = (el, attrName, event) => {
+        const code = el.getAttribute(attrName);
+        if (!code) return;
+
+        try {
+            const result = getDelegatedHandlerFn(code).call(el, event);
+            if (result === false) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        } catch (err) {
+            console.error(`Delegated handler failed for ${attrName}:`, code, err);
+        }
+    };
+
+    const handleDelegatedDataEvent = (event) => {
+        const attrName = `data-on${event.type}`;
+        let node = event.target instanceof Element ? event.target : null;
+
+        while (node) {
+            if (node.hasAttribute(attrName)) {
+                runDelegatedHandler(node, attrName, event);
+                if (event.cancelBubble) break;
+            }
+            node = node.parentElement;
+        }
+    };
+
+    const bindDelegatedDataHandlers = () => {
+        if (delegatedHandlersBound) return;
+        delegatedHandlersBound = true;
+        delegatedHandlerEvents.forEach((eventName) => {
+            document.addEventListener(eventName, handleDelegatedDataEvent);
+        });
+    };
 
     const store = window.RTF_STORE;
     const hasStoreBridge = !!(store && typeof store.getHQLayout === 'function' && typeof store.updateHQLayout === 'function');
@@ -95,6 +141,7 @@
     init();
 
     function init() {
+        bindDelegatedDataHandlers();
         refs.toggleGrid.checked = state.snapToGrid;
         refs.juniorOpsMax.value = state.maxJuniorOperatives;
         buildTypeSelect();
@@ -460,9 +507,9 @@
     function renderClockPie(value, total = 4, extraClass = '') {
         const maxSegments = normalizeClockTotal(total);
         const safeValue = clampClockValue(value, maxSegments);
-        const fill = (safeValue / maxSegments) * 360;
+        const fill = Math.round((safeValue / maxSegments) * 360);
         const className = extraClass ? `clock-pie ${extraClass}` : 'clock-pie';
-        return `<div class="${className}" style="--clock-total:${maxSegments}; --clock-fill:${fill.toFixed(2)}deg;" role="img" aria-label="Clock ${safeValue} of ${maxSegments}"></div>`;
+        return `<div class="${className} clock-total-${maxSegments} clock-fill-${fill}" role="img" aria-label="Clock ${safeValue} of ${maxSegments}"></div>`;
     }
 
     function buildSlotClock(slot) {
@@ -534,7 +581,7 @@
                 return `<div class="slot-info">${escapeHTML(player.name || 'Unnamed')} • ${player.dp ?? 0} DP${project}</div>`;
             }
             if (slot.junior) {
-                return `<div class="slot-info" style="color: var(--accent-tertiary);">Junior operative</div>`;
+                return '<div class="slot-info slot-info-junior">Junior operative</div>';
             }
             if (slot.legacyAssignee) {
                 return `<div class="slot-info warning">Legacy assignment: ${escapeHTML(slot.legacyAssignee)}</div>`;

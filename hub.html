@@ -7,249 +7,7 @@
     <title>Task Force Hub v3.3</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/hub.css">
-
-    <style>
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        body {
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
-            color: var(--text);
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            overscroll-behavior-y: none;
-            overflow-x: hidden;
-            box-sizing: border-box;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 950px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            animation: fadeIn 0.5s ease-out;
-            position: relative;
-            z-index: 2;
-        }
-
-        .card {
-            background: var(--card-bg);
-            padding: 24px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            position: relative;
-            backdrop-filter: blur(8px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s;
-        }
-
-        /* Specific Hub Styles */
-        .grid-5 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-        }
-
-        .player-row {
-            border-bottom: 1px solid var(--border);
-            padding: 20px 0;
-            display: grid;
-            grid-template-columns: 180px 1fr 1fr auto;
-            gap: 20px;
-            align-items: start;
-        }
-
-        .player-row:last-child {
-            border-bottom: none;
-        }
-
-        .dp-counter {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid var(--gold);
-            color: var(--gold);
-            font-weight: bold;
-            text-align: center;
-            box-shadow: 0 0 10px rgba(241, 196, 15, 0.1);
-        }
-
-        /* Clocks */
-        .clock-container {
-            display: flex;
-            gap: 8px;
-            margin-top: 5px;
-            align-items: center;
-        }
-
-        .clock-pie {
-            --clock-total: 4;
-            --clock-fill: 0deg;
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            border: 1px solid color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.2));
-            background:
-                radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.24), transparent 45%),
-                conic-gradient(from -90deg, var(--accent) 0deg var(--clock-fill), rgba(0, 0, 0, 0.35) var(--clock-fill) 360deg);
-            box-shadow: 0 0 10px var(--accent-glow);
-            position: relative;
-        }
-
-        .clock-pie::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            background: repeating-conic-gradient(from -90deg,
-                    transparent 0deg calc((360deg / var(--clock-total)) - 1deg),
-                    rgba(6, 10, 20, 0.68) calc((360deg / var(--clock-total)) - 1deg) calc(360deg / var(--clock-total)));
-        }
-
-        .clock-readout {
-            min-width: 34px;
-            text-align: center;
-            font-size: 0.72rem;
-            color: #8ca0b7;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .clock-btn {
-            padding: 4px 10px;
-            line-height: 1;
-        }
-
-        /* Case Prep Layout */
-        .case-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 10px;
-        }
-
-        .case-field {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        /* UI */
-        .btn {
-            background: rgba(255, 255, 255, 0.05);
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 8px 14px;
-            cursor: pointer;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            transition: 0.2s;
-            font-weight: 600;
-        }
-
-        .btn:hover {
-            border-color: var(--accent);
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        .btn:active {
-            transform: scale(0.96);
-        }
-
-        .btn-dp {
-            background: var(--gold);
-            color: #000;
-            font-weight: bold;
-            border: none;
-            box-shadow: 0 4px 10px rgba(241, 196, 15, 0.3);
-        }
-
-        .btn-dp:hover {
-            background: #f3ce34;
-            border-color: transparent;
-        }
-
-        .btn-danger {
-            color: var(--danger);
-            border-color: rgba(255, 107, 107, 0.3);
-            background: rgba(255, 107, 107, 0.1);
-        }
-
-        .btn-danger:hover {
-            background: rgba(255, 107, 107, 0.2);
-            border-color: var(--danger);
-        }
-
-        h2 {
-            margin: 0 0 15px 0;
-            color: var(--accent);
-            text-transform: uppercase;
-            font-size: 1rem;
-            letter-spacing: 1px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            padding-bottom: 8px;
-        }
-
-        input[type="text"],
-        select,
-        textarea {
-            background: var(--input-bg);
-            border: 1px solid var(--border);
-            color: #fff;
-            padding: 10px;
-            border-radius: 6px;
-            width: 100%;
-            box-sizing: border-box;
-            font-size: 0.95rem;
-            font-family: inherit;
-            transition: 0.2s;
-        }
-
-        input:focus,
-        textarea:focus,
-        select:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 10px var(--accent-glow);
-        }
-
-        .mini-label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #888;
-            font-weight: bold;
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        canvas#vector-cloud {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            pointer-events: none;
-        }
-    </style>
+    <link rel="stylesheet" href="css/hub-page.css">
 </head>
 
 <body>
@@ -266,58 +24,54 @@
                 <div class="hero-action-bar primary">
                     <a class="hero-btn ghost" href="tools.html">Portal</a>
                     <a class="hero-btn ghost" href="player-dashboard.html">Dashboard</a>
-                    <button class="hero-btn ghost" onclick="exportData()">💾 Export</button>
-                    <button class="hero-btn ghost" onclick="importData()">📂 Import</button>
+                    <button class="hero-btn ghost" data-onclick="exportData()">💾 Export</button>
+                    <button class="hero-btn ghost" data-onclick="importData()">📂 Import</button>
                 </div>
                 <div class="hero-action-bar secondary">
-                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input"
-                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                    class="hub-accent-picker-input" data-onchange="setAccentColor(this.value)">
             </div>
         </header>
         <div class="card">
             <h2>Case Prep: One-Page Template</h2>
             <div class="case-grid">
                 <div class="case-field"><span class="mini-label">Title / Logline</span><input type="text" id="caseTitle"
-                        onchange="saveCase()"></div>
+                        data-onchange="saveCase()"></div>
                 <div class="case-field"><span class="mini-label">Guilds in Conflict</span><input type="text"
-                        id="caseGuilds" onchange="saveCase()"></div>
+                        id="caseGuilds" data-onchange="saveCase()"></div>
                 <div class="case-field"><span class="mini-label">Antagonist Objective</span><textarea id="caseGoal"
-                        rows="2" onchange="saveCase()"></textarea></div>
+                        rows="2" data-onchange="saveCase()"></textarea></div>
                 <div class="case-field"><span class="mini-label">Clock (0-6 Events)</span><textarea id="caseClock"
-                        rows="2" placeholder="At 2/4/6..." onchange="saveCase()"></textarea></div>
+                        rows="2" placeholder="At 2/4/6..." data-onchange="saveCase()"></textarea></div>
             </div>
             <div class="case-grid">
                 <div class="case-field"><span class="mini-label">Obstacles (Legal & Physical)</span><textarea
-                        id="caseObstacles" onchange="saveCase()"></textarea></div>
+                        id="caseObstacles" data-onchange="saveCase()"></textarea></div>
                 <div class="case-field"><span class="mini-label">Set Piece (Terrain + Timer)</span><textarea
-                        id="caseSetPiece" onchange="saveCase()"></textarea></div>
+                        id="caseSetPiece" data-onchange="saveCase()"></textarea></div>
             </div>
         </div>
 
         <div class="card">
             <h2>Global Status</h2>
             <div class="grid-5" id="repGrid"></div>
-            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="hub-status-heat-wrap">
+                <div class="hub-status-heat-head">
                     <span class="mini-label">Task Force Heat (0-6)</span>
                     <div>
-                        <button class="btn" onclick="modHeat(-1)">-</button>
-                        <span id="heatVal"
-                            style="font-weight: 900; color: var(--danger); font-size: 1.2rem; margin: 0 10px;">0</span>
-                        <button class="btn" onclick="modHeat(1)">+</button>
+                        <button class="btn" data-onclick="modHeat(-1)">-</button>
+                        <span id="heatVal" class="hub-heat-val">0</span>
+                        <button class="btn" data-onclick="modHeat(1)">+</button>
                     </div>
                 </div>
-                <div id="heatMeter"
-                    style="height: 12px; background: rgba(0,0,0,0.3); border-radius: 6px; overflow: hidden; display: flex; border: 1px solid var(--border);">
-                    <div id="heatFill"
-                        style="height: 100%; background: var(--danger); transition: 0.4s; box-shadow: 0 0 10px var(--danger);">
+                <div id="heatMeter" class="hub-heat-meter">
+                    <div id="heatFill" class="hub-heat-fill">
                     </div>
                 </div>
-                <p id="heatWarning"
-                    style="font-size: 0.75rem; color: var(--danger); margin-top: 8px; font-weight: bold; min-height: 1rem;">
+                <p id="heatWarning" class="hub-heat-warning">
                 </p>
             </div>
         </div>
@@ -325,12 +79,12 @@
 
 
         <div class="card">
-            <h2>Player Roster <button class="btn" onclick="addPlayer()">+ Add Player</button></h2>
+            <h2>Player Roster <button class="btn" data-onclick="addPlayer()">+ Add Player</button></h2>
             <div id="rosterList"></div>
-            <div style="margin-top: 20px; text-align: center; display: flex; gap: 10px; justify-content: center;">
-                <button class="btn-dp" onclick="grantWeeklyDP()" style="padding: 12px 24px; border-radius: 8px;">End
+            <div class="hub-roster-actions">
+                <button class="btn-dp hub-btn-dp-wide" data-onclick="grantWeeklyDP()">End
                     Case: Grant +2 DP</button>
-                <button class="btn btn-danger" onclick="resetAll()">⚠ Reset Hub</button>
+                <button class="btn btn-danger" data-onclick="resetAll()">⚠ Reset Hub</button>
             </div>
         </div>
     </div>

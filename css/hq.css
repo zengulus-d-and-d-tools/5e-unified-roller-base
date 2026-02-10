@@ -76,6 +76,12 @@ canvas#vector-cloud {
     justify-content: center;
 }
 
+.hq-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .btn {
     border: 1px solid var(--border);
     background: rgba(255, 255, 255, 0.05);
@@ -520,6 +526,46 @@ canvas#vector-cloud {
     position: relative;
 }
 
+.clock-pie.clock-total-6 {
+    --clock-total: 6;
+}
+
+.clock-pie.clock-fill-0 {
+    --clock-fill: 0deg;
+}
+
+.clock-pie.clock-fill-60 {
+    --clock-fill: 60deg;
+}
+
+.clock-pie.clock-fill-90 {
+    --clock-fill: 90deg;
+}
+
+.clock-pie.clock-fill-120 {
+    --clock-fill: 120deg;
+}
+
+.clock-pie.clock-fill-180 {
+    --clock-fill: 180deg;
+}
+
+.clock-pie.clock-fill-240 {
+    --clock-fill: 240deg;
+}
+
+.clock-pie.clock-fill-270 {
+    --clock-fill: 270deg;
+}
+
+.clock-pie.clock-fill-300 {
+    --clock-fill: 300deg;
+}
+
+.clock-pie.clock-fill-360 {
+    --clock-fill: 360deg;
+}
+
 .clock-pie::before {
     content: '';
     position: absolute;
@@ -578,6 +624,10 @@ canvas#vector-cloud {
     font-size: 0.75rem;
     color: var(--hq-muted);
     margin-top: 4px;
+}
+
+.slot-info.slot-info-junior {
+    color: var(--accent-tertiary);
 }
 
 .slot-info.warning {

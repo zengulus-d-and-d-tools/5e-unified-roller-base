@@ -24,26 +24,26 @@
                 <a class="hero-btn ghost" href="tools.html">Portal</a>
             </div>
             <div class="hero-action-bar secondary">
-                <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
             </div>
             <input type="color" id="accent-picker-input"
-                style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                class="clue-accent-picker-input" data-onchange="setAccentColor(this.value)">
         </div>
     </header>
 
     <div class="clue-container">
         <h1>Intersection Gen v4</h1>
         <p class="sub">
-            <strong style="color:var(--st-green)">Signal</strong> = The Clue Object &nbsp;|&nbsp;
-            <strong style="color:var(--st-orange)">Noise</strong> = The Context / Coating
+            <strong class="clue-signal-text">Signal</strong> = The Clue Object &nbsp;|&nbsp;
+            <strong class="clue-noise-text">Noise</strong> = The Context / Coating
         </p>
 
         <div class="protocol-box">
-            <span style="color:var(--accent); font-weight:bold;">Usage Protocol:</span> Click Guilds below to toggle
+            <span class="clue-protocol-title">Usage Protocol:</span> Click Guilds below to toggle
             status.<br>
-            1 Click = <span style="color:var(--st-orange); font-weight:bold;">NOISE</span> (Herring) | 2 Clicks = <span
-                style="color:var(--st-green); font-weight:bold;">SIGNAL</span> (Involved)<br>
+            1 Click = <span class="clue-noise-text clue-emph">NOISE</span> (Herring) | 2 Clicks = <span
+                class="clue-signal-text clue-emph">SIGNAL</span> (Involved)<br>
             Generator picks 1 Signal and 1 Noise from selected guilds.
         </div>
 
@@ -55,7 +55,7 @@
                 <option value="soc">Social</option>
                 <option value="arc">Arcane</option>
             </select>
-            <button class="gen-btn" onclick="generateClue()">Generate Data</button>
+            <button class="gen-btn" data-onclick="generateClue()">Generate Data</button>
         </div>
 
         <div class="result-card" id="resultCard">
@@ -80,11 +80,11 @@
             <div class="res-footer">
                 <div class="res-stat">
                     <label>Friction</label>
-                    <span style="color:var(--gold)" id="outFric">Locked</span>
+                    <span class="clue-friction-text" id="outFric">Locked</span>
                 </div>
                 <div class="res-stat">
                     <label>Fail Cost</label>
-                    <span style="color:var(--danger)" id="outCost">Heat +1</span>
+                    <span class="clue-cost-text" id="outCost">Heat +1</span>
                 </div>
             </div>
         </div>

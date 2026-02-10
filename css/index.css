@@ -2508,3 +2508,158 @@ button {
         grid-template-columns: repeat(3, 1fr);
     }
 }
+
+/* Inline style replacements (js/index.js phase) */
+.js-ml-auto {
+    margin-left: auto;
+}
+
+.skill-bonus {
+    font-weight: bold;
+    color: #ddd;
+}
+
+.atk-btn-atk {
+    background: var(--accent);
+    color: #000;
+}
+
+.atk-btn-dmg {
+    background: #333;
+    color: #ccc;
+    border: 1px solid #444;
+}
+
+.atk-btn-del {
+    background: transparent;
+    color: #666;
+    font-size: 1.5rem;
+}
+
+.feat-desc {
+    min-height: 60px;
+}
+
+.feat-controls {
+    grid-template-columns: 1fr auto;
+}
+
+.feat-post-btn {
+    background: var(--accent-feat);
+    color: #fff;
+}
+
+.res-recharge-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0 8px;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.res-recharge-input {
+    width: 60px !important;
+    height: 35px;
+    text-align: center;
+}
+
+.cc-hp-manual {
+    font-weight: normal;
+}
+
+.cc-hp-max {
+    color: var(--hp-max);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.cc-empty {
+    color: #666;
+    font-style: italic;
+}
+
+.cc-feat-desc {
+    color: #aaa;
+}
+
+.cc-skill-attr {
+    font-size: 0.7rem;
+    color: #888;
+    margin-left: auto;
+}
+
+.cc-review-meta {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.cc-review-skills {
+    color: #ddd;
+}
+
+/* Auto-migrated inline style classes (index.html phase) */
+.ix-inl-001 { visibility:hidden; width:0; height:0; position:absolute; }
+.ix-inl-002 { background:var(--res-bar); color:#fff; width:100%; padding:15px; font-size:1.1rem; border:1px solid #2ecc71; box-shadow:0 4px 10px rgba(46, 204, 113, 0.2); margin-bottom:5px; }
+.ix-inl-003 { background:#34495e; color:#ccc; width:100%; padding:10px; font-size:0.9rem; border:1px solid #555; margin-bottom:15px; cursor:pointer; }
+.ix-inl-004 { color:var(--hp-curr); }
+.ix-inl-005 { display:none; margin-top:2px; }
+.ix-inl-006 { font-size:0.7rem; height:20px; padding:0; color:var(--gold); border:1px solid #444; }
+.ix-inl-007 { color:var(--hp-temp); }
+.ix-inl-008 { color:var(--gold); }
+.ix-inl-009 { display:flex; height:100%; }
+.ix-inl-010 { color:var(--gold); border-color: #555; border-right:none; border-radius:6px 0 0 6px; flex:1; min-width:0; text-align:center; }
+.ix-inl-011 { width:50px; background:var(--gold); color:#111; border:1px solid var(--gold); border-radius:0 6px 6px 0; font-size:1.4rem; cursor:pointer; padding:0; display:grid; place-items:center; flex-shrink:0; }
+.ix-inl-012 { display:none; }
+.ix-inl-013 { font-size:0.6rem; color:#2ecc71; }
+.ix-inl-014 { font-size:0.6rem; color:#e74c3c; }
+.ix-inl-015 { position:absolute; right:10px; top:50%; transform:translateY(-50%); }
+.ix-inl-016 { font-size:0.7rem; display:flex; align-items:center; gap:5px; margin-bottom:10px; }
+.ix-inl-017 { margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px; }
+.ix-inl-018 { padding:5px; }
+.ix-inl-019 { text-align:center; color:#888; }
+.ix-inl-020 { display:none; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:10px; }
+.ix-inl-021 { text-align:center; }
+.ix-inl-022 { background:#333; color:#ccc; border:1px solid #444; }
+.ix-inl-023 { margin:0; }
+.ix-inl-024 { width:40px; text-align:center; }
+.ix-inl-025 { display:flex; gap:5px; }
+.ix-inl-026 { width:40px; }
+.ix-inl-027 { text-align:center; color:var(--slot); }
+.ix-inl-028 { border:none; font-size:0.7rem; }
+.ix-inl-029 { background: #2c3e50; color: #fff; margin-top:10px; }
+.ix-inl-030 { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px; }
+.ix-inl-031 { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; cursor:pointer; }
+.ix-inl-032 { font-weight:bold; color:#a29bfe; }
+.ix-inl-033 { text-align:center; font-weight:bold; }
+.ix-inl-034 { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.ix-inl-035 { font-weight:bold; }
+.ix-inl-036 { border-top:1px solid rgba(255,255,255,0.1); padding-top:10px; margin-top:10px; }
+.ix-inl-037 { display:flex; align-items:center; gap:8px; margin:10px 0; color:#aaa; font-size:0.9rem; }
+.ix-inl-038 { background: var(--accent-feat); color: #fff; }
+.ix-inl-039 { margin-bottom:10px; display:flex; justify-content:flex-end; }
+.ix-inl-040 { background:#2c3e50; color:#fff; font-size:0.7rem; height:30px; padding:0 10px; }
+.ix-inl-041 { margin-bottom:10px; }
+.ix-inl-042 { width:100%; font-family:monospace; color:var(--accent); resize:none; margin-top:10px; }
+.ix-inl-043 { display:flex; gap:10px; margin-top:10px; }
+.ix-inl-044 { flex:1; background:#333; color:#ccc; }
+.ix-inl-045 { flex:1; background:var(--accent); color:#000; }
+.ix-inl-046 { text-align:center; color: var(--accent); font-size:0.8rem; margin-top:8px; }
+.ix-inl-047 { cursor:pointer; }
+.ix-inl-048 { margin-top:0; }
+.ix-inl-049 { background:transparent; color:#888; font-size:0.8rem; margin-bottom:10px; border:none; padding:0; text-decoration:underline; }
+.ix-inl-050 { grid-template-columns: 1fr 1fr; margin-bottom:15px; }
+.ix-inl-051 { flex:1; }
+.ix-inl-052 { width:60px; }
+.ix-inl-053 { height:60px; margin-top:5px; }
+.ix-inl-054 { grid-template-columns: 2fr 1fr; margin-bottom:15px; }
+.ix-inl-055 { margin-bottom:15px; background:rgba(0,0,0,0.2); }
+.ix-inl-056 { margin-bottom:5px; }
+.ix-inl-057 { font-size:0.9rem; text-align:center; color:#888; font-style:italic; }
+.ix-inl-058 { color:var(--hp-max); font-weight:bold; font-size:1.1rem; }
+.ix-inl-059 { font-size:0.7rem; color:#666; margin-top:5px; text-align:center; }
+.ix-inl-060 { font-size:0.8rem; color:#aaa; margin-top:-10px; }
+.ix-inl-061 { background:#222; padding:15px; border-radius:8px; border:1px solid #444; line-height:1.6; }
+.ix-inl-062 { background:#333; color:#ccc; min-width:80px; }
+.ix-inl-063 { background:var(--accent); color:#000; min-width:80px; }
+.ix-inl-064 { background:var(--res-bar); color:#fff; min-width:100px; display:none; }

@@ -69,6 +69,12 @@ body:active {
     cursor: text;
 }
 
+.board-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .mobile-only-warning {
     display: none;
 }
@@ -999,6 +1005,35 @@ body.focus-active .header-overlay {
 .filter-select {
     width: 120px;
     cursor: pointer;
+}
+
+.board-popup-empty {
+    padding: 10px;
+    color: #666;
+    font-size: 0.8rem;
+}
+
+.board-tool-submeta {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.7rem;
+    color: #aaa;
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.3;
+}
+
+.board-event-heat-badge {
+    margin-left: 6px;
+    font-size: 0.75rem;
+}
+
+.board-event-heat-badge.is-positive {
+    color: var(--danger);
+}
+
+.board-event-heat-badge.is-negative {
+    color: var(--accent);
 }
 
 /* --- FORMATTING TOOLBAR --- */

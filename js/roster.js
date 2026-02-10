@@ -11,6 +11,55 @@ const escapeHtml = (str = '') => String(str)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+const delegatedHandlerEvents = ['click', 'change', 'input'];
+const delegatedHandlerCache = new Map();
+let delegatedHandlersBound = false;
+
+function getDelegatedHandlerFn(code) {
+    if (!delegatedHandlerCache.has(code)) {
+        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+    }
+    return delegatedHandlerCache.get(code);
+}
+
+function runDelegatedHandler(el, attrName, event) {
+    const code = el.getAttribute(attrName);
+    if (!code) return;
+
+    try {
+        const result = getDelegatedHandlerFn(code).call(el, event);
+        if (result === false) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+    catch (err) {
+        console.error(`Delegated handler failed for ${attrName}:`, code, err);
+    }
+}
+
+function handleDelegatedDataEvent(event) {
+    const attrName = `data-on${event.type}`;
+    let node = event.target instanceof Element ? event.target : null;
+
+    while (node) {
+        if (node.hasAttribute(attrName)) {
+            runDelegatedHandler(node, attrName, event);
+            if (event.cancelBubble) break;
+        }
+        node = node.parentElement;
+    }
+}
+
+function bindDelegatedDataHandlers() {
+    if (delegatedHandlersBound) return;
+    delegatedHandlersBound = true;
+    delegatedHandlerEvents.forEach((eventName) => {
+        document.addEventListener(eventName, handleDelegatedDataEvent);
+    });
+}
+
+bindDelegatedDataHandlers();
 
 let editingNPCIndex = null;
 
@@ -36,7 +85,7 @@ function getCampaign() {
 }
 
 function save() {
-    if (window.RTF_STORE) window.RTF_STORE.save();
+    if (window.RTF_STORE) window.RTF_STORE.save({ scope: 'campaign.npcs' });
     render();
 }
 
@@ -44,7 +93,7 @@ function setFormMode(isEditing) {
     const saveBtn = document.getElementById('npcSaveBtn');
     const cancelBtn = document.getElementById('npcCancelBtn');
     if (saveBtn) saveBtn.textContent = isEditing ? 'Update NPC' : 'Save NPC';
-    if (cancelBtn) cancelBtn.style.display = isEditing ? 'inline-block' : 'none';
+    if (cancelBtn) cancelBtn.classList.toggle('roster-hidden', !isEditing);
 }
 
 function clearNPCForm() {
@@ -89,8 +138,8 @@ function isPreloadedNPC(npc) {
 function toggleNPCForm() {
     const form = document.getElementById('npcForm');
     if (!form) return;
-    const willOpen = form.style.display === 'none';
-    form.style.display = willOpen ? 'block' : 'none';
+    const willOpen = form.classList.contains('roster-hidden');
+    form.classList.toggle('roster-hidden', !willOpen);
 
     ensureGuildOptions();
     if (willOpen && editingNPCIndex === null) {
@@ -107,7 +156,7 @@ function cancelNPCEdit() {
     clearNPCForm();
     setFormMode(false);
     const form = document.getElementById('npcForm');
-    if (form) form.style.display = 'none';
+    if (form) form.classList.add('roster-hidden');
 }
 
 function addNPC() {
@@ -172,7 +221,7 @@ function editNPC(idx) {
     setFormMode(true);
 
     const form = document.getElementById('npcForm');
-    if (form) form.style.display = 'block';
+    if (form) form.classList.remove('roster-hidden');
     const nameInput = document.getElementById('npcName');
     if (nameInput) nameInput.focus();
 }
@@ -225,29 +274,29 @@ function render() {
     container.innerHTML = filtered.map(npc => {
         const locked = isPreloadedNPC(npc);
         const editButton = locked
-            ? `<span style="position:absolute; right:44px; top:10px; color:#888; font-size:1rem;" title="Preloaded NPC (read-only)">🔒</span>`
-            : `<button class="btn" onclick="editNPC(${npc.origIdx})" style="position:absolute; right:44px; top:8px; padding:4px 7px; color:var(--accent); border:none; background:transparent; font-size:1rem; cursor:pointer;" title="Edit NPC">✏️</button>`;
+            ? `<span class="roster-npc-lock-icon" title="Preloaded NPC (read-only)">🔒</span>`
+            : `<button class="btn roster-npc-edit-btn" data-onclick="editNPC(${npc.origIdx})" title="Edit NPC">✏️</button>`;
 
         return `
-        <div style="position:relative; display:grid; grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr; gap:10px; align-items:start; padding:15px; padding-right:72px; border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.1); margin-bottom:5px; border-radius:4px;">
-            <div style="font-weight:bold; font-size:1.1rem;">${escapeHtml(npc.name)}</div>
-            <div style="color:var(--accent); font-weight:bold;">${escapeHtml(npc.guild)}</div>
+        <div class="roster-npc-row">
+            <div class="roster-npc-name">${escapeHtml(npc.name)}</div>
+            <div class="roster-npc-guild">${escapeHtml(npc.guild)}</div>
 
-            <div style="font-size:0.9rem;">
-                <div style="color:#888; font-size:0.8rem; text-transform:uppercase;">Wants</div>
+            <div class="roster-npc-meta-block">
+                <div class="roster-npc-meta-label">Wants</div>
                 ${escapeHtml(npc.wants || '-')}
             </div>
-            <div style="font-size:0.9rem;">
-                <div style="color:#888; font-size:0.8rem; text-transform:uppercase;">Leverage</div>
+            <div class="roster-npc-meta-block">
+                <div class="roster-npc-meta-label">Leverage</div>
                 ${escapeHtml(npc.leverage || '-')}
             </div>
 
-            <div style="grid-column: 1 / -1; margin-top:5px; font-size:0.9rem; color:#aaa; font-style:italic; border-top:1px solid rgba(255,255,255,0.05); padding-top:5px;">
+            <div class="roster-npc-notes">
                 ${escapeHtml(npc.notes || '')}
             </div>
 
             ${editButton}
-            <button class="btn" onclick="deleteNPC(${npc.origIdx})" style="position:absolute; right:10px; top:10px; padding:4px 8px; color:var(--danger); border:none; background:transparent; font-size:1.2rem; cursor:pointer;" title="Delete NPC">&times;</button>
+            <button class="btn roster-npc-delete-btn" data-onclick="deleteNPC(${npc.origIdx})" title="Delete NPC">&times;</button>
         </div>
     `;
     }).join('');

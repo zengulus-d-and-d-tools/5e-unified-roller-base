@@ -1,5 +1,51 @@
 let data = { matches: [], active: false, meta: {} };
         let curId = null;
+        const delegatedHandlerEvents = ['click', 'change', 'input'];
+        const delegatedHandlerCache = new Map();
+        let delegatedHandlersBound = false;
+
+        function getDelegatedHandlerFn(code) {
+            if (!delegatedHandlerCache.has(code)) {
+                delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+            }
+            return delegatedHandlerCache.get(code);
+        }
+
+        function runDelegatedHandler(el, attrName, event) {
+            const code = el.getAttribute(attrName);
+            if (!code) return;
+
+            try {
+                const result = getDelegatedHandlerFn(code).call(el, event);
+                if (result === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            } catch (err) {
+                console.error(`Delegated handler failed for ${attrName}:`, code, err);
+            }
+        }
+
+        function handleDelegatedDataEvent(event) {
+            const attrName = `data-on${event.type}`;
+            let node = event.target instanceof Element ? event.target : null;
+
+            while (node) {
+                if (node.hasAttribute(attrName)) {
+                    runDelegatedHandler(node, attrName, event);
+                    if (event.cancelBubble) break;
+                }
+                node = node.parentElement;
+            }
+        }
+
+        function bindDelegatedDataHandlers() {
+            if (delegatedHandlersBound) return;
+            delegatedHandlersBound = true;
+            delegatedHandlerEvents.forEach((eventName) => {
+                document.addEventListener(eventName, handleDelegatedDataEvent);
+            });
+        }
 
         // --- GENERATOR (Same logic as v5, creates data structure) ---
         function generate() {
@@ -117,16 +163,16 @@ let data = { matches: [], active: false, meta: {} };
 
             // Center
             const center = mk('div', 'center-stack');
-            center.innerHTML = `<div class="label" style="color:var(--gold)">GRAND FINALS</div><div id="slot-gf" style="width:100%"></div>`;
+            center.innerHTML = '<div class="label tourney-label-grand-finals">GRAND FINALS</div><div id="slot-gf" class="tourney-slot-gf"></div>';
 
             const wfMatches = data.matches.filter(m => m.type === 'wb' && m.side === 'center');
             wfMatches.forEach(m => {
-                center.innerHTML += `<div class="label" style="color:var(--accent); margin-top:15px">WINNERS FINAL</div>`;
+                center.innerHTML += '<div class="label tourney-label-winners-final">WINNERS FINAL</div>';
                 center.appendChild(createNode(m, 'final-node'));
             });
 
             const lbCenterMatches = data.matches.filter(m => m.type === 'lb' && m.side === 'center').sort((a, b) => b.r - a.r);
-            if (lbCenterMatches.length) center.innerHTML += `<div class="label" style="color:#777; margin-top:20px">L-FINALS</div>`;
+            if (lbCenterMatches.length) center.innerHTML += '<div class="label tourney-label-losers-finals">L-FINALS</div>';
             lbCenterMatches.forEach(m => center.appendChild(createNode(m, 'lb-final-node')));
 
             // Render GF into slot
@@ -293,6 +339,8 @@ let data = { matches: [], active: false, meta: {} };
         }
         function save() { localStorage.setItem('uni_v6', JSON.stringify(data)); }
         function reset() { if (confirm("Clear?")) { localStorage.removeItem('uni_v6'); location.reload(); } }
+
+        bindDelegatedDataHandlers();
 
         // Init
         const s = localStorage.getItem('uni_v6');

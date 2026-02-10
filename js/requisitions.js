@@ -17,6 +17,53 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    const delegatedHandlerEvents = ['click', 'change', 'input'];
+    const delegatedHandlerCache = new Map();
+    let delegatedHandlersBound = false;
+
+    function getDelegatedHandlerFn(code) {
+        if (!delegatedHandlerCache.has(code)) {
+            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        }
+        return delegatedHandlerCache.get(code);
+    }
+
+    function runDelegatedHandler(el, attrName, event) {
+        const code = el.getAttribute(attrName);
+        if (!code) return;
+
+        try {
+            const result = getDelegatedHandlerFn(code).call(el, event);
+            if (result === false) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }
+        catch (err) {
+            console.error(`Delegated handler failed for ${attrName}:`, code, err);
+        }
+    }
+
+    function handleDelegatedDataEvent(event) {
+        const attrName = `data-on${event.type}`;
+        let node = event.target instanceof Element ? event.target : null;
+
+        while (node) {
+            if (node.hasAttribute(attrName)) {
+                runDelegatedHandler(node, attrName, event);
+                if (event.cancelBubble) break;
+            }
+            node = node.parentElement;
+        }
+    }
+
+    function bindDelegatedDataHandlers() {
+        if (delegatedHandlersBound) return;
+        delegatedHandlersBound = true;
+        delegatedHandlerEvents.forEach((eventName) => {
+            document.addEventListener(eventName, handleDelegatedDataEvent);
+        });
+    }
 
     const getStore = () => window.RTF_STORE;
     const getLogger = () => {
@@ -97,12 +144,13 @@
     function toggleReqForm() {
         const form = document.getElementById('reqForm');
         if (!form) return;
-        if (form.style.display === 'block') {
-            form.style.display = 'none';
-        } else {
+        const willOpen = form.classList.contains('req-hidden');
+        if (willOpen) {
             populateOptions();
-            form.style.display = 'block';
+            form.classList.remove('req-hidden');
             document.getElementById('reqItem').focus();
+        } else {
+            form.classList.add('req-hidden');
         }
     }
 
@@ -183,8 +231,8 @@
         <div class="req-card">
             <h3>
                 <input type="text" value="${escapeHtml(req.item || '')}" placeholder="Item"
-                    onchange="updateReqField('${req.id}', 'item', this.value)">
-                <select class="status-pill" onchange="updateReqField('${req.id}', 'status', this.value)">
+                    data-onchange="updateReqField('${req.id}', 'item', this.value)">
+                <select class="status-pill" data-onchange="updateReqField('${req.id}', 'status', this.value)">
                     ${buildOptions(STATUS, req.status || 'Pending')}
                 </select>
             </h3>
@@ -192,36 +240,36 @@
                 <div>
                     <label>Requested By</label>
                     <input type="text" value="${escapeHtml(req.requester || '')}" placeholder="Agent"
-                        onchange="updateReqField('${req.id}', 'requester', this.value)">
+                        data-onchange="updateReqField('${req.id}', 'requester', this.value)">
                 </div>
                 <div>
                     <label>Guild / Source</label>
-                    <select onchange="updateReqField('${req.id}', 'guild', this.value)">
+                    <select data-onchange="updateReqField('${req.id}', 'guild', this.value)">
                         <option value="">Unspecified</option>
                         ${buildOptions(guilds, req.guild)}
                     </select>
                 </div>
                 <div>
                     <label>Priority</label>
-                    <select onchange="updateReqField('${req.id}', 'priority', this.value)">
+                    <select data-onchange="updateReqField('${req.id}', 'priority', this.value)">
                         ${buildOptions(PRIORITIES, req.priority || 'Routine')}
                     </select>
                 </div>
                 <div>
                     <label>Value</label>
                     <input type="text" value="${escapeHtml(req.value || '')}" placeholder="Cost"
-                        onchange="updateReqField('${req.id}', 'value', this.value)">
+                        data-onchange="updateReqField('${req.id}', 'value', this.value)">
                 </div>
             </div>
             <textarea class="req-notes" placeholder="Purpose / Justification"
-                onchange="updateReqField('${req.id}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
+                data-onchange="updateReqField('${req.id}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
             <textarea class="req-notes" placeholder="Notes / Attachments"
-                onchange="updateReqField('${req.id}', 'notes', this.value)">${escapeHtml(req.notes || '')}</textarea>
+                data-onchange="updateReqField('${req.id}', 'notes', this.value)">${escapeHtml(req.notes || '')}</textarea>
             <input type="text" placeholder="Tags" value="${escapeHtml(req.tags || '')}"
-                onchange="updateReqField('${req.id}', 'tags', this.value)">
+                data-onchange="updateReqField('${req.id}', 'tags', this.value)">
             <div class="req-actions">
-                <small style="color:#666; flex:1;">Logged ${req.created ? new Date(req.created).toLocaleDateString() : '—'}</small>
-                <button class="btn btn-danger" onclick="deleteRequisition('${req.id}')">Delete</button>
+                <small class="req-log-meta">Logged ${req.created ? new Date(req.created).toLocaleDateString() : '—'}</small>
+                <button class="btn btn-danger" data-onclick="deleteRequisition('${req.id}')">Delete</button>
             </div>
         </div>`;
     }
@@ -269,6 +317,8 @@
             setTimeout(waitForStore, 100);
         }
     }
+
+    bindDelegatedDataHandlers();
 
     window.toggleReqForm = toggleReqForm;
     window.addRequisition = addRequisition;

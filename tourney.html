@@ -15,13 +15,13 @@
 
     <div id="setup-modal" class="active">
         <div class="modal-box">
-            <h3 style="margin-top:0; color:var(--accent)">Dynamic Setup</h3>
+            <h3 class="tourney-setup-title">Dynamic Setup</h3>
             <textarea id="pInput" placeholder="Names (4-64 supported)..."></textarea>
-            <div style="display:flex; justify-content:space-between; margin-top:20px; align-items: center;">
-                <label style="color:#aaa; font-size:0.9rem; display:flex; align-items:center; cursor: pointer;">
-                    <input type="checkbox" id="chkRand" checked style="margin-right: 8px;"> Randomize
+            <div class="tourney-setup-actions">
+                <label class="tourney-random-label">
+                    <input type="checkbox" id="chkRand" checked class="tourney-random-check"> Randomize
                 </label>
-                <button class="btn-p" onclick="generate()" style="padding: 10px 20px;">GENERATE</button>
+                <button class="btn-p tourney-generate-btn" data-onclick="generate()">GENERATE</button>
             </div>
         </div>
     </div>
@@ -35,15 +35,15 @@
         <div class="hero-actions">
             <div class="hero-action-bar primary">
                 <a class="hero-btn ghost" href="tools.html">Portal</a>
-                <button class="hero-btn ghost" onclick="autoFit()">Auto-Fit</button>
-                <button class="hero-btn accent" onclick="reset()">New Bracket</button>
+                <button class="hero-btn ghost" data-onclick="autoFit()">Auto-Fit</button>
+                <button class="hero-btn accent" data-onclick="reset()">New Bracket</button>
             </div>
             <div class="hero-action-bar secondary">
-                <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
             </div>
             <input type="color" id="accent-picker-input"
-                style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                class="tourney-accent-picker-input" data-onchange="setAccentColor(this.value)">
         </div>
     </header>
 
@@ -55,28 +55,26 @@
 
     <div id="score-modal">
         <div class="modal-box">
-            <h3 style="margin-top:0; margin-bottom: 20px; color:#fff; font-size: 1rem;">Report Score</h3>
+            <h3 class="tourney-score-title">Report Score</h3>
             <div class="score-row">
-                <span id="mP1"
-                    style="font-weight:bold; max-width:140px; overflow:hidden; text-overflow: ellipsis;">P1</span>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button class="btn-adj" onclick="mod(-1, 1)">-</button>
+                <span id="mP1" class="tourney-player-name">P1</span>
+                <div class="tourney-score-controls">
+                    <button class="btn-adj" data-onclick="mod(-1, 1)">-</button>
                     <input id="sP1" class="sc-inp" readonly value="0">
-                    <button class="btn-adj" onclick="mod(1, 1)">+</button>
+                    <button class="btn-adj" data-onclick="mod(1, 1)">+</button>
                 </div>
             </div>
             <div class="score-row">
-                <span id="mP2"
-                    style="font-weight:bold; max-width:140px; overflow:hidden; text-overflow: ellipsis;">P2</span>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button class="btn-adj" onclick="mod(-1, 2)">-</button>
+                <span id="mP2" class="tourney-player-name">P2</span>
+                <div class="tourney-score-controls">
+                    <button class="btn-adj" data-onclick="mod(-1, 2)">-</button>
                     <input id="sP2" class="sc-inp" readonly value="0">
-                    <button class="btn-adj" onclick="mod(1, 2)">+</button>
+                    <button class="btn-adj" data-onclick="mod(1, 2)">+</button>
                 </div>
             </div>
-            <div style="display:flex; gap:15px; margin-top:25px;">
-                <button class="btn" style="flex:1; border-color: #555;" onclick="closeScore()">Cancel</button>
-                <button class="btn-p" style="flex:1" onclick="saveScore()">Confirm</button>
+            <div class="tourney-score-actions">
+                <button class="btn tourney-score-btn-cancel" data-onclick="closeScore()">Cancel</button>
+                <button class="btn-p tourney-score-btn" data-onclick="saveScore()">Confirm</button>
             </div>
         </div>
     </div>

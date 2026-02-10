@@ -7,83 +7,7 @@
     <title>Encounter Recipes</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/hub.css">
-    <style>
-        .enc-form {
-            display: none;
-            margin-bottom: 20px;
-            padding: 18px;
-            border-radius: 12px;
-            background: rgba(0, 0, 0, 0.25);
-            border: 1px dashed rgba(255, 255, 255, 0.12);
-        }
-
-        .enc-form input,
-        .enc-form textarea,
-        .enc-form select {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        .enc-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
-        }
-
-        .enc-card {
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            padding: 18px;
-            border-radius: 12px;
-            margin-bottom: 15px;
-            background: rgba(0, 0, 0, 0.3);
-            position: relative;
-        }
-
-        .enc-card h3 {
-            margin: 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .enc-card textarea {
-            width: 100%;
-            min-height: 70px;
-            resize: vertical;
-            margin-top: 8px;
-        }
-
-        .tier-pill {
-            border-radius: 999px;
-            padding: 4px 12px;
-            text-transform: uppercase;
-            font-size: 0.75rem;
-            letter-spacing: 0.04em;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .filter-bar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .filter-bar input,
-        .filter-bar select {
-            flex: 1;
-            min-width: 160px;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: #777;
-            padding: 40px;
-            border: 1px dashed rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/encounters.css">
 </head>
 
 <body>
@@ -99,19 +23,19 @@
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
                     <a class="hero-btn ghost" href="tools.html">Portal</a>
-                    <button class="hero-btn accent" onclick="toggleEncForm()">+ New Recipe</button>
+                    <button class="hero-btn accent" data-onclick="toggleEncForm()">+ New Recipe</button>
                 </div>
                 <div class="hero-action-bar secondary">
-                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input"
-                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                    class="enc-accent-picker-input" data-onchange="setAccentColor(this.value)">
             </div>
         </header>
 
         <div class="card">
-            <div id="encForm" class="enc-form">
+            <div id="encForm" class="enc-form enc-hidden">
                 <input type="text" id="encTitle" placeholder="Encounter Name *">
                 <div class="enc-grid">
                     <select id="encTier"></select>
@@ -123,14 +47,14 @@
                 <textarea id="encBeats" placeholder="Phases, twists, or scripted beats"></textarea>
                 <textarea id="encRewards" placeholder="Rewards / Fallout"></textarea>
                 <textarea id="encNotes" placeholder="Quick notes, hooks, or scaling instructions"></textarea>
-                <div style="text-align:right;">
-                    <button class="btn btn-dp" onclick="addEncounter()">Save Recipe</button>
+                <div class="enc-form-actions">
+                    <button class="btn btn-dp" data-onclick="addEncounter()">Save Recipe</button>
                 </div>
             </div>
 
             <div class="filter-bar">
-                <input type="text" id="encSearch" placeholder="Search name, foes, notes" oninput="renderEncounters()">
-                <select id="encTierFilter" onchange="renderEncounters()">
+                <input type="text" id="encSearch" placeholder="Search name, foes, notes" data-oninput="renderEncounters()">
+                <select id="encTierFilter" data-onchange="renderEncounters()">
                     <option value="">All Tiers</option>
                 </select>
             </div>

@@ -7,112 +7,7 @@
     <title>Requisition Vault</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/hub.css">
-    <style>
-        .req-form {
-            display: none;
-            margin-bottom: 20px;
-            padding: 18px;
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px dashed rgba(255, 255, 255, 0.1);
-        }
-
-        .req-form input,
-        .req-form select,
-        .req-form textarea {
-            width: 100%;
-            margin-bottom: 10px;
-        }
-
-        .req-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px;
-        }
-
-        .req-card {
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-left: 4px solid var(--accent);
-            padding: 18px;
-            border-radius: 10px;
-            background: rgba(0, 0, 0, 0.25);
-            margin-bottom: 15px;
-        }
-
-        .req-card h3 {
-            margin: 0;
-            font-size: 1.1rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .status-pill {
-            border-radius: 20px;
-            padding: 4px 12px;
-            font-size: 0.75rem;
-            letter-spacing: 0.04em;
-            text-transform: uppercase;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(0, 0, 0, 0.2);
-        }
-
-        .req-meta {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 10px;
-            margin: 12px 0;
-        }
-
-        .req-meta label {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #888;
-            letter-spacing: 0.05em;
-        }
-
-        .req-notes {
-            width: 100%;
-            min-height: 80px;
-            resize: vertical;
-        }
-
-        .req-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .tag-input {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .filter-bar {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 15px;
-        }
-
-        .filter-bar input,
-        .filter-bar select {
-            flex: 1;
-            min-width: 160px;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: #777;
-            padding: 40px;
-            border: 1px dashed rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/requisitions.css">
 </head>
 
 <body>
@@ -128,19 +23,19 @@
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
                     <a class="hero-btn ghost" href="tools.html">Portal</a>
-                    <button class="hero-btn accent" onclick="toggleReqForm()">+ New Request</button>
+                    <button class="hero-btn accent" data-onclick="toggleReqForm()">+ New Request</button>
                 </div>
                 <div class="hero-action-bar secondary">
-                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input"
-                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                    class="req-accent-picker-input" data-onchange="setAccentColor(this.value)">
             </div>
         </header>
 
         <div class="card">
-            <div id="reqForm" class="req-form">
+            <div id="reqForm" class="req-form req-hidden">
                 <div class="req-grid">
                     <input type="text" id="reqItem" placeholder="Item / Asset *">
                     <input type="text" id="reqRequester" placeholder="Requested By *">
@@ -153,19 +48,19 @@
                 <textarea id="reqNotes" rows="2" placeholder="Notes, attachments, approval steps..."></textarea>
                 <div class="tag-input">
                     <input type="text" id="reqTags" placeholder="Tags (comma separated)">
-                    <button class="btn btn-dp" onclick="addRequisition()">Save Request</button>
+                    <button class="btn btn-dp" data-onclick="addRequisition()">Save Request</button>
                 </div>
             </div>
 
             <div class="filter-bar">
-                <input type="text" id="reqSearch" placeholder="Search name, notes, tags" oninput="renderRequisitions()">
-                <select id="reqStatusFilter" onchange="renderRequisitions()">
+                <input type="text" id="reqSearch" placeholder="Search name, notes, tags" data-oninput="renderRequisitions()">
+                <select id="reqStatusFilter" data-onchange="renderRequisitions()">
                     <option value="">All Statuses</option>
                 </select>
-                <select id="reqGuildFilter" onchange="renderRequisitions()">
+                <select id="reqGuildFilter" data-onchange="renderRequisitions()">
                     <option value="">All Guilds</option>
                 </select>
-                <select id="reqPriorityFilter" onchange="renderRequisitions()">
+                <select id="reqPriorityFilter" data-onchange="renderRequisitions()">
                     <option value="">Any Priority</option>
                 </select>
             </div>

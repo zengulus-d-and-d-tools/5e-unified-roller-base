@@ -5,6 +5,52 @@
         dom: {},
         cardVisible: false
     };
+    const delegatedHandlerEvents = ['click', 'change', 'input'];
+    const delegatedHandlerCache = new Map();
+    let delegatedHandlersBound = false;
+
+    const getDelegatedHandlerFn = (code) => {
+        if (!delegatedHandlerCache.has(code)) {
+            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        }
+        return delegatedHandlerCache.get(code);
+    };
+
+    const runDelegatedHandler = (el, attrName, event) => {
+        const code = el.getAttribute(attrName);
+        if (!code) return;
+
+        try {
+            const result = getDelegatedHandlerFn(code).call(el, event);
+            if (result === false) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        } catch (err) {
+            console.error(`Delegated handler failed for ${attrName}:`, code, err);
+        }
+    };
+
+    const handleDelegatedDataEvent = (event) => {
+        const attrName = `data-on${event.type}`;
+        let node = event.target instanceof Element ? event.target : null;
+
+        while (node) {
+            if (node.hasAttribute(attrName)) {
+                runDelegatedHandler(node, attrName, event);
+                if (event.cancelBubble) break;
+            }
+            node = node.parentElement;
+        }
+    };
+
+    const bindDelegatedDataHandlers = () => {
+        if (delegatedHandlersBound) return;
+        delegatedHandlersBound = true;
+        delegatedHandlerEvents.forEach((eventName) => {
+            document.addEventListener(eventName, handleDelegatedDataEvent);
+        });
+    };
 
     const cacheDom = () => {
         const dom = state.dom;
@@ -187,6 +233,7 @@
     };
 
     const init = () => {
+        bindDelegatedDataHandlers();
         cacheDom();
         if (!getClueData()) return;
         buildGuildGrid();

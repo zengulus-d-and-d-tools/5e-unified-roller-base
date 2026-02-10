@@ -5,91 +5,57 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    const delegatedHandlerEvents = ['click', 'change', 'input'];
+    const delegatedHandlerCache = new Map();
+    let delegatedHandlersBound = false;
+
+    function getDelegatedHandlerFn(code) {
+        if (!delegatedHandlerCache.has(code)) {
+            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        }
+        return delegatedHandlerCache.get(code);
+    }
+
+    function runDelegatedHandler(el, attrName, event) {
+        const code = el.getAttribute(attrName);
+        if (!code) return;
+
+        try {
+            const result = getDelegatedHandlerFn(code).call(el, event);
+            if (result === false) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }
+        catch (err) {
+            console.error(`Delegated handler failed for ${attrName}:`, code, err);
+        }
+    }
+
+    function handleDelegatedDataEvent(event) {
+        const attrName = `data-on${event.type}`;
+        let node = event.target instanceof Element ? event.target : null;
+
+        while (node) {
+            if (node.hasAttribute(attrName)) {
+                runDelegatedHandler(node, attrName, event);
+                if (event.cancelBubble) break;
+            }
+            node = node.parentElement;
+        }
+    }
+
+    function bindDelegatedDataHandlers() {
+        if (delegatedHandlersBound) return;
+        delegatedHandlersBound = true;
+        delegatedHandlerEvents.forEach((eventName) => {
+            document.addEventListener(eventName, handleDelegatedDataEvent);
+        });
+    }
+
+    bindDelegatedDataHandlers();
 
     const getStore = () => window.RTF_STORE;
-    let caseSwitcherBound = false;
-
-    function getCaseSwitcherElements() {
-        return {
-            selector: document.getElementById('caseSelector'),
-            createBtn: document.getElementById('caseCreateBtn'),
-            renameBtn: document.getElementById('caseRenameBtn'),
-            deleteBtn: document.getElementById('caseDeleteBtn')
-        };
-    }
-
-    function renderCaseSwitcher() {
-        const store = getStore();
-        const { selector, deleteBtn } = getCaseSwitcherElements();
-        if (!selector || !store || typeof store.getCases !== 'function') return;
-        const cases = store.getCases() || [];
-        const activeId = typeof store.getActiveCaseId === 'function' ? store.getActiveCaseId() : (cases[0] ? cases[0].id : '');
-        selector.innerHTML = cases.map((entry) => {
-            const label = entry && entry.name ? entry.name : 'Untitled Case';
-            const value = entry && entry.id ? entry.id : '';
-            return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
-        }).join('');
-        if (activeId) selector.value = activeId;
-        if (deleteBtn) deleteBtn.disabled = cases.length <= 1;
-    }
-
-    function handleCaseSwitch() {
-        const store = getStore();
-        const { selector } = getCaseSwitcherElements();
-        if (!store || !selector || typeof store.setActiveCase !== 'function') return;
-        if (store.setActiveCase(selector.value)) {
-            renderTimeline();
-        }
-        renderCaseSwitcher();
-    }
-
-    function handleCaseCreate() {
-        const store = getStore();
-        if (!store || typeof store.createCase !== 'function') return;
-        const name = prompt('Name the new case:', '');
-        if (name === null) return;
-        const newId = store.createCase(name);
-        renderCaseSwitcher();
-        renderTimeline();
-        const { selector } = getCaseSwitcherElements();
-        if (selector && newId) selector.value = newId;
-    }
-
-    function handleCaseRename() {
-        const store = getStore();
-        if (!store || typeof store.renameCase !== 'function') return;
-        const active = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
-        if (!active) return;
-        const name = prompt('Rename case:', active.name || '');
-        if (name === null) return;
-        store.renameCase(active.id, name);
-        renderCaseSwitcher();
-        renderTimeline();
-    }
-
-    function handleCaseDelete() {
-        const store = getStore();
-        if (!store || typeof store.deleteCase !== 'function') return;
-        const active = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
-        if (!active) return;
-        if (!confirm(`Delete case "${active.name}"? This cannot be undone.`)) return;
-        if (store.deleteCase(active.id)) {
-            renderCaseSwitcher();
-            renderTimeline();
-        }
-    }
-
-    function initCaseSwitcher() {
-        if (caseSwitcherBound) return;
-        const { selector, createBtn, renameBtn, deleteBtn } = getCaseSwitcherElements();
-        if (!selector) return;
-        caseSwitcherBound = true;
-        selector.addEventListener('change', handleCaseSwitch);
-        if (createBtn) createBtn.addEventListener('click', handleCaseCreate);
-        if (renameBtn) renameBtn.addEventListener('click', handleCaseRename);
-        if (deleteBtn) deleteBtn.addEventListener('click', handleCaseDelete);
-        renderCaseSwitcher();
-    }
     const HEAT_SYNC_KEY = 'rtf_timeline_auto_heat';
     const HEAT_MIN = 0;
     const HEAT_MAX = 6;
@@ -116,7 +82,7 @@
         if (!isHeatAutoSyncEnabled()) return;
         const current = Number(store.state.campaign.heat) || 0;
         store.state.campaign.heat = clampHeat(current + delta);
-        if (typeof store.save === 'function') store.save();
+        if (typeof store.save === 'function') store.save({ scope: 'campaign' });
     };
 
     function toggleEventForm() {
@@ -204,8 +170,9 @@
 
     function buildEventCard(evt) {
         const heat = parseInt(evt.heatDelta, 10);
+        const heatClass = heat > 0 ? 'tag-pill-heat-up' : 'tag-pill-heat-down';
         const heatText = !isNaN(heat) && heat !== 0
-            ? `<span class="tag-pill" style="border-color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}; color:${heat > 0 ? 'var(--danger)' : 'var(--accent-secondary)'}">Heat ${heat > 0 ? '+' : ''}${heat}</span>`
+            ? `<span class="tag-pill ${heatClass}">Heat ${heat > 0 ? '+' : ''}${heat}</span>`
             : '';
         const focusDisplay = evt.focus ? `<span class="tag-pill">${escapeHtml(evt.focus)}</span>` : '';
         const resolved = Boolean(evt.resolved);
@@ -216,37 +183,37 @@
         <div class="event-card">
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
-                    onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
+                    data-onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
                 <button class="toggle-btn status-toggle status-pill ${statusClass} ${resolved ? 'active' : ''}" type="button"
                     aria-pressed="${resolved ? 'true' : 'false'}"
-                    onclick="toggleResolved('${evt.id}', this)">${statusLabel}</button>
+                    data-onclick="toggleResolved('${evt.id}', this)">${statusLabel}</button>
             </div>
             <div class="event-meta">
                 <div>
                     <label>Focus</label>
                     <input type="text" value="${escapeHtml(evt.focus || '')}" placeholder="District / Guild"
-                        onchange="updateEventField('${evt.id}', 'focus', this.value)">
+                        data-onchange="updateEventField('${evt.id}', 'focus', this.value)">
                 </div>
                 <div>
                     <label>Heat Δ</label>
                     <input type="number" value="${escapeHtml(evt.heatDelta || '')}" placeholder="0"
-                        onchange="updateEventField('${evt.id}', 'heatDelta', this.value)">
+                        data-onchange="updateEventField('${evt.id}', 'heatDelta', this.value)">
                 </div>
                 <div>
                     <label>Tags</label>
                     <input type="text" value="${escapeHtml(evt.tags || '')}" placeholder="tags"
-                        onchange="updateEventField('${evt.id}', 'tags', this.value)">
+                        data-onchange="updateEventField('${evt.id}', 'tags', this.value)">
                 </div>
             </div>
-            <div style="margin-top:10px;">${heatText} ${focusDisplay} ${renderTagPills(evt.tags)}</div>
+            <div class="event-pill-row">${heatText} ${focusDisplay} ${renderTagPills(evt.tags)}</div>
             <div class="event-body">
-                <textarea placeholder="Highlights" onchange="updateEventField('${evt.id}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
-                <textarea placeholder="Fallout" onchange="updateEventField('${evt.id}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
-                <textarea placeholder="Follow Ups" onchange="updateEventField('${evt.id}', 'followUp', this.value)">${escapeHtml(evt.followUp || '')}</textarea>
+                <textarea placeholder="Highlights" data-onchange="updateEventField('${evt.id}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
+                <textarea placeholder="Fallout" data-onchange="updateEventField('${evt.id}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
+                <textarea placeholder="Follow Ups" data-onchange="updateEventField('${evt.id}', 'followUp', this.value)">${escapeHtml(evt.followUp || '')}</textarea>
             </div>
             <div class="event-actions">
-                <small style="color:#666; flex:1;">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
-                <button class="btn btn-danger" onclick="deleteTimelineEvent('${evt.id}')">Delete</button>
+                <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
+                <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evt.id}')">Delete</button>
             </div>
         </div>`;
     }
@@ -380,7 +347,6 @@
     }
 
     function init() {
-        initCaseSwitcher();
         const autoHeatToggle = document.getElementById('eventAutoHeat');
         if (autoHeatToggle) {
             setButtonPressed(autoHeatToggle, isHeatAutoSyncEnabled());
@@ -401,7 +367,6 @@
     window.renderTimeline = renderTimeline;
     window.updateEventField = updateEventField;
     window.deleteTimelineEvent = deleteTimelineEvent;
-    window.renderCaseSwitcher = renderCaseSwitcher;
     window.setHeatAutoSync = setHeatAutoSync;
     window.exportTimelineRecap = exportTimelineRecap;
     window.toggleFilterButton = toggleFilterButton;

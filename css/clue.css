@@ -4,6 +4,12 @@
             --st-green: #2ecc71;
         }
 
+.clue-accent-picker-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -54,6 +60,23 @@ body {
             text-align: center;
             max-width: 500px;
             line-height: 1.5;
+        }
+
+        .clue-signal-text {
+            color: var(--st-green);
+        }
+
+        .clue-noise-text {
+            color: var(--st-orange);
+        }
+
+        .clue-protocol-title {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .clue-emph {
+            font-weight: bold;
         }
 
         /* GUILD GRID */
@@ -347,6 +370,14 @@ body {
         .res-stat span {
             font-weight: bold;
             font-size: 1rem;
+        }
+
+        .clue-friction-text {
+            color: var(--gold);
+        }
+
+        .clue-cost-text {
+            color: var(--danger);
         }
 
         .protocol-box {

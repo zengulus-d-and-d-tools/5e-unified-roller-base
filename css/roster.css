@@ -1,0 +1,118 @@
+/* Specific adjustments for Roster if needed, reusing Hub styles for consistency */
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* Inline migration utilities (roster.html + js/roster.js phase) */
+.roster-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.roster-hidden {
+    display: none !important;
+}
+
+.roster-npc-form {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.roster-grid-two {
+    grid-template-columns: 1fr 1fr;
+}
+
+.roster-mb-10 {
+    margin-bottom: 10px;
+}
+
+.roster-form-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.roster-filter-grow {
+    flex: 1;
+}
+
+.roster-npc-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1.5fr 1.5fr;
+    gap: 10px;
+    align-items: start;
+    padding: 15px;
+    padding-right: 72px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.1);
+    margin-bottom: 5px;
+    border-radius: 4px;
+}
+
+.roster-npc-name {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.roster-npc-guild {
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.roster-npc-meta-block {
+    font-size: 0.9rem;
+}
+
+.roster-npc-meta-label {
+    color: #888;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+}
+
+.roster-npc-notes {
+    grid-column: 1 / -1;
+    margin-top: 5px;
+    font-size: 0.9rem;
+    color: #aaa;
+    font-style: italic;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 5px;
+}
+
+.roster-npc-lock-icon {
+    position: absolute;
+    right: 44px;
+    top: 10px;
+    color: #888;
+    font-size: 1rem;
+}
+
+.roster-npc-edit-btn {
+    position: absolute;
+    right: 44px;
+    top: 8px;
+    padding: 4px 7px;
+    color: var(--accent);
+    border: none;
+    background: transparent;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.roster-npc-delete-btn {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    padding: 4px 8px;
+    color: var(--danger);
+    border: none;
+    background: transparent;
+    font-size: 1.2rem;
+    cursor: pointer;
+}

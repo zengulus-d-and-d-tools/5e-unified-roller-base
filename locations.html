@@ -7,14 +7,7 @@
     <title>Locations Database</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/hub.css">
-    <style>
-        /* Specific adjustments for Locations if needed, reusing Hub styles for consistency */
-        .filter-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/locations.css">
 </head>
 
 <body>
@@ -30,41 +23,39 @@
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
                     <a class="hero-btn ghost" href="tools.html">Portal</a>
-                    <button class="hero-btn accent" onclick="toggleLocationForm()">+ Add Location</button>
+                    <button class="hero-btn accent" data-onclick="toggleLocationForm()">+ Add Location</button>
                 </div>
                 <div class="hero-action-bar secondary">
-                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input"
-                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                    class="locations-accent-picker-input" data-onchange="setAccentColor(this.value)">
             </div>
         </header>
 
         <div class="card">
-            <h2>Location List <button class="btn" onclick="toggleLocationForm()">+ Add Location</button></h2>
+            <h2>Location List <button class="btn" data-onclick="toggleLocationForm()">+ Add Location</button></h2>
 
-            <div id="locationForm"
-                style="display:none; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                <div class="grid-5" style="grid-template-columns: 1fr 1fr; margin-bottom: 10px;">
+            <div id="locationForm" class="locations-form locations-hidden">
+                <div class="grid-5 locations-grid-two locations-mb-10">
                     <input type="text" id="locName" placeholder="Location Name">
                     <select id="locDistrict">
                         <option value="">Select District/Guild...</option>
                     </select>
                 </div>
-                <div style="margin-bottom: 10px;">
+                <div class="locations-mb-10">
                     <textarea id="locDesc" rows="2" placeholder="Description / Visuals..."></textarea>
                 </div>
-                <div style="margin-bottom: 10px;">
+                <div class="locations-mb-10">
                     <textarea id="locNotes" rows="2" placeholder="Location Notes..."></textarea>
                 </div>
-                <button class="btn btn-dp" onclick="addLocation()">Save Location</button>
+                <button class="btn btn-dp" data-onclick="addLocation()">Save Location</button>
             </div>
 
             <div class="filter-bar">
-                <input type="text" id="searchFilter" placeholder="Search locations..." onkeyup="render()"
-                    style="flex:1;">
-                <select id="districtFilter" onchange="render()" style="flex:1;">
+                <input type="text" id="searchFilter" class="locations-filter-grow" placeholder="Search locations..." data-oninput="render()">
+                <select id="districtFilter" class="locations-filter-grow" data-onchange="render()">
                     <option value="">All Districts</option>
                 </select>
             </div>

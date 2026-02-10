@@ -1,9 +1,9 @@
 (function () {
     const TIERS = [
-        { value: 'Routine', color: '#7f8c8d' },
-        { value: 'Standard', color: 'var(--accent)' },
-        { value: 'Elite', color: '#f1c40f' },
-        { value: 'Boss', color: 'var(--danger)' }
+        { value: 'Routine', cardClass: 'enc-card-tier-routine' },
+        { value: 'Standard', cardClass: 'enc-card-tier-standard' },
+        { value: 'Elite', cardClass: 'enc-card-tier-elite' },
+        { value: 'Boss', cardClass: 'enc-card-tier-boss' }
     ];
 
     const escapeHtml = (str = '') => String(str)
@@ -12,8 +12,55 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    const delegatedHandlerEvents = ['click', 'change', 'input'];
+    const delegatedHandlerCache = new Map();
+    let delegatedHandlersBound = false;
 
     const getStore = () => window.RTF_STORE;
+
+    function getDelegatedHandlerFn(code) {
+        if (!delegatedHandlerCache.has(code)) {
+            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        }
+        return delegatedHandlerCache.get(code);
+    }
+
+    function runDelegatedHandler(el, attrName, event) {
+        const code = el.getAttribute(attrName);
+        if (!code) return;
+
+        try {
+            const result = getDelegatedHandlerFn(code).call(el, event);
+            if (result === false) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        }
+        catch (err) {
+            console.error(`Delegated handler failed for ${attrName}:`, code, err);
+        }
+    }
+
+    function handleDelegatedDataEvent(event) {
+        const attrName = `data-on${event.type}`;
+        let node = event.target instanceof Element ? event.target : null;
+
+        while (node) {
+            if (node.hasAttribute(attrName)) {
+                runDelegatedHandler(node, attrName, event);
+                if (event.cancelBubble) break;
+            }
+            node = node.parentElement;
+        }
+    }
+
+    function bindDelegatedDataHandlers() {
+        if (delegatedHandlersBound) return;
+        delegatedHandlersBound = true;
+        delegatedHandlerEvents.forEach((eventName) => {
+            document.addEventListener(eventName, handleDelegatedDataEvent);
+        });
+    }
 
     function populateTierSelects() {
         const tierSelect = document.getElementById('encTier');
@@ -35,11 +82,12 @@
         const form = document.getElementById('encForm');
         if (!form) return;
         populateTierSelects();
-        if (form.style.display === 'block') {
-            form.style.display = 'none';
-        } else {
-            form.style.display = 'block';
+        const willOpen = form.classList.contains('enc-hidden');
+        if (willOpen) {
+            form.classList.remove('enc-hidden');
             document.getElementById('encTitle').focus();
+        } else {
+            form.classList.add('enc-hidden');
         }
     }
 
@@ -101,34 +149,34 @@
     function buildCard(enc) {
         const tierMeta = TIERS.find(t => t.value === enc.tier) || TIERS[0];
         return `
-        <div class="enc-card" style="border-left:4px solid ${tierMeta.color};">
+        <div class="enc-card ${tierMeta.cardClass}">
             <h3>
                 <input type="text" value="${escapeHtml(enc.title || '')}" placeholder="Encounter"
-                    onchange="updateEncField('${enc.id}', 'title', this.value)">
-                <select class="tier-pill" onchange="updateEncField('${enc.id}', 'tier', this.value)">
+                    data-onchange="updateEncField('${enc.id}', 'title', this.value)">
+                <select class="tier-pill" data-onchange="updateEncField('${enc.id}', 'tier', this.value)">
                     ${buildTierOptions(enc.tier)}
                 </select>
             </h3>
-            <div class="enc-grid" style="margin-top:10px;">
+            <div class="enc-grid enc-grid-card-meta">
                 <div>
-                    <label style="font-size:0.75rem; text-transform:uppercase; color:#888;">Battlefield</label>
+                    <label class="enc-field-label">Battlefield</label>
                     <input type="text" value="${escapeHtml(enc.location || '')}" placeholder="Arena"
-                        onchange="updateEncField('${enc.id}', 'location', this.value)">
+                        data-onchange="updateEncField('${enc.id}', 'location', this.value)">
                 </div>
                 <div>
-                    <label style="font-size:0.75rem; text-transform:uppercase; color:#888;">Objective</label>
+                    <label class="enc-field-label">Objective</label>
                     <input type="text" value="${escapeHtml(enc.objective || '')}" placeholder="Goal"
-                        onchange="updateEncField('${enc.id}', 'objective', this.value)">
+                        data-onchange="updateEncField('${enc.id}', 'objective', this.value)">
                 </div>
             </div>
-            <textarea placeholder="Opposition" onchange="updateEncField('${enc.id}', 'opposition', this.value)">${escapeHtml(enc.opposition || '')}</textarea>
-            <textarea placeholder="Hazards" onchange="updateEncField('${enc.id}', 'hazards', this.value)">${escapeHtml(enc.hazards || '')}</textarea>
-            <textarea placeholder="Beats / Phases" onchange="updateEncField('${enc.id}', 'beats', this.value)">${escapeHtml(enc.beats || '')}</textarea>
-            <textarea placeholder="Rewards" onchange="updateEncField('${enc.id}', 'rewards', this.value)">${escapeHtml(enc.rewards || '')}</textarea>
-            <textarea placeholder="Notes" onchange="updateEncField('${enc.id}', 'notes', this.value)">${escapeHtml(enc.notes || '')}</textarea>
-            <div style="display:flex; justify-content:flex-end; gap:10px; align-items:center;">
-                <small style="color:#666; flex:1;">Logged ${enc.created ? new Date(enc.created).toLocaleString() : '—'}</small>
-                <button class="btn btn-danger" onclick="deleteEncounter('${enc.id}')">Delete</button>
+            <textarea placeholder="Opposition" data-onchange="updateEncField('${enc.id}', 'opposition', this.value)">${escapeHtml(enc.opposition || '')}</textarea>
+            <textarea placeholder="Hazards" data-onchange="updateEncField('${enc.id}', 'hazards', this.value)">${escapeHtml(enc.hazards || '')}</textarea>
+            <textarea placeholder="Beats / Phases" data-onchange="updateEncField('${enc.id}', 'beats', this.value)">${escapeHtml(enc.beats || '')}</textarea>
+            <textarea placeholder="Rewards" data-onchange="updateEncField('${enc.id}', 'rewards', this.value)">${escapeHtml(enc.rewards || '')}</textarea>
+            <textarea placeholder="Notes" data-onchange="updateEncField('${enc.id}', 'notes', this.value)">${escapeHtml(enc.notes || '')}</textarea>
+            <div class="enc-actions">
+                <small class="enc-log-meta">Logged ${enc.created ? new Date(enc.created).toLocaleString() : '—'}</small>
+                <button class="btn btn-danger" data-onclick="deleteEncounter('${enc.id}')">Delete</button>
             </div>
         </div>`;
     }
@@ -163,6 +211,8 @@
             setTimeout(waitForStore, 100);
         }
     }
+
+    bindDelegatedDataHandlers();
 
     window.toggleEncForm = toggleEncForm;
     window.addEncounter = addEncounter;

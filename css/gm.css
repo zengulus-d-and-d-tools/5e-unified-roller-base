@@ -5,6 +5,12 @@
             --pink: #ff4081;
         }
 
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -523,4 +529,254 @@
             margin-top: 20px;
             border-top: 1px solid #444;
             padding-top: 10px;
+        }
+
+        /* Inline migration utilities (gm.html + js/gm.js phase) */
+        .gm-accent-picker-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .gm-card-top-green {
+            border-top: 2px solid var(--green);
+        }
+
+        .gm-card-top-accent {
+            border-top: 2px solid var(--accent);
+        }
+
+        .gm-input-bold {
+            font-weight: bold;
+        }
+
+        .gm-input-w80 {
+            width: 80px;
+        }
+
+        .gm-input-w50-center {
+            width: 50px;
+            text-align: center;
+        }
+
+        .gm-grow {
+            flex: 1;
+        }
+
+        .gm-helper-note {
+            font-size: 0.7rem;
+            color: #666;
+            text-align: center;
+        }
+
+        .gm-helper-note-soft {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .gm-clickable {
+            cursor: pointer;
+        }
+
+        .gm-mob-body {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .gm-mob-body.open {
+            display: flex;
+        }
+
+        .gm-clear-wrap {
+            text-align: center;
+            margin-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .gm-btn-w50 {
+            width: 50px;
+        }
+
+        .gm-btn-w100 {
+            width: 100px;
+        }
+
+        .gm-row-top-5 {
+            margin-top: 5px;
+        }
+
+        .gm-inline-flex-grow {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gm-label-muted-nowrap {
+            font-size: 0.8rem;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        .gm-input-level {
+            width: 50px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .gm-pb-display {
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+
+        .gm-mt-15 {
+            margin-top: 15px;
+        }
+
+        .gm-tier-desc {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .gm-section-divider {
+            margin-top: 15px;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+
+        .gm-check-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .gm-text-strong {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .gm-text-accent-strong {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .gm-center {
+            text-align: center;
+        }
+
+        .gm-dc-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .gm-muted-small {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .gm-flex-gap-10 {
+            display: flex;
+            gap: 10px;
+        }
+
+        .gm-bestiary-list {
+            margin-top: 15px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .gm-loot-row {
+            margin-bottom: 10px;
+        }
+
+        .gm-loot-qty-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .gm-label-muted {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .gm-check-label-small {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .gm-loot-result {
+            margin-top: 15px;
+            font-style: italic;
+            color: var(--accent);
+            min-height: 20px;
+            text-align: left;
+            transition: opacity 0.2s ease-in-out;
+            white-space: pre-wrap;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            padding: 0 10px;
+        }
+
+        .gm-card-flush {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .gm-section-conditions {
+            margin: 10px 10px 0;
+            border: none;
+        }
+
+        .gm-bestiary-empty {
+            color: #666;
+            font-style: italic;
+            padding: 10px;
+        }
+
+        .gm-bestiary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #111;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #333;
+        }
+
+        .gm-bestiary-item-name {
+            font-weight: bold;
+            color: #ddd;
+        }
+
+        .gm-bestiary-item-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .combat-actions {
+            display: flex;
+            align-items: center;
+        }
+
+        .name-meta-active {
+            color: var(--accent);
+        }
+
+        .hp-display.hp-bloodied {
+            color: #e74c3c;
+        }
+
+        .hp-display.hp-healthy {
+            color: #2ecc71;
         }

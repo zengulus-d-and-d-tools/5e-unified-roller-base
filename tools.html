@@ -7,28 +7,7 @@
     <title>Ravnica DM Portal</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/tools.css">
-
-    <style>
-        .dm-only {
-            display: none;
-        }
-
-        .header-title {
-            cursor: pointer;
-            user-select: none;
-            transition: color 0.3s;
-        }
-
-        .header-title:hover {
-            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-        }
-
-        .secret-active .header-title {
-            color: #ff4444;
-            text-shadow: 0 0 15px #ff0000;
-        }
-
-    </style>
+    <link rel="stylesheet" href="css/tools-page.css">
 </head>
 
 <body>
@@ -38,20 +17,20 @@
         <header class="hero-header">
             <div>
                 <p class="hero-eyebrow">Ravnica Task Force</p>
-                <h1 class="header-title" id="pageTitle" onclick="trySecretToggle(event)">Tools Hub</h1>
+                <h1 class="header-title" id="pageTitle" data-onclick="trySecretToggle(event)">Tools Hub</h1>
                 <p class="hero-subtitle">Central dispatch for character sheets, command dashboards, and scenario generators.</p>
             </div>
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
-                    <button class="hero-btn ghost" onclick="handleImport()">📥 Import</button>
-                    <button class="hero-btn ghost" onclick="handleExport()">📤 Export</button>
+                    <button class="hero-btn ghost" data-onclick="handleImport()">📥 Import</button>
+                    <button class="hero-btn ghost" data-onclick="handleExport()">📤 Export</button>
                 </div>
                 <div class="hero-action-bar secondary">
-                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input"
-                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                    class="tools-accent-picker-input" data-onchange="setAccentColor(this.value)">
             </div>
         </header>
 
@@ -64,18 +43,18 @@
                 Board and Timeline are scoped to the selected case. NPC, location, requisition, and roster data remain shared across all cases.
             </p>
             <div class="case-switcher-row">
-                <select id="active-case-select" onchange="selectActiveCase(this.value)" aria-label="Select Active Case"></select>
-                <button class="sync-btn" id="case-rename-btn" onclick="renameActiveCase()">Rename</button>
-                <button class="sync-btn" id="case-delete-btn" onclick="deleteActiveCase()">Delete</button>
+                <select id="active-case-select" data-onchange="selectActiveCase(this.value)" aria-label="Select Active Case"></select>
+                <button class="sync-btn" id="case-rename-btn" data-onclick="renameActiveCase()">Rename</button>
+                <button class="sync-btn" id="case-delete-btn" data-onclick="deleteActiveCase()">Delete</button>
             </div>
             <div class="case-switcher-row">
                 <input id="new-case-name" type="text" placeholder="New case name">
-                <button class="sync-btn primary" id="case-create-btn" onclick="createCaseFromInput()">Create + Switch</button>
+                <button class="sync-btn primary" id="case-create-btn" data-onclick="createCaseFromInput()">Create + Switch</button>
             </div>
             <div id="case-switcher-status" class="case-switcher-status">Case tools initializing...</div>
         </section>
 
-        <section class="sync-panel card" id="sync-panel" aria-label="Cloud Sync">
+        <section class="sync-panel card tools-hidden" id="sync-panel" aria-label="Cloud Sync">
             <h2 class="sync-title">Cloud Sync (Supabase)</h2>
             <p class="sync-desc">
                 Realtime sync for campaign tools (Hub, Board, Roster, Timeline, etc). Character sheets stay local per browser by default.
@@ -99,19 +78,27 @@
                 </div>
             </div>
             <div class="sync-actions">
-                <button class="sync-btn" onclick="saveSyncConfig()">Save Config</button>
-                <button class="sync-btn primary" onclick="connectSync()">Connect</button>
-                <button class="sync-btn" onclick="disconnectSync()">Disconnect</button>
-                <button class="sync-btn" onclick="pullSyncNow()">Pull Latest</button>
-                <button class="sync-btn" onclick="pushSyncNow()">Push Now</button>
-                <button class="sync-btn" onclick="anonymousSignIn()">Anonymous Sign-In</button>
-                <button class="sync-btn" onclick="signOutSync()">Sign Out</button>
-                <button class="sync-btn" onclick="exportConnectFile()">Export connect.json</button>
+                <button class="sync-btn" data-onclick="saveSyncConfig()">Save Config</button>
+                <button class="sync-btn primary" data-onclick="connectSync()">Connect</button>
+                <button class="sync-btn" data-onclick="disconnectSync()">Disconnect</button>
+                <button class="sync-btn" data-onclick="pullSyncNow()">Pull Latest</button>
+                <button class="sync-btn" data-onclick="pushSyncNow()">Push Now</button>
+                <button class="sync-btn" data-onclick="anonymousSignIn()">Anonymous Sign-In</button>
+                <button class="sync-btn" data-onclick="signOutSync()">Sign Out</button>
+                <button class="sync-btn" data-onclick="exportConnectFile()">Export connect.json</button>
+            </div>
+            <div id="sync-conflict-box" class="sync-conflict tools-hidden">
+                <div class="sync-conflict-head">Sync Conflict Detected</div>
+                <div id="sync-conflict-detail" class="sync-conflict-detail">Remote changes overlap local edits.</div>
+                <div class="sync-conflict-actions">
+                    <button class="sync-btn" data-onclick="acceptRemoteConflict()">Accept Remote</button>
+                    <button class="sync-btn primary" data-onclick="keepLocalConflict()">Keep Local + Merge Push</button>
+                </div>
             </div>
             <div id="sync-status" class="sync-status">Cloud sync status: waiting for store...</div>
         </section>
 
-        <section class="sync-panel customize-panel card" id="customize-panel" aria-label="Customise Seed Data">
+        <section class="sync-panel customize-panel card tools-hidden" id="customize-panel" aria-label="Customise Seed Data">
             <h2 class="sync-title">Customise Seed Data (Fork Tool)</h2>
             <p class="sync-desc">
                 Build fork-ready preload files from JSON. Download `data-guilds*.js`, `data-npcs*.js`, and `data-locations*.js` to seed fresh installs fast.
@@ -123,12 +110,12 @@
                 </div>
             </div>
             <div class="customize-actions">
-                <button class="sync-btn" onclick="loadCustomizeDefaults()">Load Current Defaults</button>
-                <button class="sync-btn" onclick="loadCustomizeFromCampaign()">Load From Campaign Store</button>
-                <button class="sync-btn" onclick="downloadCustomDataFile('guilds')">Download data-guilds.js</button>
-                <button class="sync-btn" onclick="downloadCustomDataFile('npcs')">Download data-npcs.js</button>
-                <button class="sync-btn" onclick="downloadCustomDataFile('locations')">Download data-locations.js</button>
-                <button class="sync-btn primary" onclick="downloadCustomDataFiles()">Download All</button>
+                <button class="sync-btn" data-onclick="loadCustomizeDefaults()">Load Current Defaults</button>
+                <button class="sync-btn" data-onclick="loadCustomizeFromCampaign()">Load From Campaign Store</button>
+                <button class="sync-btn" data-onclick="downloadCustomDataFile('guilds')">Download data-guilds.js</button>
+                <button class="sync-btn" data-onclick="downloadCustomDataFile('npcs')">Download data-npcs.js</button>
+                <button class="sync-btn" data-onclick="downloadCustomDataFile('locations')">Download data-locations.js</button>
+                <button class="sync-btn primary" data-onclick="downloadCustomDataFiles()">Download All</button>
             </div>
             <div class="sync-grid">
                 <div class="sync-field">
@@ -159,15 +146,15 @@
                 Players: import a DM-provided <code>connect.json</code> and you should be online in a few seconds.
             </p>
             <div class="sync-quick-actions">
-                <button class="sync-btn primary" onclick="importConnectFile()">Import connect.json</button>
-                <button class="sync-btn" onclick="useBundledConnect()">Use bundled connect.json</button>
+                <button class="sync-btn primary" data-onclick="importConnectFile()">Import connect.json</button>
+                <button class="sync-btn" data-onclick="useBundledConnect()">Use bundled connect.json</button>
             </div>
             <div id="sync-quick-status" class="sync-quick-status">Status: waiting for sync engine...</div>
         </section>
 
         <div class="grid">
             <a href="index.html">
-                <div class="card" style="border-color: var(--accent);">
+                <div class="card tools-card-accent">
                     <div class="icon">🧙‍♂️</div>
                     <div class="title">My Character</div>
                     <div class="desc">Character sheet, dice roller, and stats.</div>
@@ -248,7 +235,7 @@
 
             <!-- DM ONLY TOOLS -->
             <a href="gm.html" class="dm-only">
-                <div class="card" style="border-color: #ff4444;">
+                <div class="card tools-card-danger">
                     <div class="icon">⚔️</div>
                     <div class="title">Combat Dashboard</div>
                     <div class="desc">Initiative tracker, HP management, dice roller, and loot tables.</div>
@@ -256,7 +243,7 @@
             </a>
 
             <a href="dm-screen.html" class="dm-only">
-                <div class="card" style="border-color: #ff4444;">
+                <div class="card tools-card-danger">
                     <div class="icon">📽️</div>
                     <div class="title">Narrative Screen</div>
                     <div class="desc">Street scenes, atmospheric texture, NPC quirks, and quick references.</div>
@@ -264,7 +251,7 @@
             </a>
 
             <a href="clue.html" class="dm-only">
-                <div class="card" style="border-color: #ff4444;">
+                <div class="card tools-card-danger">
                     <div class="icon">🔍</div>
                     <div class="title">Clue Generator</div>
                     <div class="desc">Procedural mystery intersection generator (Signal vs Noise).</div>
@@ -272,7 +259,7 @@
             </a>
 
             <a href="encounters.html" class="dm-only">
-                <div class="card" style="border-color: #ff4444;">
+                <div class="card tools-card-danger">
                     <div class="icon">⚙️</div>
                     <div class="title">Encounter Recipes</div>
                     <div class="desc">Prep custom enemy packages, hazards, and rewards.</div>
@@ -286,730 +273,7 @@
     <script src="js/data-locations.js"></script>
     <script src="js/store.js"></script>
     <script src="js/vector-field.js"></script>
-    <script>
-        let latestSyncStatus = null;
-
-        // Secret Toggle Logic
-        function trySecretToggle(e) {
-            // Alt + Shift + Click
-            if (e.altKey && e.shiftKey) {
-                document.body.classList.toggle('secret-active');
-                const isSecret = document.body.classList.contains('secret-active');
-
-                document.getElementById('pageTitle').innerText = isSecret ? "Forbidden DM Protocols" : "Tools Hub";
-
-                // Toggle DM Cards
-                document.querySelectorAll('.dm-only').forEach(el => {
-                    el.style.display = isSecret ? 'block' : 'none';
-                    // Add animation class if needed
-                    el.style.animation = isSecret ? 'fadeIn 0.5s' : '';
-                });
-
-                updateSyncPanelVisibility(latestSyncStatus);
-            }
-        }
-
-        // Store Interaction
-        function handleExport() {
-            if (window.RTF_STORE) {
-                window.RTF_STORE.export();
-            } else {
-                alert("Store not loaded.");
-            }
-        }
-
-        function handleImport() {
-            if (window.RTF_STORE) {
-                window.RTF_STORE.import().then(success => {
-                    if (success) alert("Data imported successfully!");
-                    renderCaseSwitcher();
-                });
-            } else {
-                alert("Store not loaded.");
-            }
-        }
-
-        function setCaseSwitcherStatus(message, isError = false) {
-            const el = document.getElementById('case-switcher-status');
-            if (!el) return;
-            el.textContent = message;
-            el.classList.toggle('is-error', !!isError);
-        }
-
-        function renderCaseSwitcher() {
-            const selectEl = document.getElementById('active-case-select');
-            const metaEl = document.getElementById('case-switcher-meta');
-            const deleteBtn = document.getElementById('case-delete-btn');
-            const renameBtn = document.getElementById('case-rename-btn');
-            const createBtn = document.getElementById('case-create-btn');
-            if (!selectEl || !metaEl) return;
-
-            if (!window.RTF_STORE || typeof window.RTF_STORE.getCases !== 'function') {
-                selectEl.innerHTML = '';
-                metaEl.textContent = 'Store unavailable';
-                if (deleteBtn) deleteBtn.disabled = true;
-                if (renameBtn) renameBtn.disabled = true;
-                if (createBtn) createBtn.disabled = true;
-                setCaseSwitcherStatus('Store not loaded yet.', true);
-                return;
-            }
-
-            const cases = window.RTF_STORE.getCases();
-            const activeId = window.RTF_STORE.getActiveCaseId();
-            const activeCase = typeof window.RTF_STORE.getActiveCase === 'function'
-                ? window.RTF_STORE.getActiveCase()
-                : null;
-
-            const previous = selectEl.value;
-            selectEl.innerHTML = '';
-            cases.forEach((entry) => {
-                const option = document.createElement('option');
-                option.value = entry.id;
-                option.textContent = entry.name || entry.id;
-                selectEl.appendChild(option);
-            });
-
-            if (cases.some((entry) => entry.id === activeId)) {
-                selectEl.value = activeId;
-            } else if (cases.some((entry) => entry.id === previous)) {
-                selectEl.value = previous;
-            }
-
-            const count = cases.length;
-            const activeLabel = activeCase && activeCase.name ? activeCase.name : (selectEl.options[selectEl.selectedIndex] && selectEl.options[selectEl.selectedIndex].textContent) || '—';
-            metaEl.textContent = `${count} case${count === 1 ? '' : 's'} | Active: ${activeLabel}`;
-            if (deleteBtn) deleteBtn.disabled = count <= 1;
-            if (renameBtn) renameBtn.disabled = !count;
-            if (createBtn) createBtn.disabled = false;
-            setCaseSwitcherStatus(`Case context set to "${activeLabel}".`);
-        }
-
-        function selectActiveCase(caseId) {
-            if (!window.RTF_STORE || typeof window.RTF_STORE.setActiveCase !== 'function') {
-                setCaseSwitcherStatus('Case switching unavailable in this store version.', true);
-                return;
-            }
-            if (!window.RTF_STORE.setActiveCase(caseId)) {
-                setCaseSwitcherStatus('Could not switch to that case.', true);
-                renderCaseSwitcher();
-                return;
-            }
-            renderCaseSwitcher();
-        }
-
-        function createCaseFromInput() {
-            const input = document.getElementById('new-case-name');
-            if (!input) return;
-            if (!window.RTF_STORE || typeof window.RTF_STORE.createCase !== 'function') {
-                setCaseSwitcherStatus('Case creation unavailable in this store version.', true);
-                return;
-            }
-            const name = (input.value || '').trim();
-            if (!name) {
-                setCaseSwitcherStatus('Enter a case name first.', true);
-                input.focus();
-                return;
-            }
-            const id = window.RTF_STORE.createCase(name);
-            input.value = '';
-            renderCaseSwitcher();
-            if (id) setCaseSwitcherStatus(`Created and switched to "${name}".`);
-        }
-
-        function renameActiveCase() {
-            if (!window.RTF_STORE || typeof window.RTF_STORE.renameCase !== 'function') {
-                setCaseSwitcherStatus('Case rename unavailable in this store version.', true);
-                return;
-            }
-            const active = window.RTF_STORE.getActiveCase && window.RTF_STORE.getActiveCase();
-            if (!active || !active.id) {
-                setCaseSwitcherStatus('No active case to rename.', true);
-                return;
-            }
-            const next = prompt('Rename active case:', active.name || '');
-            if (next === null) return;
-            const trimmed = next.trim();
-            if (!trimmed) {
-                setCaseSwitcherStatus('Case name cannot be empty.', true);
-                return;
-            }
-            if (!window.RTF_STORE.renameCase(active.id, trimmed)) {
-                setCaseSwitcherStatus('Case rename failed.', true);
-                return;
-            }
-            renderCaseSwitcher();
-            setCaseSwitcherStatus(`Renamed case to "${trimmed}".`);
-        }
-
-        function deleteActiveCase() {
-            if (!window.RTF_STORE || typeof window.RTF_STORE.deleteCase !== 'function') {
-                setCaseSwitcherStatus('Case delete unavailable in this store version.', true);
-                return;
-            }
-            const active = window.RTF_STORE.getActiveCase && window.RTF_STORE.getActiveCase();
-            const allCases = window.RTF_STORE.getCases && window.RTF_STORE.getCases();
-            if (!active || !active.id) {
-                setCaseSwitcherStatus('No active case to delete.', true);
-                return;
-            }
-            if (!Array.isArray(allCases) || allCases.length <= 1) {
-                setCaseSwitcherStatus('At least one case must remain.', true);
-                return;
-            }
-            const ok = confirm(`Delete case "${active.name}"?\n\nThis removes that case's board and timeline events only.`);
-            if (!ok) return;
-            if (!window.RTF_STORE.deleteCase(active.id)) {
-                setCaseSwitcherStatus('Case delete failed.', true);
-                return;
-            }
-            renderCaseSwitcher();
-        }
-
-        function getSyncFormValues() {
-            return {
-                supabaseUrl: (document.getElementById('sync-url').value || '').trim(),
-                anonKey: (document.getElementById('sync-key').value || '').trim(),
-                campaignId: (document.getElementById('sync-campaign').value || '').trim(),
-                profileName: (document.getElementById('sync-profile').value || '').trim()
-            };
-        }
-
-        function normalizeConnectPayload(raw) {
-            if (!raw || typeof raw !== 'object') return null;
-            const supabaseUrl = (raw.supabaseUrl || raw.projectUrl || raw.url || '').trim();
-            const anonKey = (raw.anonKey || raw.key || raw.publicKey || '').trim();
-            const campaignId = (raw.campaignId || raw.slug || raw.campaign || '').trim();
-            const profileName = (raw.profileName || raw.profile || '').trim();
-            if (!supabaseUrl || !anonKey || !campaignId) return null;
-            return {
-                supabaseUrl,
-                anonKey,
-                campaignId,
-                profileName,
-                enabled: true,
-                autoConnect: true
-            };
-        }
-
-        async function applyConnectProfile(raw, opts = {}) {
-            if (!window.RTF_STORE) return { ok: false, error: 'Store not loaded.' };
-            const options = opts && typeof opts === 'object' ? opts : {};
-            const payload = normalizeConnectPayload(raw);
-            if (!payload) return { ok: false, error: 'Invalid connect.json format.' };
-
-            window.RTF_STORE.setSyncConfig(payload, { reconnect: false });
-            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
-
-            if (options.connect === false) return { ok: true, connected: false };
-
-            const result = await window.RTF_STORE.connectSync();
-            if (!result.ok) {
-                const status = window.RTF_STORE.getSyncStatus();
-                return { ok: false, error: status.lastError || 'Connect failed.' };
-            }
-            return { ok: true, connected: true };
-        }
-
-        function importConnectFile() {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'application/json,.json';
-            input.onchange = async (event) => {
-                const file = event.target.files && event.target.files[0];
-                if (!file) return;
-                try {
-                    setQuickStatus('importing connect.json...');
-                    const text = await file.text();
-                    const parsed = JSON.parse(text);
-                    const result = await applyConnectProfile(parsed);
-                    if (!result.ok) {
-                        setQuickStatus(result.error || 'failed to import connect.json.');
-                        alert(result.error || 'Failed to import connect.json.');
-                        return;
-                    }
-                    setQuickStatus('connected.');
-                    alert('connect.json imported and sync connected.');
-                } catch (err) {
-                    setQuickStatus('invalid connect.json file.');
-                    alert('Invalid connect.json file.');
-                }
-            };
-            input.click();
-        }
-
-        async function readBundledConnect() {
-            try {
-                const response = await fetch('connect.json', { cache: 'no-store' });
-                if (!response.ok) return null;
-                const json = await response.json();
-                return normalizeConnectPayload(json);
-            } catch (err) {
-                return null;
-            }
-        }
-
-        async function useBundledConnect() {
-            setQuickStatus('checking bundled connect.json...');
-            const payload = await readBundledConnect();
-            if (!payload) {
-                setQuickStatus('no valid bundled connect.json found.');
-                alert('No valid bundled connect.json found at site root.');
-                return;
-            }
-            setQuickStatus('connecting with bundled config...');
-            const result = await applyConnectProfile(payload);
-            if (!result.ok) {
-                setQuickStatus(result.error || 'failed using bundled connect.json.');
-                alert(result.error || 'Failed using bundled connect.json.');
-                return;
-            }
-            setQuickStatus('connected.');
-            alert('Bundled connect.json applied and connected.');
-        }
-
-        async function tryAutoConnectFromBundledDefault() {
-            if (!window.RTF_STORE) return;
-            const current = window.RTF_STORE.getSyncConfig();
-            const hasStoredConfig = !!(current && current.supabaseUrl && current.anonKey && current.campaignId);
-            if (hasStoredConfig) return;
-
-            const payload = await readBundledConnect();
-            if (!payload) return;
-            await applyConnectProfile(payload);
-        }
-
-        function applySyncConfigToForm(config) {
-            if (!config) return;
-            document.getElementById('sync-url').value = config.supabaseUrl || '';
-            document.getElementById('sync-key').value = config.anonKey || '';
-            document.getElementById('sync-campaign').value = config.campaignId || '';
-            document.getElementById('sync-profile').value = config.profileName || '';
-        }
-
-        function fmtSyncTime(ts) {
-            if (!ts) return '—';
-            try {
-                return new Date(ts).toLocaleString();
-            } catch (err) {
-                return '—';
-            }
-        }
-
-        function setSyncStatusText(status) {
-            const el = document.getElementById('sync-status');
-            if (!el) return;
-            if (!status) {
-                el.textContent = 'Cloud sync status unavailable.';
-                return;
-            }
-            const parts = [
-                `Mode: ${status.mode || 'unknown'}`,
-                `Connected: ${status.connected ? 'yes' : 'no'}`,
-                `Campaign: ${status.campaignId || '—'}`,
-                `User: ${status.userId ? status.userId.slice(0, 8) + '…' : '—'}`,
-                `Last Pull: ${fmtSyncTime(status.lastPullAt)}`,
-                `Last Push: ${fmtSyncTime(status.lastPushAt)}`,
-                status.pendingPush ? 'Pending Local Push: yes' : 'Pending Local Push: no',
-                status.message ? `Note: ${status.message}` : ''
-            ].filter(Boolean);
-            el.textContent = parts.join(' | ');
-        }
-
-        function setQuickStatus(message) {
-            const el = document.getElementById('sync-quick-status');
-            if (!el) return;
-            el.textContent = `Status: ${message}`;
-        }
-
-        function setQuickStatusFromSync(status) {
-            if (!status) {
-                setQuickStatus('sync status unavailable.');
-                return;
-            }
-            if (status.connected) {
-                const campaign = status.campaignId || 'unknown';
-                const user = status.userId ? status.userId.slice(0, 8) + '…' : 'user';
-                setQuickStatus(`connected to "${campaign}" as ${user}.`);
-                return;
-            }
-            if (status.mode === 'connecting') {
-                setQuickStatus('connecting...');
-                return;
-            }
-            if (status.lastError) {
-                setQuickStatus(`error: ${status.lastError}`);
-                return;
-            }
-            setQuickStatus(status.message || 'not connected.');
-        }
-
-        function setCustomizeStatus(message, isError = false) {
-            const el = document.getElementById('customize-status');
-            if (!el) return;
-            el.textContent = message;
-            el.classList.toggle('is-error', !!isError);
-        }
-
-        function normalizeFilenameLabel(raw) {
-            return String(raw || '')
-                .trim()
-                .toLowerCase()
-                .replace(/[^a-z0-9_-]+/g, '-')
-                .replace(/-+/g, '-')
-                .replace(/^-|-$/g, '')
-                .slice(0, 40);
-        }
-
-        function parseSeedArray(rawText, label) {
-            const text = String(rawText || '').trim();
-            if (!text) return [];
-            let parsed = null;
-            try {
-                parsed = JSON.parse(text);
-            } catch (err) {
-                throw new Error(`${label} JSON is invalid.`);
-            }
-            if (!Array.isArray(parsed)) {
-                throw new Error(`${label} JSON must be an array.`);
-            }
-            return parsed;
-        }
-
-        function coerceGuildSeedEntry(entry) {
-            if (typeof entry === 'string') return entry.trim();
-            if (entry && typeof entry === 'object') return String(entry.name || '').trim();
-            return '';
-        }
-
-        function normalizeGuildSeedEntry(entry, idx) {
-            const name = coerceGuildSeedEntry(entry);
-            if (!name) throw new Error(`Guild row ${idx + 1} is missing "name".`);
-            return name;
-        }
-
-        function dedupeStringsPreserveOrder(values) {
-            const seen = new Set();
-            const out = [];
-            values.forEach((value) => {
-                const name = String(value || '').trim();
-                if (!name) return;
-                const key = name.toLowerCase();
-                if (seen.has(key)) return;
-                seen.add(key);
-                out.push(name);
-            });
-            return out;
-        }
-
-        function coerceNpcSeedRow(row) {
-            const source = row && typeof row === 'object' ? row : {};
-            return {
-                name: String(source.name || '').trim(),
-                guild: String(source.guild || '').trim(),
-                wants: String(source.wants || '').trim(),
-                leverage: String(source.leverage || '').trim(),
-                notes: String(source.notes || '').trim()
-            };
-        }
-
-        function normalizeNpcSeedRow(row, idx) {
-            const item = coerceNpcSeedRow(row);
-            if (!item.name) throw new Error(`NPC row ${idx + 1} is missing "name".`);
-            return item;
-        }
-
-        function coerceLocationSeedRow(row) {
-            const source = row && typeof row === 'object' ? row : {};
-            return {
-                name: String(source.name || '').trim(),
-                district: String(source.district || '').trim(),
-                desc: String(source.desc || '').trim(),
-                notes: String(source.notes || '').trim()
-            };
-        }
-
-        function normalizeLocationSeedRow(row, idx) {
-            const item = coerceLocationSeedRow(row);
-            if (!item.name) throw new Error(`Location row ${idx + 1} is missing "name".`);
-            return item;
-        }
-
-        function buildPreloadFile(varName, items) {
-            const json = JSON.stringify(items, null, 4);
-            const indentedJson = json
-                .split('\n')
-                .map((line, idx) => (idx === 0 ? line : `    ${line}`))
-                .join('\n');
-
-            return `(function (global) {\n    global.${varName} = ${indentedJson};\n})(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));\n`;
-        }
-
-        function downloadTextFile(filename, text, type = 'text/javascript') {
-            const blob = new Blob([text], { type });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        }
-
-        function getCustomizeSeedArrays() {
-            const guildsRaw = parseSeedArray(document.getElementById('customize-guilds-json').value, 'Guild seed');
-            const npcsRaw = parseSeedArray(document.getElementById('customize-npcs-json').value, 'NPC seed');
-            const locationsRaw = parseSeedArray(document.getElementById('customize-locations-json').value, 'Location seed');
-            return {
-                guilds: dedupeStringsPreserveOrder(guildsRaw.map(normalizeGuildSeedEntry)),
-                npcs: npcsRaw.map(normalizeNpcSeedRow),
-                locations: locationsRaw.map(normalizeLocationSeedRow)
-            };
-        }
-
-        function writeCustomizeForm(guilds, npcs, locations) {
-            document.getElementById('customize-guilds-json').value = JSON.stringify(guilds, null, 2);
-            document.getElementById('customize-npcs-json').value = JSON.stringify(npcs, null, 2);
-            document.getElementById('customize-locations-json').value = JSON.stringify(locations, null, 2);
-        }
-
-        function loadCustomizeDefaults() {
-            try {
-                const guilds = (typeof window.getRTFGuilds === 'function')
-                    ? window.getRTFGuilds({ includeGuildless: true }).map(coerceGuildSeedEntry).filter(Boolean)
-                    : (Array.isArray(window.PRELOADED_GUILDS) ? window.PRELOADED_GUILDS.map(coerceGuildSeedEntry).filter(Boolean) : []);
-                const npcs = Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS.map(coerceNpcSeedRow) : [];
-                const locations = Array.isArray(window.PRELOADED_LOCATIONS) ? window.PRELOADED_LOCATIONS.map(coerceLocationSeedRow) : [];
-                writeCustomizeForm(guilds, npcs, locations);
-                setCustomizeStatus(`Loaded defaults (${guilds.length} Guilds, ${npcs.length} NPCs, ${locations.length} Locations).`);
-            } catch (err) {
-                setCustomizeStatus(err && err.message ? err.message : 'Failed to load defaults.', true);
-            }
-        }
-
-        function loadCustomizeFromCampaign() {
-            if (!window.RTF_STORE || !window.RTF_STORE.state || !window.RTF_STORE.state.campaign) {
-                setCustomizeStatus('Campaign store is not ready yet.', true);
-                return;
-            }
-            try {
-                const c = window.RTF_STORE.state.campaign;
-                const npcs = (Array.isArray(c.npcs) ? c.npcs : []).map(coerceNpcSeedRow);
-                const locations = (Array.isArray(c.locations) ? c.locations : []).map(coerceLocationSeedRow);
-                const guilds = dedupeStringsPreserveOrder([
-                    ...Object.keys(c.rep || {}),
-                    ...npcs.map((npc) => npc.guild),
-                    ...locations.map((loc) => loc.district)
-                ]);
-                writeCustomizeForm(guilds, npcs, locations);
-                setCustomizeStatus(`Loaded campaign store (${guilds.length} Guilds, ${npcs.length} NPCs, ${locations.length} Locations).`);
-            } catch (err) {
-                setCustomizeStatus(err && err.message ? err.message : 'Failed to load campaign data.', true);
-            }
-        }
-
-        function buildCustomDataFiles() {
-            const seed = getCustomizeSeedArrays();
-            const labelRaw = document.getElementById('customize-label').value;
-            const label = normalizeFilenameLabel(labelRaw);
-            const suffix = label ? `-${label}` : '';
-            return {
-                guilds: {
-                    filename: `data-guilds${suffix}.js`,
-                    content: buildPreloadFile('PRELOADED_GUILDS', seed.guilds)
-                },
-                npcs: {
-                    filename: `data-npcs${suffix}.js`,
-                    content: buildPreloadFile('PRELOADED_NPCS', seed.npcs)
-                },
-                locations: {
-                    filename: `data-locations${suffix}.js`,
-                    content: buildPreloadFile('PRELOADED_LOCATIONS', seed.locations)
-                }
-            };
-        }
-
-        function downloadCustomDataFile(kind) {
-            try {
-                const files = buildCustomDataFiles();
-                const selected = kind === 'guilds'
-                    ? files.guilds
-                    : (kind === 'locations' ? files.locations : files.npcs);
-                downloadTextFile(selected.filename, selected.content, 'text/javascript');
-                setCustomizeStatus(`Downloaded ${selected.filename}.`);
-            } catch (err) {
-                setCustomizeStatus(err && err.message ? err.message : 'Failed to build data file.', true);
-            }
-        }
-
-        function downloadCustomDataFiles() {
-            try {
-                const files = buildCustomDataFiles();
-                downloadTextFile(files.guilds.filename, files.guilds.content, 'text/javascript');
-                downloadTextFile(files.npcs.filename, files.npcs.content, 'text/javascript');
-                downloadTextFile(files.locations.filename, files.locations.content, 'text/javascript');
-                setCustomizeStatus(`Downloaded ${files.guilds.filename}, ${files.npcs.filename}, and ${files.locations.filename}.`);
-            } catch (err) {
-                setCustomizeStatus(err && err.message ? err.message : 'Failed to build data files.', true);
-            }
-        }
-
-        function updateSyncPanelVisibility(status) {
-            const panel = document.getElementById('sync-panel');
-            const customize = document.getElementById('customize-panel');
-            const quick = document.getElementById('sync-quick');
-            if (!panel || !quick) return;
-
-            const isSecret = document.body.classList.contains('secret-active');
-            const connected = !!(status && status.connected);
-
-            // Manual credentials/admin controls stay behind secret mode.
-            panel.style.display = isSecret ? 'flex' : 'none';
-            if (customize) customize.style.display = isSecret ? 'flex' : 'none';
-            // Quick connect is for onboarding only; hide after successful connection.
-            quick.style.display = connected ? 'none' : 'flex';
-        }
-
-        function saveSyncConfig() {
-            if (!window.RTF_STORE) {
-                alert('Store not loaded.');
-                return;
-            }
-            const form = getSyncFormValues();
-            window.RTF_STORE.setSyncConfig({
-                ...form,
-                enabled: true
-            }, { reconnect: false });
-            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
-            setSyncStatusText(window.RTF_STORE.getSyncStatus());
-            alert('Sync config saved locally.');
-        }
-
-        async function connectSync() {
-            if (!window.RTF_STORE) {
-                alert('Store not loaded.');
-                return;
-            }
-            const form = getSyncFormValues();
-            window.RTF_STORE.setSyncConfig({
-                ...form,
-                enabled: true
-            }, { reconnect: false });
-            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
-            const result = await window.RTF_STORE.connectSync();
-            if (!result.ok) {
-                const status = window.RTF_STORE.getSyncStatus();
-                alert(status.lastError || 'Failed to connect cloud sync.');
-            }
-        }
-
-        async function disconnectSync() {
-            if (!window.RTF_STORE) return;
-            await window.RTF_STORE.disconnectSync('manual');
-        }
-
-        async function pullSyncNow() {
-            if (!window.RTF_STORE) return;
-            const result = await window.RTF_STORE.pullFromCloud({ force: true });
-            if (!result.ok) {
-                const status = window.RTF_STORE.getSyncStatus();
-                alert(status.lastError || 'Cloud pull failed.');
-            }
-        }
-
-        async function pushSyncNow() {
-            if (!window.RTF_STORE) return;
-            const result = await window.RTF_STORE.pushToCloud();
-            if (!result.ok) {
-                const status = window.RTF_STORE.getSyncStatus();
-                alert(status.lastError || 'Cloud push failed.');
-            }
-        }
-
-        async function anonymousSignIn() {
-            if (!window.RTF_STORE) return;
-            const profile = (document.getElementById('sync-profile').value || '').trim();
-            const result = await window.RTF_STORE.signInAnonymously(profile);
-            if (!result.ok) {
-                const status = window.RTF_STORE.getSyncStatus();
-                alert(status.lastError || 'Anonymous sign-in failed.');
-            }
-        }
-
-        async function signOutSync() {
-            if (!window.RTF_STORE) return;
-            const result = await window.RTF_STORE.signOutSyncUser();
-            if (!result.ok) alert(result.error || 'Sign out failed.');
-        }
-
-        function exportConnectFile() {
-            if (!window.RTF_STORE) {
-                alert('Store not loaded.');
-                return;
-            }
-            const config = window.RTF_STORE.getSyncConfig();
-            const payload = {
-                supabaseUrl: config.supabaseUrl || '',
-                anonKey: config.anonKey || '',
-                campaignId: config.campaignId || '',
-                profileName: ''
-            };
-            if (!payload.supabaseUrl || !payload.anonKey || !payload.campaignId) {
-                alert('Missing URL, anon key, or campaign ID.');
-                return;
-            }
-            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'connect.json';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        }
-
-        function initSyncPanel() {
-            if (!window.RTF_STORE) {
-                setTimeout(initSyncPanel, 120);
-                return;
-            }
-            renderCaseSwitcher();
-            const caseInput = document.getElementById('new-case-name');
-            if (caseInput && !caseInput.dataset.boundEnter) {
-                caseInput.dataset.boundEnter = '1';
-                caseInput.addEventListener('keydown', (event) => {
-                    if (event.key !== 'Enter') return;
-                    event.preventDefault();
-                    createCaseFromInput();
-                });
-            }
-            loadCustomizeDefaults();
-            applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
-            latestSyncStatus = window.RTF_STORE.getSyncStatus();
-            setSyncStatusText(latestSyncStatus);
-            setQuickStatusFromSync(latestSyncStatus);
-            updateSyncPanelVisibility(latestSyncStatus);
-            window.RTF_STORE.onSyncStatus((status) => {
-                latestSyncStatus = status;
-                setSyncStatusText(status);
-                setQuickStatusFromSync(status);
-                updateSyncPanelVisibility(status);
-            });
-            tryAutoConnectFromBundledDefault();
-        }
-
-        window.addEventListener('load', initSyncPanel);
-        window.addEventListener('rtf-store-updated', () => {
-            renderCaseSwitcher();
-        });
-        window.addEventListener('rtf-sync-status', (event) => {
-            latestSyncStatus = event.detail || null;
-            setSyncStatusText(latestSyncStatus);
-            setQuickStatusFromSync(latestSyncStatus);
-            updateSyncPanelVisibility(latestSyncStatus);
-        });
-    </script>
+    <script src="js/tools.js"></script>
 </body>
 
 </html>

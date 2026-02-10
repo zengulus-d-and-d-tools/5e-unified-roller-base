@@ -130,7 +130,12 @@ Accepted aliases are also supported:
 ## Notes
 
 - Sync is offline-first: local state always saves immediately.
-- Remote updates are pushed/pulled with last-write-wins behavior.
+- First cloud connect in a browser session force-pulls remote state; remote is treated as source-of-truth at initial load.
+- Remote sync now uses optimistic conflict checks with per-state `meta.syncRevision`.
+- If remote changes overlap local edits, sync enters `conflict` mode and must be resolved from `tools.html` (`Accept Remote` or `Keep Local + Merge Push`).
+- Non-overlapping conflicts auto-merge by scope (for example board vs requisitions).
+- Reconciliation pulls run on an interval while connected to reduce drift during longer sessions.
+- Realtime presence advertises active peers and soft-lock scopes to reduce accidental overwrite collisions.
 - Campaign tools share one cloud row per `campaign_id`.
 - Case Board node layout (`x/y` position) is local-only per client. Node content and links still sync.
 - Character sheets are not part of this sync path unless you add a separate sheet sync layer.

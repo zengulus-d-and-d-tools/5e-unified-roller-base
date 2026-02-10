@@ -15,6 +15,12 @@
             min-height: 100vh;
         }
 
+        .dm-accent-picker-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
         /* --- LAYOUT --- */
         .container {
             width: 100%;
@@ -67,6 +73,10 @@
             color: var(--text);
         }
 
+        .dm-section-static {
+            cursor: default;
+        }
+
         /* --- BUTTONS --- */
         button {
             border: none;
@@ -112,6 +122,10 @@
             gap: 8px;
         }
 
+        .dm-texture-row-top {
+            margin-bottom: 6px;
+        }
+
         .btn-small {
             background: rgba(40, 40, 45, 0.6);
             color: #ccc;
@@ -128,6 +142,16 @@
             border-color: var(--accent-tertiary);
             color: #fff;
             background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-quaternary) 40%);
+        }
+
+        .dm-btn-hazard {
+            color: var(--danger);
+            border-color: rgba(255, 107, 107, 0.3);
+        }
+
+        .dm-btn-snag {
+            color: var(--gold);
+            border-color: rgba(241, 196, 15, 0.3);
         }
 
         /* --- OUTPUT BOXES --- */
@@ -246,6 +270,29 @@
             font-style: italic;
         }
 
+        .dm-npc-guild {
+            color: var(--accent);
+        }
+
+        .dm-sub-line {
+            margin-top: 2px;
+            font-size: 0.9rem;
+        }
+
+        .dm-sub-line-wants {
+            margin-top: 5px;
+        }
+
+        .dm-roll-line {
+            margin-top: 4px;
+        }
+
+        .dm-paper-effect {
+            font-weight: bold;
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
         .out-heat {
             color: var(--danger);
         }
@@ -321,4 +368,18 @@
             font-size: 0.7rem;
             margin-bottom: 3px;
             letter-spacing: 0.5px;
+        }
+
+        .dm-clue-type-gap {
+            margin-top: 4px;
+        }
+
+        .dm-clue-type-arcane {
+            margin-top: 4px;
+            color: var(--accent-dim);
+            text-shadow: 0 0 1px var(--accent);
+        }
+
+        .dm-guild-perk {
+            color: #fff;
         }

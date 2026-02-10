@@ -1,0 +1,118 @@
+.req-form {
+    margin-bottom: 20px;
+    padding: 18px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.req-hidden {
+    display: none;
+}
+
+.req-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.req-form input,
+.req-form select,
+.req-form textarea {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.req-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.req-card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 4px solid var(--accent);
+    padding: 18px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.25);
+    margin-bottom: 15px;
+}
+
+.req-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.status-pill {
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.req-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
+}
+
+.req-meta label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: #888;
+    letter-spacing: 0.05em;
+}
+
+.req-notes {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+}
+
+.req-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.req-log-meta {
+    color: #666;
+    flex: 1;
+}
+
+.tag-input {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.filter-bar input,
+.filter-bar select {
+    flex: 1;
+    min-width: 160px;
+}
+
+.empty-state {
+    text-align: center;
+    color: #777;
+    padding: 40px;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+}

@@ -330,3 +330,90 @@
             background: rgba(255, 255, 255, 0.2);
             border-color: #aaa;
         }
+
+        .tourney-setup-title {
+            margin-top: 0;
+            color: var(--accent);
+        }
+
+        .tourney-setup-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            align-items: center;
+        }
+
+        .tourney-random-label {
+            color: #aaa;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .tourney-random-check {
+            margin-right: 8px;
+        }
+
+        .tourney-generate-btn {
+            padding: 10px 20px;
+        }
+
+        .tourney-accent-picker-input {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .tourney-score-title {
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .tourney-player-name {
+            font-weight: bold;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tourney-score-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .tourney-score-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .tourney-score-btn,
+        .tourney-score-btn-cancel {
+            flex: 1;
+        }
+
+        .tourney-score-btn-cancel {
+            border-color: #555;
+        }
+
+        .tourney-label-grand-finals {
+            color: var(--gold);
+        }
+
+        .tourney-slot-gf {
+            width: 100%;
+        }
+
+        .tourney-label-winners-final {
+            color: var(--accent);
+            margin-top: 15px;
+        }
+
+        .tourney-label-losers-finals {
+            color: #777;
+            margin-top: 20px;
+        }

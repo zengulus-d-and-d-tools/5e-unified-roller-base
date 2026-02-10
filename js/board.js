@@ -74,6 +74,9 @@ const sanitizeText = (text = '') => String(text || '')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 const sanitizeMultiline = (text = '') => sanitizeText(text).replace(/\n/g, '<br>');
+const delegatedHandlerEvents = ['click', 'change', 'input', 'dragstart'];
+const delegatedHandlerCache = new Map();
+let delegatedHandlersBound = false;
 const LEGACY_BOARD_KEY = 'invBoardData';
 const NODE_TYPE_LABELS = {
     person: 'Person',
@@ -111,6 +114,50 @@ const CONNECTION_COLOR_PALETTE = [
 ];
 const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
 const EDGE_CONNECT_ZONE_PX = 18;
+
+function getDelegatedHandlerFn(code) {
+    if (!delegatedHandlerCache.has(code)) {
+        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+    }
+    return delegatedHandlerCache.get(code);
+}
+
+function runDelegatedHandler(el, attrName, event) {
+    const code = el.getAttribute(attrName);
+    if (!code) return;
+
+    try {
+        const result = getDelegatedHandlerFn(code).call(el, event);
+        if (result === false) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+    }
+    catch (err) {
+        console.error(`Delegated handler failed for ${attrName}:`, code, err);
+    }
+}
+
+function handleDelegatedDataEvent(event) {
+    const attrName = `data-on${event.type}`;
+    let node = event.target instanceof Element ? event.target : null;
+
+    while (node) {
+        if (node.hasAttribute(attrName)) {
+            runDelegatedHandler(node, attrName, event);
+            if (event.cancelBubble) break;
+        }
+        node = node.parentElement;
+    }
+}
+
+function bindDelegatedDataHandlers() {
+    if (delegatedHandlersBound) return;
+    delegatedHandlersBound = true;
+    delegatedHandlerEvents.forEach((eventName) => {
+        document.addEventListener(eventName, handleDelegatedDataEvent);
+    });
+}
 
 function isMobileInteractionMode() {
     return window.innerWidth <= MOBILE_BREAKPOINT_PX || !!(coarsePointerQuery && coarsePointerQuery.matches);
@@ -200,98 +247,6 @@ function hexToRgba(hex, alpha = 1) {
 function getCaseName() {
     const el = document.getElementById('caseName');
     return normalizeCaseName(el ? el.innerText : 'UNNAMED CASE');
-}
-
-let caseSwitcherBound = false;
-
-function getCaseSwitcherElements() {
-    return {
-        selector: document.getElementById('caseSelector'),
-        createBtn: document.getElementById('caseCreateBtn'),
-        renameBtn: document.getElementById('caseRenameBtn'),
-        deleteBtn: document.getElementById('caseDeleteBtn')
-    };
-}
-
-function renderCaseSwitcher() {
-    const store = window.RTF_STORE;
-    const { selector, deleteBtn } = getCaseSwitcherElements();
-    if (!selector || !store || typeof store.getCases !== 'function') return;
-
-    const cases = store.getCases() || [];
-    const activeId = typeof store.getActiveCaseId === 'function' ? store.getActiveCaseId() : (cases[0] ? cases[0].id : '');
-    selector.innerHTML = cases.map((entry) => {
-        const label = entry && entry.name ? entry.name : 'Untitled Case';
-        const value = entry && entry.id ? entry.id : '';
-        return `<option value="${sanitizeText(value)}">${sanitizeText(label)}</option>`;
-    }).join('');
-
-    if (activeId) selector.value = activeId;
-    if (deleteBtn) deleteBtn.disabled = cases.length <= 1;
-}
-
-function handleCaseSwitch() {
-    const store = window.RTF_STORE;
-    const { selector } = getCaseSwitcherElements();
-    if (!store || !selector || typeof store.setActiveCase !== 'function') return;
-    saveBoard();
-    if (store.setActiveCase(selector.value)) {
-        loadBoard();
-        updateViewCSS();
-    }
-    renderCaseSwitcher();
-}
-
-function handleCaseCreate() {
-    const store = window.RTF_STORE;
-    if (!store || typeof store.createCase !== 'function') return;
-    const name = prompt('Name the new case:', '');
-    if (name === null) return;
-    const newId = store.createCase(name);
-    renderCaseSwitcher();
-    loadBoard();
-    updateViewCSS();
-    const { selector } = getCaseSwitcherElements();
-    if (selector && newId) selector.value = newId;
-}
-
-function handleCaseRename() {
-    const store = window.RTF_STORE;
-    if (!store || typeof store.renameCase !== 'function') return;
-    const active = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
-    if (!active) return;
-    const name = prompt('Rename case:', active.name || '');
-    if (name === null) return;
-    store.renameCase(active.id, name);
-    renderCaseSwitcher();
-    loadBoard();
-    updateViewCSS();
-}
-
-function handleCaseDelete() {
-    const store = window.RTF_STORE;
-    if (!store || typeof store.deleteCase !== 'function') return;
-    const active = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
-    if (!active) return;
-    if (!confirm(`Delete case "${active.name}"? This cannot be undone.`)) return;
-    saveBoard();
-    if (store.deleteCase(active.id)) {
-        renderCaseSwitcher();
-        loadBoard();
-        updateViewCSS();
-    }
-}
-
-function initCaseSwitcher() {
-    if (caseSwitcherBound) return;
-    const { selector, createBtn, renameBtn, deleteBtn } = getCaseSwitcherElements();
-    if (!selector) return;
-    caseSwitcherBound = true;
-    selector.addEventListener('change', handleCaseSwitch);
-    if (createBtn) createBtn.addEventListener('click', handleCaseCreate);
-    if (renameBtn) renameBtn.addEventListener('click', handleCaseRename);
-    if (deleteBtn) deleteBtn.addEventListener('click', handleCaseDelete);
-    renderCaseSwitcher();
 }
 
 function sanitizeNodeMeta(meta) {
@@ -622,7 +577,12 @@ function writeStoreBoardPayload(payload) {
     }
     if (window.RTF_STORE.state) {
         window.RTF_STORE.state.board = clean;
-        if (typeof window.RTF_STORE.save === 'function') window.RTF_STORE.save();
+        if (typeof window.RTF_STORE.save === 'function') {
+            const activeCaseId = (typeof window.RTF_STORE.getActiveCaseId === 'function')
+                ? window.RTF_STORE.getActiveCaseId()
+                : 'case_primary';
+            window.RTF_STORE.save({ scope: `cases.${activeCaseId}.board` });
+        }
         return true;
     }
     return false;
@@ -669,9 +629,11 @@ function pruneBoardTimelineNoise() {
     if (!caseIds.length) caseIds.push(null);
 
     let removed = 0;
+    const touchedScopes = new Set();
     caseIds.forEach((caseId) => {
         const events = store.getEvents(caseId);
         if (!Array.isArray(events) || !events.length) return;
+        const resolvedCaseId = caseId || (typeof store.getActiveCaseId === 'function' ? store.getActiveCaseId() : 'case_primary');
 
         for (let i = events.length - 1; i >= 0; i -= 1) {
             const evt = events[i];
@@ -686,10 +648,14 @@ function pruneBoardTimelineNoise() {
 
             events.splice(i, 1);
             removed += 1;
+            if (resolvedCaseId) touchedScopes.add(`cases.${resolvedCaseId}.events`);
         }
     });
 
-    if (removed && typeof store.save === 'function') store.save();
+    if (removed && typeof store.save === 'function') {
+        const scopes = touchedScopes.size ? Array.from(touchedScopes) : undefined;
+        store.save({ scope: scopes });
+    }
 }
 
 const REQUISITION_STATUSES = ["Pending", "Approved", "In Transit", "Delivered", "Denied"];
@@ -778,12 +744,12 @@ function handleBoardResize() {
 }
 
 window.onload = () => {
+    bindDelegatedDataHandlers();
     applyMobileModeClass();
     bindMobileHandlers();
     pruneBoardTimelineNoise();
     resizeCanvas();
     initToolbars();
-    initCaseSwitcher();
     loadBoard();
     updateViewCSS();
     initCaseNameTracking();
@@ -802,7 +768,6 @@ function handleRemoteStoreUpdate(event) {
     if (!event || !event.detail || event.detail.source !== 'remote') return;
     loadBoard();
     updateViewCSS();
-    renderCaseSwitcher();
 }
 
 function initToolbars() {
@@ -894,7 +859,7 @@ function initGuildToolbar() {
     const entries = getBoardGuildEntries();
 
     if (!entries.length) {
-        list.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No guild entries available.</div>';
+        list.innerHTML = '<div class="board-popup-empty">No guild entries available.</div>';
         return;
     }
 
@@ -925,8 +890,8 @@ function initNPCToolbar() {
     // Create Filter UI
     container.innerHTML = `
         <div class="filter-bar">
-            <input type="text" id="npc-search" class="filter-input" placeholder="Search NPCs..." oninput="renderNPCs()">
-            <select id="npc-guild-filter" class="filter-select" onchange="renderNPCs()">
+            <input type="text" id="npc-search" class="filter-input" placeholder="Search NPCs..." data-oninput="renderNPCs()">
+            <select id="npc-guild-filter" class="filter-select" data-onchange="renderNPCs()">
                 <option value="">All Guilds</option>
                 ${getBoardGuildNames().map(g => `<option value="${g}">${g}</option>`).join('')}
             </select>
@@ -955,7 +920,7 @@ function renderNPCs() {
     });
 
     if (filtered.length === 0) {
-        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No NPCs found.</div>';
+        listContainer.innerHTML = '<div class="board-popup-empty">No NPCs found.</div>';
         return;
     }
 
@@ -992,8 +957,8 @@ function initLocationToolbar() {
     // Create Filter UI
     container.innerHTML = `
         <div class="filter-bar">
-            <input type="text" id="loc-search" class="filter-input" placeholder="Search Places..." oninput="renderLocations()">
-            <select id="loc-guild-filter" class="filter-select" onchange="renderLocations()">
+            <input type="text" id="loc-search" class="filter-input" placeholder="Search Places..." data-oninput="renderLocations()">
+            <select id="loc-guild-filter" class="filter-select" data-onchange="renderLocations()">
                 <option value="">All Districts</option>
                 ${getBoardGuildNames().map(g => `<option value="${g}">${g}</option>`).join('')}
             </select>
@@ -1023,7 +988,7 @@ function renderLocations() {
     });
 
     if (filtered.length === 0) {
-        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No Locations found.</div>';
+        listContainer.innerHTML = '<div class="board-popup-empty">No Locations found.</div>';
         return;
     }
 
@@ -1057,8 +1022,8 @@ function initEventToolbar() {
 
     container.innerHTML = `
         <div class="filter-bar">
-            <input type="text" id="event-search-board" class="filter-input" placeholder="Search events..." oninput="renderBoardEvents()">
-            <select id="event-focus-board" class="filter-select" onchange="renderBoardEvents()">
+            <input type="text" id="event-search-board" class="filter-input" placeholder="Search events..." data-oninput="renderBoardEvents()">
+            <select id="event-focus-board" class="filter-select" data-onchange="renderBoardEvents()">
                 <option value="">All Focuses</option>
             </select>
         </div>
@@ -1091,7 +1056,7 @@ function renderBoardEvents() {
     }).sort((a, b) => (b.created || '').localeCompare(a.created || ''));
 
     if (filtered.length === 0) {
-        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No events logged.</div>';
+        listContainer.innerHTML = '<div class="board-popup-empty">No events logged.</div>';
         return;
     }
 
@@ -1104,8 +1069,10 @@ function renderBoardEvents() {
         const focus = sanitizeText(evt.focus || '');
         const heat = parseInt(evt.heatDelta, 10);
         const meta = focus ? focus : '';
-        const heatBadge = !isNaN(heat) && heat !== 0 ? `<span style="color:${heat > 0 ? 'var(--danger)' : 'var(--accent)'}; font-size:0.75rem; margin-left:6px;">${heat > 0 ? '+' : ''}${heat} Heat</span>` : '';
-        el.innerHTML = `<div class="icon">🕰️</div><div class="label">${title}${heatBadge}${meta ? `<div style="font-size:0.7rem; color:#aaa;">${meta}</div>` : ''}</div>`;
+        const heatBadge = !isNaN(heat) && heat !== 0
+            ? `<span class="board-event-heat-badge ${heat > 0 ? 'is-positive' : 'is-negative'}">${heat > 0 ? '+' : ''}${heat} Heat</span>`
+            : '';
+        el.innerHTML = `<div class="icon">🕰️</div><div class="label">${title}${heatBadge}${meta ? `<div class="board-tool-submeta">${meta}</div>` : ''}</div>`;
 
         const lines = [];
         if (evt.focus) lines.push(`<strong>Focus:</strong> ${sanitizeText(evt.focus)}`);
@@ -1136,8 +1103,8 @@ function initRequisitionToolbar() {
 
     container.innerHTML = `
         <div class="filter-bar">
-            <input type="text" id="req-search-board" class="filter-input" placeholder="Search requisitions..." oninput="renderBoardRequisitions()">
-            <select id="req-status-board" class="filter-select" onchange="renderBoardRequisitions()">
+            <input type="text" id="req-search-board" class="filter-input" placeholder="Search requisitions..." data-oninput="renderBoardRequisitions()">
+            <select id="req-status-board" class="filter-select" data-onchange="renderBoardRequisitions()">
                 <option value="">All Statuses</option>
                 ${REQUISITION_STATUSES.map(s => `<option value="${s}">${s}</option>`).join('')}
             </select>
@@ -1168,7 +1135,7 @@ function renderBoardRequisitions() {
     });
 
     if (filtered.length === 0) {
-        listContainer.innerHTML = '<div style="padding:10px; color:#666; font-size:0.8rem;">No requisitions logged.</div>';
+        listContainer.innerHTML = '<div class="board-popup-empty">No requisitions logged.</div>';
         return;
     }
 
@@ -1179,7 +1146,7 @@ function renderBoardRequisitions() {
         el.draggable = true;
         const title = sanitizeText(req.item || 'Requisition');
         const sub = `${sanitizeText(req.requester || 'Unassigned')}${req.priority ? ' • ' + sanitizeText(req.priority) : ''}`;
-        el.innerHTML = `<div class="icon">📦</div><div class="label">${title}<div style="font-size:0.7rem; color:#aaa;">${sub}</div></div>`;
+        el.innerHTML = `<div class="icon">📦</div><div class="label">${title}<div class="board-tool-submeta">${sub}</div></div>`;
 
         const lines = [];
         lines.push(`<strong>Agent:</strong> ${sanitizeText(req.requester || 'Unassigned')}`);
@@ -2333,6 +2300,15 @@ function updateViewCSS() {
     labelContainer.style.transform = t;
 }
 
+function toggleToolbar() {
+    const wrapper = document.getElementById('toolbar-wrapper');
+    const toggle = document.getElementById('toolbar-toggle');
+    if (!wrapper || !toggle) return;
+    const willHide = !wrapper.classList.contains('toolbar-hidden');
+    wrapper.classList.toggle('toolbar-hidden', willHide);
+    toggle.innerText = willHide ? 'Show Toolbar' : 'Hide Toolbar';
+}
+
 function togglePanMode() {
     panMode = !panMode;
     const btn = document.getElementById('btn-pan');
@@ -2474,7 +2450,6 @@ function loadBoard(options = {}) {
         connections.push(hydrated);
         registerConnection(hydrated);
     });
-    renderCaseSwitcher();
 }
 
 function clearBoard() {

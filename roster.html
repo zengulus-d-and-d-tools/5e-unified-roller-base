@@ -7,14 +7,7 @@
     <title>NPC Roster</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/hub.css">
-    <style>
-        /* Specific adjustments for Roster if needed, reusing Hub styles for consistency */
-        .filter-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-    </style>
+    <link rel="stylesheet" href="css/roster.css">
 </head>
 
 <body>
@@ -30,44 +23,43 @@
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
                     <a class="hero-btn ghost" href="tools.html">Portal</a>
-                    <button class="hero-btn accent" onclick="toggleNPCForm()">+ Add NPC</button>
+                    <button class="hero-btn accent" data-onclick="toggleNPCForm()">+ Add NPC</button>
                 </div>
                 <div class="hero-action-bar secondary">
-                    <button class="hero-btn ghost" onclick="triggerAccentPicker()">🎨 Accent</button>
-                    <button class="hero-btn ghost" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
                 </div>
                 <input type="color" id="accent-picker-input"
-                    style="position:absolute; opacity:0; pointer-events:none;" onchange="setAccentColor(this.value)">
+                    class="roster-accent-picker-input" data-onchange="setAccentColor(this.value)">
             </div>
         </header>
 
         <div class="card">
-            <h2>NPC Roster <button class="btn" onclick="toggleNPCForm()">+ Add NPC</button></h2>
+            <h2>NPC Roster <button class="btn" data-onclick="toggleNPCForm()">+ Add NPC</button></h2>
 
-            <div id="npcForm"
-                style="display:none; margin-bottom: 20px; padding: 15px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-                <div class="grid-5" style="grid-template-columns: 1fr 1fr; margin-bottom: 10px;">
+            <div id="npcForm" class="roster-npc-form roster-hidden">
+                <div class="grid-5 roster-grid-two roster-mb-10">
                     <input type="text" id="npcName" placeholder="Name">
                     <select id="npcGuild">
                         <option value="">Select Guild...</option>
                     </select>
                 </div>
-                <div class="grid-5" style="grid-template-columns: 1fr 1fr; margin-bottom: 10px;">
+                <div class="grid-5 roster-grid-two roster-mb-10">
                     <input type="text" id="npcWants" placeholder="Wants...">
                     <input type="text" id="npcLeverage" placeholder="Leverage...">
                 </div>
-                <div style="margin-bottom: 10px;">
+                <div class="roster-mb-10">
                     <textarea id="npcNotes" rows="2" placeholder="Notes / Description..."></textarea>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <button class="btn btn-dp" id="npcSaveBtn" onclick="addNPC()">Save NPC</button>
-                    <button class="btn" id="npcCancelBtn" onclick="cancelNPCEdit()" style="display:none;">Cancel Edit</button>
+                <div class="roster-form-actions">
+                    <button class="btn btn-dp" id="npcSaveBtn" data-onclick="addNPC()">Save NPC</button>
+                    <button class="btn roster-hidden" id="npcCancelBtn" data-onclick="cancelNPCEdit()">Cancel Edit</button>
                 </div>
             </div>
 
             <div class="filter-bar">
-                <input type="text" id="searchFilter" placeholder="Search names..." onkeyup="render()" style="flex:1;">
-                <select id="guildFilter" onchange="render()" style="flex:1;">
+                <input type="text" id="searchFilter" class="roster-filter-grow" placeholder="Search names..." data-oninput="render()">
+                <select id="guildFilter" class="roster-filter-grow" data-onchange="render()">
                     <option value="">All Guilds</option>
                 </select>
             </div>

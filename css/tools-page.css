@@ -1,0 +1,42 @@
+.dm-only {
+    display: none;
+}
+
+.secret-active .dm-only {
+    display: block;
+    animation: fadeIn 0.5s;
+}
+
+.tools-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tools-card-accent {
+    border-color: var(--accent);
+}
+
+.tools-card-danger {
+    border-color: #ff4444;
+}
+
+.tools-hidden {
+    display: none !important;
+}
+
+.header-title {
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.3s;
+}
+
+.header-title:hover {
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+.secret-active .header-title {
+    color: #ff4444;
+    text-shadow: 0 0 15px #ff0000;
+}
+
