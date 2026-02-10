@@ -12,6 +12,11 @@ Session chronicle for beats, fallout, and rolling heat. Designed for quick captu
 2. **Live Logging** – Add events as they happen; tagging by guild or location makes the filter bar priceless later.
 3. **Debrief** – After action, edit entries in place to mark rewards, note consequences, or flip the resolved status when fallout is handled.
 
+## Multi-Case Workflow
+- **Case Selector** – Pick the active investigation from the header dropdown to see only that case’s timeline.
+- **Create & Rename** – Spin up a new case or rename the active one from the same header controls.
+- **Delete with Care** – Removing a case deletes its timeline events, so archive anything important first.
+
 ## Tips
 - Toggle **Auto-sync Heat** in the filter bar to automatically apply event Heat deltas to the Campaign Hub heat meter (clamped 0–6). Disable it if your table prefers manual control.
 - Use tags like `fallout`, `intel`, or `debt` so searching weeks later is trivial.

@@ -16,6 +16,11 @@ Modular clue board with physics nodes, quick-reference popups, and a shared case
 - **Pan vs Select** – The hero button toggles between drag-to-pan and drag-to-select modes so you can rearrange clusters without accidentally moving the canvas.
 - **Zoom & Focus** – Scroll to zoom anywhere on the infinite canvas. Double-click a node to temporarily isolate its direct connections and reduce visual noise during briefings.
 
+## Multi-Case Workflow
+- **Switch Cases** – Use the case selector in the header to jump between investigations. Each case keeps its own board layout, nodes, and connections.
+- **Create & Rename** – The header controls let you spin up new cases or rename the active one without leaving the board.
+- **Delete with Care** – Deleting a case removes its board data and event log; make sure you no longer need it before confirming.
+
 ## Tips
 - Use guild popups to seed consistent iconography/colors that match your campaign; it keeps silhouettes recognizable when the web gets dense.
 - Save often (hero action) before trying aggressive experimentation with physics or mass deletes.

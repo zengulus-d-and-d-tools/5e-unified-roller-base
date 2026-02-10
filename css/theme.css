@@ -640,6 +640,21 @@ body.accent-panel-open {
     color: var(--danger);
 }
 
+.hero-select {
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-weight: 600;
+    min-width: 180px;
+}
+
+.hero-select:focus {
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 2px;
+}
+
 .hero-btn.small {
     font-size: 0.75rem;
     padding: 4px 12px;
