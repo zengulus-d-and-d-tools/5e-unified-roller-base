@@ -14,5 +14,6 @@ Between-sessions control room for heat, guild standing, and downtime logistics. 
 
 ## Tips
 - Log guild standing immediately after a scene; the Heat warning text will remind you when fallout scenes are due.
+- If Timeline auto-sync is enabled, heat deltas from mission events will update this meter automatically (0–6 clamp), so confirm the setting before manual adjustments.
 - Use the Case Prep card for NPC clocks or looming threats so everyone knows what success/failure looks like before the next session.
 - When a player spends DP in the Roster card, jot the activity directly in their row so it travels into the HQ designer or downtime scenes later.
