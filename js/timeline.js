@@ -216,10 +216,9 @@
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
                     onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
-                <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem;">
-                    <input type="checkbox" ${resolved ? 'checked' : ''} onchange="updateEventField('${evt.id}', 'resolved', this.checked)">
-                    ${statusPill}
-                </label>
+                <button class="toggle-btn status-toggle ${resolved ? 'active' : ''}" type="button"
+                    aria-pressed="${resolved ? 'true' : 'false'}"
+                    onclick="toggleResolved('${evt.id}', this)">${statusPill}</button>
             </div>
             <div class="event-meta">
                 <div>
@@ -273,8 +272,8 @@
         const search = (document.getElementById('eventSearch').value || '').toLowerCase();
         const focusFilter = document.getElementById('eventFocusFilter').value;
         const sort = document.getElementById('eventSort').value;
-        const impactOnly = document.getElementById('eventImpactOnly').checked;
-        const hideResolved = document.getElementById('eventHideResolved').checked;
+        const impactOnly = isButtonPressed('eventImpactOnly');
+        const hideResolved = isButtonPressed('eventHideResolved');
 
         const filtered = events.filter(evt => {
             const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
@@ -383,10 +382,7 @@
         initCaseSwitcher();
         const autoHeatToggle = document.getElementById('eventAutoHeat');
         if (autoHeatToggle) {
-            autoHeatToggle.checked = isHeatAutoSyncEnabled();
-            autoHeatToggle.addEventListener('change', (event) => {
-                setHeatAutoSync(event.target.checked);
-            });
+            setButtonPressed(autoHeatToggle, isHeatAutoSyncEnabled());
         }
         renderTimeline();
     }
@@ -407,6 +403,42 @@
     window.renderCaseSwitcher = renderCaseSwitcher;
     window.setHeatAutoSync = setHeatAutoSync;
     window.exportTimelineRecap = exportTimelineRecap;
+    window.toggleFilterButton = toggleFilterButton;
+    window.toggleAutoHeat = toggleAutoHeat;
+    window.toggleResolved = toggleResolved;
 
     window.addEventListener('load', waitForStore);
+
+    function setButtonPressed(button, pressed) {
+        if (!button) return;
+        const isPressed = Boolean(pressed);
+        button.setAttribute('aria-pressed', String(isPressed));
+        button.classList.toggle('active', isPressed);
+    }
+
+    function isButtonPressed(id) {
+        const button = document.getElementById(id);
+        return button ? button.getAttribute('aria-pressed') === 'true' : false;
+    }
+
+    function toggleFilterButton(button, callback) {
+        if (!button) return;
+        const next = button.getAttribute('aria-pressed') !== 'true';
+        setButtonPressed(button, next);
+        if (typeof callback === 'function') callback();
+    }
+
+    function toggleAutoHeat(button) {
+        if (!button) return;
+        const next = button.getAttribute('aria-pressed') !== 'true';
+        setButtonPressed(button, next);
+        setHeatAutoSync(next);
+    }
+
+    function toggleResolved(id, button) {
+        if (!button) return;
+        const next = button.getAttribute('aria-pressed') !== 'true';
+        setButtonPressed(button, next);
+        updateEventField(id, 'resolved', next);
+    }
 })();
