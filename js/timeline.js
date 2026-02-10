@@ -209,16 +209,17 @@
             : '';
         const focusDisplay = evt.focus ? `<span class="tag-pill">${escapeHtml(evt.focus)}</span>` : '';
         const resolved = Boolean(evt.resolved);
-        const statusPill = `<span class="status-pill ${resolved ? 'resolved' : 'pending'}">${resolved ? 'Resolved' : 'Pending'}</span>`;
+        const statusClass = resolved ? 'resolved' : 'pending';
+        const statusLabel = resolved ? 'Resolved' : 'Pending';
 
         return `
         <div class="event-card">
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
                     onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
-                <button class="toggle-btn status-toggle ${resolved ? 'active' : ''}" type="button"
+                <button class="toggle-btn status-toggle status-pill ${statusClass} ${resolved ? 'active' : ''}" type="button"
                     aria-pressed="${resolved ? 'true' : 'false'}"
-                    onclick="toggleResolved('${evt.id}', this)">${statusPill}</button>
+                    onclick="toggleResolved('${evt.id}', this)">${statusLabel}</button>
             </div>
             <div class="event-meta">
                 <div>

@@ -147,7 +147,7 @@
 
         .filter-row {
             display: grid;
-            grid-template-columns: minmax(200px, 1.6fr) repeat(2, minmax(160px, 1fr)) minmax(160px, 1fr);
+            grid-template-columns: minmax(200px, 1.6fr) repeat(2, minmax(160px, 1fr));
             gap: 12px;
         }
 
@@ -292,11 +292,11 @@
                         <option value="oldest">Oldest First</option>
                         <option value="heat">By Heat Impact</option>
                     </select>
-                    <button class="toggle-btn" id="eventImpactOnly" type="button" aria-pressed="false"
-                        onclick="toggleFilterButton(this, renderTimeline)">Heat / Fallout only</button>
                 </div>
                 <div class="filter-row actions">
                     <div class="filter-toggles">
+                        <button class="toggle-btn" id="eventImpactOnly" type="button" aria-pressed="false"
+                            onclick="toggleFilterButton(this, renderTimeline)">Heat / Fallout only</button>
                         <button class="toggle-btn" id="eventAutoHeat" type="button" aria-pressed="false"
                             onclick="toggleAutoHeat(this)">Auto-sync Heat</button>
                         <button class="toggle-btn" id="eventHideResolved" type="button" aria-pressed="false"
