@@ -1,12 +1,18 @@
 let data = { matches: [], active: false, meta: {} };
         let curId = null;
+        const escapeHtml = (str = '') => String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
         const delegatedHandlerEvents = ['click', 'change', 'input'];
         const delegatedHandlerCache = new Map();
         let delegatedHandlersBound = false;
 
         function getDelegatedHandlerFn(code) {
             if (!delegatedHandlerCache.has(code)) {
-                delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+                delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
             }
             return delegatedHandlerCache.get(code);
         }
@@ -221,14 +227,18 @@ let data = { matches: [], active: false, meta: {} };
         function createNode(m, ex = '') {
             const el = mk('div', 'node ' + ex);
             el.id = `node-${m.id}`; // Crucial for SVG linking
-            el.onclick = () => openScore(m.id);
+            el.addEventListener('click', () => openScore(m.id));
             const p1c = m.win === 1 ? 'win' : (m.win === 2 ? 'lose' : '');
             const p2c = m.win === 2 ? 'win' : (m.win === 1 ? 'lose' : '');
             let sid = m.id.split('_')[1];
             if (m.type === 'gf') sid = '';
+            const safeP1 = escapeHtml(m.p1 || '-');
+            const safeP2 = escapeHtml(m.p2 || '-');
+            const safeS1 = Number.isFinite(Number(m.s1)) ? Number(m.s1) : 0;
+            const safeS2 = Number.isFinite(Number(m.s2)) ? Number(m.s2) : 0;
             el.innerHTML = `${sid ? `<div class="node-id">${parseInt(sid) + 1}</div>` : ''}
-            <div class="p-row ${p1c}"><div class="p-name">${m.p1 || '-'}</div><div class="p-sc">${m.s1}</div></div>
-            <div class="p-row ${p2c}"><div class="p-name">${m.p2 || '-'}</div><div class="p-sc">${m.s2}</div></div>`;
+            <div class="p-row ${p1c}"><div class="p-name">${safeP1}</div><div class="p-sc">${safeS1}</div></div>
+            <div class="p-row ${p2c}"><div class="p-name">${safeP2}</div><div class="p-sc">${safeS2}</div></div>`;
             return el;
         }
 
@@ -344,7 +354,18 @@ let data = { matches: [], active: false, meta: {} };
 
         // Init
         const s = localStorage.getItem('uni_v6');
-        if (s) { data = JSON.parse(s); if (data.active) { document.getElementById('setup-modal').classList.remove('active'); render(); } }
+        if (s) {
+            try {
+                const parsed = JSON.parse(s);
+                if (parsed && typeof parsed === 'object') data = parsed;
+            } catch (err) {
+                console.warn('Invalid tournament save; resetting state.', err);
+            }
+            if (data.active) {
+                document.getElementById('setup-modal').classList.remove('active');
+                render();
+            }
+        }
         window.addEventListener('resize', () => { autoFit(); drawLines(); });
 
         // --- EXCITED BACKGROUND FIELD SCRIPT (Optimized for performance) ---

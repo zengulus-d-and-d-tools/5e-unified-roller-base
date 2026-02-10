@@ -91,7 +91,7 @@ let delegatedHandlersBound = false;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
-        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
     }
     return delegatedHandlerCache.get(code);
 }
@@ -205,43 +205,107 @@ function getDefaultInventory() {
         ;
 }
 
+function sanitizeInventoryToken(value, prefix = 'id') {
+    const raw = String(value || '').trim();
+    const cleaned = raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+    if (!cleaned || cleaned === '__proto__' || cleaned === 'prototype' || cleaned === 'constructor') {
+        return generateInventoryId(prefix);
+    }
+    return cleaned;
+}
+
 function ensureInventoryStructure(charData) {
     if (!charData) return;
-    if (!charData.inventory || typeof charData.inventory !== 'object') {
+    if (!charData.inventory || typeof charData.inventory !== 'object' || Array.isArray(charData.inventory)) {
         charData.inventory = getDefaultInventory();
     }
 
     const inv = charData.inventory;
-    inv.containers = inv.containers || {};
-    inv.items = inv.items || {};
+    if (!inv.containers || typeof inv.containers !== 'object' || Array.isArray(inv.containers)) inv.containers = {};
+    if (!inv.items || typeof inv.items !== 'object' || Array.isArray(inv.items)) inv.items = {};
     if (!Array.isArray(inv.looseItems)) inv.looseItems = [];
     if (!Array.isArray(inv.rootOrder)) inv.rootOrder = [];
 
-    Object.keys(inv.containers).forEach(id => {
-        const container = inv.containers[id];
-        if (!container) {
-            delete inv.containers[id];
-            return;
-        }
+    const containerIdMap = Object.create(null);
+    const itemIdMap = Object.create(null);
+    const normalizedContainers = Object.create(null);
+    const normalizedItems = Object.create(null);
+    const usedContainerIds = new Set();
+    const usedItemIds = new Set();
 
-        container.id = container.id || id;
-        if (!Array.isArray(container.items)) container.items = [];
-        if (!Array.isArray(container.children)) container.children = [];
-        if (container.parentId && !inv.containers[container.parentId]) container.parentId = null;
+    const reserveUniqueId = (value, prefix, usedSet) => {
+        const base = sanitizeInventoryToken(value, prefix);
+        let candidate = base;
+        let suffix = 1;
+        while (usedSet.has(candidate)) {
+            const suffixText = `_${suffix++}`;
+            const maxBaseLen = Math.max(1, 80 - suffixText.length);
+            candidate = `${base.slice(0, maxBaseLen)}${suffixText}`;
+        }
+        usedSet.add(candidate);
+        return candidate;
+    };
+
+    Object.keys(inv.containers).forEach((key) => {
+        const container = inv.containers[key];
+        if (!container || typeof container !== 'object') return;
+        const sourceId = container.id || key;
+        const safeId = reserveUniqueId(sourceId, 'container', usedContainerIds);
+        containerIdMap[String(key)] = safeId;
+        containerIdMap[String(sourceId)] = safeId;
+        normalizedContainers[safeId] = container;
+    });
+    inv.containers = normalizedContainers;
+
+    Object.keys(inv.items).forEach((key) => {
+        const item = inv.items[key];
+        if (!item || typeof item !== 'object') return;
+        const sourceId = item.id || key;
+        const safeId = reserveUniqueId(sourceId, 'item', usedItemIds);
+        itemIdMap[String(key)] = safeId;
+        itemIdMap[String(sourceId)] = safeId;
+        normalizedItems[safeId] = item;
+    });
+    inv.items = normalizedItems;
+
+    Object.keys(inv.containers).forEach((id) => {
+        const container = inv.containers[id];
+        container.id = id;
+        container.name = sanitizeString(container.name || 'Container', 'Container', 160);
+
+        const rawParentId = container.parentId === null || container.parentId === undefined
+            ? null
+            : String(container.parentId);
+        container.parentId = rawParentId ? (containerIdMap[rawParentId] || null) : null;
+
+        const rawItems = Array.isArray(container.items) ? container.items : [];
+        const rawChildren = Array.isArray(container.children) ? container.children : [];
+        container.items = rawItems
+            .map((itemId) => itemIdMap[String(itemId)] || null)
+            .filter(Boolean);
+        container.children = rawChildren
+            .map((childId) => containerIdMap[String(childId)] || null)
+            .filter((childId) => !!childId && childId !== id);
     });
 
-    Object.keys(inv.items).forEach(id => {
+    Object.keys(inv.items).forEach((id) => {
         const item = inv.items[id];
-        if (!item) {
-            delete inv.items[id];
-            return;
-        }
-
-        item.id = item.id || id;
-        if (item.containerId && !inv.containers[item.containerId]) item.containerId = null;
+        item.id = id;
+        item.name = sanitizeString(item.name || 'New Item', 'New Item', 160);
+        const rawContainerId = item.containerId === null || item.containerId === undefined
+            ? null
+            : String(item.containerId);
+        item.containerId = rawContainerId ? (containerIdMap[rawContainerId] || null) : null;
         const parsedQty = parseInt(item.quantity, 10);
         item.quantity = Number.isFinite(parsedQty) ? Math.max(0, parsedQty) : 1;
     });
+
+    inv.rootOrder = inv.rootOrder
+        .map((id) => containerIdMap[String(id)] || null)
+        .filter(Boolean);
+    inv.looseItems = inv.looseItems
+        .map((id) => itemIdMap[String(id)] || null)
+        .filter(Boolean);
 
     inv.rootOrder = inv.rootOrder.filter((id, idx, arr) => inv.containers[id] && !inv.containers[id].parentId && arr.indexOf(id) === idx);
     inv.looseItems = inv.looseItems.filter((id, idx, arr) => inv.items[id] && !inv.items[id].containerId && arr.indexOf(id) === idx);
@@ -372,13 +436,232 @@ function createDefaultAllData() {
     return base;
 }
 
+function isPlainObject(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function sanitizeString(value, fallback = '', maxLen = 5000) {
+    const text = typeof value === 'string' ? value : fallback;
+    return text.slice(0, maxLen);
+}
+
+function sanitizeNumber(value, fallback = 0, min = -Infinity, max = Infinity) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, parsed));
+}
+
+function sanitizeBoolean(value, fallback = false) {
+    if (typeof value === 'boolean') return value;
+    return fallback;
+}
+
+function sanitizeCharacterData(rawChar) {
+    const source = isPlainObject(rawChar) ? rawChar : {};
+    const out = getDefaultChar();
+
+    if (isPlainObject(source.meta)) {
+        out.meta = { ...out.meta, ...source.meta };
+    }
+    out.meta.player = sanitizeString(out.meta.player, '', 120);
+    out.meta.name = sanitizeString(out.meta.name, 'New Character', 120);
+    out.meta.level = Math.round(sanitizeNumber(out.meta.level, 1, 1, 20));
+    out.meta.casterType = ['none', 'full', 'half', 'third', 'pact'].includes(out.meta.casterType)
+        ? out.meta.casterType
+        : 'none';
+    out.meta.webhook = sanitizeString(out.meta.webhook, '', 2000);
+    out.meta.discordActive = sanitizeBoolean(out.meta.discordActive, false);
+    out.meta.init = sanitizeString(String(out.meta.init ?? ''), '', 24);
+    out.meta.speed = sanitizeString(String(out.meta.speed ?? ''), '', 24);
+
+    if (isPlainObject(source.vitals)) out.vitals = { ...out.vitals, ...source.vitals };
+    out.vitals.curr = sanitizeNumber(out.vitals.curr, 0, 0, 999999);
+    out.vitals.max = sanitizeNumber(out.vitals.max, 0, 0, 999999);
+    out.vitals.temp = sanitizeNumber(out.vitals.temp, 0, 0, 999999);
+    out.vitals.hdDie = sanitizeString(out.vitals.hdDie || 'd8', 'd8', 12);
+    out.vitals.hdCurr = sanitizeNumber(out.vitals.hdCurr, 1, 0, 999);
+    out.vitals.hdMax = sanitizeNumber(out.vitals.hdMax, 1, 0, 999);
+    out.vitals.inspiration = sanitizeNumber(out.vitals.inspiration, 0, 0, 99);
+    if (!isPlainObject(out.vitals.ds)) out.vitals.ds = {};
+    out.vitals.ds = {
+        s1: sanitizeBoolean(out.vitals.ds.s1, false),
+        s2: sanitizeBoolean(out.vitals.ds.s2, false),
+        s3: sanitizeBoolean(out.vitals.ds.s3, false),
+        f1: sanitizeBoolean(out.vitals.ds.f1, false),
+        f2: sanitizeBoolean(out.vitals.ds.f2, false),
+        f3: sanitizeBoolean(out.vitals.ds.f3, false)
+    };
+    if (!isPlainObject(out.vitals.hpAutoState)) out.vitals.hpAutoState = {};
+    out.vitals.hpAutoState = {
+        enabled: sanitizeBoolean(out.vitals.hpAutoState.enabled, false),
+        bonus: sanitizeNumber(out.vitals.hpAutoState.bonus, 0, -100, 100)
+    };
+
+    if (isPlainObject(source.ac)) out.ac = { ...out.ac, ...source.ac };
+    out.ac.mode = out.ac.mode === 'custom' ? 'custom' : 'std';
+    out.ac.dexCap = sanitizeNumber(out.ac.dexCap, 100, 0, 100);
+    out.ac.base = sanitizeNumber(out.ac.base, 10, 0, 99);
+    out.ac.bonus = sanitizeNumber(out.ac.bonus, 0, -50, 50);
+    out.ac.customStat1 = stats.includes(out.ac.customStat1) ? out.ac.customStat1 : 'dex';
+    out.ac.customStat2 = (out.ac.customStat2 === 'none' || stats.includes(out.ac.customStat2)) ? out.ac.customStat2 : 'none';
+    out.ac.bonuses = Array.isArray(out.ac.bonuses) ? out.ac.bonuses.slice(0, 40).map((entry, idx) => {
+        const row = isPlainObject(entry) ? entry : {};
+        return {
+            id: sanitizeString(String(row.id ?? `bonus_${idx}`), `bonus_${idx}`, 80),
+            name: sanitizeString(row.name || '', '', 120),
+            val: sanitizeNumber(row.val, 0, -50, 50),
+            active: sanitizeBoolean(row.active, true)
+        };
+    }) : [];
+
+    if (isPlainObject(source.stats)) {
+        stats.forEach((key) => {
+            if (isPlainObject(source.stats[key])) {
+                out.stats[key] = { ...out.stats[key], ...source.stats[key] };
+            }
+        });
+    }
+    stats.forEach((key) => {
+        out.stats[key].val = sanitizeNumber(out.stats[key].val, 10, 1, 30);
+        out.stats[key].save = sanitizeBoolean(out.stats[key].save, false);
+    });
+
+    if (isPlainObject(source.skills)) {
+        Object.keys(skillsMap).forEach((skill) => {
+            out.skills[skill] = sanitizeNumber(source.skills[skill], 0, 0, 2);
+        });
+    }
+    if (isPlainObject(source.skillOverrides)) {
+        out.skillOverrides = {};
+        Object.keys(source.skillOverrides).forEach((skill) => {
+            const override = source.skillOverrides[skill];
+            if (!Object.prototype.hasOwnProperty.call(skillsMap, skill)) return;
+            if (!stats.includes(override)) return;
+            out.skillOverrides[skill] = override;
+        });
+    }
+    if (isPlainObject(source.skillMisc)) {
+        out.skillMisc = {};
+        Object.keys(source.skillMisc).forEach((skill) => {
+            if (!Object.prototype.hasOwnProperty.call(skillsMap, skill)) return;
+            out.skillMisc[skill] = sanitizeString(source.skillMisc[skill], '', 24).toLowerCase();
+        });
+    }
+
+    out.attacks = Array.isArray(source.attacks) ? source.attacks.slice(0, 100).map((entry) => {
+        const row = isPlainObject(entry) ? entry : {};
+        const stat = stats.includes(row.stat) ? row.stat : 'none';
+        return {
+            name: sanitizeString(row.name || '', '', 160),
+            dmg: sanitizeString(row.dmg || '', '', 120),
+            stat,
+            desc: sanitizeString(row.desc || '', '', 5000)
+        };
+    }) : [];
+
+    out.features = Array.isArray(source.features) ? source.features.slice(0, 200).map((entry) => {
+        const row = isPlainObject(entry) ? entry : {};
+        return {
+            name: sanitizeString(row.name || '', '', 200),
+            desc: sanitizeString(row.desc || '', '', 10000)
+        };
+    }) : [];
+
+    const rawSpells = Array.isArray(source.spells) ? source.spells : [];
+    out.spells = [];
+    for (let i = 1; i <= 9; i += 1) {
+        const row = isPlainObject(rawSpells[i - 1]) ? rawSpells[i - 1] : {};
+        out.spells.push({
+            lvl: i,
+            max: sanitizeNumber(row.max, 0, 0, 99),
+            used: sanitizeNumber(row.used, 0, 0, 99)
+        });
+    }
+
+    out.resources = Array.isArray(source.resources) ? source.resources.slice(0, 200).map((entry) => {
+        const row = isPlainObject(entry) ? entry : {};
+        const display = ['none', 'bar', 'bubble'].includes(row.display) ? row.display : 'none';
+        const rest = ['none', 'sr', 'lr'].includes(row.rest) ? row.rest : 'none';
+        return {
+            name: sanitizeString(row.name || '', '', 160),
+            curr: sanitizeNumber(row.curr, 0, 0, 999999),
+            max: sanitizeNumber(row.max, 0, 0, 999999),
+            display,
+            rest,
+            rCheck: sanitizeBoolean(row.rCheck, false),
+            rFormula: sanitizeString(row.rFormula || '1d6', '1d6', 120)
+        };
+    }) : [];
+
+    out.rollMode = ['dis', 'norm', 'adv'].includes(source.rollMode) ? source.rollMode : 'norm';
+    if (isPlainObject(source.uiState)) {
+        out.uiState = { ...out.uiState, ...source.uiState };
+    }
+    out.uiState.isFlipped = sanitizeBoolean(out.uiState.isFlipped, false);
+    out.uiState.cardOrder = Array.isArray(out.uiState.cardOrder) ? out.uiState.cardOrder.slice(0, 200).map((entry) => sanitizeString(entry, '', 120)).filter(Boolean) : [];
+
+    if (isPlainObject(source.inventory)) {
+        out.inventory = source.inventory;
+    }
+    ensureInventoryStructure(out);
+
+    return out;
+}
+
+function sanitizeAllDataBundle(rawBundle) {
+    const source = isPlainObject(rawBundle) ? rawBundle : {};
+    const charsSource = isPlainObject(source.characters) ? source.characters : {};
+    const sanitizedChars = Object.create(null);
+
+    let fallbackIdx = 0;
+    Object.keys(charsSource).forEach((rawId) => {
+        let id = sanitizeString(rawId, '', 80).replace(/[^A-Za-z0-9_-]/g, '');
+        if (!id) {
+            fallbackIdx += 1;
+            id = `char_imported_${fallbackIdx}`;
+        }
+        if (id === '__proto__' || id === 'prototype' || id === 'constructor') {
+            fallbackIdx += 1;
+            id = `char_imported_${fallbackIdx}`;
+        }
+        while (Object.prototype.hasOwnProperty.call(sanitizedChars, id)) {
+            fallbackIdx += 1;
+            id = `${id}_${fallbackIdx}`;
+        }
+        sanitizedChars[id] = sanitizeCharacterData(charsSource[rawId]);
+    });
+
+    if (!Object.keys(sanitizedChars).length) return createDefaultAllData();
+
+    const requestedActive = sanitizeString(source.activeId || '', '', 80);
+    const activeId = Object.prototype.hasOwnProperty.call(sanitizedChars, requestedActive)
+        ? requestedActive
+        : Object.keys(sanitizedChars)[0];
+
+    return {
+        activeId,
+        characters: sanitizedChars
+    };
+}
+
+function wrapSingleCharacterBundle(rawCharacter) {
+    const id = `char_imported_${Date.now()}`;
+    return {
+        activeId: id,
+        characters: {
+            [id]: rawCharacter
+        }
+    };
+}
+
 function tryParseStoredAllData(raw) {
     if (!raw) return null;
 
     try {
         const parsed = JSON.parse(raw);
-        if (!parsed || !parsed.characters || !parsed.activeId) return null;
-        return parsed;
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (!parsed.characters || !parsed.activeId) return null;
+        return sanitizeAllDataBundle(parsed);
     }
 
     catch (e) {
@@ -402,11 +685,7 @@ function tryParseLegacyV2(raw) {
 
             ;
         bundle.characters[id] = oldChar;
-        if (!bundle.characters[id].uiState) bundle.characters[id].uiState = {}
-
-            ;
-        if (!bundle.characters[id].inventory) ensureInventoryStructure(bundle.characters[id]);
-        return bundle;
+        return sanitizeAllDataBundle(bundle);
     }
 
     catch (e) {
@@ -461,7 +740,8 @@ function deleteCharacter() {
 }
 
 function loadActiveChar() {
-    data = allData.characters[allData.activeId];
+    data = sanitizeCharacterData(allData.characters[allData.activeId]);
+    allData.characters[allData.activeId] = data;
     refreshCharSelect();
     populateUI();
 }
@@ -1147,11 +1427,15 @@ function updateAC() {
 
 function renderAcList() {
     const list = document.getElementById('acBonusList');
+    list.innerHTML = data.ac.bonuses.map((bonus, i) => {
+        const safeName = escapeHtml(bonus && bonus.name ? bonus.name : '');
+        const safeVal = Number.isFinite(Number(bonus && bonus.val)) ? Number(bonus.val) : 0;
+        const isActive = !!(bonus && bonus.active);
+        return ` <div class="ac-row ${isActive ? '' : 'inactive'}" > <label class="toggle-switch" ><input type="checkbox"${isActive ? 'checked' : ''
+            }
 
-    list.innerHTML = data.ac.bonuses.map((b, i) => ` <div class="ac-row ${b.active ? '' : 'inactive'}" > <label class="toggle-switch" ><input type="checkbox"${b.active ? 'checked' : ''
-        }
-
-                data-onchange="toggleAcBonus(${i})" ><span class="slider" ></span></label> <input type="text" value="${b.name}" placeholder="Source (Shield)" data-onchange="updateAcBonus(${i}, 'name', this.value)" > <input type="number" class="ac-val-input" value="${b.val}" placeholder="+0" data-onchange="updateAcBonus(${i}, 'val', this.value)" > <button class="btn-del js-ml-auto" data-onclick="delAcBonus(${i})" >&times; </button> </div> `).join('');
+                data-onchange="toggleAcBonus(${i})" ><span class="slider" ></span></label> <input type="text" value="${safeName}" placeholder="Source (Shield)" data-onchange="updateAcBonus(${i}, 'name', this.value)" > <input type="number" class="ac-val-input" value="${safeVal}" placeholder="+0" data-onchange="updateAcBonus(${i}, 'val', this.value)" > <button class="btn-del js-ml-auto" data-onclick="delAcBonus(${i})" >&times; </button> </div> `;
+    }).join('');
 }
 
 function addAcBonus() {
@@ -1669,6 +1953,7 @@ function renderSkills() {
 
         // NEW: Get saved misc value
         const miscVal = (data.skillMisc && data.skillMisc[s]) ? data.skillMisc[s] : "";
+        const safeMiscVal = escapeHtml(miscVal);
 
         return ` <div class="skill-row" > <span class="prof-toggle ${cls}" data-onclick="cycleSkill('${s}')" >${icon
             }
@@ -1679,7 +1964,7 @@ function renderSkills() {
                     </span> <span class="skill-name" >${s.charAt(0).toUpperCase() + s.slice(1)
             }
 
-                    </span> <span class="skill-bonus" id="skill-bonus-${s}" >+0</span> <input type="text" class="skill-misc" placeholder="+0" value="${miscVal}" data-onchange="updateSkillMisc('${s}', this.value)" title="Enter flat bonus (2) or stat name (cha)" > <button class="btn-roll-skill" data-onclick="rollSkill('${s}')" >🎲</button> </div>`;
+                    </span> <span class="skill-bonus" id="skill-bonus-${s}" >+0</span> <input type="text" class="skill-misc" placeholder="+0" value="${safeMiscVal}" data-onchange="updateSkillMisc('${s}', this.value)" title="Enter flat bonus (2) or stat name (cha)" > <button class="btn-roll-skill" data-onclick="rollSkill('${s}')" >🎲</button> </div>`;
     }).join('');
 }
 
@@ -1706,10 +1991,15 @@ function getSkillMiscBonus(skill) {
 }
 
 function renderAttacks() {
-    document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${atk.name}" data-onchange="updateAttack(${i}, 'name', this.value)" > <div class="atk-stats-line" > <input type="text" placeholder="1d8" value="${atk.dmg}" data-onchange="updateAttack(${i}, 'dmg', this.value)" > <select data-onchange="updateAttack(${i}, 'stat', this.value)" > <option value="none"${atk.stat === 'none' ? 'selected' : ''
+    document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => {
+        const safeName = escapeHtml(atk && atk.name ? atk.name : '');
+        const safeDmg = escapeHtml(atk && atk.dmg ? atk.dmg : '');
+        const safeDesc = escapeHtml(atk && atk.desc ? atk.desc : '');
+        const safeStat = (atk && typeof atk.stat === 'string') ? atk.stat : 'none';
+        return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${safeName}" data-onchange="updateAttack(${i}, 'name', this.value)" > <div class="atk-stats-line" > <input type="text" placeholder="1d8" value="${safeDmg}" data-onchange="updateAttack(${i}, 'dmg', this.value)" > <select data-onchange="updateAttack(${i}, 'stat', this.value)" > <option value="none"${safeStat === 'none' ? 'selected' : ''
         }
 
-                >NONE</option> ${stats.map(s => `<option value="${s}"${atk.stat === s ? 'selected' : ''
+                >NONE</option> ${stats.map(s => `<option value="${s}"${safeStat === s ? 'selected' : ''
             }
 
                         >${s.toUpperCase()
@@ -1718,17 +2008,22 @@ function renderAttacks() {
                         </option>`).join('')
         }
 
-                </select> </div> <textarea class="atk-desc" placeholder="Attack description / effect..." data-onchange="updateAttack(${i}, 'desc', this.value)" >${atk.desc || ''
+                </select> </div> <textarea class="atk-desc" placeholder="Attack description / effect..." data-onchange="updateAttack(${i}, 'desc', this.value)" >${safeDesc
         }
 
-                </textarea> <div class="atk-controls" > <button class="atk-btn-atk" data-onclick="rollAttack(${i})" >Atk</button> <button class="atk-btn-dmg" data-onclick="rollDamage(${i})" >Dmg</button> <button class="atk-btn-del" data-onclick="delAttack(${i})" >&times; </button> </div> </div> `).join('');
+                </textarea> <div class="atk-controls" > <button class="atk-btn-atk" data-onclick="rollAttack(${i})" >Atk</button> <button class="atk-btn-dmg" data-onclick="rollDamage(${i})" >Dmg</button> <button class="atk-btn-del" data-onclick="delAttack(${i})" >&times; </button> </div> </div> `;
+    }).join('');
 }
 
 function renderFeatures() {
-    document.getElementById('featureList').innerHTML = data.features.map((feat, i) => ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${feat.name}" data-onchange="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc feat-desc" placeholder="Feature description..." data-onchange="updateFeature(${i}, 'desc', this.value)" >${feat.desc || ''
+    document.getElementById('featureList').innerHTML = data.features.map((feat, i) => {
+        const safeName = escapeHtml(feat && feat.name ? feat.name : '');
+        const safeDesc = escapeHtml(feat && feat.desc ? feat.desc : '');
+        return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${safeName}" data-onchange="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc feat-desc" placeholder="Feature description..." data-onchange="updateFeature(${i}, 'desc', this.value)" >${safeDesc
         }
 
-                </textarea> <div class="atk-controls feat-controls" > <button class="feat-post-btn" data-onclick="postFeature(${i})" >📢 Post to Chat</button> <button class="atk-btn-del" data-onclick="delFeature(${i})" >&times; </button> </div> </div> `).join('');
+                </textarea> <div class="atk-controls feat-controls" > <button class="feat-post-btn" data-onclick="postFeature(${i})" >📢 Post to Chat</button> <button class="atk-btn-del" data-onclick="delFeature(${i})" >&times; </button> </div> </div> `;
+    }).join('');
 }
 
 function renderSpells() {
@@ -1819,10 +2114,14 @@ function renderResources() {
     list.innerHTML = data.resources.map((res, i) => {
         const display = res.display || 'none';
         const rest = res.rest || 'none';
+        const safeName = escapeHtml(res.name || '');
+        const safeCurr = Number.isFinite(Number(res.curr)) ? Number(res.curr) : 0;
+        const safeMax = Number.isFinite(Number(res.max)) ? Math.max(0, Number(res.max)) : 0;
+        const safeFormula = escapeHtml(res.rFormula || '1d6');
         let vizHtml = '';
 
         if (display === 'bar') {
-            let pct = 0; if (res.max > 0) pct = (res.curr / res.max) * 100;
+            let pct = 0; if (safeMax > 0) pct = (safeCurr / safeMax) * 100;
             if (pct > 100) pct = 100;
             vizHtml = `<div class="res-viz-bar" data-onclick="setResValue(${i})" ><div class="res-bar-fill" data-res-fill="${pct}" ></div></div>`;
         }
@@ -1830,8 +2129,8 @@ function renderResources() {
         else if (display === 'bubble') {
             let bubbles = '';
 
-            for (let b = 0; b < res.max; b++) {
-                const filled = b < res.curr ? 'filled' : '';
+            for (let b = 0; b < safeMax; b++) {
+                const filled = b < safeCurr ? 'filled' : '';
                 bubbles += `<div class="res-bubble-item ${filled}" data-onclick="toggleResBubble(${i}, ${b})" ></div>`;
             }
 
@@ -1841,7 +2140,7 @@ function renderResources() {
                         </div>`;
         }
 
-        return ` <div class="resource-row" > <div class="res-top" > <input type="text" class="res-name" placeholder="Resource Name" value="${res.name}" data-onchange="updateRes(${i}, 'name', this.value)" > <select class="res-style-select" data-onchange="updateRes(${i}, 'display', this.value)" > <option value="none"${display === 'none' ? 'selected' : ''
+        return ` <div class="resource-row" > <div class="res-top" > <input type="text" class="res-name" placeholder="Resource Name" value="${safeName}" data-onchange="updateRes(${i}, 'name', this.value)" > <select class="res-style-select" data-onchange="updateRes(${i}, 'display', this.value)" > <option value="none"${display === 'none' ? 'selected' : ''
             }
 
                     >None</option> <option value="bubble"${display === 'bubble' ? 'selected' : ''
@@ -1850,7 +2149,7 @@ function renderResources() {
                     >Bubbles</option> <option value="bar"${display === 'bar' ? 'selected' : ''
             }
 
-                    >Bar</option> </select> <button class="btn-del-res" data-onclick="delRes(${i})" >&times; </button> </div> <div class="res-controls-row" > <button class="btn-res-mod btn-res-minus" data-onclick="modifyRes(${i}, -1)" >-</button> <input type="number" class="res-val" value="${res.curr}" data-onchange="updateRes(${i}, 'curr', this.value)" > <span class="res-sep" >/</span> <input type="number" class="res-val" value="${res.max}" data-onchange="updateRes(${i}, 'max', this.value)" > <button class="btn-res-mod btn-res-plus" data-onclick="modifyRes(${i}, 1)" >+</button> </div> ${vizHtml
+                    >Bar</option> </select> <button class="btn-del-res" data-onclick="delRes(${i})" >&times; </button> </div> <div class="res-controls-row" > <button class="btn-res-mod btn-res-minus" data-onclick="modifyRes(${i}, -1)" >-</button> <input type="number" class="res-val" value="${safeCurr}" data-onchange="updateRes(${i}, 'curr', this.value)" > <span class="res-sep" >/</span> <input type="number" class="res-val" value="${safeMax}" data-onchange="updateRes(${i}, 'max', this.value)" > <button class="btn-res-mod btn-res-plus" data-onclick="modifyRes(${i}, 1)" >+</button> </div> ${vizHtml
             }
 
                     <div class="res-bottom" > <select class="res-reset-select" data-onchange="updateRes(${i}, 'rest', this.value)" > <option value="none"${rest === 'none' ? 'selected' : ''
@@ -1865,7 +2164,7 @@ function renderResources() {
                     >Reset: Long Rest</option> </select> <label class="res-recharge-toggle" title="Enable Dice Recharge" > 🎲 <input type="checkbox"${res.rCheck ? 'checked' : ''
             }
 
-                    data-onchange="updateRes(${i}, 'rCheck', this.checked)" > </label> ${res.rCheck ? ` <input type="text" class="res-recharge-input" placeholder="1d6" value="${res.rFormula || '1d6'}" data-onchange="updateRes(${i}, 'rFormula', this.value)" > <button class="btn-res-roll" data-onclick="rollResRecharge(${i})" >Recharge</button> ` : ''
+                    data-onchange="updateRes(${i}, 'rCheck', this.checked)" > </label> ${res.rCheck ? ` <input type="text" class="res-recharge-input" placeholder="1d6" value="${safeFormula}" data-onchange="updateRes(${i}, 'rFormula', this.value)" > <button class="btn-res-roll" data-onclick="rollResRecharge(${i})" >Recharge</button> ` : ''
             }
 
                     </div> </div> `
@@ -1922,26 +2221,29 @@ function renderInventoryContainerCard(container) {
     const childHtml = renderContainerList(container.children || [], container.id);
     const childEmpty = !container.children || container.children.length === 0;
     const safeName = escapeHtml(container.name || 'Container');
+    const containerId = String(container.id || '');
+    const safeContainerIdAttr = escapeHtml(containerId);
+    const safeContainerIdJs = escapeJsString(containerId);
 
-    return `<div class="inventory-container-card" data-container-id="${container.id}">
+    return `<div class="inventory-container-card" data-container-id="${safeContainerIdAttr}">
         <div class="inventory-card-header">
             <div class="inventory-card-title-row">
-                <span class="inventory-drag-handle" draggable="true" data-ondragstart="onInventoryContainerDragStart(event, '${container.id}')" data-ondragend="onInventoryDragEnd()">⠿</span>
-                <input type="text" value="${safeName}" placeholder="Container Name" data-oninput="renameContainer('${container.id}', this.value)">
+                <span class="inventory-drag-handle" draggable="true" data-ondragstart="onInventoryContainerDragStart(event, '${safeContainerIdJs}')" data-ondragend="onInventoryDragEnd()">⠿</span>
+                <input type="text" value="${safeName}" placeholder="Container Name" data-oninput="renameContainer('${safeContainerIdJs}', this.value)">
             </div>
             <div class="inventory-card-controls">
-                <button type="button" class="inventory-delete-btn" data-onclick="deleteContainer('${container.id}')">&times;</button>
+                <button type="button" class="inventory-delete-btn" data-onclick="deleteContainer('${safeContainerIdJs}')">&times;</button>
             </div>
         </div>
         <div class="inventory-card-body">
-            <div class="inventory-items" data-empty="${validItems.length === 0 ? 'true' : 'false'}" data-ondragover="allowInventoryItemDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryItemDrop(event, '${container.id}')">
+            <div class="inventory-items" data-empty="${validItems.length === 0 ? 'true' : 'false'}" data-ondragover="allowInventoryItemDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryItemDrop(event, '${safeContainerIdJs}')">
                 ${itemsHtml}
                 <div class="inventory-add-item">
-                    <input type="text" id="addItemInput-${container.id}" placeholder="Add item" data-onkeydown="handleInventoryInputEnter(event, '${container.id}')">
-                    <button type="button" data-onclick="handleContainerAddItem('${container.id}')">Add</button>
+                    <input type="text" id="addItemInput-${safeContainerIdAttr}" placeholder="Add item" data-onkeydown="handleInventoryInputEnter(event, '${safeContainerIdJs}')">
+                    <button type="button" data-onclick="handleContainerAddItem('${safeContainerIdJs}')">Add</button>
                 </div>
             </div>
-            <div class="inventory-children" data-empty="${childEmpty ? 'true' : 'false'}" data-ondragover="allowInventoryContainerDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryContainerNest(event, '${container.id}')">
+            <div class="inventory-children" data-empty="${childEmpty ? 'true' : 'false'}" data-ondragover="allowInventoryContainerDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryContainerNest(event, '${safeContainerIdJs}')">
                 ${childHtml}
             </div>
         </div>
@@ -1952,20 +2254,27 @@ function renderInventoryItem(item) {
     if (!item) return '';
     const safeName = escapeHtml(item.name || 'Item');
     const qty = Math.max(0, parseInt(item.quantity, 10) || 0);
-    return `<div class="inventory-item" data-item-id="${item.id}">
-        <span class="inventory-drag-handle" draggable="true" data-ondragstart="onInventoryItemDragStart(event, '${item.id}')" data-ondragend="onInventoryDragEnd()">⠿</span>
-        <input type="text" value="${safeName}" placeholder="Item Name" data-oninput="renameItem('${item.id}', this.value)">
+    const itemId = String(item.id || '');
+    const safeItemIdAttr = escapeHtml(itemId);
+    const safeItemIdJs = escapeJsString(itemId);
+    return `<div class="inventory-item" data-item-id="${safeItemIdAttr}">
+        <span class="inventory-drag-handle" draggable="true" data-ondragstart="onInventoryItemDragStart(event, '${safeItemIdJs}')" data-ondragend="onInventoryDragEnd()">⠿</span>
+        <input type="text" value="${safeName}" placeholder="Item Name" data-oninput="renameItem('${safeItemIdJs}', this.value)">
         <div class="inventory-qty-control">
-            <button type="button" class="inventory-qty-btn" data-onclick="adjustItemQuantity('${item.id}', -1)" aria-label="Decrease quantity">-</button>
-            <input type="number" class="inventory-qty-input" min="0" value="${qty}" data-onchange="setItemQuantity('${item.id}', this.value)" aria-label="Item quantity">
-            <button type="button" class="inventory-qty-btn" data-onclick="adjustItemQuantity('${item.id}', 1)" aria-label="Increase quantity">+</button>
+            <button type="button" class="inventory-qty-btn" data-onclick="adjustItemQuantity('${safeItemIdJs}', -1)" aria-label="Decrease quantity">-</button>
+            <input type="number" class="inventory-qty-input" min="0" value="${qty}" data-onchange="setItemQuantity('${safeItemIdJs}', this.value)" aria-label="Item quantity">
+            <button type="button" class="inventory-qty-btn" data-onclick="adjustItemQuantity('${safeItemIdJs}', 1)" aria-label="Increase quantity">+</button>
         </div>
-        <button type="button" class="inventory-delete-btn" data-onclick="deleteItem('${item.id}')">&times;</button>
+        <button type="button" class="inventory-delete-btn" data-onclick="deleteItem('${safeItemIdJs}')">&times;</button>
     </div>`;
 }
 
 function renderContainerDropSlot(parentId, index) {
-    return `<div class="inventory-drop-slot" data-parent-id="${parentId}" data-drop-index="${index}" data-ondragover="allowInventoryContainerDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryContainerDrop(event, '${parentId}', '${index}')"></div>`;
+    const parent = String(parentId ?? 'null');
+    const safeParentAttr = escapeHtml(parent);
+    const safeParentJs = escapeJsString(parent);
+    const safeIndex = Number.isFinite(Number(index)) ? Number(index) : 0;
+    return `<div class="inventory-drop-slot" data-parent-id="${safeParentAttr}" data-drop-index="${safeIndex}" data-ondragover="allowInventoryContainerDrop(event)" data-ondragleave="onInventoryDropLeave(event)" data-ondrop="onInventoryContainerDrop(event, '${safeParentJs}', '${safeIndex}')"></div>`;
 }
 
 function createContainer(parentId = null) {
@@ -2184,6 +2493,16 @@ function generateInventoryId(prefix) {
 
 function escapeHtml(str = '') {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function escapeJsString(str = '') {
+    return String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
 }
 
 let inventoryDragPayload = null;
@@ -2681,22 +3000,11 @@ async function importData() {
         const resp = new Response(decompressedStream);
         const json = await resp.json();
 
-        if (json.activeId && json.characters) {
-            allData = json;
-        }
-
-        else {
-            const id = 'char_imported_' + Date.now();
-
-            allData = {
-
-                activeId: id,
-                characters: {}
-            }
-
-                ;
-            allData.characters[id] = json;
-        }
+        allData = sanitizeAllDataBundle(
+            (json && typeof json === 'object' && json.activeId && json.characters)
+                ? json
+                : wrapSingleCharacterBundle(json)
+        );
 
         saveGlobal();
         loadActiveChar();
@@ -2712,22 +3020,11 @@ async function importData() {
             const oldJson = decodeURIComponent(atob(b64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
             const parsed = JSON.parse(oldJson);
 
-            if (parsed.activeId && parsed.characters) {
-                allData = parsed;
-            }
-
-            else {
-                const id = 'char_legacy_' + Date.now();
-
-                allData = {
-
-                    activeId: id,
-                    characters: {}
-                }
-
-                    ;
-                allData.characters[id] = parsed;
-            }
+            allData = sanitizeAllDataBundle(
+                (parsed && typeof parsed === 'object' && parsed.activeId && parsed.characters)
+                    ? parsed
+                    : wrapSingleCharacterBundle(parsed)
+            );
 
             saveGlobal();
             loadActiveChar();
@@ -2975,8 +3272,8 @@ function renderCCRaceFeats() {
     list.innerHTML = ccRaceFeats.map((f, i) => `
                 <div class="cc-feat-item">
                     <div>
-                        <strong>${f.name}</strong>
-                        <div class="cc-feat-desc">${f.desc}</div>
+                        <strong>${escapeHtml(f.name || '')}</strong>
+                        <div class="cc-feat-desc">${escapeHtml(f.desc || '')}</div>
                     </div>
                     <button class="cc-feat-btn" data-onclick="removeCcFeat('race', ${i})">&times;</button>
                 </div>
@@ -3029,8 +3326,8 @@ function renderCCClassFeats() {
     list.innerHTML = ccClassFeats.map((f, i) => `
                 <div class="cc-feat-item">
                     <div>
-                        <strong>${f.name}</strong>
-                        <div class="cc-feat-desc">${f.desc}</div>
+                        <strong>${escapeHtml(f.name || '')}</strong>
+                        <div class="cc-feat-desc">${escapeHtml(f.desc || '')}</div>
                     </div>
                     <button class="cc-feat-btn" data-onclick="removeCcFeat('class', ${i})">&times;</button>
                 </div>
@@ -3058,14 +3355,17 @@ function generateReview() {
     const race = document.getElementById('ccRace').value || "Unknown";
     const cls = document.getElementById('ccClass').value || "Unknown";
     const lvl = document.getElementById('ccLevel').value;
+    const safeRace = escapeHtml(race);
+    const safeClass = escapeHtml(cls);
+    const safeLevel = escapeHtml(lvl);
 
-    let summary = `<strong>${race
+    let summary = `<strong>${safeRace
         }
 
-            ${cls
+            ${safeClass
         }
 
-            (Lvl ${lvl
+            (Lvl ${safeLevel
         })</strong><br><br>`;
     summary += "<strong>Attributes:</strong><br>";
 
@@ -3100,7 +3400,7 @@ function generateReview() {
 
     const sList = Array.from(ccSelectedSkills).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ');
     if (sList) {
-        summary += `<br><strong>Skills:</strong><br><span class="cc-review-skills">${sList}</span><br>`;
+        summary += `<br><strong>Skills:</strong><br><span class="cc-review-skills">${escapeHtml(sList)}</span><br>`;
     }
 
     const rfCount = ccRaceFeats.length;

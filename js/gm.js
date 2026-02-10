@@ -1,4 +1,4 @@
-let gmData = {
+const DEFAULT_GM_DATA = {
     combatants: [],
     bestiary: [], // [{name, init, dex, hp, count}]
     round: 1,
@@ -8,6 +8,7 @@ let gmData = {
     scratchpad: '',
     rollLevel: 1
 };
+let gmData = JSON.parse(JSON.stringify(DEFAULT_GM_DATA));
 
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
@@ -15,7 +16,7 @@ let delegatedHandlersBound = false;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
-        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
     }
     return delegatedHandlerCache.get(code);
 }
@@ -60,6 +61,67 @@ function bindDelegatedDataHandlers() {
 bindDelegatedDataHandlers();
 
 // ... existing vars ...
+
+function escapeHtml(str = '') {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function sanitizeString(value, fallback = '', maxLen = 4000) {
+    return (typeof value === 'string' ? value : fallback).slice(0, maxLen);
+}
+
+function sanitizeNumber(value, fallback = 0, min = -Infinity, max = Infinity) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, parsed));
+}
+
+function sanitizeGMData(raw) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    const sanitized = JSON.parse(JSON.stringify(DEFAULT_GM_DATA));
+
+    sanitized.combatants = Array.isArray(source.combatants) ? source.combatants.slice(0, 300).map((entry, idx) => {
+        const row = entry && typeof entry === 'object' ? entry : {};
+        const hasHp = row.hp !== null && row.hp !== undefined && row.hp !== '';
+        const hp = hasHp ? sanitizeNumber(row.hp, 0, 0, 999999) : null;
+        const maxHp = hasHp ? sanitizeNumber(row.maxHp, hp, 0, 999999) : null;
+        return {
+            id: sanitizeString(String(row.id ?? `combat_${idx}`), `combat_${idx}`, 80),
+            name: sanitizeString(row.name || 'Enemy', 'Enemy', 160),
+            total: sanitizeNumber(row.total, 0, -999, 999),
+            tie: sanitizeNumber(row.tie, 10, 1, 30),
+            hp,
+            maxHp,
+            tags: Array.isArray(row.tags) ? row.tags.slice(0, 20).map((tag) => sanitizeString(tag, '', 120)).filter(Boolean) : []
+        };
+    }) : [];
+
+    sanitized.bestiary = Array.isArray(source.bestiary) ? source.bestiary.slice(0, 400).map((entry) => {
+        const row = entry && typeof entry === 'object' ? entry : {};
+        return {
+            name: sanitizeString(row.name || '', '', 160),
+            baseName: sanitizeString(row.baseName || '', '', 160),
+            count: sanitizeNumber(row.count, 1, 1, 99),
+            initMod: sanitizeNumber(row.initMod, 0, -20, 20),
+            dex: sanitizeNumber(row.dex, 10, 1, 30),
+            hp: sanitizeNumber(row.hp, 0, 0, 999999)
+        };
+    }) : [];
+
+    sanitized.round = Math.round(sanitizeNumber(source.round, 1, 1, 100000));
+    sanitized.activeIdx = Math.round(sanitizeNumber(source.activeIdx, 0, 0, Math.max(0, sanitized.combatants.length - 1)));
+    sanitized.webhook = sanitizeString(source.webhook || '', '', 2000);
+    sanitized.discordActive = !!source.discordActive;
+    sanitized.scratchpad = sanitizeString(source.scratchpad || '', '', 100000);
+    sanitized.rollLevel = Math.round(sanitizeNumber(source.rollLevel, 1, 1, 30));
+
+    return sanitized;
+}
 
 // --- BESTIARY LOGIC ---
 function saveMobPreset() {
@@ -108,7 +170,7 @@ function renderBestiary() {
 
     list.innerHTML = gmData.bestiary.map((b, i) => `
                 <div class="gm-bestiary-item">
-                    <span class="gm-bestiary-item-name">${b.name}</span>
+                    <span class="gm-bestiary-item-name">${escapeHtml(b.name || 'Preset')}</span>
                     <div class="gm-bestiary-item-actions">
                         <button class="btn-sec btn-sm" data-onclick="loadMobPreset(${i})">Load</button>
                         <button class="btn-danger btn-sm" data-onclick="delMobPreset(${i})">&times;</button>
@@ -172,7 +234,14 @@ const lootTables = {
 function init() {
     const saved = localStorage.getItem('gmDashboardData');
     if (saved) {
-        gmData = JSON.parse(saved);
+        try {
+            gmData = sanitizeGMData(JSON.parse(saved));
+        } catch (err) {
+            console.error('Failed to parse gmDashboardData; using defaults.', err);
+            gmData = sanitizeGMData(DEFAULT_GM_DATA);
+        }
+    } else {
+        gmData = sanitizeGMData(gmData);
     }
     document.getElementById('webhookUrl').value = gmData.webhook || '';
     document.getElementById('discordActive').checked = gmData.discordActive || false;
@@ -205,7 +274,7 @@ function importGM() {
             try {
                 const loaded = JSON.parse(event.target.result);
                 if (confirm("Overwrite data?")) {
-                    gmData = loaded;
+                    gmData = sanitizeGMData(loaded);
                     saveGM();
                     location.reload();
                 }
@@ -221,6 +290,7 @@ function saveGM() {
     gmData.discordActive = document.getElementById('discordActive').checked;
     gmData.scratchpad = document.getElementById('scratchpad').value;
     gmData.rollLevel = parseInt(document.getElementById('rollLevel').value) || 1;
+    gmData = sanitizeGMData(gmData);
     localStorage.setItem('gmDashboardData', JSON.stringify(gmData));
 }
 
@@ -438,14 +508,19 @@ function renderCombat() {
 
     list.innerHTML = gmData.combatants.map((c, i) => {
         const activeClass = (i === gmData.activeIdx) ? 'active' : '';
+        const safeTotal = Number.isFinite(Number(c.total)) ? Number(c.total) : 0;
+        const safeTie = Number.isFinite(Number(c.tie)) ? Number(c.tie) : 0;
+        const safeName = escapeHtml(c.name || 'Combatant');
         let hpHtml = '';
         if (c.hp !== null) {
-            const bloodiedClass = (c.hp <= c.maxHp / 2) ? 'hp-bloodied' : 'hp-healthy';
+            const safeHp = Number.isFinite(Number(c.hp)) ? Number(c.hp) : 0;
+            const safeMaxHp = Number.isFinite(Number(c.maxHp)) ? Number(c.maxHp) : 0;
+            const bloodiedClass = (safeMaxHp > 0 && safeHp <= safeMaxHp / 2) ? 'hp-bloodied' : 'hp-healthy';
             hpHtml = `
                     <div class="hp-controls">
                         <button class="btn-dmg-qs" data-onclick="modHP(${i}, -1)">-1</button>
                         <button class="btn-dmg-qs" data-onclick="modHP(${i}, -5)">-5</button>
-                        <div class="hp-display ${bloodiedClass}" data-onclick="setHP(${i})">${c.hp}</div>
+                        <div class="hp-display ${bloodiedClass}" data-onclick="setHP(${i})">${safeHp}</div>
                     </div>
                 `;
         }
@@ -453,11 +528,11 @@ function renderCombat() {
         return `
             <div class="combat-item ${activeClass}">
                 <div class="init-box">
-                    <div class="init-val">${c.total}</div>
-                    <div class="init-tie">.${c.tie}</div>
+                    <div class="init-val">${safeTotal}</div>
+                    <div class="init-tie">.${safeTie}</div>
                 </div>
                 <div class="name-box">
-                    <div class="name-main">${c.name}</div>
+                    <div class="name-main">${safeName}</div>
                     ${activeClass ? '<div class="name-meta name-meta-active">Taking Turn...</div>' : ''}
                 </div>
                 <div class="combat-actions">

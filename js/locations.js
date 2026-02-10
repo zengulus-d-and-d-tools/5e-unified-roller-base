@@ -17,7 +17,7 @@ let delegatedHandlersBound = false;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
-        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
     }
     return delegatedHandlerCache.get(code);
 }
@@ -173,10 +173,10 @@ function render() {
     `).join('');
 }
 
-window.onload = () => {
+window.addEventListener('load', () => {
     if (window.RTF_STORE) {
         render();
     } else {
         setTimeout(render, 100);
     }
-};
+});

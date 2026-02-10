@@ -12,6 +12,13 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    const escapeJsString = (str = '') => String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
     const delegatedHandlerEvents = ['click', 'change', 'input'];
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
@@ -20,7 +27,7 @@
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
-            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+            delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
         }
         return delegatedHandlerCache.get(code);
     }
@@ -65,7 +72,10 @@
     function populateTierSelects() {
         const tierSelect = document.getElementById('encTier');
         if (tierSelect && tierSelect.options.length === 0) {
-            tierSelect.innerHTML = TIERS.map(t => `<option value="${t.value}">${t.value}</option>`).join('');
+            tierSelect.innerHTML = TIERS.map((t) => {
+                const safe = escapeHtml(t.value);
+                return `<option value="${safe}">${safe}</option>`;
+            }).join('');
         }
         const tierFilter = document.getElementById('encTierFilter');
         if (tierFilter && tierFilter.options.length === 1) {
@@ -143,17 +153,23 @@
     }
 
     function buildTierOptions(selected) {
-        return TIERS.map(t => `<option value="${t.value}" ${t.value === (selected || 'Routine') ? 'selected' : ''}>${t.value}</option>`).join('');
+        const selectedRaw = String(selected || 'Routine');
+        return TIERS.map((t) => {
+            const raw = String(t.value || '');
+            const safe = escapeHtml(raw);
+            return `<option value="${safe}" ${raw === selectedRaw ? 'selected' : ''}>${safe}</option>`;
+        }).join('');
     }
 
     function buildCard(enc) {
+        const encId = escapeJsString(enc.id || '');
         const tierMeta = TIERS.find(t => t.value === enc.tier) || TIERS[0];
         return `
         <div class="enc-card ${tierMeta.cardClass}">
             <h3>
                 <input type="text" value="${escapeHtml(enc.title || '')}" placeholder="Encounter"
-                    data-onchange="updateEncField('${enc.id}', 'title', this.value)">
-                <select class="tier-pill" data-onchange="updateEncField('${enc.id}', 'tier', this.value)">
+                    data-onchange="updateEncField('${encId}', 'title', this.value)">
+                <select class="tier-pill" data-onchange="updateEncField('${encId}', 'tier', this.value)">
                     ${buildTierOptions(enc.tier)}
                 </select>
             </h3>
@@ -161,22 +177,22 @@
                 <div>
                     <label class="enc-field-label">Battlefield</label>
                     <input type="text" value="${escapeHtml(enc.location || '')}" placeholder="Arena"
-                        data-onchange="updateEncField('${enc.id}', 'location', this.value)">
+                        data-onchange="updateEncField('${encId}', 'location', this.value)">
                 </div>
                 <div>
                     <label class="enc-field-label">Objective</label>
                     <input type="text" value="${escapeHtml(enc.objective || '')}" placeholder="Goal"
-                        data-onchange="updateEncField('${enc.id}', 'objective', this.value)">
+                        data-onchange="updateEncField('${encId}', 'objective', this.value)">
                 </div>
             </div>
-            <textarea placeholder="Opposition" data-onchange="updateEncField('${enc.id}', 'opposition', this.value)">${escapeHtml(enc.opposition || '')}</textarea>
-            <textarea placeholder="Hazards" data-onchange="updateEncField('${enc.id}', 'hazards', this.value)">${escapeHtml(enc.hazards || '')}</textarea>
-            <textarea placeholder="Beats / Phases" data-onchange="updateEncField('${enc.id}', 'beats', this.value)">${escapeHtml(enc.beats || '')}</textarea>
-            <textarea placeholder="Rewards" data-onchange="updateEncField('${enc.id}', 'rewards', this.value)">${escapeHtml(enc.rewards || '')}</textarea>
-            <textarea placeholder="Notes" data-onchange="updateEncField('${enc.id}', 'notes', this.value)">${escapeHtml(enc.notes || '')}</textarea>
+            <textarea placeholder="Opposition" data-onchange="updateEncField('${encId}', 'opposition', this.value)">${escapeHtml(enc.opposition || '')}</textarea>
+            <textarea placeholder="Hazards" data-onchange="updateEncField('${encId}', 'hazards', this.value)">${escapeHtml(enc.hazards || '')}</textarea>
+            <textarea placeholder="Beats / Phases" data-onchange="updateEncField('${encId}', 'beats', this.value)">${escapeHtml(enc.beats || '')}</textarea>
+            <textarea placeholder="Rewards" data-onchange="updateEncField('${encId}', 'rewards', this.value)">${escapeHtml(enc.rewards || '')}</textarea>
+            <textarea placeholder="Notes" data-onchange="updateEncField('${encId}', 'notes', this.value)">${escapeHtml(enc.notes || '')}</textarea>
             <div class="enc-actions">
                 <small class="enc-log-meta">Logged ${enc.created ? new Date(enc.created).toLocaleString() : '—'}</small>
-                <button class="btn btn-danger" data-onclick="deleteEncounter('${enc.id}')">Delete</button>
+                <button class="btn btn-danger" data-onclick="deleteEncounter('${encId}')">Delete</button>
             </div>
         </div>`;
     }

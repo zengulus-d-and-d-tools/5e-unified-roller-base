@@ -17,13 +17,20 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    const escapeJsString = (str = '') => String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
     const delegatedHandlerEvents = ['click', 'change', 'input'];
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
-            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+            delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
         }
         return delegatedHandlerCache.get(code);
     }
@@ -105,13 +112,22 @@
         const guildFilter = document.getElementById('reqGuildFilter');
 
         if (guildSelect && guildSelect.options.length === 0) {
-            guildSelect.innerHTML = '<option value="">Guild / Source</option>' + guilds.map(g => `<option value="${g}">${g}</option>`).join('');
+            guildSelect.innerHTML = '<option value="">Guild / Source</option>' + guilds.map((g) => {
+                const safe = escapeHtml(g);
+                return `<option value="${safe}">${safe}</option>`;
+            }).join('');
         }
         if (prioritySelect && prioritySelect.options.length === 0) {
-            prioritySelect.innerHTML = '<option value="Routine">Routine</option>' + PRIORITIES.filter(p => p !== 'Routine').map(p => `<option value="${p}">${p}</option>`).join('');
+            prioritySelect.innerHTML = '<option value="Routine">Routine</option>' + PRIORITIES.filter(p => p !== 'Routine').map((p) => {
+                const safe = escapeHtml(p);
+                return `<option value="${safe}">${safe}</option>`;
+            }).join('');
         }
         if (statusSelect && statusSelect.options.length === 0) {
-            statusSelect.innerHTML = STATUS.map(s => `<option value="${s}">${s}</option>`).join('');
+            statusSelect.innerHTML = STATUS.map((s) => {
+                const safe = escapeHtml(s);
+                return `<option value="${safe}">${safe}</option>`;
+            }).join('');
         }
         if (guildFilter && guildFilter.options.length === 1) {
             guilds.forEach(g => {
@@ -223,16 +239,22 @@
     }
 
     function buildOptions(list, selected) {
-        return list.map(item => `<option value="${item}" ${item === selected ? 'selected' : ''}>${item}</option>`).join('');
+        const selectedRaw = String(selected || '');
+        return list.map((item) => {
+            const raw = String(item || '');
+            const safe = escapeHtml(raw);
+            return `<option value="${safe}" ${raw === selectedRaw ? 'selected' : ''}>${safe}</option>`;
+        }).join('');
     }
 
     function buildCard(req) {
+        const reqId = escapeJsString(req.id || '');
         return `
         <div class="req-card">
             <h3>
                 <input type="text" value="${escapeHtml(req.item || '')}" placeholder="Item"
-                    data-onchange="updateReqField('${req.id}', 'item', this.value)">
-                <select class="status-pill" data-onchange="updateReqField('${req.id}', 'status', this.value)">
+                    data-onchange="updateReqField('${reqId}', 'item', this.value)">
+                <select class="status-pill" data-onchange="updateReqField('${reqId}', 'status', this.value)">
                     ${buildOptions(STATUS, req.status || 'Pending')}
                 </select>
             </h3>
@@ -240,36 +262,36 @@
                 <div>
                     <label>Requested By</label>
                     <input type="text" value="${escapeHtml(req.requester || '')}" placeholder="Agent"
-                        data-onchange="updateReqField('${req.id}', 'requester', this.value)">
+                        data-onchange="updateReqField('${reqId}', 'requester', this.value)">
                 </div>
                 <div>
                     <label>Guild / Source</label>
-                    <select data-onchange="updateReqField('${req.id}', 'guild', this.value)">
+                    <select data-onchange="updateReqField('${reqId}', 'guild', this.value)">
                         <option value="">Unspecified</option>
                         ${buildOptions(guilds, req.guild)}
                     </select>
                 </div>
                 <div>
                     <label>Priority</label>
-                    <select data-onchange="updateReqField('${req.id}', 'priority', this.value)">
+                    <select data-onchange="updateReqField('${reqId}', 'priority', this.value)">
                         ${buildOptions(PRIORITIES, req.priority || 'Routine')}
                     </select>
                 </div>
                 <div>
                     <label>Value</label>
                     <input type="text" value="${escapeHtml(req.value || '')}" placeholder="Cost"
-                        data-onchange="updateReqField('${req.id}', 'value', this.value)">
+                        data-onchange="updateReqField('${reqId}', 'value', this.value)">
                 </div>
             </div>
             <textarea class="req-notes" placeholder="Purpose / Justification"
-                data-onchange="updateReqField('${req.id}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
+                data-onchange="updateReqField('${reqId}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
             <textarea class="req-notes" placeholder="Notes / Attachments"
-                data-onchange="updateReqField('${req.id}', 'notes', this.value)">${escapeHtml(req.notes || '')}</textarea>
+                data-onchange="updateReqField('${reqId}', 'notes', this.value)">${escapeHtml(req.notes || '')}</textarea>
             <input type="text" placeholder="Tags" value="${escapeHtml(req.tags || '')}"
-                data-onchange="updateReqField('${req.id}', 'tags', this.value)">
+                data-onchange="updateReqField('${reqId}', 'tags', this.value)">
             <div class="req-actions">
                 <small class="req-log-meta">Logged ${req.created ? new Date(req.created).toLocaleDateString() : '—'}</small>
-                <button class="btn btn-danger" data-onclick="deleteRequisition('${req.id}')">Delete</button>
+                <button class="btn btn-danger" data-onclick="deleteRequisition('${reqId}')">Delete</button>
             </div>
         </div>`;
     }

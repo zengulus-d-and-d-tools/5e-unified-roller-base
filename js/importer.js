@@ -4,14 +4,22 @@
 
 const Importer = {
     PDFJS_WORKER_CDN: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-    LOCAL_WORKER_CANDIDATES: ['js/pdf.worker.min.js', 'js/pdf.min.js'],
+    LOCAL_WORKER_CANDIDATES: ['js/pdf.worker.min.js'],
+    DEBUG: false,
+
+    debug: function (...args) {
+        if (!this.DEBUG) return;
+        console.log(...args);
+    },
 
     // Entry point
     init: function () {
-        console.log("Importer initialized");
+        this.debug("Importer initialized");
         if (typeof pdfjsLib !== 'undefined') {
-            // Prefer local workers for true offline use; CDN is only a fallback.
-            pdfjsLib.GlobalWorkerOptions.workerSrc = this.LOCAL_WORKER_CANDIDATES[0];
+            // Prefer a local worker when present; if unavailable, runtime falls back below.
+            if (this.LOCAL_WORKER_CANDIDATES.length) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = this.LOCAL_WORKER_CANDIDATES[0];
+            }
         } else {
             console.error("pdfjsLib not found! Ensure pdf.min.js is loaded.");
         }
@@ -29,6 +37,10 @@ const Importer = {
         let lastError = null;
         const candidates = this.getWorkerCandidates();
 
+        if (typeof pdfjsLib === 'undefined' || typeof pdfjsLib.getDocument !== 'function') {
+            throw new Error('pdf.js runtime unavailable.');
+        }
+
         for (const workerSrc of candidates) {
             try {
                 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
@@ -42,6 +54,9 @@ const Importer = {
 
         // Final fallback for builds that can run in "fake worker" mode.
         try {
+            if (pdfjsLib.GlobalWorkerOptions) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+            }
             const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer, disableWorker: true });
             return await loadingTask.promise;
         } catch (error) {
@@ -56,9 +71,11 @@ const Importer = {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.pdf';
-        input.onchange = e => {
-            if (e.target.files.length > 0) {
-                this.processFile(e.target.files[0]);
+        input.onchange = (e) => {
+            const target = e && e.target ? e.target : null;
+            const files = target && target.files ? target.files : null;
+            if (files && files.length > 0) {
+                this.processFile(files[0]);
             }
         };
         input.click();
@@ -66,13 +83,13 @@ const Importer = {
 
     // Process the selected file
     processFile: async function (file) {
-        console.log(`Processing file: ${file.name}`);
+        this.debug(`Processing file: ${file.name}`);
 
         try {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await this.loadPdfDocument(arrayBuffer);
 
-            console.log(`PDF loaded. Pages: ${pdf.numPages}`);
+            this.debug(`PDF loaded. Pages: ${pdf.numPages}`);
 
             let fullText = "";
             let parsedData = {};
@@ -89,7 +106,7 @@ const Importer = {
 
                 // Extract Form Data (Annotations)
                 const annotations = await page.getAnnotations();
-                console.log(`Page ${i} Annotations:`, annotations);
+                this.debug(`Page ${i} Annotations:`, annotations);
 
                 if (annotations.length > 0) {
                     fullText += `--- Form Data Page ${i} ---\n`;
@@ -108,9 +125,9 @@ const Importer = {
                 }
             }
 
-            console.log("--- Extracted Text Start ---");
-            console.log(fullText);
-            console.log("--- Extracted Text End ---");
+            this.debug("--- Extracted Text Start ---");
+            this.debug(fullText);
+            this.debug("--- Extracted Text End ---");
 
             // Smart Sort / Mapping
             this.applyToSheet(parsedData);
@@ -131,7 +148,7 @@ const Importer = {
         }
 
         const d = window.data;
-        console.log("Applying data to sheet...", pdfData);
+        this.debug("Applying data to sheet...", pdfData);
 
         // --- META ---
         if (pdfData["CharacterName"]) d.meta.name = pdfData["CharacterName"];
@@ -169,7 +186,7 @@ const Importer = {
 
         // --- VITALS ---
         if (pdfData["MaxHP"]) {
-            console.log("Found MaxHP:", pdfData["MaxHP"]);
+            this.debug("Found MaxHP:", pdfData["MaxHP"]);
             d.vitals.max = parseInt(pdfData["MaxHP"]);
             d.vitals.curr = d.vitals.max; // Set current to max initially
         } else {
@@ -208,7 +225,7 @@ const Importer = {
         }
 
         if (traitText) {
-            console.log("Parsing Features...");
+            this.debug("Parsing Features...");
             d.features = []; // Clear existing features
 
             // Regex to find features starting with * 

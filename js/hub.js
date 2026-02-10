@@ -14,13 +14,20 @@ const escapeHtml = (str = '') => String(str)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+const escapeJsString = (value = '') => String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
-        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
     }
     return delegatedHandlerCache.get(code);
 }
@@ -91,8 +98,9 @@ function importData() {
 }
 
 function saveCase() {
-    const c = getCampaign().case;
-    if (!c) return;
+    const campaign = getCampaign();
+    if (!campaign || !campaign.case) return;
+    const c = campaign.case;
     c.title = document.getElementById('caseTitle').value;
     c.guilds = document.getElementById('caseGuilds').value;
     c.goal = document.getElementById('caseGoal').value;
@@ -111,13 +119,18 @@ function resetAll() {
 }
 
 function modRep(g, amt) {
-    const rep = getCampaign().rep;
-    rep[g] = Math.max(-2, Math.min(2, (rep[g] || 0) + amt));
+    const campaign = getCampaign();
+    if (!campaign || !campaign.rep) return;
+    const rep = campaign.rep;
+    const key = String(g || '');
+    if (key === '__proto__' || key === 'prototype' || key === 'constructor') return;
+    rep[key] = Math.max(-2, Math.min(2, (Number(rep[key]) || 0) + amt));
     save();
 }
 
 function modHeat(amt) {
     const c = getCampaign();
+    if (!c) return;
     c.heat = Math.max(0, Math.min(6, (c.heat || 0) + amt));
     save();
 }
@@ -125,6 +138,7 @@ function modHeat(amt) {
 // --- PLAYER LOGIC ---
 function addPlayer() {
     const c = getCampaign();
+    if (!c || !Array.isArray(c.players)) return;
     c.players.push({
         id: 'player_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 5),
         name: "New Recruit",
@@ -141,25 +155,38 @@ function addPlayer() {
 }
 
 function modDP(idx, amt) {
-    const p = getCampaign().players[idx];
-    p.dp = Math.max(0, Math.min(4, p.dp + amt));
+    const campaign = getCampaign();
+    if (!campaign || !Array.isArray(campaign.players)) return;
+    const p = campaign.players[idx];
+    if (!p) return;
+    p.dp = Math.max(0, Math.min(4, (Number(p.dp) || 0) + amt));
     save();
 }
 
 function grantWeeklyDP() {
-    getCampaign().players.forEach(p => p.dp = Math.min(4, p.dp + 2));
+    const campaign = getCampaign();
+    if (!campaign || !Array.isArray(campaign.players)) return;
+    campaign.players.forEach((p) => {
+        if (!p) return;
+        p.dp = Math.max(0, Math.min(4, (Number(p.dp) || 0) + 2));
+    });
     save();
 }
 
 function modClock(idx, amt) {
-    const p = getCampaign().players[idx];
-    p.projectClock = Math.max(0, Math.min(4, p.projectClock + amt));
+    const campaign = getCampaign();
+    if (!campaign || !Array.isArray(campaign.players)) return;
+    const p = campaign.players[idx];
+    if (!p) return;
+    p.projectClock = Math.max(0, Math.min(4, (Number(p.projectClock) || 0) + amt));
     save();
 }
 
 function deletePlayer(idx) {
     if (!confirm('Delete?')) return;
-    getCampaign().players.splice(idx, 1);
+    const campaign = getCampaign();
+    if (!campaign || !Array.isArray(campaign.players)) return;
+    campaign.players.splice(idx, 1);
     save();
 }
 
@@ -182,7 +209,11 @@ function applyClockPieStyles(scopeEl) {
 }
 
 function updatePlayer(idx, field, val) {
-    getCampaign().players[idx][field] = val;
+    const campaign = getCampaign();
+    if (!campaign || !Array.isArray(campaign.players)) return;
+    if (!campaign.players[idx]) return;
+    if (!['name', 'projectName', 'projectReward'].includes(field)) return;
+    campaign.players[idx][field] = val;
     save();
 }
 
@@ -194,18 +225,20 @@ function render() {
     const players = Array.isArray(c.players) ? c.players : [];
 
     // Render Case Info
-    document.getElementById('caseTitle').value = c.case.title || "";
-    document.getElementById('caseGuilds').value = c.case.guilds || "";
-    document.getElementById('caseGoal').value = c.case.goal || "";
-    document.getElementById('caseClock').value = c.case.clock || "";
-    document.getElementById('caseObstacles').value = c.case.obstacles || "";
-    document.getElementById('caseSetPiece').value = c.case.setPiece || "";
+    const caseData = c.case || {};
+    document.getElementById('caseTitle').value = caseData.title || "";
+    document.getElementById('caseGuilds').value = caseData.guilds || "";
+    document.getElementById('caseGoal').value = caseData.goal || "";
+    document.getElementById('caseClock').value = caseData.clock || "";
+    document.getElementById('caseObstacles').value = caseData.obstacles || "";
+    document.getElementById('caseSetPiece').value = caseData.setPiece || "";
 
     // Shared Status
     document.getElementById('repGrid').innerHTML = guilds.map((g) => {
-        const repVal = c.rep[g] || 0;
+        const repRaw = Number(c.rep && c.rep[g]);
+        const repVal = Number.isFinite(repRaw) ? Math.max(-2, Math.min(2, repRaw)) : 0;
         const repClass = repVal > 0 ? 'hub-rep-value-pos' : repVal < 0 ? 'hub-rep-value-neg' : 'hub-rep-value-neutral';
-        const guildArg = String(g).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const guildArg = escapeJsString(g);
         return `
             <div class="hub-rep-card">
                 <div class="mini-label hub-rep-mini-label">${escapeHtml(g)}</div>
@@ -218,16 +251,19 @@ function render() {
         `;
     }).join('');
 
-    document.getElementById('heatVal').innerText = c.heat || 0;
-    document.getElementById('heatFill').style.width = ((c.heat || 0) / 6 * 100) + '%';
+    const heatRaw = Number(c.heat);
+    const safeHeat = Number.isFinite(heatRaw) ? Math.max(0, Math.min(6, heatRaw)) : 0;
+    document.getElementById('heatVal').innerText = safeHeat;
+    document.getElementById('heatFill').style.width = ((safeHeat / 6) * 100) + '%';
 
     let warn = "";
-    if ((c.heat || 0) >= 6) warn = "CRITICAL: Hard Constraint mandated.";
-    else if ((c.heat || 0) >= 3) warn = "WARNING: Complication Scene triggered.";
+    if (safeHeat >= 6) warn = "CRITICAL: Hard Constraint mandated.";
+    else if (safeHeat >= 3) warn = "WARNING: Complication Scene triggered.";
     document.getElementById('heatWarning').innerText = warn;
 
     // Player List
-    document.getElementById('rosterList').innerHTML = players.map((p, i) => {
+    const rewardOptions = projectRewards.map((reward) => `<option value="${escapeHtml(reward)}"></option>`).join('');
+    const rosterMarkup = players.map((p, i) => {
         const safeName = escapeHtml(p.name || '');
         const safeProjectName = escapeHtml(p.projectName || '');
         const safeProjectReward = escapeHtml(p.projectReward || '');
@@ -248,9 +284,6 @@ function render() {
                     <input type="text" class="hub-project-name-input" placeholder="Project Name (e.g., Learn Draconic)..." value="${safeProjectName}" data-onchange="updatePlayer(${i}, 'projectName', this.value)">
                     <div class="hub-project-row">
                         <input type="text" class="hub-project-reward-input" list="reward-options" placeholder="Reward Goal..." value="${safeProjectReward}" data-onchange="updatePlayer(${i}, 'projectReward', this.value)">
-                        <datalist id="reward-options">
-                            ${projectRewards.map(r => `<option value="${r}">`).join('')}
-                        </datalist>
                         <div class="clock-container hub-clock-container-end">
                             ${renderClockPie(safeClock, 4)}
                             <span class="clock-readout">${safeClock}/4</span>
@@ -263,17 +296,18 @@ function render() {
             </div>
         `;
     }).join('');
+    document.getElementById('rosterList').innerHTML = `${rosterMarkup}<datalist id="reward-options">${rewardOptions}</datalist>`;
 
     applyClockPieStyles(document.getElementById('rosterList'));
 
 }
 
-// Initial Render on Load
-window.onload = () => {
+// Initial render on load
+window.addEventListener('load', () => {
     // Check if store loaded
     if (window.RTF_STORE) {
         render();
     } else {
         setTimeout(render, 100); // Simple retry
     }
-};
+});

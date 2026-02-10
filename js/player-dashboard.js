@@ -10,7 +10,7 @@ let delegatedHandlersBound = false;
 
 const getDelegatedHandlerFn = (code) => {
     if (!delegatedHandlerCache.has(code)) {
-        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
     }
     return delegatedHandlerCache.get(code);
 };
@@ -154,13 +154,13 @@ const deletePlayer = (idx) => {
 // Init
 bindDelegatedDataHandlers();
 
-window.onload = () => {
+window.addEventListener('load', () => {
     if (window.RTF_STORE) {
         render();
     } else {
         setTimeout(render, 100);
     }
-};
+});
 
 window.addEventListener('rtf-store-updated', (event) => {
     if (!event || !event.detail || event.detail.source !== 'remote') return;

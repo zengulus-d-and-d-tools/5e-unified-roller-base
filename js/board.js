@@ -117,7 +117,7 @@ const EDGE_CONNECT_ZONE_PX = 18;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
-        delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+        delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
     }
     return delegatedHandlerCache.get(code);
 }
@@ -743,7 +743,7 @@ function handleBoardResize() {
     applyMobileModeClass();
 }
 
-window.onload = () => {
+window.addEventListener('load', () => {
     bindDelegatedDataHandlers();
     applyMobileModeClass();
     bindMobileHandlers();
@@ -755,9 +755,9 @@ window.onload = () => {
     initCaseNameTracking();
     window.addEventListener('rtf-store-updated', handleRemoteStoreUpdate);
     requestAnimationFrame(loop);
-};
+});
 
-window.onresize = () => handleBoardResize();
+window.addEventListener('resize', () => handleBoardResize());
 
 function resizeCanvas() {
     canvas.width = window.innerWidth;
@@ -867,6 +867,8 @@ function initGuildToolbar() {
         const el = document.createElement('div');
         el.className = `tool-item g-${g.id}`;
         el.draggable = true;
+        const safeName = sanitizeText(g.name);
+        const safeIcon = sanitizeText(g.icon);
         const nodeData = {
             title: g.name,
             body: 'Guild',
@@ -878,7 +880,7 @@ function initGuildToolbar() {
         };
         el.ondragstart = (e) => startDragNew(e, g.id, nodeData);
         setMobileToolSpawnData(el, g.id, nodeData);
-        el.innerHTML = `<div class="icon">${g.icon}</div><div class="label">${g.name}</div>`;
+        el.innerHTML = `<div class="icon">${safeIcon}</div><div class="label">${safeName}</div>`;
         list.appendChild(el);
     });
 }
@@ -893,7 +895,7 @@ function initNPCToolbar() {
             <input type="text" id="npc-search" class="filter-input" placeholder="Search NPCs..." data-oninput="renderNPCs()">
             <select id="npc-guild-filter" class="filter-select" data-onchange="renderNPCs()">
                 <option value="">All Guilds</option>
-                ${getBoardGuildNames().map(g => `<option value="${g}">${g}</option>`).join('')}
+                ${getBoardGuildNames().map(g => `<option value="${sanitizeText(g)}">${sanitizeText(g)}</option>`).join('')}
             </select>
         </div>
         <div id="npc-list-content"></div>
@@ -960,7 +962,7 @@ function initLocationToolbar() {
             <input type="text" id="loc-search" class="filter-input" placeholder="Search Places..." data-oninput="renderLocations()">
             <select id="loc-guild-filter" class="filter-select" data-onchange="renderLocations()">
                 <option value="">All Districts</option>
-                ${getBoardGuildNames().map(g => `<option value="${g}">${g}</option>`).join('')}
+                ${getBoardGuildNames().map(g => `<option value="${sanitizeText(g)}">${sanitizeText(g)}</option>`).join('')}
             </select>
         </div>
         <div id="loc-list-content"></div>
@@ -2490,10 +2492,10 @@ function updateUndoOptimizeMenuState() {
         ? 'Restore layout from before the most recent optimize.'
         : 'No optimize snapshot available yet.';
 }
-window.onclick = (e) => {
+window.addEventListener('click', (e) => {
     if (!e.target.closest('.context-menu')) contextMenu.style.display = 'none';
     if (!e.target.closest('.popup-menu') && !e.target.closest('.tool-item')) closePopups();
-};
+});
 
 // Explicitly expose to window to avoid scope issues
 window.togglePopup = function (id) {

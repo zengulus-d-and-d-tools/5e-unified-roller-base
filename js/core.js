@@ -28,12 +28,18 @@ export const Core = {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'application/json';
-            input.onchange = e => {
-                const file = e.target.files[0];
+            input.onchange = (e) => {
+                const target = e && e.target ? e.target : null;
+                const file = target && target.files && target.files[0] ? target.files[0] : null;
+                if (!file) {
+                    reject("No file selected");
+                    return;
+                }
                 const reader = new FileReader();
-                reader.onload = event => {
+                reader.onload = (event) => {
                     try {
-                        const loaded = JSON.parse(event.target.result);
+                        const payload = event && event.target ? event.target.result : '';
+                        const loaded = JSON.parse(payload);
                         resolve(loaded);
                     } catch (err) {
                         reject("Invalid JSON file");

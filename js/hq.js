@@ -24,7 +24,7 @@
 
     const getDelegatedHandlerFn = (code) => {
         if (!delegatedHandlerCache.has(code)) {
-            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+            delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
         }
         return delegatedHandlerCache.get(code);
     };
@@ -535,7 +535,11 @@
     }
 
     function buildPlayerAssignment(slot) {
-        const options = playerOptions.map(p => `<option value="${p.id}" ${p.id === slot.playerId ? 'selected' : ''}>${escapeHTML(p.name || 'Unnamed')} (${p.dp ?? 0} DP)</option>`).join('');
+        const options = playerOptions.map((p) => {
+            const rawId = String(p.id || '');
+            const safeId = escapeHTML(rawId);
+            return `<option value="${safeId}" ${rawId === slot.playerId ? 'selected' : ''}>${escapeHTML(p.name || 'Unnamed')} (${p.dp ?? 0} DP)</option>`;
+        }).join('');
         const info = buildSlotInfo('downtime', slot);
         const checked = slot.junior ? 'checked' : '';
         const assignmentClass = `slot-assignment${slot.junior ? ' is-junior' : ''}`;
@@ -559,7 +563,11 @@
     }
 
     function buildResourceAssignment(slot) {
-        const options = requisitionOptions.map(r => `<option value="${r.id}" ${r.id === slot.requisitionId ? 'selected' : ''}>${escapeHTML(r.item || 'Untitled')} (${escapeHTML(r.status || 'Pending')})</option>`).join('');
+        const options = requisitionOptions.map((r) => {
+            const rawId = String(r.id || '');
+            const safeId = escapeHTML(rawId);
+            return `<option value="${safeId}" ${rawId === slot.requisitionId ? 'selected' : ''}>${escapeHTML(r.item || 'Untitled')} (${escapeHTML(r.status || 'Pending')})</option>`;
+        }).join('');
         const info = buildSlotInfo('resource', slot);
         return `
             <div class="slot-row">
@@ -1164,14 +1172,14 @@
 
     function refreshAssigneeLists() {
         playerOptions = getPlayersFromStore().map(p => ({
-            id: p.id,
+            id: String(p.id || ''),
             name: p.name || 'Unnamed Operative',
             dp: p.dp ?? 0,
             projectName: p.projectName || '',
             projectReward: p.projectReward || ''
         }));
         requisitionOptions = getRequisitionsFromStore().map(req => ({
-            id: req.id,
+            id: String(req.id || ''),
             item: req.item || req.purpose || 'Unlabeled Request',
             status: req.status || 'Pending',
             priority: req.priority || '',

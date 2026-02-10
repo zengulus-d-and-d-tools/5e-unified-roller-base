@@ -11,7 +11,7 @@
 
     const getDelegatedHandlerFn = (code) => {
         if (!delegatedHandlerCache.has(code)) {
-            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+            delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
         }
         return delegatedHandlerCache.get(code);
     };
@@ -107,11 +107,17 @@
         data.guilds.forEach((guild, idx) => {
             const btn = document.createElement('div');
             btn.className = 'guild-btn st-0';
-            btn.innerHTML = `
-                <span class="status-badge"></span>
-                <span class="g-icon">${guild.icon}</span>
-                <span class="g-name">${guild.name}</span>
-            `;
+            const badgeEl = document.createElement('span');
+            badgeEl.className = 'status-badge';
+            const iconEl = document.createElement('span');
+            iconEl.className = 'g-icon';
+            iconEl.textContent = String(guild.icon || '');
+            const nameEl = document.createElement('span');
+            nameEl.className = 'g-name';
+            nameEl.textContent = String(guild.name || '');
+            btn.appendChild(badgeEl);
+            btn.appendChild(iconEl);
+            btn.appendChild(nameEl);
             btn.addEventListener('click', () => toggleStatus(idx, btn));
             grid.appendChild(btn);
         });

@@ -5,13 +5,20 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    const escapeJsString = (str = '') => String(str)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
     const delegatedHandlerEvents = ['click', 'change', 'input'];
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
-            delegatedHandlerCache.set(code, new Function('event', `return (function(){ ${code} }).call(this);`));
+            delegatedHandlerCache.set(code, window.RTF_DELEGATED_HANDLER.compile(code));
         }
         return delegatedHandlerCache.get(code);
     }
@@ -169,6 +176,7 @@
     }
 
     function buildEventCard(evt) {
+        const evtId = escapeJsString(evt.id || '');
         const heat = parseInt(evt.heatDelta, 10);
         const heatClass = heat > 0 ? 'tag-pill-heat-up' : 'tag-pill-heat-down';
         const heatText = !isNaN(heat) && heat !== 0
@@ -183,37 +191,37 @@
         <div class="event-card">
             <div class="event-head">
                 <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
-                    data-onchange="updateEventField('${evt.id}', 'title', this.value)"></h3>
+                    data-onchange="updateEventField('${evtId}', 'title', this.value)"></h3>
                 <button class="toggle-btn status-toggle status-pill ${statusClass} ${resolved ? 'active' : ''}" type="button"
                     aria-pressed="${resolved ? 'true' : 'false'}"
-                    data-onclick="toggleResolved('${evt.id}', this)">${statusLabel}</button>
+                    data-onclick="toggleResolved('${evtId}', this)">${statusLabel}</button>
             </div>
             <div class="event-meta">
                 <div>
                     <label>Focus</label>
                     <input type="text" value="${escapeHtml(evt.focus || '')}" placeholder="District / Guild"
-                        data-onchange="updateEventField('${evt.id}', 'focus', this.value)">
+                        data-onchange="updateEventField('${evtId}', 'focus', this.value)">
                 </div>
                 <div>
                     <label>Heat Δ</label>
                     <input type="number" value="${escapeHtml(evt.heatDelta || '')}" placeholder="0"
-                        data-onchange="updateEventField('${evt.id}', 'heatDelta', this.value)">
+                        data-onchange="updateEventField('${evtId}', 'heatDelta', this.value)">
                 </div>
                 <div>
                     <label>Tags</label>
                     <input type="text" value="${escapeHtml(evt.tags || '')}" placeholder="tags"
-                        data-onchange="updateEventField('${evt.id}', 'tags', this.value)">
+                        data-onchange="updateEventField('${evtId}', 'tags', this.value)">
                 </div>
             </div>
             <div class="event-pill-row">${heatText} ${focusDisplay} ${renderTagPills(evt.tags)}</div>
             <div class="event-body">
-                <textarea placeholder="Highlights" data-onchange="updateEventField('${evt.id}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
-                <textarea placeholder="Fallout" data-onchange="updateEventField('${evt.id}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
-                <textarea placeholder="Follow Ups" data-onchange="updateEventField('${evt.id}', 'followUp', this.value)">${escapeHtml(evt.followUp || '')}</textarea>
+                <textarea placeholder="Highlights" data-onchange="updateEventField('${evtId}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
+                <textarea placeholder="Fallout" data-onchange="updateEventField('${evtId}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
+                <textarea placeholder="Follow Ups" data-onchange="updateEventField('${evtId}', 'followUp', this.value)">${escapeHtml(evt.followUp || '')}</textarea>
             </div>
             <div class="event-actions">
                 <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
-                <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evt.id}')">Delete</button>
+                <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evtId}')">Delete</button>
             </div>
         </div>`;
     }

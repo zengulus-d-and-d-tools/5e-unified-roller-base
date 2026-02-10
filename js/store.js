@@ -8,6 +8,7 @@
     const SYNC_CONFLICT_EVENT = 'rtf-sync-conflict';
     const STORE_UPDATED_EVENT = 'rtf-store-updated';
     const SUPABASE_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    const STORE_DEBUG = false;
 
     const FALLBACK_GUILDS = [
         "Azorius",
@@ -24,6 +25,10 @@
     ];
 
     const normalizeGuildName = (value) => String(value || '').trim();
+    const logInfo = (...args) => {
+        if (!STORE_DEBUG) return;
+        console.log(...args);
+    };
 
     const dedupeGuildNames = (source) => {
         const seen = new Set();
@@ -56,8 +61,9 @@
     };
 
     const buildRepMapFromGuilds = (guilds) => {
-        const rep = {};
+        const rep = Object.create(null);
         dedupeGuildNames(guilds).forEach((guild) => {
+            if (guild === '__proto__' || guild === 'prototype' || guild === 'constructor') return;
             rep[guild] = 0;
         });
         if (!Object.keys(rep).length) rep[FALLBACK_GUILDS[0]] = 0;
@@ -332,11 +338,12 @@
 
     const sanitizeScopeUpdatedMap = (value) => {
         const source = value && typeof value === 'object' ? value : {};
-        const out = {};
+        const out = Object.create(null);
         Object.keys(source).forEach((key) => {
             const scope = String(key || '').trim();
             if (!scope) return;
             if (!/^[a-z0-9_.-]+$/i.test(scope)) return;
+            if (scope === '__proto__' || scope === 'prototype' || scope === 'constructor') return;
             out[scope] = toTimestamp(source[key], 0);
         });
         return out;
@@ -978,9 +985,9 @@
                 if (raw) {
                     const loaded = JSON.parse(raw);
                     this.state = sanitizeState(loaded);
-                    console.log("RTF_STORE: Loaded unified data.");
+                    logInfo("RTF_STORE: Loaded unified data.");
                 } else {
-                    console.log("RTF_STORE: No unified data found. Attempting migration...");
+                    logInfo("RTF_STORE: No unified data found. Attempting migration...");
                     this.migrate();
                 }
 
@@ -1033,7 +1040,7 @@
                     }
                 });
                 if (count > 0) {
-                    console.log(`RTF_STORE: Seeded ${count} NPCs.`);
+                    logInfo(`RTF_STORE: Seeded ${count} NPCs.`);
                     changed = true;
                 }
             }
@@ -1049,7 +1056,7 @@
                     }
                 });
                 if (count > 0) {
-                    console.log(`RTF_STORE: Seeded ${count} Locations.`);
+                    logInfo(`RTF_STORE: Seeded ${count} Locations.`);
                     changed = true;
                 }
             }
@@ -1085,12 +1092,14 @@
             if (hubRaw) {
                 try {
                     const hubData = JSON.parse(hubRaw);
-                    if (hubData.rep) this.state.campaign.rep = hubData.rep;
-                    if (hubData.heat) this.state.campaign.heat = hubData.heat;
-                    if (hubData.players) this.state.campaign.players = hubData.players;
-                    if (hubData.case) this.state.campaign.case = hubData.case;
-                    console.log("RTF_STORE: Migrated Hub data.");
-                    migrated = true;
+                    if (hubData && typeof hubData === 'object') {
+                        if (Object.prototype.hasOwnProperty.call(hubData, 'rep')) this.state.campaign.rep = hubData.rep;
+                        if (Object.prototype.hasOwnProperty.call(hubData, 'heat')) this.state.campaign.heat = hubData.heat;
+                        if (Object.prototype.hasOwnProperty.call(hubData, 'players')) this.state.campaign.players = hubData.players;
+                        if (Object.prototype.hasOwnProperty.call(hubData, 'case')) this.state.campaign.case = hubData.case;
+                        migrated = true;
+                        logInfo("RTF_STORE: Migrated Hub data.");
+                    }
                 } catch (e) {
                     console.warn("Migration error (Hub):", e);
                 }
@@ -1100,11 +1109,13 @@
             if (boardRaw) {
                 try {
                     const boardData = JSON.parse(boardRaw);
-                    if (boardData.name) this.state.board.name = boardData.name;
-                    if (boardData.nodes) this.state.board.nodes = boardData.nodes;
-                    if (boardData.connections) this.state.board.connections = boardData.connections;
-                    console.log("RTF_STORE: Migrated Board data.");
-                    migrated = true;
+                    if (boardData && typeof boardData === 'object') {
+                        if (Object.prototype.hasOwnProperty.call(boardData, 'name')) this.state.board.name = boardData.name;
+                        if (Object.prototype.hasOwnProperty.call(boardData, 'nodes')) this.state.board.nodes = boardData.nodes;
+                        if (Object.prototype.hasOwnProperty.call(boardData, 'connections')) this.state.board.connections = boardData.connections;
+                        migrated = true;
+                        logInfo("RTF_STORE: Migrated Board data.");
+                    }
                 } catch (e) {
                     console.warn("Migration error (Board):", e);
                 }
