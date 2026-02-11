@@ -46,5 +46,6 @@ This project is unofficial Fan Content permitted under the Fan Content Policy. N
 * Setting: Ravnica, Guild names, and associated flavor are property of Wizards of the Coast.
 
 **Third-Party Libraries:**
-* [pdf.js](https://github.com/mozilla/pdf.js) - Apache-2.0 License
+* [pdf.js](https://github.com/mozilla/pdf.js) - [Apache-2.0 License](https://www.apache.org/licenses/LICENSE-2.0)
+
 
