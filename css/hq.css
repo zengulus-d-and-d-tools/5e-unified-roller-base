@@ -452,6 +452,11 @@ canvas#vector-cloud {
     gap: 6px;
 }
 
+.slot-item.slot-ready {
+    border-color: color-mix(in srgb, #7ff0c7 55%, var(--hq-border) 45%);
+    box-shadow: inset 0 0 0 1px rgba(127, 240, 199, 0.18);
+}
+
 .slot-item .slot-row {
     display: flex;
     gap: 8px;
@@ -469,6 +474,28 @@ canvas#vector-cloud {
     flex: 1;
     min-width: 160px;
     width: auto;
+}
+
+.slot-assignment-resource .slot-action-btn {
+    white-space: nowrap;
+    padding: 4px 10px;
+}
+
+.slot-ready-pill {
+    display: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+    color: #173218;
+    background: #7ff0c7;
+    border: 1px solid rgba(127, 240, 199, 0.45);
+    border-radius: 999px;
+    padding: 3px 9px;
+    white-space: nowrap;
+}
+
+.slot-assignment-resource.is-ready .slot-ready-pill {
+    display: inline-flex;
 }
 
 .slot-assignment .junior-pill {
@@ -628,6 +655,10 @@ canvas#vector-cloud {
 
 .slot-info.slot-info-junior {
     color: var(--accent-tertiary);
+}
+
+.slot-info.slot-info-ready {
+    color: #7ff0c7;
 }
 
 .slot-info.warning {

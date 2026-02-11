@@ -12,3 +12,6 @@ Keeps allies, rivals, and informants organized with guild tags and leverage note
 - Fill in "Wants" with actionable statements ("Needs Golgari reagents weekly") so leverage is obvious mid-session.
 - Pair leverage entries with Requisition tags—if an NPC wants a thing, make sure it exists in the Vault queue.
 - Track rival progression by appending short timeline markers ("Week 3: promoted to Precinct Captain") inside the notes box.
+
+## Cross-Links
+- [Case Board](CaseBoard.md) (`board.html`) – Promote high-value NPC wants/leverage entries into person nodes so relationship pressure is visible in the same graph as clues and events.

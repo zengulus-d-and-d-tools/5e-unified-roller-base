@@ -9,6 +9,7 @@ const DEFAULT_GM_DATA = {
     rollLevel: 1
 };
 let gmData = JSON.parse(JSON.stringify(DEFAULT_GM_DATA));
+const ENCOUNTER_LAUNCH_STORAGE_PREFIX = 'rtf_gm_launch_';
 
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
@@ -121,6 +122,100 @@ function sanitizeGMData(raw) {
     sanitized.rollLevel = Math.round(sanitizeNumber(source.rollLevel, 1, 1, 30));
 
     return sanitized;
+}
+
+function clearLaunchParamsFromUrl() {
+    if (!window.history || typeof window.history.replaceState !== 'function') return;
+    const url = new URL(window.location.href);
+    let changed = false;
+    ['encLaunch', 'source'].forEach((key) => {
+        if (!url.searchParams.has(key)) return;
+        url.searchParams.delete(key);
+        changed = true;
+    });
+    if (changed) window.history.replaceState({}, document.title, url.toString());
+}
+
+function consumeEncounterLaunchPayload() {
+    const params = new URLSearchParams(window.location.search);
+    const token = String(params.get('encLaunch') || '').trim();
+    if (!token) return null;
+
+    const storageKey = ENCOUNTER_LAUNCH_STORAGE_PREFIX + token;
+    let parsed = null;
+    try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (raw) parsed = JSON.parse(raw);
+    } catch (err) {
+        parsed = null;
+    } finally {
+        try {
+            sessionStorage.removeItem(storageKey);
+        } catch (err) {
+            // no-op
+        }
+    }
+
+    clearLaunchParamsFromUrl();
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!Array.isArray(parsed.combatants)) return null;
+    return parsed;
+}
+
+function formatEncounterLaunchNote(payload) {
+    if (!payload || typeof payload !== 'object') return '';
+    const lines = [];
+    lines.push(`[Encounter Launch] ${payload.title || 'Encounter'} (${payload.tier || 'Routine'})`);
+    if (payload.location) lines.push(`Location: ${payload.location}`);
+    if (payload.objective) lines.push(`Objective: ${payload.objective}`);
+    if (payload.hazards) lines.push(`Hazards: ${payload.hazards}`);
+    if (payload.beats) lines.push(`Beats: ${payload.beats}`);
+    if (payload.rewards) lines.push(`Rewards/Fallout: ${payload.rewards}`);
+    if (payload.notes) lines.push(`Notes: ${payload.notes}`);
+    return lines.join('\n');
+}
+
+function applyEncounterLaunchPayload() {
+    const payload = consumeEncounterLaunchPayload();
+    if (!payload) return;
+    const hasIncoming = Array.isArray(payload.combatants) && payload.combatants.length > 0;
+    if (!hasIncoming) {
+        alert('Encounter launch received, but no opposition lines were detected.');
+        return;
+    }
+
+    if (Array.isArray(gmData.combatants) && gmData.combatants.length) {
+        const ok = confirm('Load launched encounter into Tracker? This will replace current initiative order.');
+        if (!ok) return;
+    }
+
+    gmData.combatants = payload.combatants.map((entry, idx) => ({
+        id: String(entry && entry.id ? entry.id : `launch_${idx}`),
+        name: sanitizeString(entry && entry.name ? entry.name : `Enemy ${idx + 1}`, `Enemy ${idx + 1}`, 160),
+        total: sanitizeNumber(entry && entry.total, 0, -999, 999),
+        tie: sanitizeNumber(entry && entry.tie, 10, 1, 30),
+        hp: (entry && entry.hp !== null && entry.hp !== undefined && entry.hp !== '') ? sanitizeNumber(entry.hp, 0, 0, 999999) : null,
+        maxHp: (entry && entry.maxHp !== null && entry.maxHp !== undefined && entry.maxHp !== '') ? sanitizeNumber(entry.maxHp, entry.hp, 0, 999999) : null,
+        tags: Array.isArray(entry && entry.tags) ? entry.tags.slice(0, 20).map((tag) => sanitizeString(tag, '', 120)).filter(Boolean) : []
+    }));
+
+    sortCombat();
+    gmData.round = 1;
+    gmData.activeIdx = 0;
+
+    const launchNote = formatEncounterLaunchNote(payload);
+    if (launchNote) {
+        const existing = String(gmData.scratchpad || '').trim();
+        gmData.scratchpad = existing ? `${existing}\n\n${launchNote}` : launchNote;
+        const scratchpadEl = document.getElementById('scratchpad');
+        if (scratchpadEl) scratchpadEl.value = gmData.scratchpad;
+    }
+
+    saveGM();
+    renderCombat();
+    const trackerTab = document.querySelector('.nav-item[data-tab="tracker"]');
+    switchTab('tracker', trackerTab ? { currentTarget: trackerTab } : null);
+    alert(`Tracker loaded: ${payload.title || 'Encounter'}`);
 }
 
 // --- BESTIARY LOGIC ---
@@ -253,6 +348,7 @@ function init() {
     renderConditions();
     if (!gmData.bestiary) gmData.bestiary = [];
     renderBestiary();
+    applyEncounterLaunchPayload();
 }
 
 function exportGM() {
@@ -693,9 +789,10 @@ function switchTab(id, triggerEvent) {
     document.querySelectorAll('.container').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + id).classList.add('active');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    if (triggerEvent && triggerEvent.currentTarget) {
-        triggerEvent.currentTarget.classList.add('active');
-    }
+    const clicked = triggerEvent && triggerEvent.currentTarget ? triggerEvent.currentTarget : null;
+    const fallback = document.querySelector(`.nav-item[data-tab="${id}"]`);
+    const target = clicked || fallback;
+    if (target) target.classList.add('active');
 }
 
 init();

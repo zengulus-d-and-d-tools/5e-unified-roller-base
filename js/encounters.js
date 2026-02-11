@@ -1,5 +1,8 @@
 (function () {
     const SOFT_DELETE_MS = 12000;
+    const GM_LAUNCH_STORAGE_PREFIX = 'rtf_gm_launch_';
+    const BOARD_DRAFT_STORAGE_PREFIX = 'rtf_encounter_draft_';
+    const BOARD_DRAFT_MAX_AGE_MS = 30 * 60 * 1000;
     const TIERS = [
         { value: 'Routine', cardClass: 'enc-card-tier-routine' },
         { value: 'Standard', cardClass: 'enc-card-tier-standard' },
@@ -80,6 +83,196 @@
         delegatedHandlerEvents.forEach((eventName) => {
             document.addEventListener(eventName, handleDelegatedDataEvent);
         });
+    }
+
+    function clearEncounterLinkParamsFromUrl() {
+        if (!window.history || typeof window.history.replaceState !== 'function') return;
+        const url = new URL(window.location.href);
+        let changed = false;
+        ['draft', 'source'].forEach((key) => {
+            if (!url.searchParams.has(key)) return;
+            url.searchParams.delete(key);
+            changed = true;
+        });
+        if (changed) window.history.replaceState({}, document.title, url.toString());
+    }
+
+    function consumeBoardDraftFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const token = String(params.get('draft') || '').trim();
+        if (!token) return null;
+
+        const storageKey = BOARD_DRAFT_STORAGE_PREFIX + token;
+        let parsed = null;
+        try {
+            const raw = sessionStorage.getItem(storageKey);
+            if (raw) parsed = JSON.parse(raw);
+        } catch (err) {
+            parsed = null;
+        } finally {
+            try {
+                sessionStorage.removeItem(storageKey);
+            } catch (err) {
+                // no-op
+            }
+        }
+
+        clearEncounterLinkParamsFromUrl();
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (!parsed.createdAt || (Date.now() - Number(parsed.createdAt)) > BOARD_DRAFT_MAX_AGE_MS) return null;
+        const draft = parsed.draft;
+        return draft && typeof draft === 'object' ? draft : null;
+    }
+
+    function normalizeDraftTier(tier) {
+        const clean = String(tier || '').trim();
+        return TIERS.some((entry) => entry.value === clean) ? clean : 'Standard';
+    }
+
+    function ensureEncounterFormVisible() {
+        const form = document.getElementById('encForm');
+        if (!form) return;
+        if (form.classList.contains('enc-hidden')) form.classList.remove('enc-hidden');
+    }
+
+    function applyBoardDraftToForm() {
+        const draft = consumeBoardDraftFromUrl();
+        if (!draft) return;
+        populateTierSelects();
+        ensureEncounterFormVisible();
+
+        const setValue = (id, value, fallback = '') => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = String(value || fallback);
+        };
+
+        setValue('encTitle', draft.title, 'Board Draft Encounter');
+        setValue('encTier', normalizeDraftTier(draft.tier), 'Standard');
+        setValue('encLocation', draft.location, '');
+        setValue('encObjective', draft.objective, '');
+        setValue('encOpposition', draft.opposition, '');
+        setValue('encHazards', draft.hazards, '');
+        setValue('encBeats', draft.beats, '');
+        setValue('encRewards', draft.rewards, '');
+        setValue('encNotes', draft.notes, '');
+        renderEncounters();
+    }
+
+    function parseOppositionCount(line = '') {
+        const text = String(line || '').trim();
+        if (!text) return { count: 1, cleaned: '' };
+
+        const prefix = text.match(/^(\d{1,2})(?:\s*[x×]\s*|\s+)/i);
+        if (prefix) {
+            return {
+                count: Math.max(1, Math.min(20, parseInt(prefix[1], 10) || 1)),
+                cleaned: text.slice(prefix[0].length).trim()
+            };
+        }
+
+        const suffix = text.match(/\s*[x×]\s*(\d{1,2})$/i);
+        if (suffix) {
+            return {
+                count: Math.max(1, Math.min(20, parseInt(suffix[1], 10) || 1)),
+                cleaned: text.slice(0, text.length - suffix[0].length).trim()
+            };
+        }
+
+        return { count: 1, cleaned: text };
+    }
+
+    function parseOppositionHP(line = '') {
+        const text = String(line || '');
+        const hpMatch = text.match(/\b(?:hp|health)\s*[:=]?\s*(\d{1,6})\b/i);
+        if (!hpMatch) return { hp: null, cleaned: text.trim() };
+        const hp = Math.max(1, Math.min(999999, parseInt(hpMatch[1], 10) || 1));
+        return {
+            hp,
+            cleaned: text.replace(hpMatch[0], '').replace(/\s{2,}/g, ' ').trim()
+        };
+    }
+
+    function parseOppositionToCombatants(opposition = '') {
+        const lines = String(opposition || '')
+            .split(/\r?\n/)
+            .map((line) => line.trim())
+            .filter(Boolean);
+
+        const combatants = [];
+        lines.forEach((line, lineIdx) => {
+            const { count, cleaned: countCleaned } = parseOppositionCount(line);
+            const { hp, cleaned: hpCleaned } = parseOppositionHP(countCleaned);
+            const nameBase = hpCleaned || `Enemy ${lineIdx + 1}`;
+
+            for (let i = 0; i < count; i += 1) {
+                const suffix = count > 1 ? ` ${i + 1}` : '';
+                combatants.push({
+                    id: `enc_${Date.now().toString(36)}_${lineIdx}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+                    name: `${nameBase}${suffix}`,
+                    total: 0,
+                    tie: 10,
+                    hp,
+                    maxHp: hp,
+                    tags: ['encounter']
+                });
+            }
+        });
+
+        return combatants;
+    }
+
+    function buildTrackerLaunchPayload(enc) {
+        const source = enc && typeof enc === 'object' ? enc : {};
+        const title = String(source.title || 'Encounter').trim() || 'Encounter';
+        const tier = String(source.tier || 'Routine').trim() || 'Routine';
+        const location = String(source.location || '').trim();
+        const objective = String(source.objective || '').trim();
+        const opposition = String(source.opposition || '').trim();
+        const hazards = String(source.hazards || '').trim();
+        const beats = String(source.beats || '').trim();
+        const rewards = String(source.rewards || '').trim();
+        const notes = String(source.notes || '').trim();
+
+        return {
+            type: 'encounter-launch',
+            createdAt: Date.now(),
+            title,
+            tier,
+            location,
+            objective,
+            opposition,
+            hazards,
+            beats,
+            rewards,
+            notes,
+            combatants: parseOppositionToCombatants(opposition)
+        };
+    }
+
+    function openEncounterInTracker(id) {
+        const cleanId = String(id || '').trim();
+        if (!cleanId) return;
+        const store = getStore();
+        if (!store || typeof store.getEncounters !== 'function') return;
+        const encounter = (store.getEncounters() || []).find((entry) => String(entry && entry.id || '') === cleanId);
+        if (!encounter) return;
+
+        const token = `enc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const storageKey = GM_LAUNCH_STORAGE_PREFIX + token;
+        const payload = buildTrackerLaunchPayload(encounter);
+
+        try {
+            sessionStorage.setItem(storageKey, JSON.stringify(payload));
+        } catch (err) {
+            alert('Could not prep encounter launch for Session Tracker.');
+            return;
+        }
+
+        const url = new URL('gm.html', window.location.href);
+        url.searchParams.set('encLaunch', token);
+        url.searchParams.set('source', 'encounter');
+        window.location.assign(url.toString());
     }
 
     function populateTierSelects() {
@@ -226,6 +419,7 @@
             <textarea placeholder="Notes" data-onchange="updateEncField('${encId}', 'notes', this.value)">${escapeHtml(enc.notes || '')}</textarea>
             <div class="enc-actions">
                 <small class="enc-log-meta">Logged ${enc.created ? new Date(enc.created).toLocaleString() : '—'}</small>
+                <button class="btn" data-onclick="openEncounterInTracker('${encId}')">Run Tracker</button>
                 <button class="btn btn-danger" data-onclick="deleteEncounter('${encId}')">Delete</button>
             </div>
         </div>`;
@@ -260,6 +454,7 @@
         if (getStore()) {
             getDeleteManager();
             renderEncounters();
+            applyBoardDraftToForm();
         } else {
             setTimeout(waitForStore, 100);
         }
@@ -272,6 +467,7 @@
     window.renderEncounters = renderEncounters;
     window.updateEncField = updateEncField;
     window.deleteEncounter = deleteEncounter;
+    window.openEncounterInTracker = openEncounterInTracker;
 
     window.addEventListener('load', waitForStore);
     window.addEventListener('beforeunload', () => {

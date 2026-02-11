@@ -17,6 +17,7 @@
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
     let deleteManager = null;
+    let pendingDeepLinkFocus = '';
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
@@ -104,6 +105,44 @@
         store.state.campaign.heat = clampHeat(current + delta);
         if (typeof store.save === 'function') store.save({ scope: 'campaign' });
     };
+
+    function clearTimelineLinkParamsFromUrl() {
+        if (!window.history || typeof window.history.replaceState !== 'function') return;
+        const url = new URL(window.location.href);
+        const keys = ['search', 'focus', 'source', 'id'];
+        let changed = false;
+        keys.forEach((key) => {
+            if (!url.searchParams.has(key)) return;
+            url.searchParams.delete(key);
+            changed = true;
+        });
+        if (changed) window.history.replaceState({}, document.title, url.toString());
+    }
+
+    function applyTimelineLinkFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const search = String(params.get('search') || '').trim();
+        const focus = String(params.get('focus') || '').trim();
+        if (!search && !focus) return;
+
+        const searchInput = document.getElementById('eventSearch');
+        if (searchInput && search) searchInput.value = search;
+        pendingDeepLinkFocus = focus;
+        clearTimelineLinkParamsFromUrl();
+    }
+
+    function buildBoardLinkForEvent(id) {
+        const url = new URL('board.html', window.location.href);
+        url.searchParams.set('linkType', 'timeline-event');
+        url.searchParams.set('id', String(id || '').trim());
+        return url.toString();
+    }
+
+    function openTimelineEventInBoard(id) {
+        const cleanId = String(id || '').trim();
+        if (!cleanId) return;
+        window.location.assign(buildBoardLinkForEvent(cleanId));
+    }
 
     function toggleEventForm() {
         const form = document.getElementById('eventForm');
@@ -254,6 +293,7 @@
             </div>
             <div class="event-actions">
                 <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
+                <button class="btn" data-onclick="openTimelineEventInBoard('${evtId}')">Board</button>
                 <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evtId}')">Delete</button>
             </div>
         </div>`;
@@ -265,6 +305,11 @@
         const preserved = filter.value;
         const focusValues = Array.from(new Set(events.map(e => e.focus).filter(Boolean))).sort();
         filter.innerHTML = '<option value="">All Focuses</option>' + focusValues.map(focus => `<option value="${escapeHtml(focus)}">${escapeHtml(focus)}</option>`).join('');
+        if (pendingDeepLinkFocus && focusValues.includes(pendingDeepLinkFocus)) {
+            filter.value = pendingDeepLinkFocus;
+            pendingDeepLinkFocus = '';
+            return;
+        }
         if (focusValues.includes(preserved)) {
             filter.value = preserved;
         }
@@ -395,6 +440,7 @@
         if (autoHeatToggle) {
             setButtonPressed(autoHeatToggle, isHeatAutoSyncEnabled());
         }
+        applyTimelineLinkFiltersFromUrl();
         renderTimeline();
     }
 
@@ -413,6 +459,7 @@
     window.deleteTimelineEvent = deleteTimelineEvent;
     window.setHeatAutoSync = setHeatAutoSync;
     window.exportTimelineRecap = exportTimelineRecap;
+    window.openTimelineEventInBoard = openTimelineEventInBoard;
     window.toggleFilterButton = toggleFilterButton;
     window.toggleAutoHeat = toggleAutoHeat;
     window.toggleResolved = toggleResolved;

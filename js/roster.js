@@ -137,6 +137,19 @@ function copyNPCLink(npcId) {
     prompt('Copy NPC link:', url);
 }
 
+function buildBoardLinkForNPC(npcId) {
+    const url = new URL('board.html', window.location.href);
+    url.searchParams.set('linkType', 'npc');
+    url.searchParams.set('id', String(npcId || '').trim());
+    return url.toString();
+}
+
+function openNPCInBoard(npcId) {
+    const id = String(npcId || '').trim();
+    if (!id) return;
+    window.location.assign(buildBoardLinkForNPC(id));
+}
+
 function applyPendingNpcDeepLinkFocus() {
     if (!pendingLinkNPCId) return;
     const rows = Array.from(document.querySelectorAll('.roster-npc-row[data-npc-id]'));
@@ -381,6 +394,7 @@ function render() {
             </div>
 
             ${editButton}
+            <button class="btn roster-npc-board-btn" data-onclick="openNPCInBoard('${npcIdArg}')" title="Open on board">🧩</button>
             <button class="btn roster-npc-link-btn" data-onclick="copyNPCLink('${npcIdArg}')" title="Copy deep link">🔗</button>
             <button class="btn roster-npc-delete-btn" data-onclick="deleteNPC('${npcIdArg}')" title="Delete NPC">&times;</button>
         </div>
@@ -410,3 +424,4 @@ window.addEventListener('rtf-store-updated', () => {
 });
 
 window.copyNPCLink = copyNPCLink;
+window.openNPCInBoard = openNPCInBoard;

@@ -12,3 +12,6 @@ Lightweight CRM for districts, safehouses, and notable fronts. Uses the same car
 - Mirror district names from the Mission Timeline tags so cross-referencing is painless.
 - Store downtime hooks in the notes field ("Spend 1 DP here to reduce Heat") to remind players why a location matters.
 - Export from the Tools Hub before big arcs so you can maintain a historical log of neighborhoods the party has touched.
+
+## Cross-Links
+- [Case Board](CaseBoard.md) (`board.html`) – Drag key locations into the case graph so districts and fronts stay linked to the clues, NPCs, and events happening there.

@@ -121,6 +121,8 @@
 
     const findPlayerById = (id) => playerOptions.find(p => p.id === id);
     const findRequisitionById = (id) => requisitionOptions.find(r => r.id === id);
+    const isDeliveredRequisition = (req) => !!(req && String(req.status || '').toLowerCase() === 'delivered');
+    const isResourceSlotReady = (slot) => isDeliveredRequisition(findRequisitionById(slot && slot.requisitionId));
 
     const resolvePlayerIdByName = (name) => {
         const normalized = normalize(name);
@@ -489,6 +491,10 @@
             if (type === 'downtime' && slot.junior) {
                 item.title = 'Junior operative';
             }
+            if (type === 'resource' && isResourceSlotReady(slot)) {
+                item.classList.add('slot-ready');
+                item.title = 'Ready: linked requisition delivered';
+            }
             const assignmentMarkup = type === 'downtime'
                 ? buildPlayerAssignment(slot)
                 : buildResourceAssignment(slot);
@@ -574,13 +580,20 @@
             return `<option value="${safeId}" ${rawId === slot.requisitionId ? 'selected' : ''}>${escapeHTML(r.item || 'Untitled')} (${escapeHTML(r.status || 'Pending')})</option>`;
         }).join('');
         const info = buildSlotInfo('resource', slot);
+        const hasLink = !!String(slot.requisitionId || '').trim();
+        const isReady = isResourceSlotReady(slot);
         return `
             <div class="slot-row">
                 <label>Staged Resource</label>
-                <select class="slot-select" data-type="resource">
-                    <option value="">Unassigned</option>
-                    ${options}
-                </select>
+                <div class="slot-assignment slot-assignment-resource${isReady ? ' is-ready' : ''}">
+                    <select class="slot-select" data-type="resource">
+                        <option value="">Unassigned</option>
+                        ${options}
+                    </select>
+                    <button class="btn ghost small slot-action-btn" data-action="create-req" title="Create linked requisition">Create Req</button>
+                    <button class="btn ghost small slot-action-btn" data-action="open-req"${hasLink ? '' : ' disabled'} title="Open Requisition Vault">Vault</button>
+                    <span class="slot-ready-pill">Ready</span>
+                </div>
                 ${info}
             </div>
         `;
@@ -605,7 +618,9 @@
         if (req) {
             const status = req.status ? ` • ${escapeHTML(req.status)}` : '';
             const priority = req.priority ? ` • ${escapeHTML(req.priority)}` : '';
-            return `<div class="slot-info">${escapeHTML(req.item || 'Untitled')}${status}${priority}</div>`;
+            const readyClass = isDeliveredRequisition(req) ? ' slot-info-ready' : '';
+            const readyText = isDeliveredRequisition(req) ? ' • Ready' : '';
+            return `<div class="slot-info${readyClass}">${escapeHTML(req.item || 'Untitled')}${status}${priority}${readyText}</div>`;
         }
         if (slot.legacyAssignee) {
             return `<div class="slot-info warning">Legacy link: ${escapeHTML(slot.legacyAssignee)}</div>`;
@@ -797,6 +812,63 @@
         };
     }
 
+    function createRequisitionForResourceSlot(slot) {
+        if (!slot) return;
+        if (!store || typeof store.addRequisition !== 'function') {
+            alert('Requisition store unavailable.');
+            return;
+        }
+
+        const found = findRoomWithFloor(selectedRoomId);
+        if (!found || !found.room || !found.floor) return;
+
+        const room = found.room;
+        const floor = found.floor;
+        const slotLabel = String(slot.label || '').trim();
+        const roomName = String(room.name || 'HQ Room').trim();
+        const floorName = String(floor.name || '').trim();
+        const itemName = slotLabel || `${roomName} Resource`;
+        const locationLabel = floorName ? `${roomName} (${floorName})` : roomName;
+        const purpose = `Stage in ${locationLabel} for rapid deployment.`;
+        const notes = room.notes ? `HQ Note: ${room.notes}` : '';
+        const tags = `hq, ${roomName}`.trim();
+
+        const createdId = store.addRequisition({
+            item: itemName,
+            requester: 'HQ Foundry',
+            guild: '',
+            priority: 'Tactical',
+            status: 'Pending',
+            value: '',
+            purpose,
+            notes,
+            tags
+        });
+
+        if (!createdId) {
+            alert('Failed to create requisition.');
+            return;
+        }
+
+        slot.requisitionId = String(createdId);
+        slot.legacyAssignee = '';
+        refreshAssigneeLists();
+        persistState();
+        updateDetailPanel();
+        renderRooms();
+    }
+
+    function openRequisitionVaultForSlot(slot) {
+        const url = new URL('requisitions.html', window.location.href);
+        if (slot && slot.requisitionId) {
+            const req = findRequisitionById(slot.requisitionId);
+            const searchTerm = req ? (req.item || req.requester || '') : '';
+            if (searchTerm) url.searchParams.set('search', searchTerm);
+            if (req && req.guild) url.searchParams.set('guild', req.guild);
+        }
+        window.location.assign(url.toString());
+    }
+
     function handleSlotRemove(type) {
         return (ev) => {
             const action = ev.target.dataset.action;
@@ -821,6 +893,16 @@
                 persistState();
                 updateDetailPanel();
                 renderRooms();
+                return;
+            }
+
+            if (type === 'resource' && action === 'create-req') {
+                createRequisitionForResourceSlot(slot);
+                return;
+            }
+
+            if (type === 'resource' && action === 'open-req') {
+                openRequisitionVaultForSlot(slot);
                 return;
             }
 
@@ -1210,9 +1292,8 @@
             priority: req.priority || '',
             requester: req.requester || ''
         }));
-        if (selectedRoomId) {
-            updateDetailPanel();
-        }
+        renderRooms();
+        if (selectedRoomId) updateDetailPanel();
     }
 
     function createFloor(name = `Level ${state.floors ? state.floors.length + 1 : 1}`) {
@@ -1286,7 +1367,12 @@
                 let status = 'Empty';
                 if (slot.requisitionId) {
                     const r = findRequisitionById(slot.requisitionId);
-                    status = r ? (r.item || r.purpose) : 'Unknown Asset';
+                    if (r) {
+                        const readyTag = isDeliveredRequisition(r) ? ' [READY]' : '';
+                        status = `${r.item || r.purpose || 'Unknown Asset'}${readyTag}`;
+                    } else {
+                        status = 'Unknown Asset';
+                    }
                 } else if (slot.legacyAssignee) {
                     status = slot.legacyAssignee;
                 }

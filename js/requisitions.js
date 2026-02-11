@@ -74,6 +74,43 @@
         });
     }
 
+    function clearRequisitionLinkParamsFromUrl() {
+        if (!window.history || typeof window.history.replaceState !== 'function') return;
+        const url = new URL(window.location.href);
+        let changed = false;
+        ['search', 'status', 'guild', 'priority', 'source', 'id'].forEach((key) => {
+            if (!url.searchParams.has(key)) return;
+            url.searchParams.delete(key);
+            changed = true;
+        });
+        if (changed) window.history.replaceState({}, document.title, url.toString());
+    }
+
+    function applyRequisitionLinkFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const search = String(params.get('search') || '').trim();
+        const status = String(params.get('status') || '').trim();
+        const guild = String(params.get('guild') || '').trim();
+        const priority = String(params.get('priority') || '').trim();
+        if (!search && !status && !guild && !priority) return;
+
+        const searchInput = document.getElementById('reqSearch');
+        if (searchInput && search) searchInput.value = search;
+        const statusFilter = document.getElementById('reqStatusFilter');
+        if (statusFilter && status && Array.from(statusFilter.options).some((opt) => opt.value === status)) {
+            statusFilter.value = status;
+        }
+        const guildFilter = document.getElementById('reqGuildFilter');
+        if (guildFilter && guild && Array.from(guildFilter.options).some((opt) => opt.value === guild)) {
+            guildFilter.value = guild;
+        }
+        const priorityFilter = document.getElementById('reqPriorityFilter');
+        if (priorityFilter && priority && Array.from(priorityFilter.options).some((opt) => opt.value === priority)) {
+            priorityFilter.value = priority;
+        }
+        clearRequisitionLinkParamsFromUrl();
+    }
+
     const getStore = () => window.RTF_STORE;
     const getLogger = () => {
         const logger = window.RTF_SESSION_LOG;
@@ -272,6 +309,40 @@
         renderRequisitions();
     }
 
+    function buildBoardLinkForRequisition(id) {
+        const url = new URL('board.html', window.location.href);
+        url.searchParams.set('linkType', 'requisition');
+        url.searchParams.set('id', String(id || '').trim());
+        return url.toString();
+    }
+
+    function openRequisitionInBoard(id) {
+        const cleanId = String(id || '').trim();
+        if (!cleanId) return;
+        window.location.assign(buildBoardLinkForRequisition(cleanId));
+    }
+
+    function buildTimelineLinkForRequisition(req = {}) {
+        const url = new URL('timeline.html', window.location.href);
+        const search = String(req.item || req.requester || '').trim();
+        const focus = String(req.guild || req.requester || '').trim();
+        if (search) url.searchParams.set('search', search);
+        if (focus) url.searchParams.set('focus', focus);
+        url.searchParams.set('source', 'requisition');
+        if (req.id) url.searchParams.set('id', String(req.id));
+        return url.toString();
+    }
+
+    function openRequisitionInTimeline(id) {
+        const cleanId = String(id || '').trim();
+        if (!cleanId) return;
+        const store = getStore();
+        if (!store || typeof store.getRequisitions !== 'function') return;
+        const req = (store.getRequisitions() || []).find((entry) => String(entry && entry.id || '') === cleanId);
+        if (!req) return;
+        window.location.assign(buildTimelineLinkForRequisition(req));
+    }
+
     function buildOptions(list, selected) {
         const selectedRaw = String(selected || '');
         return list.map((item) => {
@@ -325,6 +396,8 @@
                 data-onchange="updateReqField('${reqId}', 'tags', this.value)">
             <div class="req-actions">
                 <small class="req-log-meta">Logged ${req.created ? new Date(req.created).toLocaleDateString() : '—'}</small>
+                <button class="btn" data-onclick="openRequisitionInBoard('${reqId}')">Board</button>
+                <button class="btn" data-onclick="openRequisitionInTimeline('${reqId}')">Timeline</button>
                 <button class="btn btn-danger" data-onclick="deleteRequisition('${reqId}')">Delete</button>
             </div>
         </div>`;
@@ -366,6 +439,7 @@
     function init() {
         getDeleteManager();
         populateOptions();
+        applyRequisitionLinkFiltersFromUrl();
         renderRequisitions();
     }
 
@@ -384,6 +458,8 @@
     window.renderRequisitions = renderRequisitions;
     window.updateReqField = updateReqField;
     window.deleteRequisition = deleteRequisition;
+    window.openRequisitionInBoard = openRequisitionInBoard;
+    window.openRequisitionInTimeline = openRequisitionInTimeline;
 
     window.addEventListener('load', waitForStore);
     window.addEventListener('beforeunload', () => {

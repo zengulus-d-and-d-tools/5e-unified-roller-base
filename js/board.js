@@ -114,6 +114,9 @@ const CONNECTION_COLOR_PALETTE = [
 ];
 const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
 const EDGE_CONNECT_ZONE_PX = 18;
+const BOARD_LINK_FLASH_MS = 2200;
+const BOARD_CROSSLINK_TYPES = new Set(['npc', 'location', 'timeline-event', 'requisition']);
+const ENCOUNTER_DRAFT_STORAGE_PREFIX = 'rtf_encounter_draft_';
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -743,6 +746,311 @@ function handleBoardResize() {
     applyMobileModeClass();
 }
 
+function getBoardCrossLinkRequestFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    const linkType = String(params.get('linkType') || '').trim().toLowerCase();
+    const id = String(params.get('id') || '').trim();
+    if (!linkType || !id) return null;
+    if (!BOARD_CROSSLINK_TYPES.has(linkType)) return null;
+    return { linkType, id };
+}
+
+function clearBoardCrossLinkParamsFromUrl() {
+    if (!window.history || typeof window.history.replaceState !== 'function') return;
+    const url = new URL(window.location.href);
+    let changed = false;
+    ['linkType', 'id'].forEach((key) => {
+        if (!url.searchParams.has(key)) return;
+        url.searchParams.delete(key);
+        changed = true;
+    });
+    if (changed) window.history.replaceState({}, document.title, url.toString());
+}
+
+function findNodeBySourceReference(sourceType, sourceIdKey, sourceId) {
+    if (!sourceType || !sourceIdKey || !sourceId) return null;
+    const targetId = String(sourceId);
+    const source = String(sourceType);
+    const nodesOnBoard = Array.from(document.querySelectorAll('.node'));
+    for (let i = 0; i < nodesOnBoard.length; i += 1) {
+        const nodeEl = nodesOnBoard[i];
+        const meta = getNodeMeta(nodeEl);
+        if (!meta) continue;
+        if (String(meta.sourceType || '') !== source) continue;
+        if (String(meta[sourceIdKey] || '') === targetId) return nodeEl;
+    }
+    return null;
+}
+
+function centerViewOnNode(nodeEl) {
+    if (!nodeEl) return;
+    const nodeLeft = Number.parseFloat(nodeEl.style.left) || 0;
+    const nodeTop = Number.parseFloat(nodeEl.style.top) || 0;
+    const width = nodeEl.offsetWidth || 150;
+    const height = nodeEl.offsetHeight || 90;
+    const centerX = nodeLeft + (width / 2);
+    const centerY = nodeTop + (height / 2);
+    view.x = (window.innerWidth / 2) - centerX * view.scale;
+    view.y = (window.innerHeight / 2) - centerY * view.scale;
+    updateViewCSS();
+}
+
+function flashCrossLinkedNode(nodeEl) {
+    if (!nodeEl) return;
+    nodeEl.classList.add('board-linked-focus');
+    setTimeout(() => {
+        nodeEl.classList.remove('board-linked-focus');
+    }, BOARD_LINK_FLASH_MS);
+}
+
+function resolveCrossLinkPayload(request) {
+    const store = window.RTF_STORE;
+    const campaign = store && store.state && store.state.campaign ? store.state.campaign : null;
+    if (!store || !campaign || !request) return null;
+
+    if (request.linkType === 'npc') {
+        const npcs = Array.isArray(campaign.npcs) ? campaign.npcs : [];
+        const npc = npcs.find((entry) => String(entry && entry.id || '') === request.id);
+        if (!npc) return null;
+        const payload = buildNPCNodePayload(npc);
+        return { ...payload, sourceType: 'npc', sourceIdKey: 'npcId', sourceId: request.id };
+    }
+
+    if (request.linkType === 'location') {
+        const locations = Array.isArray(campaign.locations) ? campaign.locations : [];
+        const location = locations.find((entry) => String(entry && entry.id || '') === request.id);
+        if (!location) return null;
+        const payload = buildLocationNodePayload(location);
+        return { ...payload, sourceType: 'location', sourceIdKey: 'locationId', sourceId: request.id };
+    }
+
+    if (request.linkType === 'timeline-event') {
+        const events = (typeof store.getEvents === 'function')
+            ? store.getEvents()
+            : (Array.isArray(campaign.events) ? campaign.events : []);
+        const evt = events.find((entry) => String(entry && entry.id || '') === request.id);
+        if (!evt) return null;
+        const payload = buildEventNodePayload(evt);
+        return { ...payload, sourceType: 'timeline-event', sourceIdKey: 'eventId', sourceId: request.id };
+    }
+
+    if (request.linkType === 'requisition') {
+        const requisitions = (typeof store.getRequisitions === 'function')
+            ? store.getRequisitions()
+            : (Array.isArray(campaign.requisitions) ? campaign.requisitions : []);
+        const req = requisitions.find((entry) => String(entry && entry.id || '') === request.id);
+        if (!req) return null;
+        const payload = buildRequisitionNodePayload(req);
+        return { ...payload, sourceType: 'requisition', sourceIdKey: 'requisitionId', sourceId: request.id };
+    }
+
+    return null;
+}
+
+function applyBoardCrossLinkFromUrl() {
+    const request = getBoardCrossLinkRequestFromUrl();
+    if (!request) return;
+    const payload = resolveCrossLinkPayload(request);
+    clearBoardCrossLinkParamsFromUrl();
+    if (!payload) return;
+
+    const existing = findNodeBySourceReference(payload.sourceType, payload.sourceIdKey, payload.sourceId);
+    const target = existing || (() => {
+        const spawn = screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+        const node = createNode(payload.nodeType, spawn.x, spawn.y, null, payload.nodeData);
+        logNodeAddedToBoard(getNodeSummary(node.id));
+        saveBoard();
+        return node;
+    })();
+
+    centerViewOnNode(target);
+    flashCrossLinkedNode(target);
+}
+
+function trimSingleLine(value, maxLen = 140) {
+    const clean = String(value || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    if (clean.length <= maxLen) return clean;
+    return clean.slice(0, Math.max(0, maxLen - 1)).trimEnd() + '…';
+}
+
+function collectConnectedNodeIds(rootId) {
+    const startId = String(rootId || '').trim();
+    if (!startId) return [];
+    const visited = new Set();
+    const queue = [startId];
+
+    while (queue.length) {
+        const current = queue.shift();
+        if (!current || visited.has(current)) continue;
+        visited.add(current);
+
+        for (let i = 0; i < connections.length; i += 1) {
+            const conn = connections[i];
+            if (conn.from === current && conn.to && !visited.has(conn.to)) queue.push(conn.to);
+            if (conn.to === current && conn.from && !visited.has(conn.from)) queue.push(conn.from);
+        }
+    }
+
+    return Array.from(visited);
+}
+
+function extractEventHeat(summary) {
+    if (!summary || typeof summary !== 'object') return 0;
+    const meta = summary.meta && typeof summary.meta === 'object' ? summary.meta : null;
+    if (meta && meta.heatDelta !== undefined && meta.heatDelta !== null && meta.heatDelta !== '') {
+        const parsed = Number(meta.heatDelta);
+        if (Number.isFinite(parsed)) return Math.abs(parsed);
+    }
+    const match = String(summary.bodyText || '').match(/\bheat\s*[:=]?\s*([+-]?\d+)/i);
+    if (!match) return 0;
+    const parsed = parseInt(match[1], 10);
+    return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
+}
+
+function inferDraftTierFromCluster(eventSummaries, clusterSize) {
+    const maxHeat = eventSummaries.reduce((maxVal, summary) => Math.max(maxVal, extractEventHeat(summary)), 0);
+    if (maxHeat >= 5 || clusterSize >= 10) return 'Boss';
+    if (maxHeat >= 3 || clusterSize >= 7) return 'Elite';
+    if (maxHeat >= 2 || clusterSize >= 4) return 'Standard';
+    return 'Routine';
+}
+
+function buildEncounterDraftFromCluster(rootId) {
+    const anchorId = String(rootId || '').trim();
+    if (!anchorId) return null;
+    const clusterIds = collectConnectedNodeIds(anchorId);
+    if (!clusterIds.length) return null;
+
+    const summaries = clusterIds
+        .map((id) => getNodeSummary(id))
+        .filter((summary) => summary && typeof summary === 'object');
+    if (!summaries.length) return null;
+
+    const byType = {
+        person: [],
+        location: [],
+        clue: [],
+        note: [],
+        event: [],
+        requisition: [],
+        other: []
+    };
+
+    summaries.forEach((summary) => {
+        const type = String(summary.type || '');
+        if (Object.prototype.hasOwnProperty.call(byType, type)) {
+            byType[type].push(summary);
+        } else {
+            byType.other.push(summary);
+        }
+    });
+
+    const anchorSummary = summaries.find((entry) => entry.id === anchorId) || summaries[0];
+    const caseName = getCaseName();
+    const clusterIdSet = new Set(clusterIds);
+    const clusterConnections = connections.filter((conn) => clusterIdSet.has(conn.from) && clusterIdSet.has(conn.to));
+    const titleById = new Map(summaries.map((summary) => [summary.id, trimSingleLine(summary.title, 90)]));
+
+    const locationText = byType.location.length
+        ? byType.location.map((entry) => trimSingleLine(entry.title, 80)).filter(Boolean).join(', ')
+        : (byType.event[0] && byType.event[0].meta && byType.event[0].meta.focus
+            ? trimSingleLine(byType.event[0].meta.focus, 120)
+            : '');
+
+    const objective = trimSingleLine(
+        (byType.event[0] && byType.event[0].title)
+        || (byType.clue[0] && `Secure ${byType.clue[0].title}`)
+        || `Resolve lead: ${anchorSummary.title}`,
+        180
+    );
+
+    const opposition = byType.person.map((entry) => {
+        const detail = trimSingleLine(entry.bodyText, 110);
+        return detail ? `${trimSingleLine(entry.title, 80)} - ${detail}` : trimSingleLine(entry.title, 120);
+    }).filter(Boolean);
+    if (!opposition.length) {
+        opposition.push(`Unknown hostile force tied to ${trimSingleLine(anchorSummary.title, 90)}`);
+    }
+
+    const hazards = [];
+    byType.clue.forEach((entry) => {
+        hazards.push(`Clue pressure: ${trimSingleLine(entry.title, 80)}${entry.bodyText ? ` - ${trimSingleLine(entry.bodyText, 90)}` : ''}`);
+    });
+    byType.note.forEach((entry) => {
+        hazards.push(`Complication: ${trimSingleLine(entry.title, 80)}${entry.bodyText ? ` - ${trimSingleLine(entry.bodyText, 90)}` : ''}`);
+    });
+    byType.event.forEach((entry) => {
+        const heat = extractEventHeat(entry);
+        if (heat > 0) hazards.push(`Heat spike: ${trimSingleLine(entry.title, 90)} (${heat})`);
+    });
+    if (!hazards.length) {
+        hazards.push(`Escalation around ${trimSingleLine(anchorSummary.title, 90)}`);
+    }
+
+    const beats = [];
+    byType.event.forEach((entry) => {
+        beats.push(`Beat: ${trimSingleLine(entry.title, 120)}`);
+    });
+    clusterConnections.forEach((conn) => {
+        const label = trimSingleLine(conn.label || '', 90);
+        if (!label) return;
+        const from = titleById.get(conn.from) || 'Unknown';
+        const to = titleById.get(conn.to) || 'Unknown';
+        beats.push(`Link: ${from} -> ${to} (${label})`);
+    });
+    if (!beats.length) {
+        beats.push(`Primary thread: ${trimSingleLine(anchorSummary.title, 120)}`);
+    }
+
+    const rewards = byType.requisition
+        .map((entry) => trimSingleLine(entry.title, 90))
+        .filter(Boolean)
+        .map((title) => `Resource payoff: ${title}`);
+
+    return {
+        title: trimSingleLine(`${caseName}: ${anchorSummary.title}`, 180),
+        tier: inferDraftTierFromCluster(byType.event, summaries.length),
+        location: locationText,
+        objective,
+        opposition: opposition.join('\n'),
+        hazards: hazards.join('\n'),
+        beats: beats.join('\n'),
+        rewards: rewards.join('\n'),
+        notes: `Drafted from board cluster around "${trimSingleLine(anchorSummary.title, 120)}" in case "${caseName}".`
+    };
+}
+
+function openEncounterDraftFromBoard(draft) {
+    if (!draft || typeof draft !== 'object') return;
+    const token = `draft_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const storageKey = ENCOUNTER_DRAFT_STORAGE_PREFIX + token;
+    const payload = { createdAt: Date.now(), draft };
+
+    try {
+        sessionStorage.setItem(storageKey, JSON.stringify(payload));
+    } catch (err) {
+        alert('Could not prepare encounter draft.');
+        return;
+    }
+
+    const url = new URL('encounters.html', window.location.href);
+    url.searchParams.set('draft', token);
+    url.searchParams.set('source', 'board');
+    window.location.assign(url.toString());
+}
+
+function draftEncounterFromTargetNode() {
+    const targetId = contextMenu && contextMenu.dataset ? contextMenu.dataset.target : '';
+    const draft = buildEncounterDraftFromCluster(targetId);
+    contextMenu.style.display = 'none';
+    if (!draft) {
+        alert('Could not draft encounter from this cluster.');
+        return;
+    }
+    openEncounterDraftFromBoard(draft);
+}
+
 window.addEventListener('load', () => {
     bindDelegatedDataHandlers();
     applyMobileModeClass();
@@ -751,6 +1059,7 @@ window.addEventListener('load', () => {
     resizeCanvas();
     initToolbars();
     loadBoard();
+    applyBoardCrossLinkFromUrl();
     updateViewCSS();
     initCaseNameTracking();
     window.addEventListener('rtf-store-updated', handleRemoteStoreUpdate);
@@ -850,6 +1159,100 @@ function getBoardGuildEntries() {
     return out;
 }
 
+function buildNPCNodePayload(npc) {
+    const source = npc && typeof npc === 'object' ? npc : {};
+    let body = `${sanitizeText(source.guild || 'Unassigned')}`;
+    if (source.wants) body += `<br><strong>Wants:</strong> ${sanitizeMultiline(source.wants)}`;
+    if (source.leverage) body += `<br><strong>Lev:</strong> ${sanitizeMultiline(source.leverage)}`;
+    if (source.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(source.notes)}`;
+
+    return {
+        nodeType: 'person',
+        nodeData: {
+            title: source.name || 'Unknown NPC',
+            body,
+            meta: {
+                sourceType: 'npc',
+                npcId: source.id || '',
+                npcName: source.name || 'Unknown NPC',
+                guild: source.guild || ''
+            }
+        }
+    };
+}
+
+function buildLocationNodePayload(location) {
+    const source = location && typeof location === 'object' ? location : {};
+    let body = `${sanitizeText(source.district || '')}`;
+    if (source.desc) body += `<br>${sanitizeMultiline(source.desc)}`;
+    if (source.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(source.notes)}`;
+
+    return {
+        nodeType: 'location',
+        nodeData: {
+            title: source.name || 'Location',
+            body,
+            meta: {
+                sourceType: 'location',
+                locationId: source.id || '',
+                locationName: source.name || 'Location',
+                district: source.district || ''
+            }
+        }
+    };
+}
+
+function buildEventNodePayload(evt) {
+    const source = evt && typeof evt === 'object' ? evt : {};
+    const heat = parseInt(source.heatDelta, 10);
+    const lines = [];
+    if (source.focus) lines.push(`<strong>Focus:</strong> ${sanitizeText(source.focus)}`);
+    if (!isNaN(heat) && heat !== 0) lines.push(`<strong>Heat:</strong> ${heat > 0 ? '+' : ''}${heat}`);
+    if (source.highlights) lines.push(`<strong>Beats:</strong><br>${sanitizeMultiline(source.highlights)}`);
+    if (source.fallout) lines.push(`<strong>Fallout:</strong><br>${sanitizeMultiline(source.fallout)}`);
+    if (source.followUp) lines.push(`<strong>Next:</strong> ${sanitizeMultiline(source.followUp)}`);
+
+    return {
+        nodeType: 'event',
+        nodeData: {
+            title: source.title || 'Event',
+            body: lines.join('<br>'),
+            meta: {
+                sourceType: 'timeline-event',
+                eventId: source.id || '',
+                heatDelta: !isNaN(heat) ? heat : '',
+                focus: source.focus || ''
+            }
+        }
+    };
+}
+
+function buildRequisitionNodePayload(req) {
+    const source = req && typeof req === 'object' ? req : {};
+    const lines = [];
+    lines.push(`<strong>Agent:</strong> ${sanitizeText(source.requester || 'Unassigned')}`);
+    if (source.status || source.priority) {
+        lines.push(`<strong>Status:</strong> ${sanitizeText(source.status || 'Pending')} (${sanitizeText(source.priority || 'Routine')})`);
+    }
+    if (source.value) lines.push(`<strong>Value:</strong> ${sanitizeText(source.value)}`);
+    if (source.purpose) lines.push(`<strong>Purpose:</strong> ${sanitizeMultiline(source.purpose)}`);
+    if (source.notes) lines.push(`<strong>Notes:</strong> ${sanitizeMultiline(source.notes)}`);
+
+    return {
+        nodeType: 'requisition',
+        nodeData: {
+            title: source.item || 'Requisition',
+            body: lines.join('<br>'),
+            meta: {
+                sourceType: 'requisition',
+                requisitionId: source.id || '',
+                status: source.status || 'Pending',
+                priority: source.priority || 'Routine'
+            }
+        }
+    };
+}
+
 function initGuildToolbar() {
     const guildContainer = document.getElementById('guild-popup');
     if (!guildContainer) return;
@@ -930,23 +1333,9 @@ function renderNPCs() {
         const el = document.createElement('div');
         el.className = 'tool-item';
         el.draggable = true;
-        // Map NPC data to Node content
-        let body = `${sanitizeText(npc.guild || 'Unassigned')}`;
-        if (npc.wants) body += `<br><strong>Wants:</strong> ${sanitizeMultiline(npc.wants)}`;
-        if (npc.leverage) body += `<br><strong>Lev:</strong> ${sanitizeMultiline(npc.leverage)}`;
-        if (npc.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(npc.notes)}`;
-
-        const nodeData = {
-            title: npc.name || 'Unknown NPC',
-            body: body,
-            meta: {
-                sourceType: 'npc',
-                npcName: npc.name || 'Unknown NPC',
-                guild: npc.guild || ''
-            }
-        };
-        el.ondragstart = (e) => startDragNew(e, 'person', nodeData);
-        setMobileToolSpawnData(el, 'person', nodeData);
+        const payload = buildNPCNodePayload(npc);
+        el.ondragstart = (e) => startDragNew(e, payload.nodeType, payload.nodeData);
+        setMobileToolSpawnData(el, payload.nodeType, payload.nodeData);
         el.innerHTML = `<div class="icon">👤</div><div class="label">${sanitizeText(npc.name)}</div>`;
         listContainer.appendChild(el);
     });
@@ -998,21 +1387,9 @@ function renderLocations() {
         const el = document.createElement('div');
         el.className = 'tool-item';
         el.draggable = true;
-        let body = `${sanitizeText(loc.district || '')}`;
-        if (loc.desc) body += `<br>${sanitizeMultiline(loc.desc)}`;
-        if (loc.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(loc.notes)}`;
-
-        const nodeData = {
-            title: loc.name || 'Location',
-            body: body,
-            meta: {
-                sourceType: 'location',
-                locationName: loc.name || 'Location',
-                district: loc.district || ''
-            }
-        };
-        el.ondragstart = (e) => startDragNew(e, 'location', nodeData);
-        setMobileToolSpawnData(el, 'location', nodeData);
+        const payload = buildLocationNodePayload(loc);
+        el.ondragstart = (e) => startDragNew(e, payload.nodeType, payload.nodeData);
+        setMobileToolSpawnData(el, payload.nodeType, payload.nodeData);
         el.innerHTML = `<div class="icon">📍</div><div class="label">${sanitizeText(loc.name)}</div>`;
         listContainer.appendChild(el);
     });
@@ -1075,26 +1452,9 @@ function renderBoardEvents() {
             ? `<span class="board-event-heat-badge ${heat > 0 ? 'is-positive' : 'is-negative'}">${heat > 0 ? '+' : ''}${heat} Heat</span>`
             : '';
         el.innerHTML = `<div class="icon">🕰️</div><div class="label">${title}${heatBadge}${meta ? `<div class="board-tool-submeta">${meta}</div>` : ''}</div>`;
-
-        const lines = [];
-        if (evt.focus) lines.push(`<strong>Focus:</strong> ${sanitizeText(evt.focus)}`);
-        if (!isNaN(heat) && heat !== 0) lines.push(`<strong>Heat:</strong> ${heat > 0 ? '+' : ''}${heat}`);
-        if (evt.highlights) lines.push(`<strong>Beats:</strong><br>${sanitizeMultiline(evt.highlights)}`);
-        if (evt.fallout) lines.push(`<strong>Fallout:</strong><br>${sanitizeMultiline(evt.fallout)}`);
-        if (evt.followUp) lines.push(`<strong>Next:</strong> ${sanitizeMultiline(evt.followUp)}`);
-
-        const nodeData = {
-            title: evt.title || 'Event',
-            body: lines.join('<br>'),
-            meta: {
-                sourceType: 'timeline-event',
-                eventId: evt.id || '',
-                heatDelta: !isNaN(heat) ? heat : '',
-                focus: evt.focus || ''
-            }
-        };
-        el.ondragstart = (e) => startDragNew(e, 'event', nodeData);
-        setMobileToolSpawnData(el, 'event', nodeData);
+        const payload = buildEventNodePayload(evt);
+        el.ondragstart = (e) => startDragNew(e, payload.nodeType, payload.nodeData);
+        setMobileToolSpawnData(el, payload.nodeType, payload.nodeData);
         listContainer.appendChild(el);
     });
 }
@@ -1149,26 +1509,9 @@ function renderBoardRequisitions() {
         const title = sanitizeText(req.item || 'Requisition');
         const sub = `${sanitizeText(req.requester || 'Unassigned')}${req.priority ? ' • ' + sanitizeText(req.priority) : ''}`;
         el.innerHTML = `<div class="icon">📦</div><div class="label">${title}<div class="board-tool-submeta">${sub}</div></div>`;
-
-        const lines = [];
-        lines.push(`<strong>Agent:</strong> ${sanitizeText(req.requester || 'Unassigned')}`);
-        if (req.status || req.priority) lines.push(`<strong>Status:</strong> ${sanitizeText(req.status || 'Pending')} (${sanitizeText(req.priority || 'Routine')})`);
-        if (req.value) lines.push(`<strong>Value:</strong> ${sanitizeText(req.value)}`);
-        if (req.purpose) lines.push(`<strong>Purpose:</strong> ${sanitizeMultiline(req.purpose)}`);
-        if (req.notes) lines.push(`<strong>Notes:</strong> ${sanitizeMultiline(req.notes)}`);
-
-        const nodeData = {
-            title: req.item || 'Requisition',
-            body: lines.join('<br>'),
-            meta: {
-                sourceType: 'requisition',
-                requisitionId: req.id || '',
-                status: req.status || 'Pending',
-                priority: req.priority || 'Routine'
-            }
-        };
-        el.ondragstart = (e) => startDragNew(e, 'requisition', nodeData);
-        setMobileToolSpawnData(el, 'requisition', nodeData);
+        const payload = buildRequisitionNodePayload(req);
+        el.ondragstart = (e) => startDragNew(e, payload.nodeType, payload.nodeData);
+        setMobileToolSpawnData(el, payload.nodeType, payload.nodeData);
         listContainer.appendChild(el);
     });
 }
@@ -3238,3 +3581,4 @@ window.renderNPCs = renderNPCs;
 window.renderLocations = renderLocations;
 window.renderBoardEvents = renderBoardEvents;
 window.renderBoardRequisitions = renderBoardRequisitions;
+window.draftEncounterFromTargetNode = draftEncounterFromTargetNode;

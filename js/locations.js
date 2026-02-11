@@ -108,6 +108,19 @@ function copyLocationLink(locationId) {
     prompt('Copy location link:', url);
 }
 
+function buildBoardLinkForLocation(locationId) {
+    const url = new URL('board.html', window.location.href);
+    url.searchParams.set('linkType', 'location');
+    url.searchParams.set('id', String(locationId || '').trim());
+    return url.toString();
+}
+
+function openLocationInBoard(locationId) {
+    const id = String(locationId || '').trim();
+    if (!id) return;
+    window.location.assign(buildBoardLinkForLocation(id));
+}
+
 function applyPendingLocationDeepLinkFocus() {
     if (!pendingLinkLocationId) return;
     const rows = Array.from(document.querySelectorAll('.locations-row[data-location-id]'));
@@ -238,6 +251,7 @@ function render() {
                 ${escapeHtml(loc.notes || '')}
             </div>
 
+            <button class="btn locations-board-btn" data-onclick="openLocationInBoard('${locationIdArg}')" title="Open on board">🧩</button>
             <button class="btn locations-link-btn" data-onclick="copyLocationLink('${locationIdArg}')" title="Copy deep link">🔗</button>
             <button class="btn locations-delete-btn" data-onclick="deleteLocation('${locationIdArg}')" title="Delete Location">&times;</button>
         </div>
@@ -261,3 +275,4 @@ window.addEventListener('rtf-store-updated', () => {
 });
 
 window.copyLocationLink = copyLocationLink;
+window.openLocationInBoard = openLocationInBoard;

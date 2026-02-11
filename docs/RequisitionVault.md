@@ -18,3 +18,7 @@ Shared pipeline for requisitions, approvals, and aftermath notes. Built for the 
 - Tags make the search bar extremely powerful—label chemical, legal, or magical pulls differently.
 - Use the Value field for GP cost or fictional favors owed; either way it reminds you of the debt when negotiating later.
 - Export from the Tools Hub before a downtime phase so you can review what gear was promised versus delivered.
+
+## Cross-Links
+- [Case Board](CaseBoard.md) (`board.html`) – Drag requisitions into the case graph to connect gear requests directly to suspects, locations, and clue threads.
+- [Mission Timeline](MissionTimeline.md) (`timeline.html`) – Use matching tags/titles so requisition intake and delivery milestones read as a clean operation timeline.

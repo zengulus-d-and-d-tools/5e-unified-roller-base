@@ -835,6 +835,23 @@ body.show-ports .node .port {
     transform: scale(1.02);
 }
 
+@keyframes boardLinkPulse {
+    0% {
+        box-shadow: 0 0 0 rgba(0, 0, 0, 0), 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+    20% {
+        box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, rgba(255, 255, 255, 0.2)), 0 0 0 2px color-mix(in srgb, var(--accent) 70%, rgba(255, 255, 255, 0.25));
+    }
+    100% {
+        box-shadow: 0 0 0 rgba(0, 0, 0, 0), 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+}
+
+.node.board-linked-focus {
+    z-index: 110;
+    animation: boardLinkPulse 2.2s ease;
+}
+
 /* Also blur other elements when focus is active */
 body.focus-active #connection-layer {
     opacity: 0.8;

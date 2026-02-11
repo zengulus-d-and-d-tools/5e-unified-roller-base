@@ -22,3 +22,6 @@ Session chronicle for beats, fallout, and rolling heat. Designed for quick captu
 - Use tags like `fallout`, `intel`, or `debt` so searching weeks later is trivial.
 - Pair entries with Requisition or Encounter cards via consistent naming to reconstruct entire operations on demand.
 - Hide resolved entries during prep to keep the timeline focused on active leads.
+
+## Cross-Links
+- [Case Board](CaseBoard.md) (`board.html`) – Pull timeline events into event nodes so beats, fallout, and Heat-driving moments stay tied to the active investigation graph.
