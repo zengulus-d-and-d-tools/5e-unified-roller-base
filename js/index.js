@@ -3519,6 +3519,11 @@ function ccFinish() {
 // --- DRAG AND DROP ---
 let swapSourceCard = null;
 
+function shouldDisableCardDragForViewport() {
+    if (!window.matchMedia) return false;
+    return window.matchMedia('(max-width: 768px), (pointer: coarse)').matches;
+}
+
 function setupDragAndDrop() {
     const grips = document.querySelectorAll('.drag-grip');
     let draggedCard = null;
@@ -3527,11 +3532,16 @@ function setupDragAndDrop() {
     let placeholder = null;
 
     grips.forEach(grip => {
+        if (grip.dataset.dragBound === '1') return;
+        grip.dataset.dragBound = '1';
+
         grip.addEventListener('dblclick', (e) => {
+            if (shouldDisableCardDragForViewport()) return;
             e.preventDefault(); e.stopPropagation(); handleSwapInteraction(grip.closest('.card'));
         });
 
         grip.addEventListener('pointerdown', (e) => {
+            if (shouldDisableCardDragForViewport()) return;
             if (e.button !== 0 && e.pointerType === 'mouse') return;
             const card = grip.parentElement; draggedCard = card;
             placeholder = document.createElement('div'); placeholder.className = 'card placeholder';
@@ -3547,11 +3557,9 @@ function setupDragAndDrop() {
         function onPointerMove(e) {
             if (!draggedCard) return; e.preventDefault();
 
-            const dy = e.clientY - initialY; draggedCard.style.transform = `translateY(${dy
-                }
-
-                            px)`;
+            const dy = e.clientY - initialY; draggedCard.style.transform = `translateY(${dy}px)`;
             const container = document.querySelector('.sheet-container');
+            if (!container || !placeholder) return;
             const siblings = [...container.querySelectorAll('.card:not(.dragging)')];
 
             const nextSibling = siblings.find(sibling => {
@@ -3563,7 +3571,7 @@ function setupDragAndDrop() {
         function onPointerUp(e) {
             if (!draggedCard) return;
             grip.removeEventListener('pointermove', onPointerMove); grip.removeEventListener('pointerup', onPointerUp); grip.removeEventListener('pointercancel', onPointerUp);
-            grip.releasePointerCapture(e.pointerId);
+            if (grip.hasPointerCapture(e.pointerId)) grip.releasePointerCapture(e.pointerId);
             draggedCard.classList.remove('dragging'); draggedCard.style.position = ''; draggedCard.style.top = ''; draggedCard.style.left = ''; draggedCard.style.width = ''; draggedCard.style.transform = '';
 
             if (placeholder && placeholder.parentNode) {
