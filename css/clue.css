@@ -10,12 +10,6 @@
             pointer-events: none;
         }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
 body {
             background: linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
             color: var(--text);
@@ -394,3 +388,72 @@ body {
             position: relative;
             z-index: 2;
         }
+
+@media (max-width: 768px) {
+    body {
+        padding: max(12px, env(safe-area-inset-top, 0px)) 12px 20px;
+    }
+
+    .clue-container {
+        gap: 16px;
+    }
+
+    .guild-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .controls {
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .mode-select,
+    .gen-btn {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .res-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 12px 14px;
+    }
+
+    .res-body {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .data-block {
+        padding: 14px;
+    }
+
+    .g-tag {
+        top: 10px;
+        right: 10px;
+    }
+
+    .val {
+        font-size: 1.05rem;
+    }
+
+    .res-footer {
+        grid-template-columns: 1fr;
+        padding: 14px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 520px) {
+    .guild-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .g-name {
+        font-size: 0.66rem;
+    }
+}

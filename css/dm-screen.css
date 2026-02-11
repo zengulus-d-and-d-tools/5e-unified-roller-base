@@ -383,3 +383,61 @@
         .dm-guild-perk {
             color: #fff;
         }
+
+@media (max-width: 768px) {
+    body {
+        padding: max(12px, env(safe-area-inset-top, 0px)) 0 24px;
+    }
+
+    .container {
+        padding: 10px;
+        gap: 14px;
+    }
+
+    .card {
+        padding: 14px;
+        gap: 12px;
+    }
+
+    .grid-2,
+    .grid-2-tight {
+        grid-template-columns: 1fr;
+    }
+
+    .section-title {
+        gap: 8px;
+    }
+
+    .dispatch-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dispatch-label {
+        border-right: none;
+        border-bottom: none;
+        padding-bottom: 4px;
+    }
+
+    .dispatch-val {
+        padding-top: 0;
+    }
+
+    .ref-table {
+        display: block;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .ref-table th,
+    .ref-table td {
+        white-space: nowrap;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}

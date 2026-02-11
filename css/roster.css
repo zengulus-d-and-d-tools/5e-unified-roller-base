@@ -116,3 +116,40 @@
     font-size: 1.2rem;
     cursor: pointer;
 }
+
+@media (max-width: 768px) {
+    .filter-bar {
+        flex-wrap: wrap;
+    }
+
+    .roster-filter-grow {
+        flex: 1 1 100%;
+        min-width: 0;
+        width: 100%;
+    }
+
+    .roster-grid-two {
+        grid-template-columns: 1fr;
+    }
+
+    .roster-form-actions {
+        flex-wrap: wrap;
+    }
+
+    .roster-form-actions .btn {
+        width: 100%;
+    }
+
+    .roster-npc-row {
+        grid-template-columns: 1fr;
+        padding-right: 15px;
+        gap: 8px;
+    }
+
+    .roster-npc-lock-icon,
+    .roster-npc-edit-btn,
+    .roster-npc-delete-btn {
+        position: static;
+        justify-self: flex-end;
+    }
+}

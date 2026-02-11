@@ -125,3 +125,40 @@
     border: 1px dashed rgba(255, 255, 255, 0.08);
     border-radius: 10px;
 }
+
+@media (max-width: 768px) {
+    .enc-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .enc-card {
+        padding: 14px;
+    }
+
+    .enc-card h3 {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .filter-bar input,
+    .filter-bar select {
+        min-width: 0;
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    .enc-form-actions {
+        text-align: left;
+    }
+
+    .enc-actions {
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+    }
+
+    .enc-log-meta {
+        width: 100%;
+        order: 3;
+    }
+}

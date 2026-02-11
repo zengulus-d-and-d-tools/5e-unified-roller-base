@@ -419,3 +419,60 @@ a {
     padding: 8px 10px;
     line-height: 1.4;
 }
+
+@media (max-width: 768px) {
+    body {
+        padding: max(12px, env(safe-area-inset-top, 0px)) 10px 24px;
+    }
+
+    .tools-container {
+        gap: 18px;
+    }
+
+    .grid {
+        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .card {
+        padding: 20px;
+    }
+
+    .icon {
+        font-size: 2.4rem;
+        margin-bottom: 14px;
+    }
+
+    .case-switcher-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .case-switcher-row select,
+    .case-switcher-row input {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .sync-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sync-actions .sync-btn,
+    .sync-conflict-actions .sync-btn,
+    .customize-actions .sync-btn,
+    .sync-quick-actions .sync-btn {
+        width: 100%;
+    }
+
+    .sync-quick-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 520px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}

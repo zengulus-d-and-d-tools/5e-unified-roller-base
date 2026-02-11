@@ -780,3 +780,89 @@
         .hp-display.hp-healthy {
             color: #2ecc71;
         }
+
+@media (max-width: 768px) {
+    body {
+        padding: max(12px, env(safe-area-inset-top, 0px)) 0 124px;
+    }
+
+    .nav-bar {
+        top: max(6px, env(safe-area-inset-top, 0px));
+        width: calc(100% - 16px);
+        height: auto;
+        min-height: 52px;
+    }
+
+    .nav-item {
+        font-size: 0.78rem;
+        padding: 8px 4px;
+    }
+
+    .container {
+        padding: 10px;
+    }
+
+    .row {
+        flex-wrap: wrap;
+        align-items: stretch;
+    }
+
+    .row > * {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    .grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .gm-inline-flex-grow {
+        flex-wrap: wrap;
+    }
+
+    .gm-label-muted-nowrap {
+        white-space: normal;
+    }
+
+    .log-result {
+        font-size: clamp(2rem, 12vw, 2.5rem);
+    }
+
+    .combat-item {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .combat-actions {
+        justify-content: flex-start;
+    }
+
+    .btn-del {
+        border-left: none;
+        margin-left: 0;
+        padding-left: 0;
+        width: auto;
+    }
+
+    .tracker-footer {
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .round-counter {
+        min-width: 70px;
+        padding: 0 8px;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+        font-size: 16px;
+    }
+
+    .gm-bestiary-item {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}

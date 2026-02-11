@@ -417,3 +417,72 @@
             color: #777;
             margin-top: 20px;
         }
+
+@media (max-width: 768px) {
+    body {
+        padding: max(12px, env(safe-area-inset-top, 0px)) 10px 16px;
+    }
+
+    #stage {
+        overflow: auto;
+        align-items: flex-start;
+        justify-content: flex-start;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #bracket-root {
+        padding: 20px;
+        gap: 32px;
+    }
+
+    .wb-container,
+    .lb-container,
+    .side-block {
+        gap: 24px;
+    }
+
+    .round-col {
+        min-width: 130px;
+    }
+
+    .center-stack {
+        min-width: 150px;
+    }
+
+    .p-name {
+        max-width: 90px;
+    }
+
+    .modal-box {
+        width: min(94vw, 360px);
+        padding: 20px;
+    }
+
+    .score-row {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .tourney-setup-actions,
+    .tourney-score-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .wb-container,
+    .lb-container,
+    .side-block {
+        gap: 16px;
+    }
+
+    .round-col {
+        min-width: 118px;
+    }
+
+    .p-row {
+        padding: 0 8px;
+    }
+}

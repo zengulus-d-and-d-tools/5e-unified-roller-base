@@ -380,3 +380,49 @@ canvas#vector-cloud {
     color: var(--danger);
     border-color: transparent;
 }
+
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+
+    .grid-5 {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+
+    .player-row {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.2);
+    }
+
+    .player-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .case-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .btn {
+        padding: 10px 16px;
+    }
+
+    .hub-status-heat-head {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .hub-roster-actions,
+    .hub-project-row {
+        flex-direction: column;
+    }
+
+    .hub-player-project-col {
+        grid-column: span 1;
+    }
+}

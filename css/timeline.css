@@ -242,3 +242,37 @@
     color: #666;
     flex: 1;
 }
+
+@media (max-width: 768px) {
+    .timeline-wrapper {
+        margin-left: 8px;
+        padding-left: 14px;
+    }
+
+    .event-card::before {
+        left: -22px;
+    }
+
+    .event-meta,
+    .event-body {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-row,
+    .filter-row.actions {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-actions {
+        justify-content: flex-start;
+    }
+
+    .event-actions {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .event-actions .btn {
+        width: 100%;
+    }
+}

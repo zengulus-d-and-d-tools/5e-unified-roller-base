@@ -231,7 +231,7 @@ select:focus {
 /* --- MOBILE RESPONSIVENESS --- */
 @media (max-width: 768px) {
     body {
-        padding: 10px;
+        padding: max(10px, env(safe-area-inset-top, 0px));
     }
 
     /* Stack grid elements */
@@ -264,5 +264,22 @@ select:focus {
     /* Make buttons bigger/easier to tap */
     .btn {
         padding: 10px 16px;
+    }
+
+    .filter-bar {
+        flex-wrap: wrap;
+    }
+
+    .filter-bar input,
+    .filter-bar select {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+        font-size: 16px;
     }
 }

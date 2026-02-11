@@ -192,3 +192,48 @@ canvas#vector-cloud {
     z-index: 0;
     pointer-events: none;
 }
+
+@media (max-width: 768px) {
+    body {
+        padding: max(12px, env(safe-area-inset-top, 0px)) 10px 32px;
+    }
+
+    .player-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+    }
+
+    .card {
+        padding: 14px;
+        gap: 10px;
+    }
+
+    .card-header {
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .btn,
+    .hero-btn {
+        min-height: 40px;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-grid {
+        grid-template-columns: 1fr;
+    }
+}
