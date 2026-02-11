@@ -301,48 +301,50 @@
             : '';
 
         return `
-        <div class="event-card">
-            <div class="event-head">
-                <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
-                    data-onchange="updateEventField('${evtId}', 'title', this.value)"></h3>
-                <button class="toggle-btn status-toggle status-pill ${statusClass} ${resolved ? 'active' : ''}" type="button"
-                    aria-pressed="${resolved ? 'true' : 'false'}"
-                    data-onclick="toggleResolved('${evtId}', this)">${statusLabel}</button>
+        <div class="event-card${imageMarkup ? ' has-image' : ''}">
+            <div class="event-card-content">
+                <div class="event-head">
+                    <h3><input type="text" value="${escapeHtml(evt.title || '')}" placeholder="Title"
+                        data-onchange="updateEventField('${evtId}', 'title', this.value)"></h3>
+                    <button class="toggle-btn status-toggle status-pill ${statusClass} ${resolved ? 'active' : ''}" type="button"
+                        aria-pressed="${resolved ? 'true' : 'false'}"
+                        data-onclick="toggleResolved('${evtId}', this)">${statusLabel}</button>
+                </div>
+                <div class="event-meta">
+                    <div>
+                        <label>Focus</label>
+                        <input type="text" value="${escapeHtml(evt.focus || '')}" placeholder="District / Guild"
+                            data-onchange="updateEventField('${evtId}', 'focus', this.value)">
+                    </div>
+                    <div>
+                        <label>Heat Δ</label>
+                        <input type="number" value="${escapeHtml(evt.heatDelta || '')}" placeholder="0"
+                            data-onchange="updateEventField('${evtId}', 'heatDelta', this.value)">
+                    </div>
+                    <div>
+                        <label>Tags</label>
+                        <input type="text" value="${escapeHtml(evt.tags || '')}" placeholder="tags"
+                            data-onchange="updateEventField('${evtId}', 'tags', this.value)">
+                    </div>
+                    <div>
+                        <label>Image URL</label>
+                        <input type="url" value="${escapeHtml(evt.imageUrl || '')}" placeholder="https://..."
+                            data-onchange="updateEventField('${evtId}', 'imageUrl', this.value)">
+                    </div>
+                </div>
+                <div class="event-pill-row">${heatText} ${focusDisplay} ${renderTagPills(evt.tags)}</div>
+                <div class="event-body">
+                    <textarea placeholder="Highlights" data-onchange="updateEventField('${evtId}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
+                    <textarea placeholder="Fallout" data-onchange="updateEventField('${evtId}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
+                    <textarea placeholder="Follow Ups" data-onchange="updateEventField('${evtId}', 'followUp', this.value)">${escapeHtml(evt.followUp || '')}</textarea>
+                </div>
+                <div class="event-actions">
+                    <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
+                    <button class="btn" data-onclick="openTimelineEventInBoard('${evtId}')">Board</button>
+                    <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evtId}')">Delete</button>
+                </div>
             </div>
-            <div class="event-meta">
-                <div>
-                    <label>Focus</label>
-                    <input type="text" value="${escapeHtml(evt.focus || '')}" placeholder="District / Guild"
-                        data-onchange="updateEventField('${evtId}', 'focus', this.value)">
-                </div>
-                <div>
-                    <label>Heat Δ</label>
-                    <input type="number" value="${escapeHtml(evt.heatDelta || '')}" placeholder="0"
-                        data-onchange="updateEventField('${evtId}', 'heatDelta', this.value)">
-                </div>
-                <div>
-                    <label>Tags</label>
-                    <input type="text" value="${escapeHtml(evt.tags || '')}" placeholder="tags"
-                        data-onchange="updateEventField('${evtId}', 'tags', this.value)">
-                </div>
-                <div>
-                    <label>Image URL</label>
-                    <input type="url" value="${escapeHtml(evt.imageUrl || '')}" placeholder="https://..."
-                        data-onchange="updateEventField('${evtId}', 'imageUrl', this.value)">
-                </div>
-            </div>
-            <div class="event-pill-row">${heatText} ${focusDisplay} ${renderTagPills(evt.tags)}</div>
             ${imageMarkup}
-            <div class="event-body">
-                <textarea placeholder="Highlights" data-onchange="updateEventField('${evtId}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
-                <textarea placeholder="Fallout" data-onchange="updateEventField('${evtId}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
-                <textarea placeholder="Follow Ups" data-onchange="updateEventField('${evtId}', 'followUp', this.value)">${escapeHtml(evt.followUp || '')}</textarea>
-            </div>
-            <div class="event-actions">
-                <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
-                <button class="btn" data-onclick="openTimelineEventInBoard('${evtId}')">Board</button>
-                <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evtId}')">Delete</button>
-            </div>
         </div>`;
     }
 

@@ -397,56 +397,58 @@
             : '';
         return `
         <div class="req-card">
-            <h3>
-                <input type="text" value="${escapeHtml(req.item || '')}" placeholder="Item"
-                    data-onchange="updateReqField('${reqId}', 'item', this.value)">
-                <select class="status-pill" data-onchange="updateReqField('${reqId}', 'status', this.value)">
-                    ${buildOptions(STATUS, req.status || 'Pending')}
-                </select>
-            </h3>
-            <div class="req-meta">
-                <div>
-                    <label>Requested By</label>
-                    <input type="text" value="${escapeHtml(req.requester || '')}" placeholder="Agent"
-                        data-onchange="updateReqField('${reqId}', 'requester', this.value)">
-                </div>
-                <div>
-                    <label>Guild / Source</label>
-                    <select data-onchange="updateReqField('${reqId}', 'guild', this.value)">
-                        <option value="">Unspecified</option>
-                        ${buildOptions(guilds, req.guild)}
+            <div class="req-card-content">
+                <h3>
+                    <input type="text" value="${escapeHtml(req.item || '')}" placeholder="Item"
+                        data-onchange="updateReqField('${reqId}', 'item', this.value)">
+                    <select class="status-pill" data-onchange="updateReqField('${reqId}', 'status', this.value)">
+                        ${buildOptions(STATUS, req.status || 'Pending')}
                     </select>
+                </h3>
+                <div class="req-meta">
+                    <div>
+                        <label>Requested By</label>
+                        <input type="text" value="${escapeHtml(req.requester || '')}" placeholder="Agent"
+                            data-onchange="updateReqField('${reqId}', 'requester', this.value)">
+                    </div>
+                    <div>
+                        <label>Guild / Source</label>
+                        <select data-onchange="updateReqField('${reqId}', 'guild', this.value)">
+                            <option value="">Unspecified</option>
+                            ${buildOptions(guilds, req.guild)}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Priority</label>
+                        <select data-onchange="updateReqField('${reqId}', 'priority', this.value)">
+                            ${buildOptions(PRIORITIES, req.priority || 'Routine')}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Value</label>
+                        <input type="text" value="${escapeHtml(req.value || '')}" placeholder="Cost"
+                            data-onchange="updateReqField('${reqId}', 'value', this.value)">
+                    </div>
+                    <div>
+                        <label>Image URL</label>
+                        <input type="url" value="${escapeHtml(req.imageUrl || '')}" placeholder="https://..."
+                            data-onchange="updateReqField('${reqId}', 'imageUrl', this.value)">
+                    </div>
                 </div>
-                <div>
-                    <label>Priority</label>
-                    <select data-onchange="updateReqField('${reqId}', 'priority', this.value)">
-                        ${buildOptions(PRIORITIES, req.priority || 'Routine')}
-                    </select>
-                </div>
-                <div>
-                    <label>Value</label>
-                    <input type="text" value="${escapeHtml(req.value || '')}" placeholder="Cost"
-                        data-onchange="updateReqField('${reqId}', 'value', this.value)">
-                </div>
-                <div>
-                    <label>Image URL</label>
-                    <input type="url" value="${escapeHtml(req.imageUrl || '')}" placeholder="https://..."
-                        data-onchange="updateReqField('${reqId}', 'imageUrl', this.value)">
+                <textarea class="req-notes" placeholder="Purpose / Justification"
+                    data-onchange="updateReqField('${reqId}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
+                <textarea class="req-notes" placeholder="Notes / Attachments"
+                    data-onchange="updateReqField('${reqId}', 'notes', this.value)">${escapeHtml(req.notes || '')}</textarea>
+                <input type="text" placeholder="Tags" value="${escapeHtml(req.tags || '')}"
+                    data-onchange="updateReqField('${reqId}', 'tags', this.value)">
+                <div class="req-actions">
+                    <small class="req-log-meta">Logged ${req.created ? new Date(req.created).toLocaleDateString() : '—'}</small>
+                    <button class="btn" data-onclick="openRequisitionInBoard('${reqId}')">Board</button>
+                    <button class="btn" data-onclick="openRequisitionInTimeline('${reqId}')">Timeline</button>
+                    <button class="btn btn-danger" data-onclick="deleteRequisition('${reqId}')">Delete</button>
                 </div>
             </div>
             ${imageMarkup}
-            <textarea class="req-notes" placeholder="Purpose / Justification"
-                data-onchange="updateReqField('${reqId}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
-            <textarea class="req-notes" placeholder="Notes / Attachments"
-                data-onchange="updateReqField('${reqId}', 'notes', this.value)">${escapeHtml(req.notes || '')}</textarea>
-            <input type="text" placeholder="Tags" value="${escapeHtml(req.tags || '')}"
-                data-onchange="updateReqField('${reqId}', 'tags', this.value)">
-            <div class="req-actions">
-                <small class="req-log-meta">Logged ${req.created ? new Date(req.created).toLocaleDateString() : '—'}</small>
-                <button class="btn" data-onclick="openRequisitionInBoard('${reqId}')">Board</button>
-                <button class="btn" data-onclick="openRequisitionInTimeline('${reqId}')">Timeline</button>
-                <button class="btn btn-danger" data-onclick="deleteRequisition('${reqId}')">Delete</button>
-            </div>
         </div>`;
     }
 

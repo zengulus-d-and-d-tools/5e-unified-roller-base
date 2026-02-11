@@ -2839,6 +2839,10 @@ function showContextMenu(e, node) {
         const type = getNodeTypeFromEl(node);
         setImageItem.style.display = IMAGE_EDITABLE_NODE_TYPES.has(type) ? 'block' : 'none';
     }
+    const draftItem = document.getElementById('menu-draft-encounter');
+    if (draftItem) {
+        draftItem.style.display = e.shiftKey ? 'block' : 'none';
+    }
     updateUndoOptimizeMenuState();
 }
 

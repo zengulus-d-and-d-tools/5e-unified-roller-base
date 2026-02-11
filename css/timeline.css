@@ -24,9 +24,17 @@
     position: relative;
     margin-bottom: 25px;
     padding: 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
     border-radius: 12px;
     background: rgba(0, 0, 0, 0.35);
     border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.event-card-content {
+    flex: 1;
+    min-width: 0;
 }
 
 .event-card::before {
@@ -229,11 +237,13 @@
 }
 
 .event-image-block {
-    margin-top: 10px;
+    margin-top: 0;
+    width: 220px;
+    flex: 0 0 220px;
 }
 
 .event-image-block img {
-    width: min(100%, 320px);
+    width: 100%;
     max-height: 190px;
     object-fit: cover;
     border-radius: 10px;
@@ -269,6 +279,19 @@
     .event-meta,
     .event-body {
         grid-template-columns: 1fr;
+    }
+
+    .event-card {
+        flex-direction: column;
+    }
+
+    .event-image-block {
+        width: 100%;
+        flex: 0 0 auto;
+    }
+
+    .event-image-block img {
+        width: min(100%, 320px);
     }
 
     .filter-row,
