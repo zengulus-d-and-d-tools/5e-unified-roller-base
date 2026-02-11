@@ -18,6 +18,25 @@ const escapeJsString = (value = '') => String(value)
     .replace(/\n/g, '\\n')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
+const sanitizeImageUrl = (url = '') => {
+    const candidate = String(url || '').trim();
+    if (!candidate) return '';
+
+    if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=]+$/i.test(candidate)) {
+        return candidate;
+    }
+
+    try {
+        const parsed = new URL(candidate, window.location.href);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:' || parsed.protocol === 'blob:') {
+            return parsed.href;
+        }
+    } catch (err) {
+        return '';
+    }
+
+    return '';
+};
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
@@ -178,6 +197,7 @@ function clearNPCForm() {
     document.getElementById('npcGuild').value = '';
     document.getElementById('npcWants').value = '';
     document.getElementById('npcLeverage').value = '';
+    document.getElementById('npcImageUrl').value = '';
     document.getElementById('npcNotes').value = '';
 }
 
@@ -186,6 +206,7 @@ function fillNPCForm(npc) {
     document.getElementById('npcGuild').value = npc && npc.guild ? npc.guild : '';
     document.getElementById('npcWants').value = npc && npc.wants ? npc.wants : '';
     document.getElementById('npcLeverage').value = npc && npc.leverage ? npc.leverage : '';
+    document.getElementById('npcImageUrl').value = npc && npc.imageUrl ? npc.imageUrl : '';
     document.getElementById('npcNotes').value = npc && npc.notes ? npc.notes : '';
 }
 
@@ -241,9 +262,12 @@ function addNPC() {
     const guild = document.getElementById('npcGuild').value;
     const wants = document.getElementById('npcWants').value.trim();
     const leverage = document.getElementById('npcLeverage').value.trim();
+    const imageRaw = document.getElementById('npcImageUrl').value.trim();
+    const imageUrl = sanitizeImageUrl(imageRaw);
     const notes = document.getElementById('npcNotes').value.trim();
 
     if (!name) { alert("Name Required"); return; }
+    if (imageRaw && !imageUrl) { alert("Please provide a valid image URL."); return; }
 
     const c = getCampaign();
     if (!c) return;
@@ -269,6 +293,7 @@ function addNPC() {
             guild,
             wants,
             leverage,
+            imageUrl,
             notes,
             __rtfSource: 'custom'
         };
@@ -279,6 +304,7 @@ function addNPC() {
             guild,
             wants,
             leverage,
+            imageUrl,
             notes,
             __rtfSource: 'custom'
         });
@@ -370,6 +396,10 @@ function render() {
     container.innerHTML = filtered.map(npc => {
         const npcId = String(npc.id || '');
         const npcIdArg = escapeJsString(npcId);
+        const imageUrl = sanitizeImageUrl(npc.imageUrl || '');
+        const imageMarkup = imageUrl
+            ? `<div class="roster-npc-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(npc.name || 'NPC')} portrait"></div>`
+            : '';
         const locked = isPreloadedNPC(npc);
         const editButton = locked
             ? `<span class="roster-npc-lock-icon" title="Preloaded NPC (read-only)">🔒</span>`
@@ -377,6 +407,7 @@ function render() {
 
         return `
         <div class="roster-npc-row" data-npc-id="${escapeHtml(npcId)}">
+            ${imageMarkup}
             <div class="roster-npc-name">${escapeHtml(npc.name)}</div>
             <div class="roster-npc-guild">${escapeHtml(npc.guild)}</div>
 

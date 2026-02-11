@@ -77,6 +77,19 @@
     resize: vertical;
 }
 
+.req-image-block {
+    margin-bottom: 10px;
+}
+
+.req-image-block img {
+    width: min(100%, 340px);
+    max-height: 200px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: block;
+}
+
 .req-actions {
     display: flex;
     justify-content: flex-end;

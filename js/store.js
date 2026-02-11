@@ -162,6 +162,28 @@
         if (value === null || value === undefined) return fallback;
         return String(value).slice(0, maxLen);
     };
+    const toImageUrl = (value) => {
+        const candidate = toTrimmedString(value, '', 4000).trim();
+        if (!candidate) return '';
+
+        if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=]+$/i.test(candidate)) {
+            return candidate;
+        }
+
+        try {
+            const baseHref = global.location && typeof global.location.href === 'string'
+                ? global.location.href
+                : undefined;
+            const parsed = baseHref ? new URL(candidate, baseHref) : new URL(candidate);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:' || parsed.protocol === 'blob:') {
+                return parsed.href;
+            }
+        } catch (err) {
+            return '';
+        }
+
+        return '';
+    };
 
     const toBoolean = (value) => !!value;
 
@@ -2525,7 +2547,11 @@
         }
 
         addNPC(npc) {
-            this.state.campaign.npcs.push(npc);
+            const source = npc && typeof npc === 'object' ? { ...npc } : {};
+            if (Object.prototype.hasOwnProperty.call(source, 'imageUrl')) {
+                source.imageUrl = toImageUrl(source.imageUrl);
+            }
+            this.state.campaign.npcs.push(source);
             this.save({ scope: 'campaign.npcs' });
         }
 
@@ -2622,6 +2648,7 @@
                     ? toTrimmedString(source.status, 'Pending', 40)
                     : 'Pending',
                 value: toTrimmedString(source.value, '', 120),
+                imageUrl: toImageUrl(source.imageUrl),
                 purpose: toTrimmedString(source.purpose, '', 4000),
                 notes: toTrimmedString(source.notes, '', 4000),
                 tags: toTrimmedString(source.tags, '', 4000),
@@ -2649,6 +2676,7 @@
                         return REQUISITION_STATUSES.has(normalized) ? normalized : 'Pending';
                     },
                     value: (v) => toTrimmedString(v, '', 120),
+                    imageUrl: (v) => toImageUrl(v),
                     purpose: (v) => toTrimmedString(v, '', 4000),
                     notes: (v) => toTrimmedString(v, '', 4000),
                     tags: (v) => toTrimmedString(v, '', 4000),
@@ -2683,6 +2711,7 @@
                 focus: toTrimmedString(source.focus, '', 240),
                 heatDelta: toTrimmedString(source.heatDelta, '', 12),
                 tags: toTrimmedString(source.tags, '', 2000),
+                imageUrl: toImageUrl(source.imageUrl),
                 highlights: toTrimmedString(source.highlights, '', 6000),
                 fallout: toTrimmedString(source.fallout, '', 6000),
                 followUp: toTrimmedString(source.followUp, '', 6000),
@@ -2708,6 +2737,7 @@
                     focus: (v) => toTrimmedString(v, '', 240),
                     heatDelta: (v) => toTrimmedString(v, '', 12),
                     tags: (v) => toTrimmedString(v, '', 2000),
+                    imageUrl: (v) => toImageUrl(v),
                     highlights: (v) => toTrimmedString(v, '', 6000),
                     fallout: (v) => toTrimmedString(v, '', 6000),
                     followUp: (v) => toTrimmedString(v, '', 6000),

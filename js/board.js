@@ -112,7 +112,7 @@ const CONNECTION_COLOR_PALETTE = [
     { name: 'Amber', hex: '#f3c34f' },
     { name: 'Violet', hex: '#b691ff' }
 ];
-const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue']);
+const IMAGE_EDITABLE_NODE_TYPES = new Set(['person', 'location', 'clue', 'event', 'requisition']);
 const EDGE_CONNECT_ZONE_PX = 18;
 const BOARD_LINK_FLASH_MS = 2200;
 const BOARD_CROSSLINK_TYPES = new Set(['npc', 'location', 'timeline-event', 'requisition']);
@@ -862,6 +862,11 @@ function applyBoardCrossLinkFromUrl() {
         saveBoard();
         return node;
     })();
+    if (existing) {
+        updateNodeImageMeta(existing, payload.nodeData && payload.nodeData.imageUrl ? payload.nodeData.imageUrl : '');
+        updateNodeCache(existing.id);
+        saveBoard();
+    }
 
     centerViewOnNode(target);
     flashCrossLinkedNode(target);
@@ -1171,6 +1176,7 @@ function buildNPCNodePayload(npc) {
         nodeData: {
             title: source.name || 'Unknown NPC',
             body,
+            imageUrl: source.imageUrl || '',
             meta: {
                 sourceType: 'npc',
                 npcId: source.id || '',
@@ -1192,6 +1198,7 @@ function buildLocationNodePayload(location) {
         nodeData: {
             title: source.name || 'Location',
             body,
+            imageUrl: source.imageUrl || '',
             meta: {
                 sourceType: 'location',
                 locationId: source.id || '',
@@ -1217,11 +1224,13 @@ function buildEventNodePayload(evt) {
         nodeData: {
             title: source.title || 'Event',
             body: lines.join('<br>'),
+            imageUrl: source.imageUrl || '',
             meta: {
                 sourceType: 'timeline-event',
                 eventId: source.id || '',
                 heatDelta: !isNaN(heat) ? heat : '',
-                focus: source.focus || ''
+                focus: source.focus || '',
+                caseId: source.caseId || ''
             }
         }
     };
@@ -1243,6 +1252,7 @@ function buildRequisitionNodePayload(req) {
         nodeData: {
             title: source.item || 'Requisition',
             body: lines.join('<br>'),
+            imageUrl: source.imageUrl || '',
             meta: {
                 sourceType: 'requisition',
                 requisitionId: source.id || '',
@@ -2403,6 +2413,9 @@ function createNodeMarkup(type, content = {}) {
                 <div class="timestamp-caption">TIMESTAMP</div>
                 ${withTitle}
             </div>
+            <div class="node-timestamp-media node-media-shell node-media-contain" data-image-slot="timeline">
+                <div class="node-media-fallback">${icon}</div>
+            </div>
             <div class="node-body">${bodyHtml}</div>
         `;
     }
@@ -2410,6 +2423,9 @@ function createNodeMarkup(type, content = {}) {
     if (type === 'requisition') {
         return `
             <div class="invoice-watermark" aria-hidden="true">[CONFIDENTIAL]</div>
+            <div class="node-requisition-media node-media-shell node-media-contain" data-image-slot="asset">
+                <div class="node-media-fallback">${icon}</div>
+            </div>
             ${withTitle}
             <div class="node-body">${bodyHtml}</div>
         `;
@@ -2872,7 +2888,13 @@ function setTargetNodeImageUrl() {
 
     const meta = getNodeMeta(el) || {};
     const current = typeof meta.imageUrl === 'string' ? meta.imageUrl : '';
-    const imageLabel = type === 'person' ? 'portrait' : (type === 'location' ? 'location image' : 'clue image');
+    const imageLabel = type === 'person'
+        ? 'portrait'
+        : (type === 'location'
+            ? 'location image'
+            : (type === 'event'
+                ? 'event image'
+                : (type === 'requisition' ? 'requisition image' : 'clue image')));
     const nextRaw = prompt(`Set ${imageLabel} URL (blank clears image):`, current);
     if (nextRaw === null) {
         contextMenu.style.display = 'none';
@@ -2886,9 +2908,63 @@ function setTargetNodeImageUrl() {
     }
 
     updateNodeImageMeta(el, trimmed);
+    persistLinkedNodeImageUrl(el, trimmed);
     updateNodeCache(el.id);
     saveBoard();
     contextMenu.style.display = 'none';
+}
+
+function persistLinkedNodeImageUrl(nodeEl, imageUrl = '') {
+    if (!nodeEl || !window.RTF_STORE) return;
+    const meta = getNodeMeta(nodeEl) || {};
+    const store = window.RTF_STORE;
+    const clean = sanitizeImageUrl(imageUrl);
+
+    if (meta.sourceType === 'npc') {
+        const campaign = store.state && store.state.campaign ? store.state.campaign : null;
+        const list = campaign && Array.isArray(campaign.npcs) ? campaign.npcs : [];
+        const target = list.find((entry) => String(entry && entry.id || '') === String(meta.npcId || ''));
+        if (!target) return;
+        if (clean) target.imageUrl = clean;
+        else delete target.imageUrl;
+        if (typeof store.save === 'function') store.save({ scope: 'campaign.npcs' });
+        return;
+    }
+
+    if (meta.sourceType === 'location') {
+        const campaign = store.state && store.state.campaign ? store.state.campaign : null;
+        const list = campaign && Array.isArray(campaign.locations) ? campaign.locations : [];
+        const target = list.find((entry) => String(entry && entry.id || '') === String(meta.locationId || ''));
+        if (!target) return;
+        if (clean) target.imageUrl = clean;
+        else delete target.imageUrl;
+        if (typeof store.save === 'function') store.save({ scope: 'campaign.locations' });
+        return;
+    }
+
+    if (meta.sourceType === 'timeline-event' && typeof store.updateEvent === 'function') {
+        const eventId = String(meta.eventId || '').trim();
+        if (!eventId) return;
+        let caseId = String(meta.caseId || '').trim();
+        if (!caseId) {
+            const cases = store.state && store.state.cases && Array.isArray(store.state.cases.items)
+                ? store.state.cases.items
+                : [];
+            const ownerCase = cases.find((entry) => {
+                const events = entry && Array.isArray(entry.events) ? entry.events : [];
+                return events.some((evt) => String(evt && evt.id || '') === eventId);
+            });
+            caseId = ownerCase && ownerCase.id ? String(ownerCase.id) : '';
+        }
+        store.updateEvent(eventId, { imageUrl: clean }, caseId || null);
+        return;
+    }
+
+    if (meta.sourceType === 'requisition' && typeof store.updateRequisition === 'function') {
+        const requisitionId = String(meta.requisitionId || '').trim();
+        if (!requisitionId) return;
+        store.updateRequisition(requisitionId, { imageUrl: clean });
+    }
 }
 
 function editTargetNode() {

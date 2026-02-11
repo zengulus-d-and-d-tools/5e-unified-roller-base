@@ -18,6 +18,25 @@ const escapeJsString = (value = '') => String(value)
     .replace(/\n/g, '\\n')
     .replace(/\u2028/g, '\\u2028')
     .replace(/\u2029/g, '\\u2029');
+const sanitizeImageUrl = (url = '') => {
+    const candidate = String(url || '').trim();
+    if (!candidate) return '';
+
+    if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=]+$/i.test(candidate)) {
+        return candidate;
+    }
+
+    try {
+        const parsed = new URL(candidate, window.location.href);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:' || parsed.protocol === 'blob:') {
+            return parsed.href;
+        }
+    } catch (err) {
+        return '';
+    }
+
+    return '';
+};
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
@@ -170,22 +189,48 @@ function addLocation() {
     const name = document.getElementById('locName').value;
     const district = document.getElementById('locDistrict').value;
     const desc = document.getElementById('locDesc').value;
+    const imageRaw = document.getElementById('locImageUrl').value.trim();
+    const imageUrl = sanitizeImageUrl(imageRaw);
     const notes = document.getElementById('locNotes').value;
 
     if (!name) { alert("Name Required"); return; }
+    if (imageRaw && !imageUrl) { alert("Please provide a valid image URL."); return; }
 
     const c = getCampaign();
     if (!c) return;
     if (!c.locations) c.locations = [];
-    c.locations.push({ id: createLocationId(), name, district, desc, notes });
+    c.locations.push({ id: createLocationId(), name, district, desc, imageUrl, notes });
     save();
 
     // Reset Form
     document.getElementById('locName').value = '';
     document.getElementById('locDistrict').value = '';
     document.getElementById('locDesc').value = '';
+    document.getElementById('locImageUrl').value = '';
     document.getElementById('locNotes').value = '';
     toggleLocationForm();
+}
+
+function updateLocationImage(locationId, value) {
+    const c = getCampaign();
+    if (!c || !Array.isArray(c.locations)) return;
+    const id = String(locationId || '');
+    const idx = c.locations.findIndex((entry) => String(entry && entry.id || '') === id);
+    if (idx < 0) return;
+
+    const raw = String(value || '').trim();
+    const imageUrl = sanitizeImageUrl(raw);
+    if (raw && !imageUrl) {
+        alert("Please provide a valid image URL.");
+        render();
+        return;
+    }
+
+    c.locations[idx] = {
+        ...c.locations[idx],
+        imageUrl
+    };
+    save();
 }
 
 function deleteLocation(locationId) {
@@ -237,14 +282,24 @@ function render() {
     container.innerHTML = filtered.map(loc => {
         const locationId = String(loc.id || '');
         const locationIdArg = escapeJsString(locationId);
+        const imageUrl = sanitizeImageUrl(loc.imageUrl || '');
+        const imageMarkup = imageUrl
+            ? `<div class="locations-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(loc.name || 'Location')} image"></div>`
+            : '';
         return `
         <div class="locations-row" data-location-id="${escapeHtml(locationId)}">
+            ${imageMarkup}
             <div class="locations-name">${escapeHtml(loc.name)}</div>
             <div class="locations-district">${escapeHtml(loc.district || 'Unassigned')}</div>
             
             <div class="locations-desc-block">
                 <div class="locations-desc-label">Description</div>
                 ${escapeHtml(loc.desc || '-')}
+            </div>
+            <div class="locations-desc-block">
+                <div class="locations-desc-label">Image URL</div>
+                <input type="url" value="${escapeHtml(loc.imageUrl || '')}" placeholder="https://..."
+                    data-onchange="updateLocationImage('${locationIdArg}', this.value)">
             </div>
             
             <div class="locations-notes">
@@ -276,3 +331,4 @@ window.addEventListener('rtf-store-updated', () => {
 
 window.copyLocationLink = copyLocationLink;
 window.openLocationInBoard = openLocationInBoard;
+window.updateLocationImage = updateLocationImage;

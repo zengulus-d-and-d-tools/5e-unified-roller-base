@@ -18,6 +18,25 @@
     let delegatedHandlersBound = false;
     let deleteManager = null;
     let pendingDeepLinkFocus = '';
+    const sanitizeImageUrl = (url = '') => {
+        const candidate = String(url || '').trim();
+        if (!candidate) return '';
+
+        if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=]+$/i.test(candidate)) {
+            return candidate;
+        }
+
+        try {
+            const parsed = new URL(candidate, window.location.href);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:' || parsed.protocol === 'blob:') {
+                return parsed.href;
+            }
+        } catch (err) {
+            return '';
+        }
+
+        return '';
+    };
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
@@ -154,7 +173,7 @@
     }
 
     function resetForm() {
-        ['eventTitle', 'eventFocus', 'eventTags', 'eventHighlights', 'eventFallout', 'eventFollow'].forEach(id => {
+        ['eventTitle', 'eventFocus', 'eventTags', 'eventImageUrl', 'eventHighlights', 'eventFallout', 'eventFollow'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -170,12 +189,19 @@
             alert('Event name required.');
             return;
         }
+        const imageRaw = document.getElementById('eventImageUrl').value.trim();
+        const imageUrl = sanitizeImageUrl(imageRaw);
+        if (imageRaw && !imageUrl) {
+            alert('Please provide a valid image URL.');
+            return;
+        }
         const data = {
             id: 'event_' + Date.now(),
             title,
             focus: document.getElementById('eventFocus').value,
             heatDelta: document.getElementById('eventHeat').value,
             tags: document.getElementById('eventTags').value,
+            imageUrl,
             highlights: document.getElementById('eventHighlights').value,
             fallout: document.getElementById('eventFallout').value,
             followUp: document.getElementById('eventFollow').value,
@@ -192,11 +218,22 @@
     function updateEventField(id, field, value) {
         const store = getStore();
         if (!store) return;
+        let nextValue = value;
+        if (field === 'imageUrl') {
+            const raw = String(value || '').trim();
+            const clean = sanitizeImageUrl(raw);
+            if (raw && !clean) {
+                alert('Please provide a valid image URL.');
+                renderTimeline();
+                return;
+            }
+            nextValue = clean;
+        }
         const existing = (store.getEvents ? store.getEvents() : []).find(evt => evt.id === id);
         const previousHeat = existing ? parseHeatDelta(existing.heatDelta) : 0;
-        store.updateEvent(id, { [field]: value });
+        store.updateEvent(id, { [field]: nextValue });
         if (field === 'heatDelta') {
-            const nextHeat = parseHeatDelta(value);
+            const nextHeat = parseHeatDelta(nextValue);
             applyHeatDelta(nextHeat - previousHeat, store);
         }
         renderTimeline();
@@ -258,6 +295,10 @@
         const resolved = Boolean(evt.resolved);
         const statusClass = resolved ? 'resolved' : 'pending';
         const statusLabel = resolved ? 'Resolved' : 'Pending';
+        const imageUrl = sanitizeImageUrl(evt.imageUrl || '');
+        const imageMarkup = imageUrl
+            ? `<div class="event-image-block"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(evt.title || 'Event')} image"></div>`
+            : '';
 
         return `
         <div class="event-card">
@@ -284,8 +325,14 @@
                     <input type="text" value="${escapeHtml(evt.tags || '')}" placeholder="tags"
                         data-onchange="updateEventField('${evtId}', 'tags', this.value)">
                 </div>
+                <div>
+                    <label>Image URL</label>
+                    <input type="url" value="${escapeHtml(evt.imageUrl || '')}" placeholder="https://..."
+                        data-onchange="updateEventField('${evtId}', 'imageUrl', this.value)">
+                </div>
             </div>
             <div class="event-pill-row">${heatText} ${focusDisplay} ${renderTagPills(evt.tags)}</div>
+            ${imageMarkup}
             <div class="event-body">
                 <textarea placeholder="Highlights" data-onchange="updateEventField('${evtId}', 'highlights', this.value)">${escapeHtml(evt.highlights || '')}</textarea>
                 <textarea placeholder="Fallout" data-onchange="updateEventField('${evtId}', 'fallout', this.value)">${escapeHtml(evt.fallout || '')}</textarea>
@@ -386,6 +433,7 @@
             lines.push(`### ${title}`);
             lines.push(`- Focus: ${focus}`);
             lines.push(`- Heat Δ: ${heatDisplay}`);
+            lines.push(`- Image: ${normalizeRecapText(evt.imageUrl)}`);
             lines.push(`- Highlights: ${normalizeRecapText(evt.highlights)}`);
             lines.push(`- Fallout: ${normalizeRecapText(evt.fallout)}`);
             lines.push(`- Follow-up: ${normalizeRecapText(evt.followUp)}`);

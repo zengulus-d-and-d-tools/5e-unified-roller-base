@@ -228,6 +228,19 @@
     margin-top: 10px;
 }
 
+.event-image-block {
+    margin-top: 10px;
+}
+
+.event-image-block img {
+    width: min(100%, 320px);
+    max-height: 190px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: block;
+}
+
 .tag-pill-heat-up {
     border-color: var(--danger);
     color: var(--danger);

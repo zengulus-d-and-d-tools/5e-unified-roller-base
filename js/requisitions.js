@@ -29,6 +29,25 @@
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
     let deleteManager = null;
+    const sanitizeImageUrl = (url = '') => {
+        const candidate = String(url || '').trim();
+        if (!candidate) return '';
+
+        if (/^data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=]+$/i.test(candidate)) {
+            return candidate;
+        }
+
+        try {
+            const parsed = new URL(candidate, window.location.href);
+            if (parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'file:' || parsed.protocol === 'blob:') {
+                return parsed.href;
+            }
+        } catch (err) {
+            return '';
+        }
+
+        return '';
+    };
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
@@ -221,7 +240,7 @@
     }
 
     function resetForm() {
-        ['reqItem', 'reqRequester', 'reqValue', 'reqPurpose', 'reqNotes', 'reqTags'].forEach(id => {
+        ['reqItem', 'reqRequester', 'reqValue', 'reqImageUrl', 'reqPurpose', 'reqNotes', 'reqTags'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -242,6 +261,12 @@
             alert('Item and Requester are required.');
             return;
         }
+        const imageRaw = document.getElementById('reqImageUrl').value.trim();
+        const imageUrl = sanitizeImageUrl(imageRaw);
+        if (imageRaw && !imageUrl) {
+            alert('Please provide a valid image URL.');
+            return;
+        }
         const data = {
             id: 'req_' + Date.now(),
             item,
@@ -250,6 +275,7 @@
             priority: document.getElementById('reqPriority').value,
             status: document.getElementById('reqStatus').value,
             value: document.getElementById('reqValue').value,
+            imageUrl,
             purpose: document.getElementById('reqPurpose').value,
             notes: document.getElementById('reqNotes').value,
             tags: document.getElementById('reqTags').value,
@@ -265,9 +291,20 @@
     function updateReqField(id, field, value) {
         const store = getStore();
         if (!store) return;
+        let nextValue = value;
+        if (field === 'imageUrl') {
+            const raw = String(value || '').trim();
+            const clean = sanitizeImageUrl(raw);
+            if (raw && !clean) {
+                alert('Please provide a valid image URL.');
+                renderRequisitions();
+                return;
+            }
+            nextValue = clean;
+        }
         const existing = (store.getRequisitions() || []).find(req => req.id === id) || null;
         const prevStatus = existing && existing.status ? existing.status : '';
-        store.updateRequisition(id, { [field]: value });
+        store.updateRequisition(id, { [field]: nextValue });
 
         if (field === 'status') {
             const nextStatus = String(value || '');
@@ -354,6 +391,10 @@
 
     function buildCard(req) {
         const reqId = escapeJsString(req.id || '');
+        const imageUrl = sanitizeImageUrl(req.imageUrl || '');
+        const imageMarkup = imageUrl
+            ? `<div class="req-image-block"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(req.item || 'Requisition')} image"></div>`
+            : '';
         return `
         <div class="req-card">
             <h3>
@@ -387,7 +428,13 @@
                     <input type="text" value="${escapeHtml(req.value || '')}" placeholder="Cost"
                         data-onchange="updateReqField('${reqId}', 'value', this.value)">
                 </div>
+                <div>
+                    <label>Image URL</label>
+                    <input type="url" value="${escapeHtml(req.imageUrl || '')}" placeholder="https://..."
+                        data-onchange="updateReqField('${reqId}', 'imageUrl', this.value)">
+                </div>
             </div>
+            ${imageMarkup}
             <textarea class="req-notes" placeholder="Purpose / Justification"
                 data-onchange="updateReqField('${reqId}', 'purpose', this.value)">${escapeHtml(req.purpose || '')}</textarea>
             <textarea class="req-notes" placeholder="Notes / Attachments"

@@ -464,8 +464,8 @@ body.mobile-board .popup-menu * {
 
 /* Event: The Timestamp */
 .type-event {
-    width: 180px;
-    min-height: 250px;
+    width: 210px;
+    min-height: 280px;
     padding: 0;
     border: 1px solid rgba(152, 191, 255, 0.35);
     border-radius: 10px;
@@ -496,6 +496,12 @@ body.mobile-board .popup-menu * {
     color: #9dffbf;
     text-shadow: 0 0 12px rgba(107, 255, 164, 0.28);
     line-height: 1.2;
+}
+
+.type-event .node-timestamp-media {
+    height: 88px;
+    border-bottom: 1px solid rgba(166, 212, 255, 0.2);
+    background-color: rgba(7, 11, 18, 0.78);
 }
 
 .type-event .node-body {
@@ -531,6 +537,14 @@ body.mobile-board .popup-menu * {
     font-size: 1.45rem;
     transform: rotate(-20deg);
     pointer-events: none;
+}
+
+.type-requisition .node-requisition-media {
+    height: 82px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(34, 34, 34, 0.25);
+    border-radius: 2px;
+    background-color: rgba(240, 236, 227, 0.72);
 }
 
 .type-requisition .node-title,
@@ -1308,13 +1322,13 @@ body.focus-active .header-overlay {
     }
 
     .type-event {
-        width: 164px;
-        min-height: 224px;
+        width: 184px;
+        min-height: 246px;
     }
 
     .type-requisition {
-        width: 226px;
-        min-height: 154px;
+        width: 236px;
+        min-height: 188px;
     }
 
     .node.editing {
