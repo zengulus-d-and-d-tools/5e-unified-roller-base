@@ -1,4 +1,5 @@
 (function () {
+    const SOFT_DELETE_MS = 12000;
     const TIERS = [
         { value: 'Routine', cardClass: 'enc-card-tier-routine' },
         { value: 'Standard', cardClass: 'enc-card-tier-standard' },
@@ -22,8 +23,20 @@
     const delegatedHandlerEvents = ['click', 'change', 'input'];
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
+    let deleteManager = null;
 
     const getStore = () => window.RTF_STORE;
+    const getDeleteManager = () => {
+        if (deleteManager) return deleteManager;
+        const api = window.RTF_SOFT_DELETE;
+        if (!api || typeof api.createSoftDeleteManager !== 'function') return null;
+        deleteManager = api.createSoftDeleteManager({
+            undoMs: SOFT_DELETE_MS,
+            host: document.body,
+            onStateChange: () => renderEncounters()
+        });
+        return deleteManager;
+    };
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
@@ -145,10 +158,31 @@
     }
 
     function deleteEncounter(id) {
-        if (!confirm('Delete this encounter recipe?')) return;
         const store = getStore();
         if (!store) return;
-        store.deleteEncounter(id);
+        const list = store.getEncounters ? store.getEncounters() : [];
+        const target = list.find((enc) => enc && enc.id === id);
+        if (!target) return;
+
+        const manager = getDeleteManager();
+        if (!manager) {
+            if (!confirm('Delete this encounter recipe?')) return;
+            store.deleteEncounter(id);
+            renderEncounters();
+            return;
+        }
+
+        manager.schedule({
+            id,
+            label: `Encounter removed: ${target.title || 'Untitled Encounter'}`,
+            onFinalize: () => {
+                store.deleteEncounter(id);
+                renderEncounters();
+            },
+            onUndo: () => {
+                renderEncounters();
+            }
+        });
         renderEncounters();
     }
 
@@ -199,6 +233,7 @@
 
     function renderEncounters() {
         const store = getStore();
+        const manager = getDeleteManager();
         const container = document.getElementById('encounterList');
         if (!store || !container) return;
         populateTierSelects();
@@ -207,6 +242,7 @@
 
         const list = (store.getEncounters() || []).slice();
         const filtered = list.filter(enc => {
+            if (manager && manager.isPending(enc.id)) return false;
             const text = `${enc.title || ''} ${enc.location || ''} ${enc.objective || ''} ${enc.opposition || ''} ${enc.hazards || ''} ${enc.beats || ''} ${enc.rewards || ''} ${enc.notes || ''}`.toLowerCase();
             const matchesSearch = search ? text.includes(search) : true;
             const matchesTier = tierFilter ? enc.tier === tierFilter : true;
@@ -222,6 +258,7 @@
 
     function waitForStore() {
         if (getStore()) {
+            getDeleteManager();
             renderEncounters();
         } else {
             setTimeout(waitForStore, 100);
@@ -237,4 +274,8 @@
     window.deleteEncounter = deleteEncounter;
 
     window.addEventListener('load', waitForStore);
+    window.addEventListener('beforeunload', () => {
+        const manager = getDeleteManager();
+        if (manager && typeof manager.flush === 'function') manager.flush();
+    });
 })();

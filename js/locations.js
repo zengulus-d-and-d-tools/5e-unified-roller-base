@@ -11,9 +11,17 @@ const escapeHtml = (str = '') => String(str)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+const escapeJsString = (value = '') => String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
+let pendingLinkLocationId = '';
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -71,6 +79,51 @@ function save() {
     render();
 }
 
+function createLocationId() {
+    return 'loc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+function getLocationIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return String(params.get('locationId') || '').trim();
+}
+
+function buildLocationDeepLink(locationId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('locationId', String(locationId || ''));
+    return url.toString();
+}
+
+function copyLocationLink(locationId) {
+    const id = String(locationId || '').trim();
+    if (!id) return;
+    const url = buildLocationDeepLink(id);
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(url).catch(() => {
+            prompt('Copy location link:', url);
+        });
+        return;
+    }
+    prompt('Copy location link:', url);
+}
+
+function applyPendingLocationDeepLinkFocus() {
+    if (!pendingLinkLocationId) return;
+    const rows = Array.from(document.querySelectorAll('.locations-row[data-location-id]'));
+    const target = rows.find((row) => row.dataset.locationId === pendingLinkLocationId);
+    if (!target) return;
+
+    pendingLinkLocationId = '';
+    requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('locations-linked-focus');
+        setTimeout(() => {
+            target.classList.remove('locations-linked-focus');
+        }, 2200);
+    });
+}
+
 function ensureDistrictOptions() {
     const formSelect = document.getElementById('locDistrict');
     if (formSelect && formSelect.options.length <= 1) {
@@ -111,7 +164,7 @@ function addLocation() {
     const c = getCampaign();
     if (!c) return;
     if (!c.locations) c.locations = [];
-    c.locations.push({ name, district, desc, notes });
+    c.locations.push({ id: createLocationId(), name, district, desc, notes });
     save();
 
     // Reset Form
@@ -122,10 +175,13 @@ function addLocation() {
     toggleLocationForm();
 }
 
-function deleteLocation(idx) {
+function deleteLocation(locationId) {
     if (confirm("Delete this Location?")) {
         const c = getCampaign();
         if (!c || !Array.isArray(c.locations)) return;
+        const id = String(locationId || '');
+        const idx = c.locations.findIndex((entry) => String(entry && entry.id || '') === id);
+        if (idx < 0) return;
         c.locations.splice(idx, 1);
         save();
     }
@@ -143,10 +199,19 @@ function render() {
     const container = document.getElementById('locationList');
     if (!container) return;
 
-    // We map FIRST to preserve original index, THEN filter
-    // Note: If we just splice by filtered index we might delete the wrong item.
-    // The safest way is to store the original index.
-    const list = (c.locations || []).map((loc, idx) => ({ ...loc, origIdx: idx }));
+    const list = (c.locations || []).filter((loc) => loc && typeof loc === 'object');
+    let mutatedIds = false;
+    list.forEach((loc) => {
+        if (!loc.id) {
+            loc.id = createLocationId();
+            mutatedIds = true;
+        }
+    });
+    if (mutatedIds && window.RTF_STORE) {
+        setTimeout(() => {
+            window.RTF_STORE.save({ scope: 'campaign.locations' });
+        }, 0);
+    }
 
     const filtered = list.filter(loc => {
         const name = String(loc.name || '');
@@ -156,8 +221,11 @@ function render() {
         return matchesName && matchesDistrict;
     });
 
-    container.innerHTML = filtered.map(loc => `
-        <div class="locations-row">
+    container.innerHTML = filtered.map(loc => {
+        const locationId = String(loc.id || '');
+        const locationIdArg = escapeJsString(locationId);
+        return `
+        <div class="locations-row" data-location-id="${escapeHtml(locationId)}">
             <div class="locations-name">${escapeHtml(loc.name)}</div>
             <div class="locations-district">${escapeHtml(loc.district || 'Unassigned')}</div>
             
@@ -170,15 +238,26 @@ function render() {
                 ${escapeHtml(loc.notes || '')}
             </div>
 
-            <button class="btn locations-delete-btn" data-onclick="deleteLocation(${loc.origIdx})" title="Delete Location">&times;</button>
+            <button class="btn locations-link-btn" data-onclick="copyLocationLink('${locationIdArg}')" title="Copy deep link">🔗</button>
+            <button class="btn locations-delete-btn" data-onclick="deleteLocation('${locationIdArg}')" title="Delete Location">&times;</button>
         </div>
-    `).join('');
+    `;
+    }).join('');
+
+    applyPendingLocationDeepLinkFocus();
 }
 
 window.addEventListener('load', () => {
+    pendingLinkLocationId = getLocationIdFromUrl();
     if (window.RTF_STORE) {
         render();
     } else {
         setTimeout(render, 100);
     }
 });
+
+window.addEventListener('rtf-store-updated', () => {
+    render();
+});
+
+window.copyLocationLink = copyLocationLink;

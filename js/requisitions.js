@@ -1,6 +1,7 @@
 (function () {
     const STATUS = ["Pending", "Approved", "In Transit", "Delivered", "Denied"];
     const PRIORITIES = ["Routine", "Tactical", "Emergency"];
+    const SOFT_DELETE_MS = 12000;
     const PRIORITY_WEIGHT = PRIORITIES.reduce((acc, val, idx) => {
         acc[val] = idx;
         return acc;
@@ -27,6 +28,7 @@
     const delegatedHandlerEvents = ['click', 'change', 'input'];
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
+    let deleteManager = null;
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
@@ -77,6 +79,17 @@
         const logger = window.RTF_SESSION_LOG;
         if (!logger || typeof logger.logMajorEvent !== 'function') return null;
         return logger;
+    };
+    const getDeleteManager = () => {
+        if (deleteManager) return deleteManager;
+        const api = window.RTF_SOFT_DELETE;
+        if (!api || typeof api.createSoftDeleteManager !== 'function') return null;
+        deleteManager = api.createSoftDeleteManager({
+            undoMs: SOFT_DELETE_MS,
+            host: document.body,
+            onStateChange: () => renderRequisitions()
+        });
+        return deleteManager;
     };
 
     function logRequisitionGained(req) {
@@ -231,10 +244,31 @@
     }
 
     function deleteRequisition(id) {
-        if (!confirm('Delete this requisition?')) return;
         const store = getStore();
         if (!store) return;
-        store.deleteRequisition(id);
+        const list = store.getRequisitions ? store.getRequisitions() : [];
+        const target = list.find((req) => req && req.id === id);
+        if (!target) return;
+
+        const manager = getDeleteManager();
+        if (!manager) {
+            if (!confirm('Delete this requisition?')) return;
+            store.deleteRequisition(id);
+            renderRequisitions();
+            return;
+        }
+
+        manager.schedule({
+            id,
+            label: `Requisition removed: ${target.item || 'Untitled Request'}`,
+            onFinalize: () => {
+                store.deleteRequisition(id);
+                renderRequisitions();
+            },
+            onUndo: () => {
+                renderRequisitions();
+            }
+        });
         renderRequisitions();
     }
 
@@ -298,6 +332,7 @@
 
     function renderRequisitions() {
         const store = getStore();
+        const manager = getDeleteManager();
         populateOptions();
         const container = document.getElementById('reqList');
         if (!container || !store) return;
@@ -308,6 +343,7 @@
 
         const list = (store.getRequisitions() || []).slice();
         const filtered = list.filter(req => {
+            if (manager && manager.isPending(req.id)) return false;
             const text = `${req.item || ''} ${req.requester || ''} ${req.purpose || ''} ${req.notes || ''} ${req.tags || ''}`.toLowerCase();
             const matchesSearch = search ? text.includes(search) : true;
             const matchesStatus = statusFilter ? req.status === statusFilter : true;
@@ -328,6 +364,7 @@
     }
 
     function init() {
+        getDeleteManager();
         populateOptions();
         renderRequisitions();
     }
@@ -349,4 +386,8 @@
     window.deleteRequisition = deleteRequisition;
 
     window.addEventListener('load', waitForStore);
+    window.addEventListener('beforeunload', () => {
+        const manager = getDeleteManager();
+        if (manager && typeof manager.flush === 'function') manager.flush();
+    });
 })();

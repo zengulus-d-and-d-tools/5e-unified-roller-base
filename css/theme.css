@@ -741,3 +741,53 @@ input:checked+.slider:before {
 ::-webkit-scrollbar-thumb:hover {
     background: #444;
 }
+
+.soft-delete-toast {
+    position: fixed;
+    right: clamp(12px, 3vw, 28px);
+    bottom: clamp(12px, 3vw, 24px);
+    z-index: 2600;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    max-width: min(680px, calc(100vw - 24px));
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, rgba(255, 255, 255, 0.22));
+    background: color-mix(in srgb, rgba(2, 6, 13, 0.94) 78%, var(--accent-tertiary) 22%);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.45);
+}
+
+.soft-delete-toast[hidden] {
+    display: none;
+}
+
+.soft-delete-toast__message {
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.soft-delete-toast__meta {
+    font-size: 0.8rem;
+    color: var(--accent-muted);
+    white-space: nowrap;
+}
+
+.soft-delete-toast__undo {
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .soft-delete-toast {
+        left: 12px;
+        right: 12px;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .soft-delete-toast__undo {
+        width: 100%;
+        margin-left: 0;
+    }
+}

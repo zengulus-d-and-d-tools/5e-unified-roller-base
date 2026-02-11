@@ -1,4 +1,5 @@
 (function () {
+    const SOFT_DELETE_MS = 12000;
     const escapeHtml = (str = '') => String(str)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -15,6 +16,7 @@
     const delegatedHandlerEvents = ['click', 'change', 'input'];
     const delegatedHandlerCache = new Map();
     let delegatedHandlersBound = false;
+    let deleteManager = null;
 
     function getDelegatedHandlerFn(code) {
         if (!delegatedHandlerCache.has(code)) {
@@ -63,6 +65,17 @@
     bindDelegatedDataHandlers();
 
     const getStore = () => window.RTF_STORE;
+    const getDeleteManager = () => {
+        if (deleteManager) return deleteManager;
+        const api = window.RTF_SOFT_DELETE;
+        if (!api || typeof api.createSoftDeleteManager !== 'function') return null;
+        deleteManager = api.createSoftDeleteManager({
+            undoMs: SOFT_DELETE_MS,
+            host: document.body,
+            onStateChange: () => renderTimeline()
+        });
+        return deleteManager;
+    };
     const HEAT_SYNC_KEY = 'rtf_timeline_auto_heat';
     const HEAT_MIN = 0;
     const HEAT_MAX = 6;
@@ -151,13 +164,33 @@
     }
 
     function deleteTimelineEvent(id) {
-        if (!confirm('Delete this logged event?')) return;
         const store = getStore();
         if (!store) return;
         const existing = (store.getEvents ? store.getEvents() : []).find(evt => evt.id === id);
+        if (!existing) return;
         const previousHeat = existing ? parseHeatDelta(existing.heatDelta) : 0;
-        store.deleteEvent(id);
-        applyHeatDelta(-previousHeat, store);
+
+        const manager = getDeleteManager();
+        if (!manager) {
+            if (!confirm('Delete this logged event?')) return;
+            store.deleteEvent(id);
+            applyHeatDelta(-previousHeat, store);
+            renderTimeline();
+            return;
+        }
+
+        manager.schedule({
+            id,
+            label: `Event removed: ${existing.title || 'Untitled Event'}`,
+            onFinalize: () => {
+                store.deleteEvent(id);
+                applyHeatDelta(-previousHeat, store);
+                renderTimeline();
+            },
+            onUndo: () => {
+                renderTimeline();
+            }
+        });
         renderTimeline();
     }
 
@@ -239,6 +272,7 @@
 
     function getFilteredEvents() {
         const store = getStore();
+        const manager = getDeleteManager();
         if (!store) {
             return { filtered: [], filters: null };
         }
@@ -252,6 +286,7 @@
         const hideResolved = isButtonPressed('eventHideResolved');
 
         const filtered = events.filter(evt => {
+            if (manager && manager.isPending(evt.id)) return false;
             const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
             const matchesSearch = search ? text.includes(search) : true;
             const matchesFocus = focusFilter ? evt.focus === focusFilter : true;
@@ -355,6 +390,7 @@
     }
 
     function init() {
+        getDeleteManager();
         const autoHeatToggle = document.getElementById('eventAutoHeat');
         if (autoHeatToggle) {
             setButtonPressed(autoHeatToggle, isHeatAutoSyncEnabled());
@@ -382,6 +418,10 @@
     window.toggleResolved = toggleResolved;
 
     window.addEventListener('load', waitForStore);
+    window.addEventListener('beforeunload', () => {
+        const manager = getDeleteManager();
+        if (manager && typeof manager.flush === 'function') manager.flush();
+    });
 
     function setButtonPressed(button, pressed) {
         if (!button) return;

@@ -165,6 +165,16 @@
 
     const toBoolean = (value) => !!value;
 
+    const buildEntityId = (prefix = 'entry', index = 0, bump = 0) => {
+        const cleanPrefix = String(prefix || 'entry')
+            .toLowerCase()
+            .replace(/[^a-z0-9_]/g, '')
+            .slice(0, 12) || 'entry';
+        const indexToken = Math.max(0, toNonNegativeInt(index, 0)).toString(36);
+        const bumpToken = Math.max(0, toNonNegativeInt(bump, 0)).toString(36);
+        return `${cleanPrefix}_${Date.now().toString(36)}_${indexToken}${Math.random().toString(36).slice(2, 7)}${bump ? '_' + bumpToken : ''}`;
+    };
+
     const sanitizePatch = (raw, schema) => {
         const source = raw && typeof raw === 'object' ? raw : null;
         if (!source || !schema || typeof schema !== 'object') return null;
@@ -1018,7 +1028,7 @@
                 }
 
                 this.state = sanitizeState(this.state);
-                this.ensurePlayerIds(false);
+                this.ensureCampaignEntityIds(false);
                 this.syncActiveCaseLegacyState();
                 if (this.ingestPreloadedData()) this.save({ scope: 'campaign' });
                 this.sync.lastSyncedState = sanitizeState(this.state);
@@ -1097,6 +1107,7 @@
             const scopes = normalizeScopeList(opts.scope || SYNC_SCOPE_GLOBAL);
 
             try {
+                this.ensureCampaignEntityIds(false);
                 this.syncActiveCaseLegacyState();
                 const now = Date.now();
                 this.state.meta.updated = now;
@@ -1201,7 +1212,7 @@
                             }
 
                             this.state = sanitizeState(loaded);
-                            this.ensurePlayerIds(false);
+                            this.ensureCampaignEntityIds(false);
                             this.save({ scope: SYNC_SCOPE_GLOBAL });
                             resolve(true);
                         } catch (err) {
@@ -1605,7 +1616,7 @@
             const dirtyScopes = conflict.dirtyScopes && conflict.dirtyScopes.length ? conflict.dirtyScopes : [SYNC_SCOPE_GLOBAL];
             this.state = sanitizeState(conflict.mergedState);
             this.syncActiveCaseLegacyState();
-            this.ensurePlayerIds(false);
+            this.ensureCampaignEntityIds(false);
             this.state.meta.updated = Date.now();
             this.state.meta.syncRevision = toNonNegativeInt(conflict.remoteRevision, this.state.meta.syncRevision);
             this.markLocalDirtyScopes(dirtyScopes, Date.now());
@@ -1688,7 +1699,7 @@
                 const dirtyScopes = conflict.dirtyScopes && conflict.dirtyScopes.length ? conflict.dirtyScopes : [SYNC_SCOPE_GLOBAL];
                 this.state = sanitizeState(conflict.mergedState);
                 this.syncActiveCaseLegacyState();
-                this.ensurePlayerIds(false);
+                this.ensureCampaignEntityIds(false);
                 this.markLocalDirtyScopes(dirtyScopes, Date.now());
                 this.save({ skipCloud: true, scope: dirtyScopes });
                 this.sync.lastKnownRemoteRevision = toNonNegativeInt(conflict.remoteRevision, this.sync.lastKnownRemoteRevision);
@@ -2268,7 +2279,7 @@
                         if (!conflict.overlappingScopes.length && attempt < 2) {
                             this.state = sanitizeState(conflict.mergedState);
                             this.syncActiveCaseLegacyState();
-                            this.ensurePlayerIds(false);
+                            this.ensureCampaignEntityIds(false);
                             this.markLocalDirtyScopes(dirtyScopes, Date.now());
                             try {
                                 localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
@@ -2359,7 +2370,7 @@
                         if (!conflict.overlappingScopes.length && attempt < 2) {
                             this.state = sanitizeState(conflict.mergedState);
                             this.syncActiveCaseLegacyState();
-                            this.ensurePlayerIds(false);
+                            this.ensureCampaignEntityIds(false);
                             this.markLocalDirtyScopes(dirtyScopes, Date.now());
                             try {
                                 localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
@@ -2436,7 +2447,7 @@
             cleaned.meta.updated = remoteUpdated;
             cleaned.meta.syncRevision = remoteRevision || toNonNegativeInt(cleaned.meta.syncRevision, 0);
             this.state = cleaned;
-            this.ensurePlayerIds(false);
+            this.ensureCampaignEntityIds(false);
             this.syncActiveCaseLegacyState();
 
             try {
@@ -2533,6 +2544,52 @@
                     this.save({ scope: 'campaign.players' });
                 } catch (err) {
                     console.warn('RTF_STORE: Failed to persist player IDs', err);
+                }
+            }
+        }
+
+        ensureCampaignEntityIds(persist = true) {
+            this.ensurePlayerIds(false);
+            if (!this.state.campaign || typeof this.state.campaign !== 'object') return;
+
+            let mutated = false;
+            const ensureListIds = (list, prefix) => {
+                if (!Array.isArray(list)) return;
+                const seen = new Set();
+
+                list.forEach((entry, idx) => {
+                    if (!entry || typeof entry !== 'object') return;
+
+                    let candidate = toTrimmedString(entry.id, '', 80).trim();
+                    if (candidate && !seen.has(candidate)) {
+                        if (entry.id !== candidate) {
+                            entry.id = candidate;
+                            mutated = true;
+                        }
+                        seen.add(candidate);
+                        return;
+                    }
+
+                    let bump = 0;
+                    do {
+                        candidate = buildEntityId(prefix, idx, bump);
+                        bump += 1;
+                    } while (seen.has(candidate));
+
+                    entry.id = candidate;
+                    seen.add(candidate);
+                    mutated = true;
+                });
+            };
+
+            ensureListIds(this.state.campaign.npcs, 'npc');
+            ensureListIds(this.state.campaign.locations, 'loc');
+
+            if (mutated && persist) {
+                try {
+                    this.save({ scope: ['campaign.npcs', 'campaign.locations'] });
+                } catch (err) {
+                    console.warn('RTF_STORE: Failed to persist campaign entity IDs', err);
                 }
             }
         }

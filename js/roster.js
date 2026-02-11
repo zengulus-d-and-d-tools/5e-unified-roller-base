@@ -11,6 +11,13 @@ const escapeHtml = (str = '') => String(str)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+const escapeJsString = (value = '') => String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r/g, '\\r')
+    .replace(/\n/g, '\\n')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029');
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
@@ -61,7 +68,8 @@ function bindDelegatedDataHandlers() {
 
 bindDelegatedDataHandlers();
 
-let editingNPCIndex = null;
+let editingNPCId = '';
+let pendingLinkNPCId = '';
 
 const normalizeNPCField = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const buildNPCSignature = (npc) => {
@@ -87,6 +95,62 @@ function getCampaign() {
 function save() {
     if (window.RTF_STORE) window.RTF_STORE.save({ scope: 'campaign.npcs' });
     render();
+}
+
+function createNPCId() {
+    return 'npc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+function findNPCById(npcId) {
+    const c = getCampaign();
+    if (!c || !Array.isArray(c.npcs)) return { npc: null, index: -1 };
+    const id = String(npcId || '');
+    const index = c.npcs.findIndex((entry) => String(entry && entry.id || '') === id);
+    return {
+        npc: index >= 0 ? c.npcs[index] : null,
+        index
+    };
+}
+
+function getLinkedNpcIdFromUrl() {
+    const params = new URLSearchParams(window.location.search);
+    return String(params.get('npcId') || '').trim();
+}
+
+function buildNPCDeepLink(npcId) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('npcId', String(npcId || ''));
+    return url.toString();
+}
+
+function copyNPCLink(npcId) {
+    const id = String(npcId || '').trim();
+    if (!id) return;
+    const url = buildNPCDeepLink(id);
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(url).catch(() => {
+            prompt('Copy NPC link:', url);
+        });
+        return;
+    }
+    prompt('Copy NPC link:', url);
+}
+
+function applyPendingNpcDeepLinkFocus() {
+    if (!pendingLinkNPCId) return;
+    const rows = Array.from(document.querySelectorAll('.roster-npc-row[data-npc-id]'));
+    const target = rows.find((row) => row.dataset.npcId === pendingLinkNPCId);
+    if (!target) return;
+
+    pendingLinkNPCId = '';
+    requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.classList.add('roster-linked-focus');
+        setTimeout(() => {
+            target.classList.remove('roster-linked-focus');
+        }, 2200);
+    });
 }
 
 function setFormMode(isEditing) {
@@ -142,17 +206,17 @@ function toggleNPCForm() {
     form.classList.toggle('roster-hidden', !willOpen);
 
     ensureGuildOptions();
-    if (willOpen && editingNPCIndex === null) {
+    if (willOpen && !editingNPCId) {
         clearNPCForm();
         setFormMode(false);
-    } else if (!willOpen && editingNPCIndex !== null) {
-        editingNPCIndex = null;
+    } else if (!willOpen && editingNPCId) {
+        editingNPCId = '';
         setFormMode(false);
     }
 }
 
 function cancelNPCEdit() {
-    editingNPCIndex = null;
+    editingNPCId = '';
     clearNPCForm();
     setFormMode(false);
     const form = document.getElementById('npcForm');
@@ -172,12 +236,11 @@ function addNPC() {
     if (!c) return;
     if (!Array.isArray(c.npcs)) c.npcs = [];
 
-    if (editingNPCIndex !== null) {
-        const idx = Number(editingNPCIndex);
-        const target = c.npcs[idx];
+    if (editingNPCId) {
+        const { npc: target, index } = findNPCById(editingNPCId);
         if (!target) {
             alert("Could not find NPC to edit.");
-            editingNPCIndex = null;
+            editingNPCId = '';
             setFormMode(false);
             return;
         }
@@ -187,7 +250,7 @@ function addNPC() {
             return;
         }
 
-        c.npcs[idx] = {
+        c.npcs[index] = {
             ...target,
             name,
             guild,
@@ -197,17 +260,23 @@ function addNPC() {
             __rtfSource: 'custom'
         };
     } else {
-        c.npcs.push({ name, guild, wants, leverage, notes, __rtfSource: 'custom' });
+        c.npcs.push({
+            id: createNPCId(),
+            name,
+            guild,
+            wants,
+            leverage,
+            notes,
+            __rtfSource: 'custom'
+        });
     }
 
     save();
     cancelNPCEdit();
 }
 
-function editNPC(idx) {
-    const c = getCampaign();
-    if (!c || !Array.isArray(c.npcs)) return;
-    const npc = c.npcs[idx];
+function editNPC(npcId) {
+    const { npc } = findNPCById(npcId);
     if (!npc) return;
 
     if (isPreloadedNPC(npc)) {
@@ -215,7 +284,7 @@ function editNPC(idx) {
         return;
     }
 
-    editingNPCIndex = idx;
+    editingNPCId = String(npcId || '');
     ensureGuildOptions();
     fillNPCForm(npc);
     setFormMode(true);
@@ -226,15 +295,18 @@ function editNPC(idx) {
     if (nameInput) nameInput.focus();
 }
 
-function deleteNPC(idx) {
+function deleteNPC(npcId) {
     if (!confirm("Delete this NPC?")) return;
     const c = getCampaign();
     if (!c || !Array.isArray(c.npcs)) return;
+
+    const id = String(npcId || '');
+    const idx = c.npcs.findIndex((entry) => String(entry && entry.id || '') === id);
+    if (idx < 0) return;
+
     c.npcs.splice(idx, 1);
-    if (editingNPCIndex === idx) {
+    if (editingNPCId === id) {
         cancelNPCEdit();
-    } else if (editingNPCIndex !== null && idx < editingNPCIndex) {
-        editingNPCIndex -= 1;
     }
     save();
 }
@@ -260,8 +332,19 @@ function render() {
     const container = document.getElementById('npcList');
     if (!container) return;
 
-    // Map first to preserve original index, then filter.
-    const list = (c.npcs || []).map((npc, idx) => ({ ...npc, origIdx: idx }));
+    const list = (c.npcs || []).filter((npc) => npc && typeof npc === 'object');
+    let mutatedIds = false;
+    list.forEach((npc) => {
+        if (!npc.id) {
+            npc.id = createNPCId();
+            mutatedIds = true;
+        }
+    });
+    if (mutatedIds && window.RTF_STORE) {
+        setTimeout(() => {
+            window.RTF_STORE.save({ scope: 'campaign.npcs' });
+        }, 0);
+    }
 
     const filtered = list.filter(npc => {
         const name = String(npc.name || '');
@@ -272,13 +355,15 @@ function render() {
     });
 
     container.innerHTML = filtered.map(npc => {
+        const npcId = String(npc.id || '');
+        const npcIdArg = escapeJsString(npcId);
         const locked = isPreloadedNPC(npc);
         const editButton = locked
             ? `<span class="roster-npc-lock-icon" title="Preloaded NPC (read-only)">🔒</span>`
-            : `<button class="btn roster-npc-edit-btn" data-onclick="editNPC(${npc.origIdx})" title="Edit NPC">✏️</button>`;
+            : `<button class="btn roster-npc-edit-btn" data-onclick="editNPC('${npcIdArg}')" title="Edit NPC">✏️</button>`;
 
         return `
-        <div class="roster-npc-row">
+        <div class="roster-npc-row" data-npc-id="${escapeHtml(npcId)}">
             <div class="roster-npc-name">${escapeHtml(npc.name)}</div>
             <div class="roster-npc-guild">${escapeHtml(npc.guild)}</div>
 
@@ -296,13 +381,17 @@ function render() {
             </div>
 
             ${editButton}
-            <button class="btn roster-npc-delete-btn" data-onclick="deleteNPC(${npc.origIdx})" title="Delete NPC">&times;</button>
+            <button class="btn roster-npc-link-btn" data-onclick="copyNPCLink('${npcIdArg}')" title="Copy deep link">🔗</button>
+            <button class="btn roster-npc-delete-btn" data-onclick="deleteNPC('${npcIdArg}')" title="Delete NPC">&times;</button>
         </div>
     `;
     }).join('');
+
+    applyPendingNpcDeepLinkFocus();
 }
 
 window.addEventListener('load', () => {
+    pendingLinkNPCId = getLinkedNpcIdFromUrl();
     if (window.RTF_STORE) {
         ensureGuildOptions();
         setFormMode(false);
@@ -315,3 +404,9 @@ window.addEventListener('load', () => {
         }, 100);
     }
 });
+
+window.addEventListener('rtf-store-updated', () => {
+    render();
+});
+
+window.copyNPCLink = copyNPCLink;
