@@ -132,6 +132,10 @@
         lockTtlMs: 20000
     };
 
+    const REQUISITION_STATUSES = new Set(['Pending', 'Approved', 'In Transit', 'Delivered', 'Denied']);
+    const REQUISITION_PRIORITIES = new Set(['Routine', 'Tactical', 'Emergency']);
+    const ENCOUNTER_TIERS = new Set(['Routine', 'Standard', 'Elite', 'Boss']);
+
     const deepClone = (value) => JSON.parse(JSON.stringify(value));
 
     const toNumber = (value, fallback = 0) => {
@@ -152,6 +156,28 @@
             if (Number.isFinite(parsed)) return parsed;
         }
         return fallback;
+    };
+
+    const toTrimmedString = (value, fallback = '', maxLen = 4000) => {
+        if (value === null || value === undefined) return fallback;
+        return String(value).slice(0, maxLen);
+    };
+
+    const toBoolean = (value) => !!value;
+
+    const sanitizePatch = (raw, schema) => {
+        const source = raw && typeof raw === 'object' ? raw : null;
+        if (!source || !schema || typeof schema !== 'object') return null;
+
+        const out = {};
+        Object.keys(schema).forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(source, key)) return;
+            const sanitizer = schema[key];
+            if (typeof sanitizer !== 'function') return;
+            out[key] = sanitizer(source[key]);
+        });
+
+        return Object.keys(out).length ? out : null;
     };
 
     const sanitizeIdentifier = (value, fallback) => {
@@ -1145,7 +1171,8 @@
                 input.type = 'file';
                 input.accept = 'application/json';
                 input.onchange = e => {
-                    const file = e.target.files[0];
+                    const target = e && e.target ? e.target : null;
+                    const file = target && target.files && target.files[0] ? target.files[0] : null;
                     if (!file) {
                         resolve(false);
                         return;
@@ -1153,7 +1180,13 @@
                     const reader = new FileReader();
                     reader.onload = event => {
                         try {
-                            const loaded = JSON.parse(event.target.result);
+                            const payload = event && event.target ? event.target.result : '';
+                            if (typeof payload !== 'string') {
+                                alert("Invalid JSON file");
+                                resolve(false);
+                                return;
+                            }
+                            const loaded = JSON.parse(payload);
                             if (!loaded || typeof loaded !== 'object') {
                                 alert("Invalid format: Expected JSON object.");
                                 resolve(false);
@@ -2458,7 +2491,25 @@
 
         // --- Helper Accessors ---
         addPlayer(player) {
-            this.state.campaign.players.push(player);
+            const source = player && typeof player === 'object' ? player : {};
+            const generatedId = 'player_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 5);
+            const rawHp = source.hp;
+            const safeHp = (typeof rawHp === 'number' && Number.isFinite(rawHp))
+                ? Math.max(0, Math.min(999999, Math.round(rawHp)))
+                : toTrimmedString(rawHp, '10', 40);
+
+            this.state.campaign.players.push({
+                id: toTrimmedString(source.id || generatedId, generatedId, 80),
+                name: toTrimmedString(source.name || 'New Agent', 'New Agent', 160),
+                ac: Math.max(0, Math.min(999, Math.round(toNumber(source.ac, 10)))),
+                hp: safeHp,
+                pp: Math.max(0, Math.min(999, Math.round(toNumber(source.pp, 10)))),
+                dc: Math.max(0, Math.min(999, Math.round(toNumber(source.dc, 10)))),
+                dp: Math.max(0, Math.min(4, Math.round(toNumber(source.dp, 2)))),
+                projectClock: Math.max(0, Math.min(6, Math.round(toNumber(source.projectClock, 0)))),
+                projectName: toTrimmedString(source.projectName, '', 240),
+                projectReward: toTrimmedString(source.projectReward, '', 240)
+            });
             this.save({ scope: 'campaign.players' });
         }
 
@@ -2501,17 +2552,53 @@
         }
 
         addRequisition(req) {
-            if (!req.id) req.id = 'req_' + Date.now();
-            this.getRequisitions().push(req);
+            const source = req && typeof req === 'object' ? req : {};
+            const sanitized = {
+                id: toTrimmedString(source.id || ('req_' + Date.now()), 'req_' + Date.now(), 80),
+                item: toTrimmedString(source.item, '', 240),
+                requester: toTrimmedString(source.requester, '', 160),
+                guild: toTrimmedString(source.guild, '', 120),
+                priority: REQUISITION_PRIORITIES.has(toTrimmedString(source.priority, '', 40))
+                    ? toTrimmedString(source.priority, 'Routine', 40)
+                    : 'Routine',
+                status: REQUISITION_STATUSES.has(toTrimmedString(source.status, '', 40))
+                    ? toTrimmedString(source.status, 'Pending', 40)
+                    : 'Pending',
+                value: toTrimmedString(source.value, '', 120),
+                purpose: toTrimmedString(source.purpose, '', 4000),
+                notes: toTrimmedString(source.notes, '', 4000),
+                tags: toTrimmedString(source.tags, '', 4000),
+                created: toTrimmedString(source.created || new Date().toISOString(), new Date().toISOString(), 80)
+            };
+            this.getRequisitions().push(sanitized);
             this.save({ scope: 'campaign.requisitions' });
-            return req.id;
+            return sanitized.id;
         }
 
         updateRequisition(id, updates) {
             const list = this.getRequisitions();
             const idx = list.findIndex(r => r.id === id);
             if (idx >= 0) {
-                list[idx] = { ...list[idx], ...updates };
+                const patch = sanitizePatch(updates, {
+                    item: (v) => toTrimmedString(v, '', 240),
+                    requester: (v) => toTrimmedString(v, '', 160),
+                    guild: (v) => toTrimmedString(v, '', 120),
+                    priority: (v) => {
+                        const normalized = toTrimmedString(v, '', 40);
+                        return REQUISITION_PRIORITIES.has(normalized) ? normalized : 'Routine';
+                    },
+                    status: (v) => {
+                        const normalized = toTrimmedString(v, '', 40);
+                        return REQUISITION_STATUSES.has(normalized) ? normalized : 'Pending';
+                    },
+                    value: (v) => toTrimmedString(v, '', 120),
+                    purpose: (v) => toTrimmedString(v, '', 4000),
+                    notes: (v) => toTrimmedString(v, '', 4000),
+                    tags: (v) => toTrimmedString(v, '', 4000),
+                    created: (v) => toTrimmedString(v, '', 80)
+                });
+                if (!patch) return;
+                list[idx] = { ...list[idx], ...patch };
                 this.save({ scope: 'campaign.requisitions' });
             }
         }
@@ -2532,20 +2619,48 @@
         }
 
         addEvent(evt, caseId = null) {
-            if (!evt.id) evt.id = 'event_' + Date.now();
+            const source = evt && typeof evt === 'object' ? evt : {};
+            const safeEvent = {
+                id: toTrimmedString(source.id || ('event_' + Date.now()), 'event_' + Date.now(), 80),
+                title: toTrimmedString(source.title, '', 240),
+                focus: toTrimmedString(source.focus, '', 240),
+                heatDelta: toTrimmedString(source.heatDelta, '', 12),
+                tags: toTrimmedString(source.tags, '', 2000),
+                highlights: toTrimmedString(source.highlights, '', 6000),
+                fallout: toTrimmedString(source.fallout, '', 6000),
+                followUp: toTrimmedString(source.followUp, '', 6000),
+                source: toTrimmedString(source.source, '', 80),
+                kind: toTrimmedString(source.kind, '', 80),
+                resolved: toBoolean(source.resolved),
+                created: toTrimmedString(source.created || new Date().toISOString(), new Date().toISOString(), 80)
+            };
             const entry = this.getCaseEntry(caseId, { createIfMissing: true });
             if (!entry) return '';
-            entry.events.push({ ...evt, caseId: entry.id });
+            entry.events.push({ ...safeEvent, caseId: entry.id });
             this.syncActiveCaseLegacyState();
             this.save({ scope: `cases.${entry.id}.events` });
-            return evt.id;
+            return safeEvent.id;
         }
 
         updateEvent(id, updates, caseId = null) {
             const list = this.getEvents(caseId);
             const idx = list.findIndex(e => e.id === id);
             if (idx >= 0) {
-                list[idx] = { ...list[idx], ...updates };
+                const patch = sanitizePatch(updates, {
+                    title: (v) => toTrimmedString(v, '', 240),
+                    focus: (v) => toTrimmedString(v, '', 240),
+                    heatDelta: (v) => toTrimmedString(v, '', 12),
+                    tags: (v) => toTrimmedString(v, '', 2000),
+                    highlights: (v) => toTrimmedString(v, '', 6000),
+                    fallout: (v) => toTrimmedString(v, '', 6000),
+                    followUp: (v) => toTrimmedString(v, '', 6000),
+                    source: (v) => toTrimmedString(v, '', 80),
+                    kind: (v) => toTrimmedString(v, '', 80),
+                    resolved: (v) => toBoolean(v),
+                    created: (v) => toTrimmedString(v, '', 80)
+                });
+                if (!patch) return;
+                list[idx] = { ...list[idx], ...patch };
                 this.syncActiveCaseLegacyState();
                 const activeCase = this.getCaseEntry(caseId);
                 const scopeId = activeCase && activeCase.id ? activeCase.id : this.getActiveCaseId();
@@ -2571,17 +2686,48 @@
         }
 
         addEncounter(enc) {
-            if (!enc.id) enc.id = 'enc_' + Date.now();
-            this.getEncounters().push(enc);
+            const source = enc && typeof enc === 'object' ? enc : {};
+            const safeEncounter = {
+                id: toTrimmedString(source.id || ('enc_' + Date.now()), 'enc_' + Date.now(), 80),
+                title: toTrimmedString(source.title, '', 240),
+                tier: ENCOUNTER_TIERS.has(toTrimmedString(source.tier, '', 40))
+                    ? toTrimmedString(source.tier, 'Routine', 40)
+                    : 'Routine',
+                location: toTrimmedString(source.location, '', 240),
+                objective: toTrimmedString(source.objective, '', 2000),
+                opposition: toTrimmedString(source.opposition, '', 6000),
+                hazards: toTrimmedString(source.hazards, '', 6000),
+                beats: toTrimmedString(source.beats, '', 6000),
+                rewards: toTrimmedString(source.rewards, '', 6000),
+                notes: toTrimmedString(source.notes, '', 6000),
+                created: toTrimmedString(source.created || new Date().toISOString(), new Date().toISOString(), 80)
+            };
+            this.getEncounters().push(safeEncounter);
             this.save({ scope: 'campaign.encounters' });
-            return enc.id;
+            return safeEncounter.id;
         }
 
         updateEncounter(id, updates) {
             const list = this.getEncounters();
             const idx = list.findIndex(e => e.id === id);
             if (idx >= 0) {
-                list[idx] = { ...list[idx], ...updates };
+                const patch = sanitizePatch(updates, {
+                    title: (v) => toTrimmedString(v, '', 240),
+                    tier: (v) => {
+                        const normalized = toTrimmedString(v, '', 40);
+                        return ENCOUNTER_TIERS.has(normalized) ? normalized : 'Routine';
+                    },
+                    location: (v) => toTrimmedString(v, '', 240),
+                    objective: (v) => toTrimmedString(v, '', 2000),
+                    opposition: (v) => toTrimmedString(v, '', 6000),
+                    hazards: (v) => toTrimmedString(v, '', 6000),
+                    beats: (v) => toTrimmedString(v, '', 6000),
+                    rewards: (v) => toTrimmedString(v, '', 6000),
+                    notes: (v) => toTrimmedString(v, '', 6000),
+                    created: (v) => toTrimmedString(v, '', 80)
+                });
+                if (!patch) return;
+                list[idx] = { ...list[idx], ...patch };
                 this.save({ scope: 'campaign.encounters' });
             }
         }

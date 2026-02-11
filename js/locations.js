@@ -109,6 +109,7 @@ function addLocation() {
     if (!name) { alert("Name Required"); return; }
 
     const c = getCampaign();
+    if (!c) return;
     if (!c.locations) c.locations = [];
     c.locations.push({ name, district, desc, notes });
     save();
@@ -124,6 +125,7 @@ function addLocation() {
 function deleteLocation(idx) {
     if (confirm("Delete this Location?")) {
         const c = getCampaign();
+        if (!c || !Array.isArray(c.locations)) return;
         c.locations.splice(idx, 1);
         save();
     }

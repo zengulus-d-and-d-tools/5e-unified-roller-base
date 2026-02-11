@@ -6,6 +6,49 @@ let data = { matches: [], active: false, meta: {} };
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+        const toSafeString = (value, fallback = '', maxLen = 240) => {
+            if (value === null || value === undefined) return fallback;
+            return String(value).slice(0, maxLen);
+        };
+        const toSafeInt = (value, fallback = 0, min = 0, max = 999999) => {
+            const parsed = parseInt(value, 10);
+            if (!Number.isFinite(parsed)) return fallback;
+            return Math.max(min, Math.min(max, parsed));
+        };
+        const sanitizeMatch = (raw, idx) => {
+            const source = raw && typeof raw === 'object' ? raw : {};
+            const type = ['wb', 'lb', 'gf'].includes(source.type) ? source.type : 'wb';
+            const side = ['left', 'right', 'center'].includes(source.side) ? source.side : 'left';
+            const win = source.win === 1 || source.win === 2 ? source.win : null;
+            const safe = {
+                id: toSafeString(source.id || `match_${idx}`, `match_${idx}`, 80),
+                type,
+                r: toSafeInt(source.r, 1, 1, 200),
+                side,
+                p1: source.p1 === null ? null : toSafeString(source.p1, '', 240),
+                p2: source.p2 === null ? null : toSafeString(source.p2, '', 240),
+                s1: toSafeInt(source.s1, 0, 0, 9999),
+                s2: toSafeInt(source.s2, 0, 0, 9999),
+                win
+            };
+
+            if (source.nextWin) safe.nextWin = toSafeString(source.nextWin, '', 80);
+            if (source.nextLose) safe.nextLose = toSafeString(source.nextLose, '', 80);
+            if (source.winSlot === 1 || source.winSlot === 2) safe.winSlot = source.winSlot;
+            if (source.loseSlot === 1 || source.loseSlot === 2) safe.loseSlot = source.loseSlot;
+            return safe;
+        };
+        const sanitizeBracketData = (raw) => {
+            const source = raw && typeof raw === 'object' ? raw : {};
+            const matches = Array.isArray(source.matches) ? source.matches.map(sanitizeMatch) : [];
+            const wbRounds = toSafeInt(source.meta && source.meta.wbRounds, 1, 1, 20);
+            const lbRounds = toSafeInt(source.meta && source.meta.lbRounds, 1, 1, 40);
+            return {
+                matches,
+                active: Boolean(source.active) && matches.length > 0,
+                meta: { wbRounds, lbRounds }
+            };
+        };
         const delegatedHandlerEvents = ['click', 'change', 'input'];
         const delegatedHandlerCache = new Map();
         let delegatedHandlersBound = false;
@@ -357,7 +400,7 @@ let data = { matches: [], active: false, meta: {} };
         if (s) {
             try {
                 const parsed = JSON.parse(s);
-                if (parsed && typeof parsed === 'object') data = parsed;
+                data = sanitizeBracketData(parsed);
             } catch (err) {
                 console.warn('Invalid tournament save; resetting state.', err);
             }

@@ -266,7 +266,8 @@ function importConnectFile() {
     input.type = 'file';
     input.accept = 'application/json,.json';
     input.onchange = async (event) => {
-        const file = event.target.files && event.target.files[0];
+        const target = event && event.target ? event.target : null;
+        const file = target && target.files && target.files[0] ? target.files[0] : null;
         if (!file) return;
         try {
             setQuickStatus('importing connect.json...');

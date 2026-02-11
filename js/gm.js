@@ -268,11 +268,22 @@ function importGM() {
     input.type = 'file';
     input.accept = 'application/json';
     input.onchange = e => {
-        const file = e.target.files[0];
+        const target = e && e.target ? e.target : null;
+        const file = target && target.files && target.files[0] ? target.files[0] : null;
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = event => {
             try {
-                const loaded = JSON.parse(event.target.result);
+                const payload = event && event.target ? event.target.result : '';
+                if (typeof payload !== 'string') {
+                    alert("Error loading JSON");
+                    return;
+                }
+                const loaded = JSON.parse(payload);
+                if (!loaded || typeof loaded !== 'object') {
+                    alert("Error loading JSON");
+                    return;
+                }
                 if (confirm("Overwrite data?")) {
                     gmData = sanitizeGMData(loaded);
                     saveGM();
@@ -280,6 +291,7 @@ function importGM() {
                 }
             } catch (e) { alert("Error loading JSON"); }
         };
+        reader.onerror = () => alert("Error loading JSON");
         reader.readAsText(file);
     };
     input.click();

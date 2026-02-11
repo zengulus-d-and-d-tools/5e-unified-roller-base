@@ -129,14 +129,27 @@ const addPlayer = () => {
     }
 };
 
+const ALLOWED_PLAYER_FIELDS = new Set(['name', 'ac', 'pp', 'dc', 'hp']);
+const sanitizePlayerUpdateValue = (field, rawValue) => {
+    if (field === 'name') return String(rawValue || '').slice(0, 160);
+    if (field === 'hp') return String(rawValue || '').slice(0, 40);
+
+    const parsed = Number(rawValue);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.min(999, Math.round(parsed)));
+};
+
 const updatePlayer = (idx, field, val) => {
     if (window.RTF_STORE) {
         const players = window.RTF_STORE.getPlayers();
-        if (players[idx]) {
-            players[idx][field] = val;
-            window.RTF_STORE.save({ scope: 'campaign.players' });
-            // render(); // Optional: re-render if needed, but input handles display
-        }
+        if (!Array.isArray(players)) return;
+        if (!Number.isInteger(idx) || idx < 0 || idx >= players.length) return;
+        if (!ALLOWED_PLAYER_FIELDS.has(field)) return;
+        if (!players[idx] || typeof players[idx] !== 'object') return;
+
+        players[idx][field] = sanitizePlayerUpdateValue(field, val);
+        window.RTF_STORE.save({ scope: 'campaign.players' });
+        // render(); // Optional: re-render if needed, but input handles display
     }
 };
 
@@ -144,6 +157,7 @@ const deletePlayer = (idx) => {
     if (confirm("Disavow this agent? (Delete Player)")) {
         if (window.RTF_STORE) {
             const players = window.RTF_STORE.getPlayers();
+            if (!Array.isArray(players) || !Number.isInteger(idx) || idx < 0 || idx >= players.length) return;
             players.splice(idx, 1);
             window.RTF_STORE.save({ scope: 'campaign.players' });
             render();

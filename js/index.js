@@ -1447,13 +1447,16 @@ function addAcBonus() {
 }
 
 function toggleAcBonus(i) {
+    if (!Array.isArray(data.ac.bonuses) || !data.ac.bonuses[i]) return;
     data.ac.bonuses[i].active = !data.ac.bonuses[i].active;
     renderAcList();
     updateAC();
 }
 
 function updateAcBonus(i, field, val) {
-    data.ac.bonuses[i][field] = val;
+    if (!Array.isArray(data.ac.bonuses) || !data.ac.bonuses[i]) return;
+    if (field !== 'name' && field !== 'val') return;
+    data.ac.bonuses[i][field] = (field === 'val') ? (parseInt(val, 10) || 0) : String(val || '').slice(0, 120);
     updateAC();
 }
 
@@ -2730,7 +2733,14 @@ function addAttack() {
 }
 
 function updateAttack(idx, field, val) {
-    data.attacks[idx][field] = val;
+    if (!Array.isArray(data.attacks) || !data.attacks[idx]) return;
+    if (!['name', 'stat', 'dmg', 'desc'].includes(field)) return;
+    if (field === 'stat') {
+        const stat = String(val || '').toLowerCase();
+        data.attacks[idx][field] = ['none', 'str', 'dex', 'con', 'int', 'wis', 'cha'].includes(stat) ? stat : 'str';
+    } else {
+        data.attacks[idx][field] = String(val || '').slice(0, field === 'desc' ? 4000 : 240);
+    }
     save();
 }
 
@@ -2749,7 +2759,9 @@ function addFeature() {
 }
 
 function updateFeature(idx, field, val) {
-    data.features[idx][field] = val;
+    if (!Array.isArray(data.features) || !data.features[idx]) return;
+    if (field !== 'name' && field !== 'desc') return;
+    data.features[idx][field] = String(val || '').slice(0, field === 'desc' ? 4000 : 240);
     save();
 }
 
@@ -2776,8 +2788,20 @@ function addResource() {
 }
 
 function updateRes(i, field, val) {
-    if (field === 'curr' || field === 'max') val = parseInt(val) || 0;
-    if (field === 'rCheck') val = val;
+    if (!Array.isArray(data.resources) || !data.resources[i]) return;
+    if (!['name', 'curr', 'max', 'rest', 'display', 'rCheck', 'rFormula'].includes(field)) return;
+    if (field === 'curr' || field === 'max') val = parseInt(val, 10) || 0;
+    if (field === 'rCheck') val = !!val;
+    if (field === 'name') val = String(val || '').slice(0, 160);
+    if (field === 'rFormula') val = String(val || '').slice(0, 80);
+    if (field === 'rest') {
+        const allowed = ['none', 'sr', 'lr'];
+        val = allowed.includes(String(val)) ? String(val) : 'none';
+    }
+    if (field === 'display') {
+        const allowed = ['none', 'bubble', 'bar'];
+        val = allowed.includes(String(val)) ? String(val) : 'none';
+    }
     data.resources[i][field] = val;
     save();
     renderResources();
@@ -2785,6 +2809,7 @@ function updateRes(i, field, val) {
 
 function modifyRes(i, delta) {
     const res = data.resources[i];
+    if (!res) return;
     const newVal = res.curr + delta;
     res.curr = Math.max(0, Math.min(res.max, newVal));
     save();
@@ -2793,6 +2818,7 @@ function modifyRes(i, delta) {
 
 function setResValue(i) {
     const res = data.resources[i];
+    if (!res) return;
     const val = prompt("Set value for " + (res.name || 'Resource') + ":", res.curr);
 
     if (val !== null) {
@@ -2807,12 +2833,14 @@ function setResValue(i) {
 }
 
 function delRes(i) {
+    if (!Array.isArray(data.resources) || i < 0 || i >= data.resources.length) return;
     data.resources.splice(i, 1);
     save();
     renderResources();
 }
 
 function toggleResBubble(i, bubbleIdx) {
+    if (!Array.isArray(data.resources) || !data.resources[i]) return;
     const currentUsed = data.resources[i].curr;
 
     if (bubbleIdx + 1 === currentUsed) {

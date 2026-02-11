@@ -198,19 +198,24 @@
     }
 
     function sanitizeRoom(room, grid = state.grid) {
-        const width = clampNumber(room.w ?? room.width ?? 4, 1, grid.cols);
-        const height = clampNumber(room.h ?? room.height ?? 3, 1, grid.rows);
+        const source = room && typeof room === 'object' ? room : {};
+        const parsedWidth = parseInt(source.w ?? source.width, 10);
+        const parsedHeight = parseInt(source.h ?? source.height, 10);
+        const parsedX = parseInt(source.x, 10);
+        const parsedY = parseInt(source.y, 10);
+        const width = clampNumber(Number.isFinite(parsedWidth) ? parsedWidth : 4, 1, grid.cols);
+        const height = clampNumber(Number.isFinite(parsedHeight) ? parsedHeight : 3, 1, grid.rows);
         return {
-            id: room.id || uniqueId('room'),
-            name: room.name || 'Unnamed Room',
-            type: ROOM_TYPES.some(t => t.id === room.type) ? room.type : ROOM_TYPES[0].id,
-            x: clampNumber(room.x ?? 2, 0, grid.cols - width),
-            y: clampNumber(room.y ?? 2, 0, grid.rows - height),
+            id: source.id || uniqueId('room'),
+            name: typeof source.name === 'string' && source.name ? source.name : 'Unnamed Room',
+            type: ROOM_TYPES.some(t => t.id === source.type) ? source.type : ROOM_TYPES[0].id,
+            x: clampNumber(Number.isFinite(parsedX) ? parsedX : 2, 0, grid.cols - width),
+            y: clampNumber(Number.isFinite(parsedY) ? parsedY : 2, 0, grid.rows - height),
             w: width,
             h: height,
-            notes: room.notes || '',
-            downtimeSlots: Array.isArray(room.downtimeSlots) ? room.downtimeSlots.map(s => sanitizeSlot(s, 'downtime')) : [],
-            resourceSlots: Array.isArray(room.resourceSlots) ? room.resourceSlots.map(s => sanitizeSlot(s, 'resource')) : []
+            notes: typeof source.notes === 'string' ? source.notes : '',
+            downtimeSlots: Array.isArray(source.downtimeSlots) ? source.downtimeSlots.map(s => sanitizeSlot(s, 'downtime')) : [],
+            resourceSlots: Array.isArray(source.resourceSlots) ? source.resourceSlots.map(s => sanitizeSlot(s, 'resource')) : []
         };
     }
 
@@ -774,6 +779,10 @@
             if (!ev.target.classList.contains('slot-field')) return;
             const field = ev.target.dataset.field;
             if (!field) return;
+            const allowedFields = type === 'downtime'
+                ? ['label', 'description']
+                : ['label'];
+            if (!allowedFields.includes(field)) return;
             const room = getRoom(selectedRoomId);
             if (!room) return;
             const item = ev.target.closest('.slot-item');
@@ -782,7 +791,7 @@
             const list = type === 'downtime' ? room.downtimeSlots : room.resourceSlots;
             const slot = list.find(s => s.id === slotId);
             if (!slot) return;
-            slot[field] = ev.target.value;
+            slot[field] = String(ev.target.value || '').slice(0, field === 'label' ? 180 : 3000);
             persistState();
             renderRooms();
         };
@@ -829,7 +838,15 @@
     function updateSelectedRoom(field, value) {
         const room = getRoom(selectedRoomId);
         if (!room) return;
-        room[field] = value;
+        if (!['name', 'type', 'notes'].includes(field)) return;
+
+        if (field === 'type') {
+            room.type = ROOM_TYPES.some(t => t.id === value) ? value : ROOM_TYPES[0].id;
+        } else if (field === 'name') {
+            room.name = String(value || '').slice(0, 180);
+        } else {
+            room.notes = String(value || '').slice(0, 6000);
+        }
         persistState();
         renderRooms();
     }
@@ -956,7 +973,15 @@
             const reader = new FileReader();
             reader.onload = () => {
                 try {
+                    if (typeof reader.result !== 'string') {
+                        alert('Invalid HQ data file');
+                        return;
+                    }
                     const parsed = JSON.parse(reader.result);
+                    if (!parsed || typeof parsed !== 'object') {
+                        alert('Invalid HQ data file');
+                        return;
+                    }
                     state = sanitizeState(parsed);
                     selectedRoomId = null;
                     persistState();
