@@ -242,11 +242,25 @@ function normalizeConnectPayload(raw) {
     };
 }
 
+function promptRequiredConnectPlayerName() {
+    while (true) {
+        const entered = prompt('Enter your player name for sync tracking (required):', '');
+        if (entered === null) return '';
+        const cleanName = entered.trim();
+        if (cleanName) return cleanName;
+        alert('Player name is required to connect.');
+    }
+}
+
 async function applyConnectProfile(raw, opts = {}) {
     if (!window.RTF_STORE) return { ok: false, error: 'Store not loaded.' };
     const options = opts && typeof opts === 'object' ? opts : {};
     const payload = normalizeConnectPayload(raw);
     if (!payload) return { ok: false, error: 'Invalid connect.json format.' };
+    const suppliedProfileName = typeof options.profileName === 'string' ? options.profileName.trim() : '';
+    const profileName = suppliedProfileName || promptRequiredConnectPlayerName();
+    if (!profileName) return { ok: false, error: 'Player name is required to connect.' };
+    payload.profileName = profileName;
 
     window.RTF_STORE.setSyncConfig(payload, { reconnect: false });
     applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
