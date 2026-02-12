@@ -404,24 +404,29 @@ function render() {
         const editButton = locked
             ? `<span class="roster-npc-lock-icon" title="Preloaded NPC (read-only)">🔒</span>`
             : `<button class="btn roster-npc-edit-btn" data-onclick="editNPC('${npcIdArg}')" title="Edit NPC">✏️</button>`;
+        const rowClass = imageMarkup ? 'has-image' : 'no-image';
 
         return `
-        <div class="roster-npc-row" data-npc-id="${escapeHtml(npcId)}">
+        <div class="roster-npc-row ${rowClass}" data-npc-id="${escapeHtml(npcId)}">
             ${imageMarkup}
-            <div class="roster-npc-name">${escapeHtml(npc.name)}</div>
-            <div class="roster-npc-guild">${escapeHtml(npc.guild)}</div>
+            <div class="roster-npc-content">
+                <div class="roster-npc-summary">
+                    <div class="roster-npc-name">${escapeHtml(npc.name)}</div>
+                    <div class="roster-npc-guild">${escapeHtml(npc.guild)}</div>
 
-            <div class="roster-npc-meta-block">
-                <div class="roster-npc-meta-label">Wants</div>
-                ${escapeHtml(npc.wants || '-')}
-            </div>
-            <div class="roster-npc-meta-block">
-                <div class="roster-npc-meta-label">Leverage</div>
-                ${escapeHtml(npc.leverage || '-')}
-            </div>
+                    <div class="roster-npc-meta-block">
+                        <div class="roster-npc-meta-label">Wants</div>
+                        ${escapeHtml(npc.wants || '-')}
+                    </div>
+                    <div class="roster-npc-meta-block">
+                        <div class="roster-npc-meta-label">Leverage</div>
+                        ${escapeHtml(npc.leverage || '-')}
+                    </div>
+                </div>
 
-            <div class="roster-npc-notes">
-                ${escapeHtml(npc.notes || '')}
+                <div class="roster-npc-notes">
+                    ${escapeHtml(npc.notes || '')}
+                </div>
             </div>
 
             ${editButton}

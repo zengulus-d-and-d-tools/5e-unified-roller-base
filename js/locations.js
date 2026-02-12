@@ -286,24 +286,29 @@ function render() {
         const imageMarkup = imageUrl
             ? `<div class="locations-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(loc.name || 'Location')} image"></div>`
             : '';
+        const rowClass = imageMarkup ? 'has-image' : 'no-image';
         return `
-        <div class="locations-row" data-location-id="${escapeHtml(locationId)}">
+        <div class="locations-row ${rowClass}" data-location-id="${escapeHtml(locationId)}">
             ${imageMarkup}
-            <div class="locations-name">${escapeHtml(loc.name)}</div>
-            <div class="locations-district">${escapeHtml(loc.district || 'Unassigned')}</div>
-            
-            <div class="locations-desc-block">
-                <div class="locations-desc-label">Description</div>
-                ${escapeHtml(loc.desc || '-')}
-            </div>
-            <div class="locations-desc-block">
-                <div class="locations-desc-label">Image URL</div>
-                <input type="url" value="${escapeHtml(loc.imageUrl || '')}" placeholder="https://..."
-                    data-onchange="updateLocationImage('${locationIdArg}', this.value)">
-            </div>
-            
-            <div class="locations-notes">
-                ${escapeHtml(loc.notes || '')}
+            <div class="locations-content">
+                <div class="locations-summary">
+                    <div class="locations-name">${escapeHtml(loc.name)}</div>
+                    <div class="locations-district">${escapeHtml(loc.district || 'Unassigned')}</div>
+
+                    <div class="locations-desc-block">
+                        <div class="locations-desc-label">Description</div>
+                        ${escapeHtml(loc.desc || '-')}
+                    </div>
+                    <div class="locations-desc-block">
+                        <div class="locations-desc-label">Image URL</div>
+                        <input type="url" value="${escapeHtml(loc.imageUrl || '')}" placeholder="https://..."
+                            data-onchange="updateLocationImage('${locationIdArg}', this.value)">
+                    </div>
+                </div>
+
+                <div class="locations-notes">
+                    ${escapeHtml(loc.notes || '')}
+                </div>
             </div>
 
             <button class="btn locations-board-btn" data-onclick="openLocationInBoard('${locationIdArg}')" title="Open on board">🧩</button>

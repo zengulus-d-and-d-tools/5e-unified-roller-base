@@ -2503,6 +2503,11 @@ function createNode(type, x, y, id = null, content = {}) {
     });
 
     nodeEl.onmousedown = (e) => {
+        if (e.button === 2 && e.shiftKey) {
+            showContextMenu(e, nodeEl);
+            return;
+        }
+
         if (panMode || e.button !== 0) return;
 
         const sourcePort = e.altKey ? getPortFromEventTarget(e.target) : 'auto';
