@@ -22,3 +22,6 @@ Shared pipeline for requisitions, approvals, and aftermath notes. Built for the 
 ## Cross-Links
 - [Case Board](CaseBoard.md) (`board.html`) – Drag requisitions into the case graph to connect gear requests directly to suspects, locations, and clue threads.
 - [Mission Timeline](MissionTimeline.md) (`timeline.html`) – Use matching tags/titles so requisition intake and delivery milestones read as a clean operation timeline.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

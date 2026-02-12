@@ -12,7 +12,8 @@ Command-console sheet for players and DMs. Everything lives in Local Storage, so
 - **Data & Creator** – `card-io` handles import/export/reset plus Discord toggles. The creator overlay walks you through race/class ability assignments, auto-fills skill proficiencies, and seeds the base sheet.
 
 ## Automation & Sync
-- **Unified Store** – All inputs sync to `RTF_STORE`, so character data moves with you to the GM dashboard, hub, or requisition tools when relevant.
+- **Standalone Sheet Store** – Character data is stored in the sheet’s own local bundle (`unifiedSheetData.json`) and supports multiple character profiles. It does not auto-sync into `RTF_STORE`.
+- **Portability** – Use the sheet’s import/export controls when moving characters between browsers/devices.
 - **Discord Hooks** – Provide any webhook URL to push rolls using spoiler tags (Secret option piggybacks on the command console's 👁 toggle).
 - **Theme Controls** – Every sheet honors the global accent picker and background cycler so you can keep the table on-brand.
 
@@ -20,3 +21,6 @@ Command-console sheet for players and DMs. Everything lives in Local Storage, so
 - Lock in core stats, then duplicate the JSON file before major level-ups so you can roll back.
 - Use the Misc Bonus field for Bless, Bardic dice, or homebrew situational modifiers; it auto-resets after each roll.
 - Keep resource trackers simple: "Rage" can be reused for Channel Divinity or Superiority Dice—rename and set max to whatever you need.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

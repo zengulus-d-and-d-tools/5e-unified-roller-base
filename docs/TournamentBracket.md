@@ -3,7 +3,7 @@
 Double-elimination bracket manager with SVG wiring. Ideal for Ravnica pit fights, sport broadcasts, or guild trials.
 
 ## Setup & Structure
-- **Modal Intake** – Paste 4–64 names (one per line), optionally shuffle seeding, then click Generate. The modal can be reopened anytime by hitting `New Bracket` in the hero actions.
+- **Modal Intake** – Paste at least 3 names (one per line), optionally shuffle seeding, then click Generate. The modal can be reopened anytime by hitting `New Bracket` in the hero actions.
 - **Bracket Rendering** – Winners and Losers brackets render together with curved drop lines, BYE handling, and space for the Grand Final reset path.
 - **Auto-Fit** – Use the hero `Auto-Fit` button to recenter the SVG whenever you resize the window or add massive player lists.
 
@@ -16,3 +16,6 @@ Double-elimination bracket manager with SVG wiring. Ideal for Ravnica pit fights
 - Use the input list order for seeded play or toggle Randomize to let fate decide.
 - Keep the bracket open on a second monitor; as soon as you save a score the SVG lines light up the new path.
 - For narrative play, rename contestants to team codenames or guild squads before generating to cut down on editing mid-stream.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

@@ -6,7 +6,7 @@ Lightweight CRM for districts, safehouses, and notable fronts. Uses the same car
 - **Hero Header** – Portal link, accent/BG controls, and a `+ Add Location` button that reveals the inline form.
 - **Location Form** – Name, district/guild select, description, and notes fields. Perfect for logging sensory cues, contacts, or mission hooks tied to the space.
 - **Filter Bar** – Text search plus district dropdown. Filters update live so you can find "Precinct Four" locations or everything tagged `Dimir` instantly.
-- **Location Cards** – Each entry shows the name, district, description, notes, and delete/edit options. All fields are editable in place and changes write straight to the shared store.
+- **Location Cards** – Each entry shows name, district, description, notes, image URL, and quick actions (open on board, copy deep link, delete). Image URL is editable in place; other fields are currently view-only after creation.
 
 ## Tips
 - Mirror district names from the Mission Timeline tags so cross-referencing is painless.
@@ -15,3 +15,6 @@ Lightweight CRM for districts, safehouses, and notable fronts. Uses the same car
 
 ## Cross-Links
 - [Case Board](CaseBoard.md) (`board.html`) – Drag key locations into the case graph so districts and fronts stay linked to the clues, NPCs, and events happening there.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

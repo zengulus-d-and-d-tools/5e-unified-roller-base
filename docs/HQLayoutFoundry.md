@@ -22,3 +22,6 @@ Design Ravnica-ready headquarters layouts with multi-floor blueprints, downtime 
 - Keep hallways at least 2 cells wide for griffon ingress or emergency golems.
 - Duplicate rooms for mirrored wings, then tweak names/notes for narrative flavor.
 - Use floors to represent different operational modes (Street Ops, Sky Patrol, Underbelly Safehouse) rather than literal levels if it helps storytelling.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

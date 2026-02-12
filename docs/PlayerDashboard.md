@@ -11,3 +11,6 @@ At-a-glance matrix of every agent’s frontline stats. Ideal for table displays 
 - Use the HP field for "Max / Current" to keep context, or track temp HP by appending `+` values.
 - Pair this page with the Campaign Hub or HQ Layout Foundry—the shared `RTF_STORE` player list keeps downtime tracking consistent as long as you import once from the Tools Hub.
 - Add NPC allies when you need to remember their saves or passives alongside the PCs.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

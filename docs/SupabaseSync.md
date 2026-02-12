@@ -139,3 +139,6 @@ Accepted aliases are also supported:
 - Campaign tools share one cloud row per `campaign_id`.
 - Case Board node layout (`x/y` position) is local-only per client. Node content and links still sync.
 - Character sheets are not part of this sync path unless you add a separate sheet sync layer.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

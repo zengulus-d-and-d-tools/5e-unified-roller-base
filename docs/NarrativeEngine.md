@@ -15,3 +15,6 @@ Improvisation console for urban play: prompts, hazards, NPC motivation, and quic
 - Toggle the hero action bar to adjust accent/BG so the screen matches your other tabs.
 - Fire individual generators as needed; outputs persist until you refresh, so you can keep multiple prompts open while roleplaying.
 - Pair hazard results with Encounter Recipes or the Mission Timeline to keep fallout synchronized.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

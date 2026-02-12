@@ -171,3 +171,6 @@ Verification after extraction:
 - For `on*=` handlers in HTML: use delegated listeners in page JS (single listener per region where possible).
 - For JS template strings containing `style=`: move dynamic values to CSS variables (`style.setProperty('--x', ...)`) and class toggles.
 - For JS template strings containing `on*=`: render `data-action` attributes and dispatch with delegated listeners.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

@@ -14,5 +14,8 @@ Intersection Gen v4 helps you spin believable clues fast by pairing one true "Si
 
 ## Tips
 - Treat Noise entries as set dressing for interrogations or crime scenes; even when players go the wrong direction you still reinforce the world's logic.
-- Combine with the Case Board by dragging the output text directly into nodes or using the same guild colors for quick visual cues.
+- Combine with the Case Board by copying output text into nodes and reusing the same guild colors for quick visual cues.
 - If you need bigger red herrings, mark multiple guilds as Noise and only one as Signal; the generator will still mix the results cleanly.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

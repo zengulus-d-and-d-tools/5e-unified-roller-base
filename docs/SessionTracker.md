@@ -17,3 +17,6 @@ GM control deck for combat, ad-hoc rolling, and loot/reference pulls. Data lives
 2. Add PCs plus mobs to the tracker and hit `Next Turn` to step through combat, tweaking HP or initiative in-line.
 3. Flip to the Roller tab whenever you need opposition rolls, DC calls, or Discord-ready results.
 4. Use the Ref & Loot tab between fights for treasure drops, jotting quick notes or referencing conditions without leaving the page.
+
+## Related Project
+For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).
