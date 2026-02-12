@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
-    <title>Ravnica Intersection Gen</title>
+    <title>Intersection Generator</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/clue.css">
 
@@ -16,9 +16,9 @@
 
     <header class="hero-header">
         <div>
-            <p class="hero-eyebrow">Ravnica Task Force</p>
+            <p class="hero-eyebrow">Campaign Tools</p>
             <h1>Clue Generator</h1>
-            <p class="hero-subtitle">A logic puzzle generator that balances true "Signal" evidence with flavorful "Noise" red herrings.</p>
+            <p class="hero-subtitle">Generate a quick true-clue vs false-lead pair for fantasy investigations.</p>
         </div>
         <div class="hero-actions">
             <div class="hero-action-bar primary">
@@ -34,18 +34,18 @@
     </header>
 
     <div class="clue-container">
-        <h1>Intersection Gen v4</h1>
+        <h1>Clue Weave</h1>
         <p class="sub">
-            <strong class="clue-signal-text">Signal</strong> = The Clue Object &nbsp;|&nbsp;
-            <strong class="clue-noise-text">Noise</strong> = The Context / Coating
+            <strong class="clue-signal-text">True Clue</strong> = The Meaningful Detail &nbsp;|&nbsp;
+            <strong class="clue-noise-text">False Lead</strong> = Misleading Context
         </p>
 
         <div class="protocol-box">
-            <span class="clue-protocol-title">Usage Protocol:</span> Click Guilds below to toggle
+            <span class="clue-protocol-title">Usage:</span> Click Groups below to toggle
             status.<br>
-            1 Click = <span class="clue-noise-text clue-emph">NOISE</span> (Herring) | 2 Clicks = <span
-                class="clue-signal-text clue-emph">SIGNAL</span> (Involved)<br>
-            Generator picks 1 Signal and 1 Noise from selected guilds.
+            1 Click = <span class="clue-noise-text clue-emph">FALSE LEAD</span> | 2 Clicks = <span
+                class="clue-signal-text clue-emph">TRUE CLUE</span><br>
+            Generator picks one of each from selected groups.
         </div>
 
         <div class="guild-grid" id="guildGrid"></div>
@@ -56,7 +56,7 @@
                 <option value="soc">Social</option>
                 <option value="arc">Arcane</option>
             </select>
-            <button class="gen-btn" data-onclick="generateClue()">Generate Data</button>
+            <button class="gen-btn" data-onclick="generateClue()">Generate Clue Pair</button>
         </div>
 
         <div class="result-card" id="resultCard">
@@ -66,14 +66,14 @@
 
             <div class="res-body">
                 <div class="data-block signal" id="objectBlock">
-                    <span class="lbl" id="objectLabel">The Signal (Object)</span>
-                    <span class="g-tag" id="objectGuild">Guild</span>
+                    <span class="lbl" id="objectLabel">True Clue (Object)</span>
+                    <span class="g-tag" id="objectGuild">Group</span>
                     <div class="val" id="objectVal">A rigid legal writ</div>
                 </div>
 
                 <div class="data-block noise" id="contextBlock">
-                    <span class="lbl" id="contextLabel">The Noise (Context)</span>
-                    <span class="g-tag" id="contextGuild">Guild</span>
+                    <span class="lbl" id="contextLabel">False Lead (Context)</span>
+                    <span class="g-tag" id="contextGuild">Group</span>
                     <div class="val" id="contextVal">Covered in vibrant moss</div>
                 </div>
             </div>
@@ -92,7 +92,11 @@
     </div>
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
+    <script src="js/data-guilds.js"></script>
     <script src="js/data-clue.js"></script>
+    <script src="js/data-setting.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
     <script src="js/clue.js"></script>
     <script src="js/vector-field.js"></script>
 </body>

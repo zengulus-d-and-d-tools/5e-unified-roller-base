@@ -1,19 +1,22 @@
 # Campaign Hub (`hub.html`)
 
-Between-sessions control room for heat, guild standing, and downtime logistics. It pulls from the same unified store as the campaign-facing tools (Case Board, Player Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ) so NPC/Guild metadata stays aligned.
+Between-session operations board for case prep, group reputation, heat, and downtime projects.
 
 ## Layout
-- **Case Prep Template** – The top card is a quick brief: title/logline, guilds in conflict, antagonist goal, legal & physical obstacles, and a set-piece outline. Use it as a one-page primer before the next mission.
-- **Global Status** – Grid of all configured guilds/factions (including optional independents like Guildless); click to cycle rep values from hostile to favored. A Heat meter with +/- buttons, a glowing fill, and warning copy keeps consequences front and center.
-- **Player Roster** – Mirrors the Task Force Dashboard but focuses on downtime: each player row tracks DP, status flags, clocks, and notes. Buttons at the bottom grant the standard +2 DP for closing a case or hard reset the entire hub.
 
-## Controls & Sync
-- **Portal/Dashboard Links** – Jump back to the Tools Hub or straight into the Player Dashboard to edit frontline stats.
-- **Import / Export** – Dedicated buttons let you trade just the hub state, while the Tools Hub import/export covers the full campaign.
-- **Accent/BG** – Hero controls ensure the strategic view matches whatever palette your table picked.
+- **Case Prep Template**: title/logline, groups in conflict, goal, clock, obstacles, set piece.
+- **Reputation Grid**: one card per configured group with `-` / `+` controls (range `-2` to `+2`).
+- **Heat Meter**: shared campaign heat with `-` / `+` controls (range `0` to `6`).
+- **Player Roster**: per-player DP, project name/reward, and 4-segment project clock.
+
+## Controls
+
+- **Portal / Dashboard** links in header.
+- **Export / Import** buttons call shared `RTF_STORE` export/import.
+- **Grant +2 DP** and **Reset All** roster utilities.
 
 ## Tips
-- Log guild standing immediately after a scene; the Heat warning text will remind you when fallout scenes are due.
-- If Timeline auto-sync is enabled, heat deltas from mission events will update this meter automatically (0–6 clamp), so confirm the setting before manual adjustments.
-- Use the Case Prep card for NPC clocks or looming threats so everyone knows what success/failure looks like before the next session.
-- When a player spends DP in the Roster card, jot the activity directly in their row so it travels into the HQ designer or downtime scenes later.
+
+- Update reputation and heat right after major scenes to keep downstream tools aligned.
+- Use short, outcome-focused project names so HQ downtime assignments stay readable.
+- Treat the case prep block as your single-source briefing for the current active case.

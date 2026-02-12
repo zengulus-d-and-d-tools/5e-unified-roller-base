@@ -1,17 +1,21 @@
 # Locations Database (`locations.html`)
 
-Lightweight CRM for districts, safehouses, and notable fronts. Uses the same card styling as the hub so you can browse locations during prep or play.
+Shared place registry for districts, landmarks, lairs, and mission sites.
 
 ## Layout
-- **Hero Header** – Portal link, accent/BG controls, and a `+ Add Location` button that reveals the inline form.
-- **Location Form** – Name, district/guild select, description, and notes fields. Perfect for logging sensory cues, contacts, or mission hooks tied to the space.
-- **Filter Bar** – Text search plus district dropdown. Filters update live so you can find "Precinct Four" locations or everything tagged `Dimir` instantly.
-- **Location Cards** – Each entry shows the name, district, description, notes, and delete/edit options. All fields are editable in place and changes write straight to the shared store.
+
+- **Add Form**: name, area/group, description, image URL, notes.
+- **Filter Bar**: text search + district filter.
+- **Location Cards**: inline-editable details with board/link/delete actions.
+
+## Behavior
+
+- Area/group options come from shared `campaign.rep` names.
+- Location rows save to shared `RTF_STORE` (`campaign.locations`).
+- Deep links (`?locationId=...`) can highlight a specific location row.
 
 ## Tips
-- Mirror district names from the Mission Timeline tags so cross-referencing is painless.
-- Store downtime hooks in the notes field ("Spend 1 DP here to reduce Heat") to remind players why a location matters.
-- Export from the Tools Hub before big arcs so you can maintain a historical log of neighborhoods the party has touched.
 
-## Cross-Links
-- [Case Board](CaseBoard.md) (`board.html`) – Drag key locations into the case graph so districts and fronts stay linked to the clues, NPCs, and events happening there.
+- Use consistent area labels so timeline and requisition focus filters line up.
+- Put tactical details (entry points, watch cycles, hazards) in notes.
+- Add image URLs for handout-ready context during play.

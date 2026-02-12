@@ -93,16 +93,16 @@ const NODE_TYPE_ICONS = {
     note: '📝',
     event: '🕰️',
     requisition: '📦',
-    azorius: '⚖️',
-    boros: '⚔️',
-    dimir: '👁️',
-    golgari: '🍄',
-    gruul: '🔥',
-    izzet: '⚡',
-    orzhov: '💰',
-    rakdos: '🎪',
-    selesnya: '🌳',
-    simic: '🧬'
+    faction-1: '⚖️',
+    faction-2: '⚔️',
+    faction-3: '👁️',
+    faction-4: '🍄',
+    faction-5: '🔥',
+    faction-6: '⚡',
+    faction-7: '💰',
+    faction-8: '🎪',
+    faction-9: '🌳',
+    faction-10: '🧬'
 };
 const CONNECTION_COLOR_PALETTE = [
     { name: 'Neutral', hex: '#f5f7fb' },
@@ -1120,21 +1120,16 @@ function initFormattingToolbar() {
 }
 
 function getBoardGuildNames() {
-    if (typeof window.getRTFGuilds === 'function') {
-        const list = window.getRTFGuilds({ includeGuildless: true });
-        if (Array.isArray(list) && list.length) return list;
+    if (window.RTF_STORE && window.RTF_STORE.state && window.RTF_STORE.state.campaign && window.RTF_STORE.state.campaign.rep) {
+        const fromStore = Object.keys(window.RTF_STORE.state.campaign.rep);
+        if (fromStore.length) return fromStore;
     }
-    if (window.RTF_DATA && Array.isArray(window.RTF_DATA.guilds) && window.RTF_DATA.guilds.length) {
-        return window.RTF_DATA.guilds;
-    }
-    return [];
+    return ['General'];
 }
 
 function getBoardGuildEntries() {
     const names = getBoardGuildNames();
-    const clueGuilds = (window.RTF_DATA && window.RTF_DATA.clue && Array.isArray(window.RTF_DATA.clue.guilds))
-        ? window.RTF_DATA.clue.guilds
-        : [];
+    const clueGuilds = [];
 
     const clueByName = new Map();
     clueGuilds.forEach((entry) => {
@@ -1150,7 +1145,7 @@ function getBoardGuildEntries() {
         const clue = clueByName.get(cleanName.toLowerCase());
         let id = clue && clue.id ? String(clue.id).trim() : '';
         if (!id) id = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        if (!id) id = `guild-${idx + 1}`;
+        if (!id) id = `group-${idx + 1}`;
         if (seenIds.has(id)) id = `${id}-${idx + 1}`;
         seenIds.add(id);
 
@@ -1272,7 +1267,7 @@ function initGuildToolbar() {
     const entries = getBoardGuildEntries();
 
     if (!entries.length) {
-        list.innerHTML = '<div class="board-popup-empty">No guild entries available.</div>';
+        list.innerHTML = '<div class="board-popup-empty">No group entries available.</div>';
         return;
     }
 
@@ -1284,7 +1279,7 @@ function initGuildToolbar() {
         const safeIcon = sanitizeText(g.icon);
         const nodeData = {
             title: g.name,
-            body: 'Guild',
+            body: 'Group',
             meta: {
                 sourceType: 'guild',
                 guild: g.name,
@@ -1307,7 +1302,7 @@ function initNPCToolbar() {
         <div class="filter-bar">
             <input type="text" id="npc-search" class="filter-input" placeholder="Search NPCs..." data-oninput="renderNPCs()">
             <select id="npc-guild-filter" class="filter-select" data-onchange="renderNPCs()">
-                <option value="">All Guilds</option>
+                <option value="">All Groups</option>
                 ${getBoardGuildNames().map(g => `<option value="${sanitizeText(g)}">${sanitizeText(g)}</option>`).join('')}
             </select>
         </div>

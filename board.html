@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
-    <title>Ravnica Investigation Board</title>
+    <title>Investigation Board</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/board.css?v=20260209c">
     <meta name="theme-color" content="#1e1e1e">
@@ -23,9 +23,9 @@
 
     <header class="hero-header board-hero">
         <div>
-            <p class="hero-eyebrow">Ravnica Task Force</p>
+            <p class="hero-eyebrow">Campaign Tools</p>
             <h1>Investigation Board</h1>
-            <p class="hero-subtitle">A virtual whiteboard for tracking clues, NPCs, and faction threads with physics-assisted connections.</p>
+            <p class="hero-subtitle">A whiteboard for linking people, places, notes, and clues.</p>
             <div class="hero-meta">Case File <strong id="caseName" contenteditable="true">UNNAMED</strong></div>
         </div>
         <div class="hero-actions">
@@ -81,7 +81,7 @@
                 <div class="tool-item" id="btn-guilds"
                     data-onclick="event.stopPropagation(); window.togglePopup('guild-popup')">
                     <div class="icon">🏛️</div>
-                    <div class="label">Guilds</div>
+                    <div class="label">Groups</div>
                 </div>
                 <div class="tool-item" id="btn-npcs" data-onclick="event.stopPropagation(); window.togglePopup('npc-popup')">
                     <div class="icon">👥</div>
@@ -129,11 +129,6 @@
 
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
-    <script src="js/data-guilds.js"></script>
-    <script src="js/data-setting.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/data-npcs.js"></script>
-    <script src="js/data-locations.js"></script>
     <script src="js/store.js"></script>
     <script src="js/session-log.js"></script>
     <script src="js/vector-field.js"></script>

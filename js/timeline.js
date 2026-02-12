@@ -313,7 +313,7 @@
                 <div class="event-meta">
                     <div>
                         <label>Focus</label>
-                        <input type="text" value="${escapeHtml(evt.focus || '')}" placeholder="District / Guild"
+                        <input type="text" value="${escapeHtml(evt.focus || '')}" placeholder="District / Group"
                             data-onchange="updateEventField('${evtId}', 'focus', this.value)">
                     </div>
                     <div>

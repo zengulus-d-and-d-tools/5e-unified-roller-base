@@ -1,12 +1,24 @@
 # Supabase Sync (`RTF_STORE`)
 
-Optional cloud sync for the shared campaign stack (`hub`, `board`, `roster`, `locations`, `requisitions`, `timeline`, `encounters`, `hq`, `player-dashboard`).
+Optional cloud sync for shared campaign tools:
+- `hub.html`
+- `board.html`
+- `player-dashboard.html`
+- `roster.html`
+- `locations.html`
+- `requisitions.html`
+- `timeline.html`
+- `encounters.html`
+- `hq.html`
 
-The Character Sheet (`index.html`) is intentionally separate and remains local per browser by default.
+Not included in this sync path:
+- Character Sheet (`index.html`)
+- Session Tracker (`gm.html`)
+- Tournament Bracket (`tourney.html`)
 
 ## 1. Create Table
 
-Run this in Supabase SQL Editor:
+Run in Supabase SQL Editor:
 
 ```sql
 create table if not exists public.rtf_campaign_state (
@@ -23,7 +35,7 @@ alter table public.rtf_campaign_state enable row level security;
 
 ## 2. Add Baseline Policy
 
-For fast setup (trusted table/users), allow any authenticated user:
+Trusted-table quick start:
 
 ```sql
 drop policy if exists "rtf_campaign_state_auth_rw" on public.rtf_campaign_state;
@@ -36,106 +48,72 @@ using (true)
 with check (true);
 ```
 
-If you need stricter campaign membership policies, add those after initial validation.
-
-## 3. Enable Realtime Postgres Changes (Free-Tier Friendly)
-
-Do this in SQL Editor (not the separate Database Replication/ETL feature):
+## 3. Enable Realtime Postgres Changes
 
 ```sql
 alter publication supabase_realtime
 add table public.rtf_campaign_state;
 ```
 
-If the table is already in the publication, Supabase may return a harmless duplicate-entry style message.
-
-This project uses Realtime Postgres Changes. It does **not** require the paid/alpha Database Replication pipeline.
+If already present, duplicate-entry warnings are safe to ignore.
 
 ## 4. Enable Anonymous Auth (Recommended)
 
-This app auto-signs in anonymously for shared tablet/URL use:
+1. Supabase Dashboard -> `Authentication` -> `Providers`
+2. Enable `Anonymous`
 
-1. Go to `Authentication` -> `Providers`.
-2. Enable `Anonymous` provider.
+## 5. Configure in Tools Hub
 
-If you do not want anonymous auth, use email magic links and custom policies.
+1. Open `tools.html`
+2. Enter secret mode (`Alt+Shift+Click` page title)
+3. Fill Cloud Sync fields:
+   - `Project URL`
+   - `Anon Key`
+   - `Campaign ID`
+   - `Profile Name` (optional)
+4. Click `Save Config` then `Connect`
 
-## 5. Configure In Tools Hub
+Manual controls:
+- `Pull Latest`
+- `Push Now`
+- conflict resolution (`Accept Remote` / `Keep Local + Merge Push`)
 
-Open `tools.html` and fill the Cloud Sync panel:
+## 6. `connect.json` Onboarding
 
-- `Project URL`: `https://<project-ref>.supabase.co`
-- `Anon Key`: Supabase anon/public key
-- `Campaign ID`: shared slug like `ravnica-main`
-- `Profile Name`: optional display label
+DM flow:
+1. Configure sync in Tools Hub.
+2. Click `Export connect.json`.
+3. Share file with players.
 
-### Where To Find These
-
-- `Project URL`:
-  - Supabase dashboard -> `Settings` -> `API` -> `Project URL`
-- `Anon Key`:
-  - Supabase dashboard -> `Settings` -> `API` -> `Project API keys` -> `anon` / `public`
-- `Campaign ID` (shared slug):
-  - You choose this value. Everyone joining the same campaign must use the exact same string.
-  - Recommended format: lowercase with dashes, e.g. `ravnica-main`, `table-alpha-2026`.
-  - Avoid spaces/special characters to prevent typo mismatches.
-- `Profile Name`:
-  - Any label you want shown in sync metadata, e.g. `DM-Laptop`, `Player-Tablet-1`.
-
-Then click:
-
-- `Save Config`
-- `Connect`
-
-Use `Pull Latest` and `Push Now` for manual control; normal edits auto-sync with a short debounce.
-
-## 6. `connect.json` Workflow (Recommended For Players)
-
-This project supports a simple `connect.json` profile so players do not need to manually enter Supabase details.
-
-### DM Flow
-
-1. Open `tools.html`.
-2. Enter cloud settings in secret mode (`Alt+Shift+Click` title).
-3. Click `Export connect.json`.
-4. Share that file with players.
-
-### Player Flow
-
+Player flow:
 1. Open `tools.html`.
 2. Click `Import connect.json`.
-3. Select DM-provided file.
-4. Sync connects automatically.
+3. Select provided file.
 
-### Bundled Default (Optional)
+Optional bundled default:
+- Place `connect.json` next to `tools.html`.
+- It auto-applies on first run when no local sync config exists.
 
-If you place a `connect.json` file at the site root (same level as `tools.html`), Tools Hub will auto-apply it on first run when no sync config is already saved locally.
-
-### `connect.json` Format
+Example:
 
 ```json
 {
   "supabaseUrl": "https://your-project-ref.supabase.co",
   "anonKey": "your-anon-public-key",
-  "campaignId": "ravnica-main",
+  "campaignId": "unified-main",
   "profileName": ""
 }
 ```
 
-Accepted aliases are also supported:
-- `projectUrl` or `url` for `supabaseUrl`
-- `key` or `publicKey` for `anonKey`
-- `slug` or `campaign` for `campaignId`
+Accepted aliases:
+- `projectUrl` or `url` -> `supabaseUrl`
+- `key` or `publicKey` -> `anonKey`
+- `slug` or `campaign` -> `campaignId`
 
-## Notes
+## Sync Notes
 
-- Sync is offline-first: local state always saves immediately.
-- First cloud connect in a browser session force-pulls remote state; remote is treated as source-of-truth at initial load.
-- Remote sync now uses optimistic conflict checks with per-state `meta.syncRevision`.
-- If remote changes overlap local edits, sync enters `conflict` mode and must be resolved from `tools.html` (`Accept Remote` or `Keep Local + Merge Push`).
-- Non-overlapping conflicts auto-merge by scope (for example board vs requisitions).
-- Reconciliation pulls run on an interval while connected to reduce drift during longer sessions.
-- Realtime presence advertises active peers and soft-lock scopes to reduce accidental overwrite collisions.
-- Campaign tools share one cloud row per `campaign_id`.
-- Case Board node layout (`x/y` position) is local-only per client. Node content and links still sync.
-- Character sheets are not part of this sync path unless you add a separate sheet sync layer.
+- Local saves happen first (offline-first).
+- First connect force-pulls remote state as baseline.
+- Revisions and scope-based conflict checks are built in.
+- Overlapping edits enter conflict mode and require explicit resolution.
+- Board node `x/y` layout stays local per client; node content/links sync.

@@ -17,9 +17,9 @@
     <div class="container">
         <header class="hero-header">
             <div>
-                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <p class="hero-eyebrow">Campaign Tools</p>
                 <h1>Requisition Vault</h1>
-                <p class="hero-subtitle">Shared inventory pipeline for triaging kit requests, approvals, and guild sourcing.</p>
+                <p class="hero-subtitle">Shared inventory pipeline for triaging kit requests and approvals.</p>
             </div>
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
@@ -60,7 +60,7 @@
                     <option value="">All Statuses</option>
                 </select>
                 <select id="reqGuildFilter" data-onchange="renderRequisitions()">
-                    <option value="">All Guilds</option>
+                    <option value="">All Groups</option>
                 </select>
                 <select id="reqPriorityFilter" data-onchange="renderRequisitions()">
                     <option value="">Any Priority</option>
@@ -73,9 +73,6 @@
 
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
-    <script src="js/data-guilds.js"></script>
-    <script src="js/data-setting.js"></script>
-    <script src="js/data.js"></script>
     <script src="js/store.js"></script>
     <script src="js/session-log.js"></script>
     <script src="js/soft-delete.js"></script>

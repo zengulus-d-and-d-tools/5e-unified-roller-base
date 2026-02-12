@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ravnica-tools-v3';
+const CACHE_NAME = 'unified-tools-v3';
 const SHELL_ASSETS = [
     './',
     './tools.html',

@@ -1,9 +1,10 @@
 (function (global) {
-    const STORE_KEY = 'ravnica_unified_v1';
-    const LEGACY_HUB_KEY = 'ravnicaHubV3_2';
+    const STORE_KEY = 'unified_store_v1';
+    const LEGACY_STORE_KEY = 'unified_unified_v1';
+    const LEGACY_HUB_KEY = 'unifiedHubV3_2';
     const LEGACY_BOARD_KEY = 'invBoardData';
 
-    const SYNC_CONFIG_KEY = 'ravnica_sync_config_v1';
+    const SYNC_CONFIG_KEY = 'unified_sync_config_v1';
     const SYNC_STATUS_EVENT = 'rtf-sync-status';
     const SYNC_CONFLICT_EVENT = 'rtf-sync-conflict';
     const STORE_UPDATED_EVENT = 'rtf-store-updated';
@@ -11,17 +12,7 @@
     const STORE_DEBUG = false;
 
     const FALLBACK_GUILDS = [
-        "Azorius",
-        "Boros",
-        "Dimir",
-        "Golgari",
-        "Gruul",
-        "Izzet",
-        "Orzhov",
-        "Rakdos",
-        "Selesnya",
-        "Simic",
-        "Guildless"
+        "General"
     ];
 
     const normalizeGuildName = (value) => String(value || '').trim();
@@ -44,19 +35,33 @@
         return out;
     };
 
+    const readPreloadedGuilds = () => {
+        const raw = Array.isArray(global.PRELOADED_GUILDS) ? global.PRELOADED_GUILDS : [];
+        const mapped = raw.map((entry) => {
+            if (typeof entry === 'string') return entry;
+            if (entry && typeof entry === 'object' && typeof entry.name === 'string') return entry.name;
+            return '';
+        });
+        return dedupeGuildNames(mapped);
+    };
+
+    const readPreloadedNpcList = () => {
+        if (!Array.isArray(global.PRELOADED_NPCS)) return [];
+        return global.PRELOADED_NPCS
+            .filter((row) => row && typeof row === 'object')
+            .map((row) => ({ ...row }));
+    };
+
+    const readPreloadedLocationList = () => {
+        if (!Array.isArray(global.PRELOADED_LOCATIONS)) return [];
+        return global.PRELOADED_LOCATIONS
+            .filter((row) => row && typeof row === 'object')
+            .map((row) => ({ ...row }));
+    };
+
     const resolveDefaultGuildList = () => {
-        if (typeof global.getRTFGuilds === 'function') {
-            const byHelper = dedupeGuildNames(global.getRTFGuilds({ includeGuildless: true }));
-            if (byHelper.length) return byHelper;
-        }
-        if (global.RTF_DATA && Array.isArray(global.RTF_DATA.guilds)) {
-            const byData = dedupeGuildNames(global.RTF_DATA.guilds);
-            if (byData.length) return byData;
-        }
-        if (Array.isArray(global.PRELOADED_GUILDS)) {
-            const byPreload = dedupeGuildNames(global.PRELOADED_GUILDS);
-            if (byPreload.length) return byPreload;
-        }
+        const preloaded = readPreloadedGuilds();
+        if (preloaded.length) return preloaded;
         return FALLBACK_GUILDS.slice();
     };
 
@@ -95,8 +100,8 @@
             rep: buildRepMapFromGuilds(resolveDefaultGuildList()),
             heat: 0,
             players: [],
-            npcs: [],
-            locations: [],
+            npcs: readPreloadedNpcList(),
+            locations: readPreloadedLocationList(),
             requisitions: [],
             events: [],
             encounters: [],
@@ -1039,7 +1044,7 @@
 
         load() {
             try {
-                const raw = localStorage.getItem(STORE_KEY);
+                const raw = localStorage.getItem(STORE_KEY) || localStorage.getItem(LEGACY_STORE_KEY);
                 if (raw) {
                     const loaded = JSON.parse(raw);
                     this.state = sanitizeState(loaded);
@@ -1052,7 +1057,6 @@
                 this.state = sanitizeState(this.state);
                 this.ensureCampaignEntityIds(false);
                 this.syncActiveCaseLegacyState();
-                if (this.ingestPreloadedData()) this.save({ scope: 'campaign' });
                 this.sync.lastSyncedState = sanitizeState(this.state);
                 this.sync.lastKnownRemoteRevision = toNonNegativeInt(this.state.meta && this.state.meta.syncRevision, 0);
             } catch (e) {
@@ -1062,64 +1066,6 @@
                 this.sync.lastSyncedState = sanitizeState(this.state);
                 this.sync.lastKnownRemoteRevision = 0;
             }
-        }
-
-        ingestPreloadedData() {
-            let changed = false;
-
-            if (window.PRELOADED_NPCS && Array.isArray(window.PRELOADED_NPCS)) {
-                const normalizeNPCField = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-                const buildNPCSignature = (npc) => [
-                    normalizeNPCField(npc && npc.name),
-                    normalizeNPCField(npc && npc.guild),
-                    normalizeNPCField(npc && npc.wants),
-                    normalizeNPCField(npc && npc.leverage),
-                    normalizeNPCField(npc && npc.notes)
-                ].join('|');
-                const preloadedSignatures = new Set(window.PRELOADED_NPCS.map(buildNPCSignature));
-
-                // Backfill source markers for existing exact preloaded records.
-                this.state.campaign.npcs.forEach((npc) => {
-                    if (!npc || typeof npc !== 'object') return;
-                    if (npc.__rtfSource) return;
-                    if (preloadedSignatures.has(buildNPCSignature(npc))) {
-                        npc.__rtfSource = 'preloaded';
-                        changed = true;
-                    }
-                });
-
-                const existingNames = new Set(this.state.campaign.npcs.map(n => n.name));
-                let count = 0;
-                window.PRELOADED_NPCS.forEach(n => {
-                    if (!existingNames.has(n.name)) {
-                        this.state.campaign.npcs.push({ ...n, __rtfSource: 'preloaded' });
-                        existingNames.add(n.name);
-                        count++;
-                    }
-                });
-                if (count > 0) {
-                    logInfo(`RTF_STORE: Seeded ${count} NPCs.`);
-                    changed = true;
-                }
-            }
-
-            if (window.PRELOADED_LOCATIONS && Array.isArray(window.PRELOADED_LOCATIONS)) {
-                const existingNames = new Set(this.state.campaign.locations.map(l => l.name));
-                let count = 0;
-                window.PRELOADED_LOCATIONS.forEach(l => {
-                    if (!existingNames.has(l.name)) {
-                        this.state.campaign.locations.push({ ...l });
-                        existingNames.add(l.name);
-                        count++;
-                    }
-                });
-                if (count > 0) {
-                    logInfo(`RTF_STORE: Seeded ${count} Locations.`);
-                    changed = true;
-                }
-            }
-
-            return changed;
         }
 
         save(options = {}) {
@@ -1192,7 +1138,7 @@
             const downloadAnchorNode = document.createElement('a');
             const date = new Date().toISOString().slice(0, 10);
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", `ravnica_unified_backup_${date}.json`);
+            downloadAnchorNode.setAttribute("download", `unified_store_backup_${date}.json`);
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();

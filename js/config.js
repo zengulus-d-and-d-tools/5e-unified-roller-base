@@ -1,5 +1,5 @@
 export const CONFIG = {
-    GUILDS: ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"],
+    GUILDS: ["General"],
     PROJECT_REWARDS: [
         "+1 Reputation",
         "Reduce Heat by 1",
@@ -8,7 +8,7 @@ export const CONFIG = {
         "Nonmagical Perk"
     ],
     STORAGE_KEYS: {
-        HUB: 'ravnicaHubV3_2',
-        SHEET: 'ravnicaSheetV4_8' // I'll use a versioned key for the refactored sheet eventually
+        HUB: 'unifiedHubV3_2',
+        SHEET: 'unifiedSheetV4_8' // I'll use a versioned key for the refactored sheet eventually
     }
 };

@@ -17,9 +17,9 @@
     <div class="container">
         <header class="hero-header">
             <div>
-                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <p class="hero-eyebrow">Campaign Tools</p>
                 <h1>NPC Roster</h1>
-                <p class="hero-subtitle">Catalog allies, rivals, and informants with guild tags, leverage notes, and quick filters.</p>
+                <p class="hero-subtitle">Catalog allies, rivals, and informants with simple tags and quick filters.</p>
             </div>
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
@@ -42,7 +42,7 @@
                 <div class="grid-5 roster-grid-two roster-mb-10">
                     <input type="text" id="npcName" placeholder="Name">
                     <select id="npcGuild">
-                        <option value="">Select Guild...</option>
+                        <option value="">Select Group...</option>
                     </select>
                 </div>
                 <div class="grid-5 roster-grid-two roster-mb-10">
@@ -64,7 +64,7 @@
             <div class="filter-bar">
                 <input type="text" id="searchFilter" class="roster-filter-grow" placeholder="Search names..." data-oninput="render()">
                 <select id="guildFilter" class="roster-filter-grow" data-onchange="render()">
-                    <option value="">All Guilds</option>
+                    <option value="">All Groups</option>
                 </select>
             </div>
 
@@ -74,11 +74,6 @@
 
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
-    <script src="js/data-guilds.js"></script>
-    <script src="js/data-setting.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/data-npcs.js"></script>
-    <script src="js/data-locations.js"></script>
     <script src="js/store.js"></script>
     <script src="js/roster.js"></script>
     <script src="js/vector-field.js"></script>

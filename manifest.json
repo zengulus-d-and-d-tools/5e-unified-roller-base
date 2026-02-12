@@ -1,7 +1,7 @@
 {
-  "name": "Ravnica Task Force Tools",
-  "short_name": "RavnicaTools",
-  "description": "Offline-first HTML tools for 5e Ravnica campaigns.",
+  "name": "Campaign Tools",
+  "short_name": "CampaignTools",
+  "description": "Offline-first HTML tools for 5e campaigns.",
   "start_url": "tools.html",
   "display": "standalone",
   "background_color": "#0f0f13",

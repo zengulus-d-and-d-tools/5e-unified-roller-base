@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
-    <title>Task Force Hub v3.3</title>
+    <title>Campaign Hub</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/hub.css">
     <link rel="stylesheet" href="css/hub-page.css">
@@ -17,9 +17,9 @@
     <div class="container">
         <header class="hero-header">
             <div>
-                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <p class="hero-eyebrow">Campaign Tools</p>
                 <h1>Campaign Hub</h1>
-                <p class="hero-subtitle">A campaign-level dashboard for managing the strategic layer of the game, tuned for Ravnica's urban grind.</p>
+                <p class="hero-subtitle">A campaign dashboard for tracking status, notes, and between-session updates.</p>
             </div>
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
@@ -41,7 +41,7 @@
             <div class="case-grid">
                 <div class="case-field"><span class="mini-label">Title / Logline</span><input type="text" id="caseTitle"
                         data-onchange="saveCase()"></div>
-                <div class="case-field"><span class="mini-label">Guilds in Conflict</span><input type="text"
+                <div class="case-field"><span class="mini-label">Groups in Conflict</span><input type="text"
                         id="caseGuilds" data-onchange="saveCase()"></div>
                 <div class="case-field"><span class="mini-label">Antagonist Objective</span><textarea id="caseGoal"
                         rows="2" data-onchange="saveCase()"></textarea></div>
@@ -61,7 +61,7 @@
             <div class="grid-5" id="repGrid"></div>
             <div class="hub-status-heat-wrap">
                 <div class="hub-status-heat-head">
-                    <span class="mini-label">Task Force Heat (0-6)</span>
+                    <span class="mini-label">Activity Level (0-6)</span>
                     <div>
                         <button class="btn" data-onclick="modHeat(-1)">-</button>
                         <span id="heatVal" class="hub-heat-val">0</span>
@@ -91,11 +91,6 @@
     </div>
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
-    <script src="js/data-guilds.js"></script>
-    <script src="js/data-setting.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/data-npcs.js"></script>
-    <script src="js/data-locations.js"></script>
     <script src="js/store.js"></script>
     <script src="js/hub.js"></script>
     <script src="js/vector-field.js"></script>

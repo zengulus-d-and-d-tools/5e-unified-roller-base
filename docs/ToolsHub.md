@@ -1,19 +1,25 @@
 # Tools Hub (`tools.html`)
 
-Landing grid for the entire suite. Open it first to import/export the unified data store, tweak the accent palette, or hand players a jumping-off point.
+Primary control page for the suite. Open this first before jumping into other tools.
 
 ## Layout
-- **Hero Header** – Import/Export buttons live up top along with the accent picker and background cycler. Alt+Shift+Click the title to expose DM-only cards (Hub, GM deck, Clue tools, etc.).
-- **Cloud Connect Panel** – Player-facing import for `connect.json` plus a bundled-default shortcut so clients can join without manual key entry.
-- **Cloud Sync Panel (Secret Mode)** – Manual Supabase URL/key/campaign controls, export of `connect.json`, and admin pull/push actions. This panel is intentionally behind Alt+Shift secret mode.
-- **Customise Seed Panel (Secret Mode)** – Hidden fork helper that loads default/store guild + NPC + location data and exports fork-ready `data-guilds*.js`, `data-npcs*.js`, and `data-locations*.js` files.
-- **Card Grid** – Responsive cards link to every HTML tool (player sheet, dashboards, HQ, timeline, etc.). Icons and short blurbs help the table pick the right door quickly.
-- **Secret Panel** – DM-only cards are tagged with 🔒-red borders; once the secret mode is active they fade in with a light animation.
 
-## Tips
-- Always import campaign data here first—the Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, and HQ pages all read from the same store, so one import primes the entire campaign stack.
-- For multiplayer web deployments, set up Supabase once and use the Cloud Sync panel for realtime-ish shared campaign updates.
-- If you’re forking this repo, use the secret Customise panel to export fresh preload scripts for guilds/NPCs/locations, then drop them into `js/data-guilds.js`, `js/data-npcs.js`, and `js/data-locations.js`.
-- Use the accent picker before a session so all other pages inherit the same neon colorway.
-- Hide DM cards during open-table play so players only see approved utilities.
-- Import/export here touches the unified `RTF_STORE` stack (Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ). Standalone utilities like the Character Sheet, Session Tracker, Narrative Engine, and Tournament Bracket keep their own local saves.
+- **Hero Header**: import/export, accent picker, background cycler.
+- **Active Case Context**: switch/create/rename/delete cases. Board and Timeline follow this active case.
+- **Group Loader Wizard**: pop-over wizard for loading group/faction names into `campaign.rep`.
+- **Cloud Connect**: player-facing `connect.json` import and bundled default connect.
+- **Cloud Sync (Secret Mode)**: manual Supabase config and admin push/pull/conflict controls.
+- **Card Grid**: links to all tools. DM-only links appear in secret mode.
+
+## Shortcuts
+
+- `Alt+Shift+Click` title: toggle secret mode.
+- `Alt+Shift+L`: open Group Loader Wizard pop-over.
+- `Esc`: close Group Loader Wizard.
+
+## Notes
+
+- Import/export here covers the full shared `RTF_STORE` campaign stack.
+- Character Sheet, Session Tracker, and Tournament Bracket still use their own local storage.
+- Narrative Engine and Clue Generator read current groups from shared store reputation data.
+- For file-based preload customization (`js/data-*.js`), see **[Preload Guide](Preloads.md)**.

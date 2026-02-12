@@ -4,7 +4,7 @@
     const ROOM_TYPES = [
         { id: 'command', label: 'Command & Control', color: '#7cdde1' },
         { id: 'logistics', label: 'Logistics & Support', color: '#f7c266' },
-        { id: 'arcane', label: 'Arcano-Tech Lab', color: '#be9bff' },
+        { id: 'arcane', label: 'Systems Lab', color: '#be9bff' },
         { id: 'recovery', label: 'Recovery & Hearth', color: '#7ff0c7' },
         { id: 'hangar', label: 'Motor Pool / Hangar', color: '#ff9c7f' },
         { id: 'stealth', label: 'Stealth / Intelligence', color: '#8bb5ff' }
@@ -1258,7 +1258,7 @@
         ctx.shadowBlur = 4;
         ctx.fillStyle = textMain;
         ctx.font = '18px "Segoe UI", sans-serif';
-        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 20, height - 40);
+        ctx.fillText(`${floor ? floor.name : 'HQ'} • Campaign HQ`, 20, height - 40);
 
         ctx.font = '13px "Segoe UI", sans-serif';
         ctx.fillStyle = textMuted;

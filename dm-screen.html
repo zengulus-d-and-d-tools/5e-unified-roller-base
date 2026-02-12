@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
-    <title>Ravnica Task Force: GM Screen v3</title>
+    <title>Narrative Engine</title>
     <meta name="theme-color" content="#1e1e1e">
 
     <link rel="stylesheet" href="css/theme.css">
@@ -18,9 +18,9 @@
 
     <header class="hero-header">
         <div>
-            <p class="hero-eyebrow">Ravnica Task Force</p>
+            <p class="hero-eyebrow">Campaign Tools</p>
             <h1>Narrative Engine</h1>
-            <p class="hero-subtitle">A procedural improvisation console for incident prompts, sensory texture, hazards, and fallout beats.</p>
+            <p class="hero-subtitle">A fantasy improvisation console for scene prompts, texture, hazards, and fallout beats.</p>
         </div>
         <div class="hero-actions">
             <div class="hero-action-bar primary">
@@ -38,8 +38,8 @@
     <div class="container">
 
         <div class="card">
-            <div class="section-title dm-section-static">The Street (Moment-to-Moment)</div>
-            <button class="btn-gen" data-onclick="genStreetScene()">Generate Incident</button>
+            <div class="section-title dm-section-static">The Scene (Moment-to-Moment)</div>
+            <button class="btn-gen" data-onclick="genStreetScene()">Generate Beat</button>
             <div class="output-box" id="out-street">
                 <div class="dispatch-grid" id="dispatch-content">
                 </div>
@@ -78,7 +78,7 @@
                 <table class="ref-table">
                     <thead>
                         <tr>
-                            <th>Guild</th>
+                            <th>Group</th>
                             <th>Signatures (Phys / Soc / Arc)</th>
                         </tr>
                     </thead>
@@ -101,8 +101,8 @@
         </div>
 
         <div class="card">
-            <div class="section-title dm-section-static">Debrief Phase</div>
-            <button class="btn-small" data-onclick="genBroadsheet()">📰 Generate Broadsheet Headline</button>
+            <div class="section-title dm-section-static">Aftermath</div>
+            <button class="btn-small" data-onclick="genBroadsheet()">📰 Generate Rumor Sheet Headline</button>
             <div class="output-box" id="out-paper">
                 <div class="text-output" id="paper-content"></div>
             </div>
@@ -110,14 +110,14 @@
 
         <div class="card">
             <div class="section-title" data-onclick="toggleRef('guild-ref')">
-                <span>🏦 Guild Jurisdictions</span>
+                <span>🏦 Group Coverage</span>
                 <span>▼</span>
             </div>
             <div class="accordion-content" id="guild-ref">
                 <table class="ref-table">
                     <thead>
                         <tr>
-                            <th>Guild</th>
+                            <th>Group</th>
                             <th>Jurisdiction</th>
                             <th>Liaison Perk</th>
                         </tr>
@@ -131,8 +131,11 @@
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
     <script src="js/data-guilds.js"></script>
+    <script src="js/data-npcs.js"></script>
+    <script src="js/data-locations.js"></script>
     <script src="js/data-setting.js"></script>
     <script src="js/data.js"></script>
+    <script src="js/store.js"></script>
     <script src="js/dm-screen.js"></script>
     <script src="js/vector-field.js"></script>
 </body>

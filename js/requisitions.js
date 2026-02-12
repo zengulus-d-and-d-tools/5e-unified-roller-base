@@ -6,11 +6,11 @@
         acc[val] = idx;
         return acc;
     }, {});
-    const guilds = (typeof window.getRTFGuilds === 'function')
-        ? window.getRTFGuilds({ includeGuildless: true })
-        : ((window.RTF_DATA && window.RTF_DATA.guilds)
-            ? window.RTF_DATA.guilds
-            : ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic", "Guildless"]);
+    const guilds = (() => {
+        const rep = window.RTF_STORE && window.RTF_STORE.state && window.RTF_STORE.state.campaign && window.RTF_STORE.state.campaign.rep;
+        const names = rep ? Object.keys(rep).filter(Boolean) : [];
+        return names.length ? names : ["General"];
+    })();
 
     const escapeHtml = (str = '') => String(str)
         .replace(/&/g, '&amp;')
@@ -153,7 +153,7 @@
         if (!logger || !req) return;
         logger.logMajorEvent({
             title: `Requisition Logged: ${req.item || 'Untitled Request'}`,
-            focus: req.guild || req.requester || 'Task Force',
+            focus: req.guild || req.requester || 'Operations',
             tags: ['auto', 'requisition', 'gained'],
             highlights: `${req.requester || 'Unknown requester'} logged ${req.item || 'a requisition'} (${req.priority || 'Routine'} priority).`,
             source: 'requisitions',
@@ -166,7 +166,7 @@
         if (!logger || !req) return;
         logger.logMajorEvent({
             title: `Requisition Delivered: ${req.item || 'Untitled Request'}`,
-            focus: req.guild || req.requester || 'Task Force',
+            focus: req.guild || req.requester || 'Operations',
             tags: ['auto', 'requisition', 'delivered'],
             highlights: `${req.item || 'Requisition'} marked Delivered${prevStatus ? ` (from ${prevStatus})` : ''}.`,
             source: 'requisitions',
@@ -181,7 +181,7 @@
         const guildFilter = document.getElementById('reqGuildFilter');
 
         if (guildSelect && guildSelect.options.length === 0) {
-            guildSelect.innerHTML = '<option value="">Guild / Source</option>' + guilds.map((g) => {
+            guildSelect.innerHTML = '<option value="">Group / Source</option>' + guilds.map((g) => {
                 const safe = escapeHtml(g);
                 return `<option value="${safe}">${safe}</option>`;
             }).join('');
@@ -412,7 +412,7 @@
                             data-onchange="updateReqField('${reqId}', 'requester', this.value)">
                     </div>
                     <div>
-                        <label>Guild / Source</label>
+                        <label>Group / Source</label>
                         <select data-onchange="updateReqField('${reqId}', 'guild', this.value)">
                             <option value="">Unspecified</option>
                             ${buildOptions(guilds, req.guild)}

@@ -1,9 +1,8 @@
-// Use global data if available
-const guilds = (typeof window.getRTFGuilds === 'function')
-    ? window.getRTFGuilds({ includeGuildless: true })
-    : ((window.RTF_DATA && window.RTF_DATA.guilds)
-        ? window.RTF_DATA.guilds
-        : ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic", "Guildless"]);
+const guilds = (() => {
+    const rep = window.RTF_STORE && window.RTF_STORE.state && window.RTF_STORE.state.campaign && window.RTF_STORE.state.campaign.rep;
+    const names = rep ? Object.keys(rep).filter(Boolean) : [];
+    return names.length ? names : ["General"];
+})();
 
 const escapeHtml = (str = '') => String(str)
     .replace(/&/g, '&amp;')
@@ -101,10 +100,6 @@ const buildNPCSignature = (npc) => {
         normalizeNPCField(npc.notes)
     ].join('|');
 };
-
-const PRELOADED_NPC_SIGNATURES = new Set(
-    (Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS : []).map(buildNPCSignature)
-);
 
 function getCampaign() {
     if (!window.RTF_STORE) return null;
@@ -224,13 +219,7 @@ function ensureGuildOptions() {
 }
 
 function isPreloadedNPC(npc) {
-    if (!npc || typeof npc !== 'object') return false;
-
-    const source = String(npc.__rtfSource || npc.source || '').toLowerCase();
-    if (source === 'custom') return false;
-    if (source === 'preloaded') return true;
-
-    return PRELOADED_NPC_SIGNATURES.has(buildNPCSignature(npc));
+    return false;
 }
 
 function toggleNPCForm() {

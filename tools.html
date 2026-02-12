@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
-    <title>Ravnica DM Portal</title>
+    <title>Campaign Tools</title>
     <link rel="stylesheet" href="css/theme.css">
     <link rel="stylesheet" href="css/tools.css">
     <link rel="stylesheet" href="css/tools-page.css">
@@ -17,9 +17,9 @@
     <div class="tools-container">
         <header class="hero-header">
             <div>
-                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <p class="hero-eyebrow">Campaign Tools</p>
                 <h1 class="header-title" id="pageTitle" data-onclick="trySecretToggle(event)">Tools Hub</h1>
-                <p class="hero-subtitle">Central dispatch for character sheets, command dashboards, and scenario generators.</p>
+                <p class="hero-subtitle">A lightweight launchpad for sheets, logs, and shared campaign utilities.</p>
             </div>
             <div class="hero-actions">
                 <div class="hero-action-bar primary">
@@ -71,7 +71,7 @@
                 </div>
                 <div class="sync-field">
                     <label for="sync-campaign">Campaign ID</label>
-                    <input id="sync-campaign" type="text" placeholder="ravnica-main">
+                    <input id="sync-campaign" type="text" placeholder="unified-main">
                 </div>
                 <div class="sync-field">
                     <label for="sync-profile">Profile Name (Optional)</label>
@@ -97,46 +97,6 @@
                 </div>
             </div>
             <div id="sync-status" class="sync-status">Cloud sync status: waiting for store...</div>
-        </section>
-
-        <section class="sync-panel customize-panel card tools-hidden" id="customize-panel" aria-label="Customise Seed Data">
-            <h2 class="sync-title">Customise Seed Data (Fork Tool)</h2>
-            <p class="sync-desc">
-                Build fork-ready preload files from JSON. Download `data-guilds*.js`, `data-npcs*.js`, and `data-locations*.js` to seed fresh installs fast.
-            </p>
-            <div class="sync-grid">
-                <div class="sync-field">
-                    <label for="customize-label">File Label (Optional)</label>
-                    <input id="customize-label" type="text" placeholder="myfork">
-                </div>
-            </div>
-            <div class="customize-actions">
-                <button class="sync-btn" data-onclick="loadCustomizeDefaults()">Load Current Defaults</button>
-                <button class="sync-btn" data-onclick="loadCustomizeFromCampaign()">Load From Campaign Store</button>
-                <button class="sync-btn" data-onclick="downloadCustomDataFile('guilds')">Download data-guilds.js</button>
-                <button class="sync-btn" data-onclick="downloadCustomDataFile('npcs')">Download data-npcs.js</button>
-                <button class="sync-btn" data-onclick="downloadCustomDataFile('locations')">Download data-locations.js</button>
-                <button class="sync-btn primary" data-onclick="downloadCustomDataFiles()">Download All</button>
-            </div>
-            <div class="sync-grid">
-                <div class="sync-field">
-                    <label for="customize-guilds-json">Guild/Faction Seed JSON</label>
-                    <textarea id="customize-guilds-json" spellcheck="false"
-                        placeholder='["Faction Alpha","Faction Beta","Free Agents"]'></textarea>
-                </div>
-                <div class="sync-field">
-                    <label for="customize-npcs-json">NPC Seed JSON</label>
-                    <textarea id="customize-npcs-json" spellcheck="false"
-                        placeholder='[{"name":"Captain Mira Kord","guild":"Boros Legion","wants":"Results","leverage":"Acts first","notes":"Precinct Commander"}]'></textarea>
-                </div>
-                <div class="sync-field">
-                    <label for="customize-locations-json">Location Seed JSON</label>
-                    <textarea id="customize-locations-json" spellcheck="false"
-                        placeholder='[{"name":"Sunhome","district":"Boros Legion","desc":"Fortress and barracks","notes":"Heavy security"}]'></textarea>
-                </div>
-            </div>
-            <p class="customize-hint"><code>name</code> is required for NPC/location records. Guild entries can be plain strings or objects with <code>name</code>.</p>
-            <div id="customize-status" class="customize-status">Ready. Load defaults or campaign data to start.</div>
         </section>
 
         <section class="sync-quick card" id="sync-quick" aria-label="Quick Cloud Connect">
@@ -206,7 +166,7 @@
                 <div class="card">
                     <div class="icon">👥</div>
                     <div class="title">NPC Roster</div>
-                    <div class="desc">Database of contacts, rivals, and guild members.</div>
+                    <div class="desc">Database of contacts, rivals, and witnesses.</div>
                 </div>
             </a>
 
@@ -269,11 +229,51 @@
 
         </div>
     </div>
+
+    <div class="group-loader-popover tools-hidden" id="group-loader-panel" role="dialog" aria-modal="true" aria-labelledby="group-loader-title" data-onclick="handleGroupLoaderBackdropClick(event)">
+        <div class="group-loader-modal card">
+            <div class="group-loader-head">
+                <h2 class="sync-title" id="group-loader-title">Group Loader Wizard</h2>
+                <div class="group-loader-head-actions">
+                    <div class="case-switcher-meta" id="group-loader-meta">Current groups: waiting for store...</div>
+                    <button class="sync-btn" type="button" data-onclick="closeGroupLoaderWizard()">Close</button>
+                </div>
+            </div>
+            <p class="sync-desc">
+                Enter your starting factions/groups here, review them, then load them into the shared store.
+            </p>
+            <div class="group-loader-steps">
+                <div class="group-loader-step" id="group-loader-step-entry">
+                    <div class="group-loader-step-label">Step 1: Enter Names</div>
+                    <textarea id="group-loader-input" class="group-loader-input" placeholder="General&#10;Rangers&#10;Merchants"></textarea>
+                    <div class="sync-actions">
+                        <button class="sync-btn primary" data-onclick="previewGroupLoaderInput()">Next: Review</button>
+                    </div>
+                </div>
+                <div class="group-loader-step tools-hidden" id="group-loader-step-review">
+                    <div class="group-loader-step-label">Step 2: Review + Load</div>
+                    <div id="group-loader-preview" class="group-loader-preview"></div>
+                    <div class="group-loader-mode-row">
+                        <label><input type="radio" name="group-loader-mode" value="replace" checked> Replace current groups</label>
+                        <label><input type="radio" name="group-loader-mode" value="merge"> Merge with current groups</label>
+                    </div>
+                    <div class="sync-actions">
+                        <button class="sync-btn" data-onclick="resetGroupLoaderWizard()">Back</button>
+                        <button class="sync-btn primary" data-onclick="applyGroupLoaderInput()">Load Into Store</button>
+                    </div>
+                </div>
+            </div>
+            <div id="group-loader-status" class="case-switcher-status">Hint: press Alt+Shift+L to open this pop-over.</div>
+        </div>
+    </div>
+
     <script src="js/delegated-handler.js"></script>
     <script src="js/sw-register.js"></script>
     <script src="js/data-guilds.js"></script>
     <script src="js/data-npcs.js"></script>
     <script src="js/data-locations.js"></script>
+    <script src="js/data-setting.js"></script>
+    <script src="js/data.js"></script>
     <script src="js/store.js"></script>
     <script src="js/vector-field.js"></script>
     <script src="js/tools.js"></script>

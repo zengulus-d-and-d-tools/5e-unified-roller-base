@@ -2,6 +2,9 @@ let latestSyncStatus = null;
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
+let groupLoaderDraft = [];
+const GROUP_LOADER_FALLBACK_NAME = 'General';
+const GROUP_LOADER_MAX = 80;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -47,16 +50,20 @@ function bindDelegatedDataHandlers() {
     });
 }
 
+function setSecretMode(enabled) {
+    const isSecret = !!enabled;
+    document.body.classList.toggle('secret-active', isSecret);
+    const title = document.getElementById('pageTitle');
+    if (title) title.innerText = isSecret ? 'Forbidden DM Protocols' : 'Tools Hub';
+    if (!isSecret) closeGroupLoaderWizard();
+    updateSyncPanelVisibility(latestSyncStatus);
+}
+
 // Secret Toggle Logic
 function trySecretToggle(e) {
     // Alt + Shift + Click
     if (e.altKey && e.shiftKey) {
-        document.body.classList.toggle('secret-active');
-        const isSecret = document.body.classList.contains('secret-active');
-
-        document.getElementById('pageTitle').innerText = isSecret ? "Forbidden DM Protocols" : "Tools Hub";
-
-        updateSyncPanelVisibility(latestSyncStatus);
+        setSecretMode(!document.body.classList.contains('secret-active'));
     }
 }
 
@@ -74,10 +81,248 @@ function handleImport() {
         window.RTF_STORE.import().then(success => {
             if (success) alert("Data imported successfully!");
             renderCaseSwitcher();
+            renderGroupLoaderMeta();
         });
     } else {
         alert("Store not loaded.");
     }
+}
+
+function normalizeGroupLoaderName(value) {
+    const normalized = String(value || '').trim();
+    if (!normalized) return '';
+    if (normalized === '__proto__' || normalized === 'prototype' || normalized === 'constructor') return '';
+    return normalized.slice(0, 120);
+}
+
+function dedupeGroupLoaderNames(list) {
+    const source = Array.isArray(list) ? list : [];
+    const seen = new Set();
+    const out = [];
+    source.forEach((entry) => {
+        const name = normalizeGroupLoaderName(entry);
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(name);
+    });
+    return out.slice(0, GROUP_LOADER_MAX);
+}
+
+function parseGroupLoaderInput(raw) {
+    const text = String(raw || '');
+    const trimmed = text.trim();
+    if (!trimmed) return [];
+
+    let tokens = [];
+    if (trimmed.startsWith('[')) {
+        try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) tokens = parsed;
+        } catch (err) {
+            // Fall back to line/comma parsing below.
+        }
+    }
+    if (!tokens.length) {
+        trimmed.split(/\r?\n/).forEach((line) => {
+            line.split(/[;,]+/).forEach((part) => {
+                tokens.push(part);
+            });
+        });
+    }
+    return dedupeGroupLoaderNames(tokens);
+}
+
+function getCurrentGroupNames() {
+    const rep = window.RTF_STORE && window.RTF_STORE.state
+        && window.RTF_STORE.state.campaign
+        && window.RTF_STORE.state.campaign.rep
+        && typeof window.RTF_STORE.state.campaign.rep === 'object'
+        ? window.RTF_STORE.state.campaign.rep
+        : {};
+    return dedupeGroupLoaderNames(Object.keys(rep).filter(Boolean));
+}
+
+function findRepValue(rep, name) {
+    const source = rep && typeof rep === 'object' ? rep : {};
+    const direct = Number(source[name]);
+    if (Number.isFinite(direct)) return direct;
+    const key = String(name || '').toLowerCase();
+    const match = Object.keys(source).find((entry) => entry.toLowerCase() === key);
+    const fallback = match ? Number(source[match]) : 0;
+    return Number.isFinite(fallback) ? fallback : 0;
+}
+
+function summarizeGroupNames(names, max = 4) {
+    if (!Array.isArray(names) || !names.length) return GROUP_LOADER_FALLBACK_NAME;
+    const shown = names.slice(0, max).join(', ');
+    if (names.length <= max) return shown;
+    return `${shown}, +${names.length - max} more`;
+}
+
+function setGroupLoaderStatus(message, isError = false) {
+    const el = document.getElementById('group-loader-status');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.toggle('is-error', !!isError);
+}
+
+function isGroupLoaderOpen() {
+    const panel = document.getElementById('group-loader-panel');
+    return !!(panel && !panel.classList.contains('tools-hidden'));
+}
+
+function setGroupLoaderOpen(open) {
+    const panel = document.getElementById('group-loader-panel');
+    if (!panel) return;
+    panel.classList.toggle('tools-hidden', !open);
+}
+
+function setGroupLoaderStep(step) {
+    const entry = document.getElementById('group-loader-step-entry');
+    const review = document.getElementById('group-loader-step-review');
+    if (!entry || !review) return;
+    const isReview = step === 'review';
+    entry.classList.toggle('tools-hidden', isReview);
+    review.classList.toggle('tools-hidden', !isReview);
+}
+
+function renderGroupLoaderPreview(names) {
+    const preview = document.getElementById('group-loader-preview');
+    if (!preview) return;
+    const list = Array.isArray(names) ? names : [];
+    preview.innerHTML = '';
+    if (!list.length) {
+        const empty = document.createElement('span');
+        empty.className = 'group-loader-empty';
+        empty.textContent = 'No names entered yet.';
+        preview.appendChild(empty);
+        return;
+    }
+    list.forEach((name) => {
+        const chip = document.createElement('span');
+        chip.className = 'group-loader-chip';
+        chip.textContent = name;
+        preview.appendChild(chip);
+    });
+}
+
+function renderGroupLoaderMeta() {
+    const meta = document.getElementById('group-loader-meta');
+    if (!meta) return;
+    if (!window.RTF_STORE || !window.RTF_STORE.state || !window.RTF_STORE.state.campaign) {
+        meta.textContent = 'Current groups: store unavailable';
+        return;
+    }
+    const names = getCurrentGroupNames();
+    meta.textContent = `Current groups: ${names.length} (${summarizeGroupNames(names)})`;
+}
+
+function resetGroupLoaderWizard() {
+    groupLoaderDraft = [];
+    renderGroupLoaderPreview([]);
+    setGroupLoaderStep('entry');
+    setGroupLoaderStatus('Enter group names, then click "Next: Review".');
+}
+
+function previewGroupLoaderInput() {
+    if (!window.RTF_STORE) {
+        setGroupLoaderStatus('Store not loaded.', true);
+        return;
+    }
+    const input = document.getElementById('group-loader-input');
+    const parsed = parseGroupLoaderInput(input ? input.value : '');
+    if (!parsed.length) {
+        setGroupLoaderStatus('Enter at least one valid group name.', true);
+        return;
+    }
+    groupLoaderDraft = parsed;
+    renderGroupLoaderPreview(groupLoaderDraft);
+    setGroupLoaderStep('review');
+    setGroupLoaderStatus(`Review ${groupLoaderDraft.length} group name${groupLoaderDraft.length === 1 ? '' : 's'}, then load.`);
+}
+
+function getGroupLoaderMode() {
+    const selected = document.querySelector('input[name="group-loader-mode"]:checked');
+    return selected && selected.value === 'merge' ? 'merge' : 'replace';
+}
+
+function buildNextRepMapFromDraft(names, mode) {
+    const incoming = dedupeGroupLoaderNames(names);
+    const currentRep = window.RTF_STORE && window.RTF_STORE.state
+        && window.RTF_STORE.state.campaign
+        && window.RTF_STORE.state.campaign.rep
+        && typeof window.RTF_STORE.state.campaign.rep === 'object'
+        ? window.RTF_STORE.state.campaign.rep
+        : {};
+    const currentNames = dedupeGroupLoaderNames(Object.keys(currentRep).filter(Boolean));
+    const targetNames = mode === 'merge'
+        ? dedupeGroupLoaderNames(currentNames.concat(incoming))
+        : incoming;
+    const safeNames = targetNames.length ? targetNames : [GROUP_LOADER_FALLBACK_NAME];
+    const nextRep = Object.create(null);
+    safeNames.forEach((name) => {
+        nextRep[name] = findRepValue(currentRep, name);
+    });
+    return nextRep;
+}
+
+function applyGroupLoaderInput() {
+    if (!window.RTF_STORE || !window.RTF_STORE.state || !window.RTF_STORE.state.campaign) {
+        setGroupLoaderStatus('Store not loaded.', true);
+        return;
+    }
+    const input = document.getElementById('group-loader-input');
+    const sourceNames = groupLoaderDraft.length ? groupLoaderDraft : parseGroupLoaderInput(input ? input.value : '');
+    if (!sourceNames.length) {
+        setGroupLoaderStatus('Nothing to load. Enter names first.', true);
+        return;
+    }
+    const mode = getGroupLoaderMode();
+    window.RTF_STORE.state.campaign.rep = buildNextRepMapFromDraft(sourceNames, mode);
+    window.RTF_STORE.save({ scope: 'campaign.rep' });
+    groupLoaderDraft = [];
+    renderGroupLoaderMeta();
+    setGroupLoaderStep('entry');
+    setGroupLoaderStatus(`Loaded ${Object.keys(window.RTF_STORE.state.campaign.rep || {}).length} groups into shared store.`);
+    closeGroupLoaderWizard();
+}
+
+function openGroupLoaderWizard() {
+    setSecretMode(true);
+    setGroupLoaderOpen(true);
+    const panel = document.getElementById('group-loader-panel');
+    const input = document.getElementById('group-loader-input');
+    if (input && typeof input.focus === 'function') {
+        input.focus();
+        input.select();
+    }
+}
+
+function closeGroupLoaderWizard() {
+    setGroupLoaderOpen(false);
+}
+
+function handleGroupLoaderBackdropClick(event) {
+    if (!event || !event.target) return;
+    const panel = document.getElementById('group-loader-panel');
+    if (!panel) return;
+    if (event.target === panel) closeGroupLoaderWizard();
+}
+
+function handleGroupLoaderShortcut(event) {
+    if (!event.altKey || !event.shiftKey) return;
+    if ((event.key || '').toLowerCase() !== 'l') return;
+    event.preventDefault();
+    openGroupLoaderWizard();
+}
+
+function handleGlobalEscape(event) {
+    if ((event.key || '') !== 'Escape') return;
+    if (!isGroupLoaderOpen()) return;
+    event.preventDefault();
+    closeGroupLoaderWizard();
 }
 
 function setCaseSwitcherStatus(message, isError = false) {
@@ -450,220 +695,8 @@ function setQuickStatusFromSync(status) {
     setQuickStatus(status.message || 'not connected.');
 }
 
-function setCustomizeStatus(message, isError = false) {
-    const el = document.getElementById('customize-status');
-    if (!el) return;
-    el.textContent = message;
-    el.classList.toggle('is-error', !!isError);
-}
-
-function normalizeFilenameLabel(raw) {
-    return String(raw || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]+/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '')
-        .slice(0, 40);
-}
-
-function parseSeedArray(rawText, label) {
-    const text = String(rawText || '').trim();
-    if (!text) return [];
-    let parsed = null;
-    try {
-        parsed = JSON.parse(text);
-    } catch (err) {
-        throw new Error(`${label} JSON is invalid.`);
-    }
-    if (!Array.isArray(parsed)) {
-        throw new Error(`${label} JSON must be an array.`);
-    }
-    return parsed;
-}
-
-function coerceGuildSeedEntry(entry) {
-    if (typeof entry === 'string') return entry.trim();
-    if (entry && typeof entry === 'object') return String(entry.name || '').trim();
-    return '';
-}
-
-function normalizeGuildSeedEntry(entry, idx) {
-    const name = coerceGuildSeedEntry(entry);
-    if (!name) throw new Error(`Guild row ${idx + 1} is missing "name".`);
-    return name;
-}
-
-function dedupeStringsPreserveOrder(values) {
-    const seen = new Set();
-    const out = [];
-    values.forEach((value) => {
-        const name = String(value || '').trim();
-        if (!name) return;
-        const key = name.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(name);
-    });
-    return out;
-}
-
-function coerceNpcSeedRow(row) {
-    const source = row && typeof row === 'object' ? row : {};
-    return {
-        name: String(source.name || '').trim(),
-        guild: String(source.guild || '').trim(),
-        wants: String(source.wants || '').trim(),
-        leverage: String(source.leverage || '').trim(),
-        notes: String(source.notes || '').trim()
-    };
-}
-
-function normalizeNpcSeedRow(row, idx) {
-    const item = coerceNpcSeedRow(row);
-    if (!item.name) throw new Error(`NPC row ${idx + 1} is missing "name".`);
-    return item;
-}
-
-function coerceLocationSeedRow(row) {
-    const source = row && typeof row === 'object' ? row : {};
-    return {
-        name: String(source.name || '').trim(),
-        district: String(source.district || '').trim(),
-        desc: String(source.desc || '').trim(),
-        notes: String(source.notes || '').trim()
-    };
-}
-
-function normalizeLocationSeedRow(row, idx) {
-    const item = coerceLocationSeedRow(row);
-    if (!item.name) throw new Error(`Location row ${idx + 1} is missing "name".`);
-    return item;
-}
-
-function buildPreloadFile(varName, items) {
-    const json = JSON.stringify(items, null, 4);
-    const indentedJson = json
-        .split('\n')
-        .map((line, idx) => (idx === 0 ? line : `    ${line}`))
-        .join('\n');
-
-    return `(function (global) {\n    global.${varName} = ${indentedJson};\n})(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));\n`;
-}
-
-function downloadTextFile(filename, text, type = 'text/javascript') {
-    const blob = new Blob([text], { type });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-}
-
-function getCustomizeSeedArrays() {
-    const guildsRaw = parseSeedArray(document.getElementById('customize-guilds-json').value, 'Guild seed');
-    const npcsRaw = parseSeedArray(document.getElementById('customize-npcs-json').value, 'NPC seed');
-    const locationsRaw = parseSeedArray(document.getElementById('customize-locations-json').value, 'Location seed');
-    return {
-        guilds: dedupeStringsPreserveOrder(guildsRaw.map(normalizeGuildSeedEntry)),
-        npcs: npcsRaw.map(normalizeNpcSeedRow),
-        locations: locationsRaw.map(normalizeLocationSeedRow)
-    };
-}
-
-function writeCustomizeForm(guilds, npcs, locations) {
-    document.getElementById('customize-guilds-json').value = JSON.stringify(guilds, null, 2);
-    document.getElementById('customize-npcs-json').value = JSON.stringify(npcs, null, 2);
-    document.getElementById('customize-locations-json').value = JSON.stringify(locations, null, 2);
-}
-
-function loadCustomizeDefaults() {
-    try {
-        const guilds = (typeof window.getRTFGuilds === 'function')
-            ? window.getRTFGuilds({ includeGuildless: true }).map(coerceGuildSeedEntry).filter(Boolean)
-            : (Array.isArray(window.PRELOADED_GUILDS) ? window.PRELOADED_GUILDS.map(coerceGuildSeedEntry).filter(Boolean) : []);
-        const npcs = Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS.map(coerceNpcSeedRow) : [];
-        const locations = Array.isArray(window.PRELOADED_LOCATIONS) ? window.PRELOADED_LOCATIONS.map(coerceLocationSeedRow) : [];
-        writeCustomizeForm(guilds, npcs, locations);
-        setCustomizeStatus(`Loaded defaults (${guilds.length} Guilds, ${npcs.length} NPCs, ${locations.length} Locations).`);
-    } catch (err) {
-        setCustomizeStatus(err && err.message ? err.message : 'Failed to load defaults.', true);
-    }
-}
-
-function loadCustomizeFromCampaign() {
-    if (!window.RTF_STORE || !window.RTF_STORE.state || !window.RTF_STORE.state.campaign) {
-        setCustomizeStatus('Campaign store is not ready yet.', true);
-        return;
-    }
-    try {
-        const c = window.RTF_STORE.state.campaign;
-        const npcs = (Array.isArray(c.npcs) ? c.npcs : []).map(coerceNpcSeedRow);
-        const locations = (Array.isArray(c.locations) ? c.locations : []).map(coerceLocationSeedRow);
-        const guilds = dedupeStringsPreserveOrder([
-            ...Object.keys(c.rep || {}),
-            ...npcs.map((npc) => npc.guild),
-            ...locations.map((loc) => loc.district)
-        ]);
-        writeCustomizeForm(guilds, npcs, locations);
-        setCustomizeStatus(`Loaded campaign store (${guilds.length} Guilds, ${npcs.length} NPCs, ${locations.length} Locations).`);
-    } catch (err) {
-        setCustomizeStatus(err && err.message ? err.message : 'Failed to load campaign data.', true);
-    }
-}
-
-function buildCustomDataFiles() {
-    const seed = getCustomizeSeedArrays();
-    const labelRaw = document.getElementById('customize-label').value;
-    const label = normalizeFilenameLabel(labelRaw);
-    const suffix = label ? `-${label}` : '';
-    return {
-        guilds: {
-            filename: `data-guilds${suffix}.js`,
-            content: buildPreloadFile('PRELOADED_GUILDS', seed.guilds)
-        },
-        npcs: {
-            filename: `data-npcs${suffix}.js`,
-            content: buildPreloadFile('PRELOADED_NPCS', seed.npcs)
-        },
-        locations: {
-            filename: `data-locations${suffix}.js`,
-            content: buildPreloadFile('PRELOADED_LOCATIONS', seed.locations)
-        }
-    };
-}
-
-function downloadCustomDataFile(kind) {
-    try {
-        const files = buildCustomDataFiles();
-        const selected = kind === 'guilds'
-            ? files.guilds
-            : (kind === 'locations' ? files.locations : files.npcs);
-        downloadTextFile(selected.filename, selected.content, 'text/javascript');
-        setCustomizeStatus(`Downloaded ${selected.filename}.`);
-    } catch (err) {
-        setCustomizeStatus(err && err.message ? err.message : 'Failed to build data file.', true);
-    }
-}
-
-function downloadCustomDataFiles() {
-    try {
-        const files = buildCustomDataFiles();
-        downloadTextFile(files.guilds.filename, files.guilds.content, 'text/javascript');
-        downloadTextFile(files.npcs.filename, files.npcs.content, 'text/javascript');
-        downloadTextFile(files.locations.filename, files.locations.content, 'text/javascript');
-        setCustomizeStatus(`Downloaded ${files.guilds.filename}, ${files.npcs.filename}, and ${files.locations.filename}.`);
-    } catch (err) {
-        setCustomizeStatus(err && err.message ? err.message : 'Failed to build data files.', true);
-    }
-}
-
 function updateSyncPanelVisibility(status) {
     const panel = document.getElementById('sync-panel');
-    const customize = document.getElementById('customize-panel');
     const quick = document.getElementById('sync-quick');
     if (!panel || !quick) return;
 
@@ -672,7 +705,6 @@ function updateSyncPanelVisibility(status) {
 
     // Manual credentials/admin controls stay behind secret mode.
     panel.classList.toggle('tools-hidden', !isSecret);
-    if (customize) customize.classList.toggle('tools-hidden', !isSecret);
     // Quick connect is for onboarding only; hide after successful connection.
     quick.classList.toggle('tools-hidden', connected);
 }
@@ -823,8 +855,9 @@ function initSyncPanel() {
             createCaseFromInput();
         });
     }
-    loadCustomizeDefaults();
     applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
+    renderGroupLoaderMeta();
+    resetGroupLoaderWizard();
     latestSyncStatus = window.RTF_STORE.getSyncStatus();
     setSyncStatusText(latestSyncStatus);
     setQuickStatusFromSync(latestSyncStatus);
@@ -843,6 +876,7 @@ bindDelegatedDataHandlers();
 window.addEventListener('load', initSyncPanel);
 window.addEventListener('rtf-store-updated', () => {
     renderCaseSwitcher();
+    renderGroupLoaderMeta();
 });
 window.addEventListener('rtf-sync-status', (event) => {
     latestSyncStatus = event.detail || null;
@@ -854,3 +888,5 @@ window.addEventListener('rtf-sync-conflict', () => {
     const status = window.RTF_STORE && window.RTF_STORE.getSyncStatus ? window.RTF_STORE.getSyncStatus() : latestSyncStatus;
     setSyncStatusText(status || latestSyncStatus);
 });
+window.addEventListener('keydown', handleGroupLoaderShortcut);
+window.addEventListener('keydown', handleGlobalEscape);

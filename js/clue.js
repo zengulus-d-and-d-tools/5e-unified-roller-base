@@ -1,4 +1,146 @@
 (() => {
+    const FALLBACK_GROUP = 'General';
+
+    const getStoreGroupNames = () => {
+        const rep = window.RTF_STORE
+            && window.RTF_STORE.state
+            && window.RTF_STORE.state.campaign
+            && window.RTF_STORE.state.campaign.rep
+            && typeof window.RTF_STORE.state.campaign.rep === 'object'
+            ? window.RTF_STORE.state.campaign.rep
+            : null;
+        const names = rep ? Object.keys(rep).filter(Boolean) : [];
+        return names.length ? names : [FALLBACK_GROUP];
+    };
+
+    const slugify = (value) => String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'group';
+
+    const iconForName = (name) => {
+        const clean = String(name || '').trim();
+        if (!clean) return 'G';
+        const letter = clean[0].toUpperCase();
+        return /[A-Z]/.test(letter) ? letter : 'G';
+    };
+
+    const toTrimmedString = (value, maxLen = 240) => String(value || '').trim().slice(0, maxLen);
+
+    const asObject = (value) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+        return value;
+    };
+
+    const asStringList = (value, fallback = []) => {
+        const list = Array.isArray(value) ? value : [];
+        const out = list
+            .map((entry) => toTrimmedString(entry, 240))
+            .filter(Boolean);
+        if (out.length) return out;
+        return Array.isArray(fallback) ? fallback.slice() : [];
+    };
+
+    const asClueEntryList = (value, fallbackEntry) => {
+        const list = Array.isArray(value) ? value : [];
+        const out = list
+            .filter((entry) => entry && typeof entry === 'object')
+            .map((entry) => {
+                const core = toTrimmedString(entry.core, 240);
+                const surf = toTrimmedString(entry.surf, 240);
+                if (!core && !surf) return null;
+                return { core, surf };
+            })
+            .filter(Boolean);
+        if (out.length) return out;
+        return [{ ...fallbackEntry }];
+    };
+
+    const mergeFlavorMaps = (...maps) => {
+        const out = Object.create(null);
+        maps.forEach((map) => {
+            const source = asObject(map);
+            Object.keys(source).forEach((key) => {
+                const name = toTrimmedString(key, 120);
+                if (!name) return;
+                out[name] = source[key];
+            });
+        });
+        return out;
+    };
+
+    const getFlavorForGroup = (flavorMap, groupName) => {
+        const source = asObject(flavorMap);
+        if (!groupName) return null;
+        if (source[groupName] && typeof source[groupName] === 'object') return source[groupName];
+        const key = String(groupName).toLowerCase();
+        const match = Object.keys(source).find((name) => String(name).toLowerCase() === key);
+        if (!match) return null;
+        const row = source[match];
+        return row && typeof row === 'object' ? row : null;
+    };
+
+    const GROUP_ENTRY_TEMPLATES = {
+        phys: [
+            { core: 'a stamped warrant tube', surf: 'sealed with blue wax from the keep' },
+            { core: 'a tally-stick bundle', surf: 'bound with twine from the counting house' },
+            { core: 'a votive ash pattern', surf: 'disturbed by muddy bootprints' },
+            { core: 'a black-feather fletching', surf: 'from arrows used beyond the city road' }
+        ],
+        soc: [
+            { core: 'a guards sworn statement', surf: 'echoing the same rehearsed phrasing' },
+            { core: 'a caravan masters rumor', surf: 'mapping who moved goods after dusk' },
+            { core: 'a novices confession', surf: 'careful about naming a patron' },
+            { core: 'a trappers warning', surf: 'about strangers near old standing stones' }
+        ],
+        arc: [
+            { core: 'a lawful ward sigil', surf: 'still humming around the threshold' },
+            { core: 'an artificers etching', surf: 'fading from a recently activated charm' },
+            { core: 'a consecration ripple', surf: 'warped by a profane interruption' },
+            { core: 'a feral ley scar', surf: 'flaring briefly at moonrise' }
+        ]
+    };
+
+    const buildDynamicGroups = (groupNames, flavorMap = {}) => {
+        const names = Array.isArray(groupNames) && groupNames.length ? groupNames : [FALLBACK_GROUP];
+        return names.map((name, idx) => {
+            const flavor = getFlavorForGroup(flavorMap, name);
+            const clueFlavor = asObject(flavor && flavor.clues);
+            const fallbackPhys = GROUP_ENTRY_TEMPLATES.phys[idx % GROUP_ENTRY_TEMPLATES.phys.length];
+            const fallbackSoc = GROUP_ENTRY_TEMPLATES.soc[idx % GROUP_ENTRY_TEMPLATES.soc.length];
+            const fallbackArc = GROUP_ENTRY_TEMPLATES.arc[idx % GROUP_ENTRY_TEMPLATES.arc.length];
+            const iconOverride = toTrimmedString(flavor && flavor.icon, 8);
+            return {
+                id: `group-${slugify(name)}-${idx}`,
+                name,
+                icon: iconOverride || iconForName(name),
+                phys: asClueEntryList(clueFlavor.phys, fallbackPhys),
+                soc: asClueEntryList(clueFlavor.soc, fallbackSoc),
+                arc: asClueEntryList(clueFlavor.arc, fallbackArc)
+            };
+        });
+    };
+
+    const DEFAULT_CLUE_DATA = {
+        guilds: buildDynamicGroups([FALLBACK_GROUP]),
+        frictions: [
+            'Barred',
+            'Tainted',
+            'Misfiled',
+            'Actively Watched',
+            'Partially Burned',
+            'Hidden in a Shrine'
+        ],
+        costs: [
+            'Lose Time',
+            'Spend Coin',
+            'Draw Attention',
+            'Take a Setback',
+            'Suffer Temporary Disadvantage'
+        ]
+    };
+
     const state = {
         data: null,
         guildStatus: [],
@@ -82,21 +224,26 @@
         return Math.floor(Math.random() * len);
     };
 
-    const pickEntry = (guild, mode) => {
-        const list = guild[mode] || [];
+    const pickEntry = (group, mode) => {
+        const list = group[mode] || [];
         return list[randIndex(list.length)] || { core: '', surf: '' };
     };
 
     const getClueData = () => {
         if (state.data) return state.data;
-        const inline = window.CLUEDATA || (window.RTF_DATA && window.RTF_DATA.clue);
-        if (!inline) {
-            console.error('Clue data unavailable');
-            return null;
-        }
-        state.data = inline;
-        state.guildStatus = new Array(inline.guilds.length).fill(0);
-        return inline;
+        const inline = asObject(window.CLUEDATA);
+        const root = asObject(window.RTF_DATA);
+        const rootFlavor = asObject(root.groupFlavor);
+        const inlineFlavor = asObject(inline.groupFlavor);
+        const flavorMap = mergeFlavorMaps(rootFlavor, inlineFlavor);
+        const groupNames = getStoreGroupNames();
+        state.data = {
+            guilds: buildDynamicGroups(groupNames, flavorMap),
+            frictions: asStringList(inline.frictions, DEFAULT_CLUE_DATA.frictions),
+            costs: asStringList(inline.costs, DEFAULT_CLUE_DATA.costs)
+        };
+        state.guildStatus = new Array(state.data.guilds.length).fill(0);
+        return state.data;
     };
 
     const buildGuildGrid = () => {
@@ -104,17 +251,17 @@
         const data = state.data;
         if (!grid || !data) return;
         grid.innerHTML = '';
-        data.guilds.forEach((guild, idx) => {
+        data.guilds.forEach((group, idx) => {
             const btn = document.createElement('div');
             btn.className = 'guild-btn st-0';
             const badgeEl = document.createElement('span');
             badgeEl.className = 'status-badge';
             const iconEl = document.createElement('span');
             iconEl.className = 'g-icon';
-            iconEl.textContent = String(guild.icon || '');
+            iconEl.textContent = String(group.icon || '');
             const nameEl = document.createElement('span');
             nameEl.className = 'g-name';
-            nameEl.textContent = String(guild.name || '');
+            nameEl.textContent = String(group.name || '');
             btn.appendChild(badgeEl);
             btn.appendChild(iconEl);
             btn.appendChild(nameEl);
@@ -129,8 +276,8 @@
         btn.className = `guild-btn st-${state.guildStatus[idx]}`;
         const badge = btn.querySelector('.status-badge');
         if (!badge) return;
-        if (state.guildStatus[idx] === 1) badge.innerText = 'NOISE';
-        else if (state.guildStatus[idx] === 2) badge.innerText = 'SIGNAL';
+        if (state.guildStatus[idx] === 1) badge.innerText = 'FALSE LEAD';
+        else if (state.guildStatus[idx] === 2) badge.innerText = 'TRUE CLUE';
         else badge.innerText = '';
     };
 
@@ -169,7 +316,7 @@
         const objectIsSignal = objectData.role === 'signal';
         dom.objectBlock.classList.toggle('signal', objectIsSignal);
         dom.objectBlock.classList.toggle('noise', !objectIsSignal);
-        dom.objectLabel.innerText = `${objectIsSignal ? 'The Signal' : 'The Noise'} (Object)`;
+        dom.objectLabel.innerText = `${objectIsSignal ? 'True Clue' : 'False Lead'} (Object)`;
         dom.objectLabel.style.color = objectIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
         dom.objectGuild.innerText = objectData.guild;
         dom.objectVal.innerText = capitalize(objectData.text);
@@ -177,7 +324,7 @@
         const contextIsSignal = contextData.role === 'signal';
         dom.contextBlock.classList.toggle('signal', contextIsSignal);
         dom.contextBlock.classList.toggle('noise', !contextIsSignal);
-        dom.contextLabel.innerText = `${contextIsSignal ? 'The Signal' : 'The Noise'} (Context)`;
+        dom.contextLabel.innerText = `${contextIsSignal ? 'True Clue' : 'False Lead'} (Context)`;
         dom.contextLabel.style.color = contextIsSignal ? 'var(--st-green)' : 'var(--st-orange)';
         dom.contextGuild.innerText = contextData.guild;
         dom.contextVal.innerText = capitalize(contextData.text);
@@ -204,12 +351,12 @@
             .filter(idx => idx !== -1);
 
         if (involvedIndices.length === 0) {
-            alert('Please select at least one INVOLVED (Green) guild.');
+            alert('Please mark at least one group as TRUE CLUE (green).');
             return;
         }
 
         const signalIdx = involvedIndices[randIndex(involvedIndices.length)];
-        const signalGuild = data.guilds[signalIdx];
+        const signalGroup = data.guilds[signalIdx];
 
         let noiseIdx;
         if (herringIndices.length > 0) {
@@ -218,19 +365,19 @@
             const available = data.guilds.map((_, i) => i).filter(i => i !== signalIdx);
             noiseIdx = available[randIndex(available.length)];
         }
-        const noiseGuild = data.guilds[noiseIdx];
+        const noiseGroup = data.guilds[noiseIdx];
 
-        const signalEntry = pickEntry(signalGuild, mode);
-        const noiseEntry = pickEntry(noiseGuild, mode);
+        const signalEntry = pickEntry(signalGroup, mode);
+        const noiseEntry = pickEntry(noiseGroup, mode);
         const objectIsSignal = Math.random() < 0.5;
 
         const objectData = objectIsSignal
-            ? { text: signalEntry.core, guild: signalGuild.name, role: 'signal', kind: 'Object' }
-            : { text: noiseEntry.core, guild: noiseGuild.name, role: 'noise', kind: 'Object' };
+            ? { text: signalEntry.core, guild: signalGroup.name, role: 'signal', kind: 'Object' }
+            : { text: noiseEntry.core, guild: noiseGroup.name, role: 'noise', kind: 'Object' };
 
         const contextData = objectIsSignal
-            ? { text: noiseEntry.surf, guild: noiseGuild.name, role: 'noise', kind: 'Context' }
-            : { text: signalEntry.surf, guild: signalGuild.name, role: 'signal', kind: 'Context' };
+            ? { text: noiseEntry.surf, guild: noiseGroup.name, role: 'noise', kind: 'Context' }
+            : { text: signalEntry.surf, guild: signalGroup.name, role: 'signal', kind: 'Context' };
 
         const friction = data.frictions[randIndex(data.frictions.length)];
         const cost = data.costs[randIndex(data.costs.length)];
