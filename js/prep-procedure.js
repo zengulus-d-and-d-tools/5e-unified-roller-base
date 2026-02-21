@@ -12,62 +12,74 @@
         {
             id: 'prep-1',
             type: 'prep',
-            category: 'Intel',
-            name: 'Street-Map Sweep'
+            category: 'Tools',
+            name: 'Evidence Intake Checklist'
         },
         {
             id: 'prep-2',
             type: 'prep',
             category: 'Access',
-            name: 'Informant Warm-Up'
+            name: 'Warrant Packet Drafted'
         },
         {
             id: 'prep-3',
             type: 'prep',
-            category: 'Cover',
-            name: 'Forgery Kit Ready'
+            category: 'Intel',
+            name: 'Witness Contact Plan'
         },
         {
             id: 'prep-4',
             type: 'prep',
-            category: 'Tools',
-            name: 'Ritual Countermeasure'
+            category: 'Cover',
+            name: 'Patrol Route Deconfliction'
         },
         {
             id: 'prep-5',
             type: 'prep',
             category: 'Tools',
-            name: 'Safehouse Cache'
+            name: 'Interview Room Audio Check'
         },
         {
             id: 'procedure-1',
             type: 'procedure',
-            category: 'Cover',
-            name: 'Checkpoint Interference'
+            category: 'Tools',
+            name: 'Chain of Custody Transfer Logged'
         },
         {
             id: 'procedure-2',
             type: 'procedure',
-            category: 'Access',
-            name: 'Witness Extraction'
+            category: 'Intel',
+            name: 'Bodycam Timestamp Cross-Check'
         },
         {
             id: 'procedure-3',
             type: 'procedure',
-            category: 'Tools',
-            name: 'Rooftop Pursuit'
+            category: 'Cover',
+            name: 'Scene Perimeter Maintained'
         },
         {
             id: 'procedure-4',
             type: 'procedure',
-            category: 'Intel',
-            name: 'Public Hearing Spin'
+            category: 'Access',
+            name: 'Evidence Locker Sign-off'
         },
         {
             id: 'procedure-5',
             type: 'procedure',
+            category: 'Cover',
+            name: 'Rights Read and Recording Confirmed'
+        },
+        {
+            id: 'procedure-6',
+            type: 'procedure',
+            category: 'Tools',
+            name: 'Field Notes Matched to Evidence IDs'
+        },
+        {
+            id: 'procedure-7',
+            type: 'procedure',
             category: 'Access',
-            name: 'Evidence Handoff'
+            name: 'Lab Submission Form Completed'
         }
     ];
 
@@ -238,7 +250,7 @@
             prep: {
                 filled: document.getElementById('prep-filled'),
                 total: document.getElementById('prep-total'),
-                segments: document.getElementById('prep-segments'),
+                pie: document.getElementById('prep-pie'),
                 plus: document.getElementById('prep-plus'),
                 minus: document.getElementById('prep-minus'),
                 reset: document.getElementById('prep-reset'),
@@ -247,7 +259,7 @@
             procedure: {
                 filled: document.getElementById('procedure-filled'),
                 total: document.getElementById('procedure-total'),
-                segments: document.getElementById('procedure-segments'),
+                pie: document.getElementById('procedure-pie'),
                 plus: document.getElementById('procedure-plus'),
                 minus: document.getElementById('procedure-minus'),
                 reset: document.getElementById('procedure-reset'),
@@ -257,9 +269,6 @@
         resetAll: document.getElementById('reset-all-btn'),
         logPrepTimeline: document.getElementById('log-prep-timeline-btn'),
         heatShield: document.getElementById('heat-shield-btn'),
-        prepLogWho: document.getElementById('prep-log-who'),
-        prepLogCategory: document.getElementById('prep-log-category'),
-        prepLogDescription: document.getElementById('prep-log-description'),
         tokensMinus: document.getElementById('tokens-minus'),
         tokensPlus: document.getElementById('tokens-plus'),
         tokensReadout: document.getElementById('tokens-readout'),
@@ -268,10 +277,16 @@
         examplesSearch: document.getElementById('examples-search'),
         examplesBody: document.getElementById('examples-body'),
         examplesEmpty: document.getElementById('examples-empty'),
-        status: document.getElementById('prep-procedure-status')
+        status: document.getElementById('prep-procedure-status'),
+        popoverBackdrop: document.getElementById('prep-log-popover-backdrop'),
+        popoverTitle: document.getElementById('prep-log-popover-title'),
+        popoverBody: document.getElementById('prep-log-popover-body'),
+        popoverCancel: document.getElementById('prep-log-popover-cancel'),
+        popoverConfirm: document.getElementById('prep-log-popover-confirm')
     };
 
     const listeners = new Set();
+    let pendingPopoverContext = null;
 
     function getState() {
         return cloneState(state);
@@ -323,14 +338,9 @@
         clockRefs.filled.textContent = String(clockState.filled);
         clockRefs.total.textContent = String(clockState.total);
         clockRefs.totalInput.value = String(clockState.total);
-
-        clockRefs.segments.style.setProperty('--segment-count', String(clockState.total));
-        clockRefs.segments.innerHTML = '';
-        for (let i = 0; i < clockState.total; i += 1) {
-            const segment = document.createElement('span');
-            segment.className = `clock-segment${i < clockState.filled ? ' is-filled' : ''}`;
-            clockRefs.segments.appendChild(segment);
-        }
+        const ratio = clockState.total > 0 ? (clockState.filled / clockState.total) : 0;
+        clockRefs.pie.style.setProperty('--clock-total', String(clockState.total));
+        clockRefs.pie.style.setProperty('--clock-fill-ratio', String(ratio));
     }
 
     function renderTokens() {
@@ -386,26 +396,6 @@
         return state.examples.find((row) => row && row.id === needle) || null;
     }
 
-    function prefillLogFromExample(id) {
-        const example = getExampleById(id);
-        if (!example) return;
-
-        const category = normalizeCategory(example.category, PREP_CATEGORIES[0]);
-        if (refs.prepLogCategory) refs.prepLogCategory.value = category;
-
-        const nextDescription = `Example: ${example.name}`;
-        if (refs.prepLogDescription) {
-            refs.prepLogDescription.value = nextDescription;
-            refs.prepLogDescription.focus();
-            refs.prepLogDescription.setSelectionRange(
-                refs.prepLogDescription.value.length,
-                refs.prepLogDescription.value.length
-            );
-        }
-
-        setStatus(`Example loaded. Select "Who" and log to timeline.`, 'success');
-    }
-
     function render() {
         renderClock('prep');
         renderClock('procedure');
@@ -426,47 +416,35 @@
         return global.RTF_STORE || null;
     }
 
-    function getRosterNamesFromStore() {
-        const store = getStore();
-        if (!store) return [];
-        const source = typeof store.getPlayers === 'function'
-            ? store.getPlayers()
-            : (store.state && store.state.campaign && Array.isArray(store.state.campaign.players)
-                ? store.state.campaign.players
-                : []);
-        const seen = new Set();
-        const out = [];
-        source.forEach((entry) => {
-            const name = String(entry && entry.name ? entry.name : '').trim();
-            if (!name) return;
-            const key = name.toLowerCase();
-            if (seen.has(key)) return;
-            seen.add(key);
-            out.push(name);
-        });
-        return out;
+    function getSnapshotLine(snapshot) {
+        return `Prep ${snapshot.prep.filled}/${snapshot.prep.total} | Procedure ${snapshot.procedure.filled}/${snapshot.procedure.total} | Tokens ${snapshot.tokens.count}/${snapshot.tokens.max}`;
     }
 
-    function populatePrepLogWhoField() {
-        if (!refs.prepLogWho) return;
-        const previous = refs.prepLogWho.value;
-        const names = getRosterNamesFromStore();
-        refs.prepLogWho.innerHTML = '';
+    function openLogPopover(context) {
+        const ctx = context && typeof context === 'object' ? context : { source: 'button' };
+        pendingPopoverContext = ctx;
+        const snapshot = getState();
+        const isExample = ctx.source === 'example' && ctx.example;
 
-        const fallback = document.createElement('option');
-        fallback.value = '';
-        fallback.textContent = 'Unassigned';
-        refs.prepLogWho.appendChild(fallback);
+        refs.popoverTitle.textContent = isExample ? 'Log Example to Timeline' : 'Log Prep Snapshot';
+        if (isExample) {
+            const typeLabel = ctx.example.type === 'procedure' ? 'Procedure' : 'Prep';
+            refs.popoverBody.textContent = `${typeLabel} • ${ctx.example.category} • ${ctx.example.name}\nSnapshot: ${getSnapshotLine(snapshot)}`;
+        } else {
+            refs.popoverBody.textContent = `Snapshot: ${getSnapshotLine(snapshot)}`;
+        }
 
-        names.forEach((name) => {
-            const option = document.createElement('option');
-            option.value = name;
-            option.textContent = name;
-            refs.prepLogWho.appendChild(option);
-        });
+        refs.popoverBackdrop.classList.remove('is-hidden');
+        refs.popoverBackdrop.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('prep-popover-open');
+        refs.popoverConfirm.focus();
+    }
 
-        const hasPrevious = Array.from(refs.prepLogWho.options).some((opt) => opt.value === previous);
-        refs.prepLogWho.value = hasPrevious ? previous : '';
+    function closeLogPopover() {
+        refs.popoverBackdrop.classList.add('is-hidden');
+        refs.popoverBackdrop.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('prep-popover-open');
+        pendingPopoverContext = null;
     }
 
     function clearProcedureClockForHeatShield() {
@@ -498,22 +476,19 @@
         setStatus('Heat Shield activated. Procedure clock emptied.', 'success');
     }
 
-    function buildTimelineEntryFromState(snapshot, prepLogMeta) {
+    function buildTimelineEntryFromState(snapshot) {
         const prep = snapshot.prep;
         const procedure = snapshot.procedure;
         const tokens = snapshot.tokens;
-        const who = prepLogMeta.who;
-        const category = prepLogMeta.category;
-        const description = prepLogMeta.description;
         const stamp = new Date().toLocaleString();
 
         return {
             id: `event_prep_${Date.now()}`,
-            title: `Prep Log: ${category}`,
-            focus: who || 'Prep & Procedure Clocks',
+            title: `Prep Log ${prep.filled}/${prep.total}`,
+            focus: 'Prep & Procedure Clocks',
             heatDelta: '',
-            tags: `prep, ${String(category || 'Intel').toLowerCase()}, procedure, clocks`,
-            highlights: `Who: ${who || 'Unassigned'} | Category: ${category}\n${description}\nSnapshot: Prep ${prep.filled}/${prep.total} | Procedure ${procedure.filled}/${procedure.total} | Tokens ${tokens.count}/${tokens.max}`,
+            tags: 'prep, procedure, clocks, timeline',
+            highlights: `Snapshot: Prep ${prep.filled}/${prep.total} | Procedure ${procedure.filled}/${procedure.total} | Tokens ${tokens.count}/${tokens.max}`,
             fallout: '',
             followUp: `Snapshot recorded at ${stamp}.`,
             source: 'prep-procedure',
@@ -523,24 +498,37 @@
         };
     }
 
-    function logPrepToTimeline() {
+    function buildExampleTimelineEntry(snapshot, example) {
+        const typeLabel = example.type === 'procedure' ? 'Procedure' : 'Prep';
+        const stamp = new Date().toLocaleString();
+        return {
+            id: `event_example_${Date.now()}`,
+            title: `${typeLabel}: ${example.name}`,
+            focus: 'Prep & Procedure Clocks',
+            heatDelta: '',
+            tags: `example, ${example.type}, ${String(example.category || '').toLowerCase()}, procedure, clocks`,
+            highlights: `Example: ${example.name} | Category: ${example.category}\nSnapshot: ${getSnapshotLine(snapshot)}`,
+            fallout: '',
+            followUp: `Example logged at ${stamp}.`,
+            source: 'prep-procedure',
+            kind: 'prep-example-log',
+            resolved: false,
+            created: new Date().toISOString()
+        };
+    }
+
+    function logPrepToTimeline(context) {
         const store = getStore();
         if (!store || typeof store.addEvent !== 'function') {
             setStatus('Timeline log failed: store is unavailable on this page.', 'error');
             return;
         }
 
-        const who = String((refs.prepLogWho && refs.prepLogWho.value) || '').trim();
-        const category = String((refs.prepLogCategory && refs.prepLogCategory.value) || 'Intel').trim() || 'Intel';
-        const description = String((refs.prepLogDescription && refs.prepLogDescription.value) || '').trim();
-        if (!description) {
-            setStatus('Timeline log failed: add a prep description first.', 'error');
-            if (refs.prepLogDescription) refs.prepLogDescription.focus();
-            return;
-        }
-
         const snapshot = getState();
-        const eventPayload = buildTimelineEntryFromState(snapshot, { who, category, description });
+        const ctx = context && typeof context === 'object' ? context : { source: 'button' };
+        const eventPayload = (ctx.source === 'example' && ctx.example)
+            ? buildExampleTimelineEntry(snapshot, ctx.example)
+            : buildTimelineEntryFromState(snapshot);
         const eventId = store.addEvent(eventPayload);
         if (!eventId) {
             setStatus('Timeline log failed: event could not be saved.', 'error');
@@ -549,7 +537,10 @@
 
         const activeCase = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
         const caseLabel = activeCase && activeCase.name ? activeCase.name : 'active case';
-        if (refs.prepLogDescription) refs.prepLogDescription.value = '';
+        if (ctx.source === 'example' && ctx.example) {
+            setStatus(`Example logged to timeline (${caseLabel}).`, 'success');
+            return;
+        }
         setStatus(`Prep snapshot logged to timeline (${caseLabel}).`, 'success');
     }
 
@@ -596,7 +587,9 @@
         const target = event.target instanceof Element ? event.target : null;
         const row = target ? target.closest('tr[data-id]') : null;
         if (!row) return;
-        prefillLogFromExample(row.getAttribute('data-id'));
+        const example = getExampleById(row.getAttribute('data-id'));
+        if (!example) return;
+        openLogPopover({ source: 'example', example });
     });
     refs.resetAll.addEventListener('click', () => {
         const nextDefaults = createDefaultState(maxPrepTokens);
@@ -605,17 +598,30 @@
         emitChange();
         setStatus('All prep/procedure values reset to defaults.', 'success');
     });
-    refs.logPrepTimeline.addEventListener('click', logPrepToTimeline);
+    refs.logPrepTimeline.addEventListener('click', () => {
+        openLogPopover({ source: 'button' });
+    });
     refs.heatShield.addEventListener('click', clearProcedureClockForHeatShield);
+    refs.popoverCancel.addEventListener('click', closeLogPopover);
+    refs.popoverConfirm.addEventListener('click', () => {
+        if (pendingPopoverContext) logPrepToTimeline(pendingPopoverContext);
+        closeLogPopover();
+    });
+    refs.popoverBackdrop.addEventListener('click', (event) => {
+        if (event.target !== refs.popoverBackdrop) return;
+        closeLogPopover();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+        if (refs.popoverBackdrop.classList.contains('is-hidden')) return;
+        closeLogPopover();
+    });
 
     bindClockControls('prep');
     bindClockControls('procedure');
-    populatePrepLogWhoField();
 
     render();
-    setStatus('Ready.');
-
-    global.addEventListener('rtf-store-updated', populatePrepLogWhoField);
+    setStatus('');
 
     const api = {
         getState,

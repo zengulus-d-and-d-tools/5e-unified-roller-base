@@ -34,9 +34,10 @@
                 <article class="clock-panel" aria-label="Prep Clock">
                     <div class="clock-head">
                         <h2>PREP</h2>
-                        <div class="clock-readout-inline"><span id="prep-filled">0</span>/<span id="prep-total">4</span></div>
                     </div>
-                    <div class="clock-segments" id="prep-segments"></div>
+                    <div class="clock-pie" id="prep-pie" aria-hidden="true">
+                        <div class="clock-pie-center"><span id="prep-filled">0</span>/<span id="prep-total">4</span></div>
+                    </div>
                     <div class="clock-controls">
                         <button type="button" class="btn" id="prep-minus">-1</button>
                         <button type="button" class="btn btn-dp" id="prep-plus">+1</button>
@@ -48,12 +49,26 @@
                     </label>
                 </article>
 
+                <article class="tokens-panel" aria-label="Prep Tokens">
+                    <div class="tokens-head">
+                        <h2>Prep Tokens</h2>
+                        <div class="tokens-readout" id="tokens-readout">0/6</div>
+                    </div>
+                    <div class="tokens-controls">
+                        <button type="button" class="btn" id="tokens-minus">-1</button>
+                        <button type="button" class="btn btn-dp" id="tokens-plus">+1</button>
+                    </div>
+                    <div class="token-bubbles" id="token-bubbles"></div>
+                    <p class="tokens-hint">Click a bubble to set the current token count.</p>
+                </article>
+
                 <article class="clock-panel" aria-label="Procedure Clock">
                     <div class="clock-head">
                         <h2>PROCEDURE</h2>
-                        <div class="clock-readout-inline"><span id="procedure-filled">0</span>/<span id="procedure-total">4</span></div>
                     </div>
-                    <div class="clock-segments" id="procedure-segments"></div>
+                    <div class="clock-pie" id="procedure-pie" aria-hidden="true">
+                        <div class="clock-pie-center"><span id="procedure-filled">0</span>/<span id="procedure-total">4</span></div>
+                    </div>
                     <div class="clock-controls">
                         <button type="button" class="btn" id="procedure-minus">-1</button>
                         <button type="button" class="btn btn-dp" id="procedure-plus">+1</button>
@@ -66,47 +81,9 @@
                     </label>
                 </article>
             </div>
-        </section>
-
-        <section class="card prep-log-card" aria-label="Log Prep to Timeline">
-            <div class="prep-log-head">
-                <h2>Log Prep to Timeline</h2>
-            </div>
-            <div class="prep-log-grid">
-                <label class="prep-log-field">
-                    <span>Who</span>
-                    <select id="prep-log-who" aria-label="Who from party roster"></select>
-                </label>
-                <label class="prep-log-field">
-                    <span>Category</span>
-                    <select id="prep-log-category" aria-label="Prep category">
-                        <option value="Intel">Intel</option>
-                        <option value="Access">Access</option>
-                        <option value="Cover">Cover</option>
-                        <option value="Tools">Tools</option>
-                    </select>
-                </label>
-            </div>
-            <label class="prep-log-field">
-                <span>Description</span>
-                <textarea id="prep-log-description" rows="3" placeholder="What prep action happened, and what did it produce?"></textarea>
-            </label>
-            <div class="prep-log-actions">
+            <div class="clocks-actions">
                 <button class="btn btn-dp" type="button" id="log-prep-timeline-btn">Log Prep to Timeline</button>
             </div>
-        </section>
-
-        <section class="card tokens-card" aria-label="Prep Tokens">
-            <div class="tokens-head">
-                <h2>Prep Tokens</h2>
-                <div class="tokens-readout" id="tokens-readout">0/6</div>
-            </div>
-            <div class="tokens-controls">
-                <button type="button" class="btn" id="tokens-minus">-1</button>
-                <button type="button" class="btn btn-dp" id="tokens-plus">+1</button>
-            </div>
-            <div class="token-bubbles" id="token-bubbles"></div>
-            <p class="tokens-hint">Click a bubble to set the current token count.</p>
         </section>
 
         <section class="card examples-card" aria-label="Examples">
@@ -137,6 +114,17 @@
         </section>
 
         <p class="prep-procedure-status" id="prep-procedure-status" aria-live="polite"></p>
+    </div>
+
+    <div class="prep-popover-backdrop is-hidden" id="prep-log-popover-backdrop" aria-hidden="true">
+        <div class="prep-popover" role="dialog" aria-modal="true" aria-labelledby="prep-log-popover-title">
+            <h2 id="prep-log-popover-title">Log Prep Snapshot</h2>
+            <p id="prep-log-popover-body"></p>
+            <div class="prep-popover-actions">
+                <button type="button" class="btn" id="prep-log-popover-cancel">Cancel</button>
+                <button type="button" class="btn btn-dp" id="prep-log-popover-confirm">Log to Timeline</button>
+            </div>
+        </div>
     </div>
 
     <script>
