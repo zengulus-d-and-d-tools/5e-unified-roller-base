@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>Clocks</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+    <link rel="stylesheet" href="css/clocks.css">
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="container clocks-page" id="clocks-page">
+        <header class="hero-header">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1>Clocks</h1>
+                <p class="hero-subtitle">Create and track named progress and danger clocks for any scene or operation.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <a class="hero-btn ghost" href="tools.html">Portal</a>
+                    <button class="hero-btn ghost" type="button" id="reset-clocks-btn">Reset Defaults</button>
+                </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" type="button" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" type="button" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input" class="clocks-accent-picker-input" onchange="setAccentColor(this.value)">
+            </div>
+        </header>
+
+        <section class="card clocks-builder-card" aria-label="Create Clock">
+            <div class="clocks-builder-head">
+                <h2>Add Clock</h2>
+            </div>
+            <div class="clock-builder-row">
+                <label class="clock-builder-field">
+                    <span>Name</span>
+                    <input type="text" id="new-clock-name" placeholder="Clock name (e.g. Secure Witness)">
+                </label>
+                <label class="clock-builder-field">
+                    <span>Type</span>
+                    <select id="new-clock-type">
+                        <option value="progress">Progress</option>
+                        <option value="danger">Danger</option>
+                    </select>
+                </label>
+                <label class="clock-builder-field clock-builder-total">
+                    <span>Total Segments</span>
+                    <input type="number" id="new-clock-total" min="1" step="1" inputmode="numeric" value="4">
+                </label>
+                <div class="clock-builder-actions">
+                    <button class="btn btn-dp" type="button" id="add-clock-btn">Add Clock</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="card clocks-grid-card" aria-label="Clock List">
+            <div class="clocks-grid" id="clocks-grid"></div>
+            <p class="clocks-empty is-hidden" id="clocks-empty">No clocks yet. Add one above.</p>
+        </section>
+    </div>
+
+    <script src="js/sw-register.js"></script>
+    <script src="js/vector-field.js"></script>
+    <script src="js/clocks.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,256 @@
+.clocks-page {
+    width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
+    max-width: var(--page-max);
+    margin: 18px auto 36px;
+    gap: 16px;
+}
+
+.clocks-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.clocks-page .card {
+    padding: 18px;
+    text-align: left;
+}
+
+.clocks-builder-head h2 {
+    margin: 0;
+    border: 0;
+    padding: 0;
+    font-size: 0.95rem;
+    letter-spacing: 0.12em;
+}
+
+.clock-builder-row {
+    margin-top: 10px;
+    display: grid;
+    grid-template-columns: minmax(260px, 1.6fr) minmax(140px, 0.7fr) minmax(140px, 0.7fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.clock-builder-field {
+    display: grid;
+    gap: 6px;
+}
+
+.clock-builder-field span {
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hq-muted);
+    font-weight: 700;
+}
+
+.clock-builder-field input,
+.clock-builder-field select {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: #fff;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.86rem;
+}
+
+.clock-builder-actions {
+    display: flex;
+}
+
+.clocks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 12px;
+}
+
+.clock-card {
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 38%, rgba(255, 255, 255, 0.08));
+    background: color-mix(in srgb, var(--surface-soft) 86%, rgba(255, 255, 255, 0.05));
+    padding: 14px;
+    display: grid;
+    gap: 10px;
+}
+
+.clock-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.clock-controls .btn {
+    min-width: 66px;
+}
+
+.clock-controls .btn-remove {
+    margin-left: auto;
+}
+
+.clock-pie-wrap {
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+}
+
+.clock-pie {
+    --clock-total: 4;
+    --clock-fill-ratio: 0;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    position: relative;
+    border: 1px solid color-mix(in srgb, var(--clock-color) 62%, rgba(255, 255, 255, 0.14));
+    box-shadow: 0 0 16px var(--clock-glow);
+    background: conic-gradient(
+        from -90deg,
+        var(--clock-color) 0deg calc(360deg * var(--clock-fill-ratio)),
+        rgba(255, 255, 255, 0.08) calc(360deg * var(--clock-fill-ratio)) 360deg
+    );
+}
+
+.clock-pie::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: repeating-conic-gradient(
+        from -90deg,
+        transparent 0deg calc((360deg / var(--clock-total)) - 1deg),
+        rgba(2, 6, 13, 0.72) calc((360deg / var(--clock-total)) - 1deg) calc(360deg / var(--clock-total))
+    );
+}
+
+.clock-pie::after {
+    content: '';
+    position: absolute;
+    inset: 16px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--surface-soft) 92%, rgba(0, 0, 0, 0.4));
+    border: 1px solid color-mix(in srgb, var(--clock-color) 28%, rgba(255, 255, 255, 0.1));
+}
+
+.clock-pie-center {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.06rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: #eefaf0;
+}
+
+.clock-pie-wrap.danger .clock-pie-center {
+    color: #ffe7e8;
+}
+
+.clock-type-label {
+    margin: 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: var(--type-color);
+    border: 1px solid var(--type-border);
+    border-radius: 999px;
+    padding: 3px 10px;
+    background: var(--type-bg);
+}
+
+.clock-name-label {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    min-height: 1.1rem;
+}
+
+.clock-settings {
+    display: grid;
+    grid-template-columns: 1fr minmax(120px, 0.65fr) minmax(96px, 0.5fr);
+    gap: 8px;
+    align-items: end;
+}
+
+.clock-setting-field {
+    display: grid;
+    gap: 6px;
+}
+
+.clock-setting-field span {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--hq-muted);
+    font-weight: 700;
+}
+
+.clock-setting-field input,
+.clock-setting-field select {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: #fff;
+    border-radius: 8px;
+    padding: 7px 9px;
+    font-size: 0.84rem;
+}
+
+.clock-pie-wrap.progress {
+    --clock-color: #22c55e;
+    --clock-glow: rgba(34, 197, 94, 0.46);
+    --type-color: #86efac;
+    --type-border: rgba(134, 239, 172, 0.5);
+    --type-bg: rgba(22, 101, 52, 0.35);
+}
+
+.clock-pie-wrap.danger {
+    --clock-color: #ef4444;
+    --clock-glow: rgba(239, 68, 68, 0.46);
+    --type-color: #fca5a5;
+    --type-border: rgba(252, 165, 165, 0.5);
+    --type-bg: rgba(127, 29, 29, 0.35);
+}
+
+.clocks-empty {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--hq-muted);
+}
+
+.is-hidden {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    .clock-builder-row {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .clock-builder-actions {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 680px) {
+    .clocks-page {
+        width: calc(100% - 20px);
+    }
+
+    .clock-builder-row {
+        grid-template-columns: 1fr;
+    }
+
+    .clock-builder-actions {
+        grid-column: auto;
+    }
+
+    .clock-settings {
+        grid-template-columns: 1fr;
+    }
+}
