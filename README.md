@@ -20,6 +20,7 @@ Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locat
 | **[Locations Database](docs/LocationsDatabase.md)** | `locations.html` | Safehouse/district log with filters, notes, and guild tagging. |
 | **[Requisition Vault](docs/RequisitionVault.md)** | `requisitions.html` | Gear request queue with status, priority, and tagging. |
 | **[Mission Timeline](docs/MissionTimeline.md)** | `timeline.html` | Beat log with heat deltas, fallout notes, and filters. |
+| **[Prep & Procedure Clocks](docs/PrepProcedureClocks.md)** | `prep-procedure.html` | Dual progress clocks with prep token bubbles and searchable prompt examples. |
 | **[Session Tracker](docs/SessionTracker.md)** | `gm.html` | Multi-tab GM console (initiative, roller, reference, loot). |
 | **[Encounter Recipes](docs/EncounterRecipes.md)** | `encounters.html` | Reusable encounter cards with tier tags and searchable notes. |
 | **[Narrative Engine](docs/NarrativeEngine.md)** | `dm-screen.html` | Procedural prompts, NPC hooks, and hazard/debrief generators. |

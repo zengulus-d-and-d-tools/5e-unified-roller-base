@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>Prep & Procedure Clocks</title>
+    <link rel="stylesheet" href="css/theme.css">
+    <link rel="stylesheet" href="css/hub.css">
+    <link rel="stylesheet" href="css/prep-procedure.css">
+</head>
+
+<body>
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="container prep-procedure-page" id="prep-procedure-widget" data-max-prep-tokens="6">
+        <header class="hero-header">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1>Prep & Procedure Clocks</h1>
+                <p class="hero-subtitle">Track setup progress, live procedure pressure, and prep token spend in one compact panel.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <a class="hero-btn ghost" href="tools.html">Portal</a>
+                    <button class="hero-btn ghost" type="button" id="reset-all-btn">Reset All</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="card clocks-card" aria-label="Prep and Procedure Clocks">
+            <div class="clocks-grid">
+                <article class="clock-panel" aria-label="Prep Clock">
+                    <div class="clock-head">
+                        <h2>PREP</h2>
+                        <div class="clock-readout-inline"><span id="prep-filled">0</span>/<span id="prep-total">4</span></div>
+                    </div>
+                    <div class="clock-segments" id="prep-segments"></div>
+                    <div class="clock-controls">
+                        <button type="button" class="btn" id="prep-minus">-1</button>
+                        <button type="button" class="btn btn-dp" id="prep-plus">+1</button>
+                        <button type="button" class="btn" id="prep-reset">Reset</button>
+                    </div>
+                    <label class="clock-total-field">
+                        <span>Total Segments</span>
+                        <input id="prep-total-input" type="number" min="1" step="1" inputmode="numeric">
+                    </label>
+                </article>
+
+                <article class="clock-panel" aria-label="Procedure Clock">
+                    <div class="clock-head">
+                        <h2>PROCEDURE</h2>
+                        <div class="clock-readout-inline"><span id="procedure-filled">0</span>/<span id="procedure-total">4</span></div>
+                    </div>
+                    <div class="clock-segments" id="procedure-segments"></div>
+                    <div class="clock-controls">
+                        <button type="button" class="btn" id="procedure-minus">-1</button>
+                        <button type="button" class="btn btn-dp" id="procedure-plus">+1</button>
+                        <button type="button" class="btn" id="procedure-reset">Reset</button>
+                        <button type="button" class="btn btn-heat-shield" id="heat-shield-btn">Activate Heat Shield</button>
+                    </div>
+                    <label class="clock-total-field">
+                        <span>Total Segments</span>
+                        <input id="procedure-total-input" type="number" min="1" step="1" inputmode="numeric">
+                    </label>
+                </article>
+            </div>
+        </section>
+
+        <section class="card prep-log-card" aria-label="Log Prep to Timeline">
+            <div class="prep-log-head">
+                <h2>Log Prep to Timeline</h2>
+            </div>
+            <div class="prep-log-grid">
+                <label class="prep-log-field">
+                    <span>Who</span>
+                    <select id="prep-log-who" aria-label="Who from party roster"></select>
+                </label>
+                <label class="prep-log-field">
+                    <span>Category</span>
+                    <select id="prep-log-category" aria-label="Prep category">
+                        <option value="Intel">Intel</option>
+                        <option value="Access">Access</option>
+                        <option value="Cover">Cover</option>
+                        <option value="Tools">Tools</option>
+                    </select>
+                </label>
+            </div>
+            <label class="prep-log-field">
+                <span>Description</span>
+                <textarea id="prep-log-description" rows="3" placeholder="What prep action happened, and what did it produce?"></textarea>
+            </label>
+            <div class="prep-log-actions">
+                <button class="btn btn-dp" type="button" id="log-prep-timeline-btn">Log Prep to Timeline</button>
+            </div>
+        </section>
+
+        <section class="card tokens-card" aria-label="Prep Tokens">
+            <div class="tokens-head">
+                <h2>Prep Tokens</h2>
+                <div class="tokens-readout" id="tokens-readout">0/6</div>
+            </div>
+            <div class="tokens-controls">
+                <button type="button" class="btn" id="tokens-minus">-1</button>
+                <button type="button" class="btn btn-dp" id="tokens-plus">+1</button>
+            </div>
+            <div class="token-bubbles" id="token-bubbles"></div>
+            <p class="tokens-hint">Click a bubble to set the current token count.</p>
+        </section>
+
+        <section class="card examples-card" aria-label="Examples">
+            <div class="examples-head">
+                <h2>Examples</h2>
+                <div class="examples-controls">
+                    <select id="examples-filter" aria-label="Filter examples">
+                        <option value="all">All</option>
+                        <option value="prep">Prep</option>
+                        <option value="procedure">Procedure</option>
+                    </select>
+                    <input type="text" id="examples-search" placeholder="Search examples" aria-label="Search examples">
+                </div>
+            </div>
+            <div class="examples-table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Category</th>
+                            <th>Example Name</th>
+                        </tr>
+                    </thead>
+                    <tbody id="examples-body"></tbody>
+                </table>
+            </div>
+            <p class="examples-empty is-hidden" id="examples-empty">No examples match this filter/search.</p>
+        </section>
+
+        <p class="prep-procedure-status" id="prep-procedure-status" aria-live="polite"></p>
+    </div>
+
+    <script>
+        window.PREP_PROCEDURE_CONFIG = Object.assign({ maxPrepTokens: 6 }, window.PREP_PROCEDURE_CONFIG || {});
+    </script>
+    <script src="js/store.js"></script>
+    <script src="js/sw-register.js"></script>
+    <script src="js/vector-field.js"></script>
+    <script src="js/prep-procedure.js"></script>
+</body>
+
+</html>
