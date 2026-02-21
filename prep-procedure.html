@@ -26,6 +26,12 @@
                     <a class="hero-btn ghost" href="tools.html">Portal</a>
                     <button class="hero-btn ghost" type="button" id="reset-all-btn">Reset All</button>
                 </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" type="button" onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" type="button" id="btn-bg-style" onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input"
+                    class="prep-procedure-accent-picker-input" onchange="setAccentColor(this.value)">
             </div>
         </header>
 

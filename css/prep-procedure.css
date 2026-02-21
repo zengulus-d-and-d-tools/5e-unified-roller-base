@@ -5,6 +5,12 @@
     gap: 16px;
 }
 
+.prep-procedure-accent-picker-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
 .prep-procedure-page .card {
     padding: 18px;
     text-align: left;
