@@ -80,18 +80,6 @@
             type: 'procedure',
             category: 'Tools',
             name: 'Field Sketches Matched to Evidence Tag IDs'
-        },
-        {
-            id: 'procedure-7',
-            type: 'procedure',
-            category: 'Access',
-            name: 'Alchemist Assay Request Filed for Unknown Residue'
-        },
-        {
-            id: 'procedure-8',
-            type: 'procedure',
-            category: 'Intel',
-            name: 'Spiritual Petitoin Escalated Only if No Living Witness Remains'
         }
     ];
 
