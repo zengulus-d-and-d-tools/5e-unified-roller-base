@@ -8,7 +8,7 @@
 - `Log Prep to Timeline` is a single action button that opens a confirmation popover before writing a snapshot event for the active case.
 - `Activate Heat Shield` clears only the `PROCEDURE` clock fill (`procedure.filled = 0`) and logs this timeline action: `Thanks to good procedure, the Task Force's reputation was preserved.`
 - Example table with `Type`, `Category`, and `Example Name`.
-- Example rows are procedure-focused (evidence handling, chain of custody, report/lab flow) and include `category` from the controlled set: `Intel`, `Access`, `Cover`, `Tools`.
+- Example rows are D&D procedure-focused and mundane-first (chain of custody, witness handling, scene control, vault sign-off), with magic only as escalation/fallback when mundane methods are insufficient. Rows include `category` from the controlled set: `Intel`, `Access`, `Cover`, `Tools`.
 - Double-clicking an example row opens the same popover and logs that example context to timeline on confirmation.
 - Example controls: filter (`All`, `Prep`, `Procedure`) and free-text search.
 

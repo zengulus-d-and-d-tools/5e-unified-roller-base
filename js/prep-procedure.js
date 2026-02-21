@@ -13,31 +13,37 @@
             id: 'prep-1',
             type: 'prep',
             category: 'Tools',
-            name: 'Evidence Intake Checklist'
+            name: 'Case File Kit Packed'
         },
         {
             id: 'prep-2',
             type: 'prep',
             category: 'Access',
-            name: 'Warrant Packet Drafted'
+            name: 'Watch-Captain Access Letter Secured'
         },
         {
             id: 'prep-3',
             type: 'prep',
             category: 'Intel',
-            name: 'Witness Contact Plan'
+            name: 'Witness List and Interview Order Drafted'
         },
         {
             id: 'prep-4',
             type: 'prep',
             category: 'Cover',
-            name: 'Patrol Route Deconfliction'
+            name: 'Street Clothes and Cover Story Prepared'
         },
         {
             id: 'prep-5',
             type: 'prep',
             category: 'Tools',
-            name: 'Interview Room Audio Check'
+            name: 'Evidence Bags and Label Stock Prepared'
+        },
+        {
+            id: 'prep-6',
+            type: 'prep',
+            category: 'Intel',
+            name: 'Divination Consult Held in Reserve if Leads Stall'
         },
         {
             id: 'procedure-1',
@@ -49,37 +55,43 @@
             id: 'procedure-2',
             type: 'procedure',
             category: 'Intel',
-            name: 'Bodycam Timestamp Cross-Check'
+            name: 'Witness Statements Cross-Checked to Timeline'
         },
         {
             id: 'procedure-3',
             type: 'procedure',
             category: 'Cover',
-            name: 'Scene Perimeter Maintained'
+            name: 'Scene Perimeter Maintained and Bystanders Cleared'
         },
         {
             id: 'procedure-4',
             type: 'procedure',
             category: 'Access',
-            name: 'Evidence Locker Sign-off'
+            name: 'Evidence Vault Sign-off Recorded'
         },
         {
             id: 'procedure-5',
             type: 'procedure',
             category: 'Cover',
-            name: 'Rights Read and Recording Confirmed'
+            name: 'Rights of Accord Recited and Witnessed'
         },
         {
             id: 'procedure-6',
             type: 'procedure',
             category: 'Tools',
-            name: 'Field Notes Matched to Evidence IDs'
+            name: 'Field Sketches Matched to Evidence Tag IDs'
         },
         {
             id: 'procedure-7',
             type: 'procedure',
             category: 'Access',
-            name: 'Lab Submission Form Completed'
+            name: 'Alchemist Assay Request Filed for Unknown Residue'
+        },
+        {
+            id: 'procedure-8',
+            type: 'procedure',
+            category: 'Intel',
+            name: 'Spiritual Petitoin Escalated Only if No Living Witness Remains'
         }
     ];
 
