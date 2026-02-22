@@ -1,47 +1,5 @@
 .hero-header.has-player-nav {
-    flex-wrap: wrap;
     align-items: flex-start;
-}
-
-.hero-header.has-player-nav .player-nav-wrap {
-    flex: 1 0 100%;
-    order: 18;
-}
-
-.player-nav-wrap {
-    width: 100%;
-    margin-top: 12px;
-}
-
-.player-nav {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-}
-
-.player-nav-label {
-    font-size: 0.74rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: color-mix(in srgb, var(--accent-secondary) 56%, #d3d8e2 44%);
-}
-
-.player-nav-select {
-    min-width: min(360px, 92vw);
-    max-width: 100%;
-    border: 1px solid color-mix(in srgb, var(--accent-secondary) 42%, rgba(255, 255, 255, 0.18));
-    border-radius: 10px;
-    padding: 8px 10px;
-    background: color-mix(in srgb, #0b111c 82%, var(--accent) 18%);
-    color: #edf2fa;
-    font-size: 0.86rem;
-}
-
-.player-nav-select:focus {
-    outline: 2px solid color-mix(in srgb, var(--accent-secondary) 56%, white 44%);
-    outline-offset: 2px;
 }
 
 .hero-actions.has-hero-menu {
@@ -100,6 +58,11 @@
     display: block;
 }
 
+.hero-actions.has-hero-menu .hero-menu-nav-panel {
+    right: auto;
+    left: 0;
+}
+
 .hero-actions.has-hero-menu .hero-menu-panel-title {
     margin-bottom: 8px;
     font-size: 0.73rem;
@@ -127,6 +90,25 @@
     justify-content: flex-start;
 }
 
+.hero-actions.has-hero-menu .hero-menu-nav {
+    display: grid;
+    gap: 8px;
+}
+
+.hero-actions.has-hero-menu .hero-menu-nav-link {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.hero-actions.has-hero-menu .hero-menu-nav-link.is-active {
+    border-color: color-mix(in srgb, var(--accent-secondary) 62%, rgba(255, 255, 255, 0.22));
+    color: #f7f9ff;
+    background:
+        linear-gradient(140deg,
+            color-mix(in srgb, var(--accent) 64%, #0b1424 36%),
+            color-mix(in srgb, var(--accent-secondary) 70%, #060c16 30%));
+}
+
 .hero-add-row {
     width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
     margin: -4px auto clamp(10px, 2vw, 16px);
@@ -147,33 +129,19 @@
 }
 
 .board-hero .player-nav-wrap,
-.board-hero .player-nav,
-.board-hero .player-nav-select,
 .board-hero .hero-menu-panel,
 .board-hero .hero-menu-btn {
     pointer-events: auto;
 }
 
 @media (max-width: 720px) {
-    .player-nav-wrap {
-        margin-top: 10px;
-    }
-
-    .player-nav {
-        align-items: stretch;
-    }
-
-    .player-nav-label {
-        width: 100%;
-    }
-
-    .player-nav-select {
-        width: 100%;
-        min-width: 0;
-    }
-
     .hero-actions.has-hero-menu .hero-menu-panel {
         width: min(360px, 92vw);
+    }
+
+    .hero-actions.has-hero-menu .hero-menu-nav-panel {
+        left: auto;
+        right: 0;
     }
 
     .hero-add-row {

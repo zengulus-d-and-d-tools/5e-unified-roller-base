@@ -26,42 +26,30 @@
         return /^\+\s*(add|new|log)\b/.test(clean);
     }
 
-    function buildNavDropdown() {
-        const wrap = document.createElement('div');
-        wrap.className = 'player-nav-wrap';
+    function buildNavPanel() {
+        const panel = document.createElement('div');
+        panel.className = 'hero-menu-panel hero-menu-nav-panel';
+        panel.setAttribute('aria-hidden', 'true');
+
+        const panelHeader = document.createElement('div');
+        panelHeader.className = 'hero-menu-panel-title';
+        panelHeader.textContent = '🧭 Navigate';
+        panel.appendChild(panelHeader);
+
         const nav = document.createElement('nav');
-        nav.className = 'player-nav';
-        nav.setAttribute('aria-label', 'Player navigation');
-
-        const label = document.createElement('label');
-        label.className = 'player-nav-label';
-        label.setAttribute('for', 'player-nav-select');
-        label.textContent = 'Navigate';
-
-        const select = document.createElement('select');
-        select.id = 'player-nav-select';
-        select.className = 'player-nav-select';
-        select.setAttribute('aria-label', 'Navigate to page');
+        nav.className = 'hero-menu-nav';
+        nav.setAttribute('aria-label', 'Player navigation menu');
 
         NAV_ITEMS.forEach((item) => {
-            const option = document.createElement('option');
-            option.value = item.href;
-            option.textContent = item.label;
-            if (item.id === activeId) option.selected = true;
-            select.appendChild(option);
+            const link = document.createElement('a');
+            link.href = item.href;
+            link.className = `hero-btn ghost hero-menu-nav-link${item.id === activeId ? ' is-active' : ''}`;
+            link.textContent = item.label;
+            nav.appendChild(link);
         });
 
-        select.addEventListener('change', () => {
-            const target = String(select.value || '').trim();
-            if (!target) return;
-            const current = String(window.location.pathname || '').split('/').pop();
-            if (current.toLowerCase() === target.toLowerCase()) return;
-            window.location.assign(target);
-        });
-
-        nav.append(label, select);
-        wrap.appendChild(nav);
-        return wrap;
+        panel.appendChild(nav);
+        return panel;
     }
 
     function moveAddButtonsBelowHero(bars) {
@@ -115,6 +103,13 @@
         const controls = document.createElement('div');
         controls.className = 'hero-menu-controls';
 
+        const compassBtn = document.createElement('button');
+        compassBtn.type = 'button';
+        compassBtn.className = 'hero-menu-btn hero-menu-compass';
+        compassBtn.setAttribute('aria-label', 'Open navigation menu');
+        compassBtn.setAttribute('aria-expanded', 'false');
+        compassBtn.textContent = '🧭';
+
         const gearBtn = document.createElement('button');
         gearBtn.type = 'button';
         gearBtn.className = 'hero-menu-btn hero-menu-gear';
@@ -122,67 +117,74 @@
         gearBtn.setAttribute('aria-expanded', 'false');
         gearBtn.textContent = '⚙';
 
-        const hamburgerBtn = document.createElement('button');
-        hamburgerBtn.type = 'button';
-        hamburgerBtn.className = 'hero-menu-btn hero-menu-hamburger';
-        hamburgerBtn.setAttribute('aria-label', 'Open settings and action menu');
-        hamburgerBtn.setAttribute('aria-expanded', 'false');
-        hamburgerBtn.textContent = '☰';
+        controls.append(compassBtn, gearBtn);
 
-        controls.append(gearBtn, hamburgerBtn);
-
-        const panel = document.createElement('div');
-        panel.className = 'hero-menu-panel';
-        panel.setAttribute('aria-hidden', 'true');
+        const settingsPanel = document.createElement('div');
+        settingsPanel.className = 'hero-menu-panel hero-menu-settings-panel';
+        settingsPanel.setAttribute('aria-hidden', 'true');
 
         const panelHeader = document.createElement('div');
         panelHeader.className = 'hero-menu-panel-title';
         panelHeader.textContent = '⚙ Settings & Actions';
-        panel.appendChild(panelHeader);
+        settingsPanel.appendChild(panelHeader);
 
         bars.forEach((bar) => {
             const hasControls = !!bar.querySelector('a, button, input, select, textarea');
             if (!hasControls) return;
-            panel.appendChild(bar);
+            settingsPanel.appendChild(bar);
         });
 
-        const setOpen = (isOpen) => {
-            panel.classList.toggle('is-open', isOpen);
-            panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-            gearBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-            hamburgerBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        const navPanel = buildNavPanel();
+
+        const setOpenState = (targetPanel) => {
+            const showNav = targetPanel === 'nav';
+            const showSettings = targetPanel === 'settings';
+            navPanel.classList.toggle('is-open', showNav);
+            navPanel.setAttribute('aria-hidden', showNav ? 'false' : 'true');
+            settingsPanel.classList.toggle('is-open', showSettings);
+            settingsPanel.setAttribute('aria-hidden', showSettings ? 'false' : 'true');
+            compassBtn.setAttribute('aria-expanded', showNav ? 'true' : 'false');
+            gearBtn.setAttribute('aria-expanded', showSettings ? 'true' : 'false');
         };
 
-        const toggleOpen = () => setOpen(!panel.classList.contains('is-open'));
+        const togglePanel = (targetPanel) => {
+            const navOpen = navPanel.classList.contains('is-open');
+            const settingsOpen = settingsPanel.classList.contains('is-open');
+            if ((targetPanel === 'nav' && navOpen) || (targetPanel === 'settings' && settingsOpen)) {
+                setOpenState('');
+                return;
+            }
+            setOpenState(targetPanel);
+        };
 
+        compassBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            togglePanel('nav');
+        });
         gearBtn.addEventListener('click', (event) => {
             event.stopPropagation();
-            toggleOpen();
-        });
-        hamburgerBtn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            toggleOpen();
+            togglePanel('settings');
         });
 
         document.addEventListener('click', (event) => {
-            if (!panel.classList.contains('is-open')) return;
+            const anyOpen = navPanel.classList.contains('is-open') || settingsPanel.classList.contains('is-open');
+            if (!anyOpen) return;
             if (actions.contains(event.target)) return;
-            setOpen(false);
+            setOpenState('');
         });
         document.addEventListener('keydown', (event) => {
             if (event.key !== 'Escape') return;
-            if (!panel.classList.contains('is-open')) return;
-            setOpen(false);
+            const anyOpen = navPanel.classList.contains('is-open') || settingsPanel.classList.contains('is-open');
+            if (!anyOpen) return;
+            setOpenState('');
         });
 
         actions.classList.add('has-hero-menu');
-        actions.append(controls, panel);
+        actions.append(controls, navPanel, settingsPanel);
         actions.dataset.heroMenuReady = '1';
     }
 
-    const dropdown = buildNavDropdown();
     header.classList.add('has-player-nav');
-    header.appendChild(dropdown);
     setupHeroMenu();
     header.dataset.playerNavReady = '1';
 })();
