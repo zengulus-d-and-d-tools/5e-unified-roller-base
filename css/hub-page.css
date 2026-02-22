@@ -151,9 +151,29 @@ h2 {
 }
 
 input[type="text"],
+input[type="url"],
+input[type="search"],
+input[type="number"],
 select,
 textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
     width: 100%;
+    box-sizing: border-box;
+    font-size: 0.95rem;
+    font-family: inherit;
+    transition: 0.2s;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
 }
 
 .mini-label {

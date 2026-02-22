@@ -6,9 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
     <title>Requisition Vault</title>
-    <link rel="stylesheet" href="css/theme.css?v=20260222d">
-    <link rel="stylesheet" href="css/hub.css">
-    <link rel="stylesheet" href="css/requisitions.css">
+    <link rel="stylesheet" href="css/theme.css?v=20260222e">
+    <link rel="stylesheet" href="css/hub.css?v=20260222a">
+    <link rel="stylesheet" href="css/requisitions.css?v=20260222a">
 </head>
 
 <body>
@@ -36,6 +36,13 @@
         </header>
 
         <div class="card">
+            <div class="req-deployment-info" role="note" aria-label="Requisition deployment timing">
+                <h3>Deployment Timing</h3>
+                <p><strong>Routine:</strong> Deployment takes up to 1 hour.</p>
+                <p><strong>Tactical:</strong> Deployment takes 30 seconds (5 rounds).</p>
+                <p><strong>Emergency:</strong> Deploys at end of round.</p>
+            </div>
+
             <div id="reqForm" class="req-form req-hidden">
                 <div class="req-grid">
                     <input type="text" id="reqItem" placeholder="Item / Asset *">

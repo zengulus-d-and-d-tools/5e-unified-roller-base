@@ -75,11 +75,6 @@ body {
     min-height: 100vh;
 }
 
-:where(button, input, select, textarea) {
-    font: inherit;
-    color: inherit;
-}
-
 .btn {
     background: rgba(255, 255, 255, 0.05);
     color: var(--text);
@@ -129,62 +124,6 @@ body {
 .btn-danger:hover {
     background: rgba(255, 107, 107, 0.2);
     border-color: var(--danger);
-}
-
-:where(
-    input[type="text"],
-    input[type="search"],
-    input[type="number"],
-    input[type="email"],
-    input[type="password"],
-    input[type="url"],
-    select,
-    textarea
-) {
-    background: var(--input-bg);
-    border: 1px solid var(--border);
-    color: var(--text);
-    padding: 10px;
-    border-radius: var(--ui-radius-sm);
-    font-size: 0.95rem;
-    transition:
-        border-color var(--ui-transition-fast),
-        box-shadow var(--ui-transition-fast),
-        background-color var(--ui-transition-fast),
-        color var(--ui-transition-fast);
-}
-
-:where(
-    input[type="text"],
-    input[type="search"],
-    input[type="number"],
-    input[type="email"],
-    input[type="password"],
-    input[type="url"],
-    textarea
-)::placeholder {
-    color: color-mix(in srgb, var(--text) 50%, #6b7280 50%);
-}
-
-:where(
-    input[type="text"],
-    input[type="search"],
-    input[type="number"],
-    input[type="email"],
-    input[type="password"],
-    input[type="url"],
-    select,
-    textarea
-):focus {
-    outline: none;
-    border-color: var(--accent-secondary);
-    box-shadow:
-        0 0 0 2px color-mix(in srgb, var(--accent-tertiary) 32%, transparent),
-        0 0 10px color-mix(in srgb, var(--accent-quaternary) 55%, transparent);
-}
-
-textarea {
-    resize: vertical;
 }
 
 /* Keep button labels readable against dynamic accent hues and hover states. */
