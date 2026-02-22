@@ -59,9 +59,15 @@
 
 .locations-summary {
     display: grid;
-    grid-template-columns: 1.3fr 0.9fr 1.6fr 1.2fr;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 10px;
     align-items: start;
+}
+
+.locations-summary input,
+.locations-summary select,
+.locations-summary textarea {
+    width: 100%;
 }
 
 .locations-name {
@@ -101,9 +107,47 @@
     margin-top: 10px;
     font-size: 0.9rem;
     color: #aaa;
-    font-style: italic;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
     padding-top: 5px;
+}
+
+.locations-notes textarea {
+    width: 100%;
+    margin-top: 6px;
+}
+
+.locations-track-row {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.locations-track {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.locations-track-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    color: #8f8f8f;
+    letter-spacing: 0.04em;
+}
+
+.locations-track-value {
+    min-width: 72px;
+    font-size: 0.8rem;
+}
+
+.locations-track-btn {
+    padding: 2px 8px;
+    line-height: 1.2;
 }
 
 .locations-delete-btn {
@@ -174,6 +218,11 @@
 
     .locations-summary {
         grid-template-columns: 1fr;
+    }
+
+    .locations-track {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .locations-board-btn,

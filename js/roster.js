@@ -90,6 +90,14 @@ bindDelegatedDataHandlers();
 let editingNPCId = '';
 let editingPreloadedImageOnly = false;
 let pendingLinkNPCId = '';
+const TRUST_LABELS = ['Hostile', 'Wary', 'Neutral', 'Trusted', 'Loyal'];
+const STIGMA_LABELS = ['Clean', 'Rumored', 'Noticed', 'Marked', 'Burned'];
+
+function clampTrackLevel(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.min(4, parsed));
+}
 
 const normalizeNPCField = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const GUILD_FILTER_ALIASES = Object.freeze({
@@ -208,7 +216,7 @@ function applyPendingNpcDeepLinkFocus() {
 }
 
 function setFormImageOnlyMode(imageOnly) {
-    const ids = ['npcName', 'npcGuild', 'npcWants', 'npcLeverage', 'npcNotes'];
+    const ids = ['npcName', 'npcGuild', 'npcWants', 'npcLeverage', 'npcNotes', 'npcTrust', 'npcStigma'];
     ids.forEach((id) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -233,6 +241,8 @@ function clearNPCForm() {
     document.getElementById('npcLeverage').value = '';
     document.getElementById('npcImageUrl').value = '';
     document.getElementById('npcNotes').value = '';
+    document.getElementById('npcTrust').value = '2';
+    document.getElementById('npcStigma').value = '0';
 }
 
 function fillNPCForm(npc) {
@@ -242,6 +252,8 @@ function fillNPCForm(npc) {
     document.getElementById('npcLeverage').value = npc && npc.leverage ? npc.leverage : '';
     document.getElementById('npcImageUrl').value = npc && npc.imageUrl ? npc.imageUrl : '';
     document.getElementById('npcNotes').value = npc && npc.notes ? npc.notes : '';
+    document.getElementById('npcTrust').value = String(clampTrackLevel(npc && npc.trust, 2));
+    document.getElementById('npcStigma').value = String(clampTrackLevel(npc && npc.stigma, 0));
 }
 
 function ensureGuildOptions() {
@@ -301,6 +313,8 @@ function addNPC() {
     const imageRaw = document.getElementById('npcImageUrl').value.trim();
     const imageUrl = sanitizeImageUrl(imageRaw);
     const notes = document.getElementById('npcNotes').value.trim();
+    const trust = clampTrackLevel(document.getElementById('npcTrust').value, 2);
+    const stigma = clampTrackLevel(document.getElementById('npcStigma').value, 0);
 
     if (!name && !editingPreloadedImageOnly) { alert("Name Required"); return; }
     if (imageRaw && !imageUrl) { alert("Please provide a valid image URL."); return; }
@@ -333,6 +347,8 @@ function addNPC() {
                 leverage,
                 imageUrl,
                 notes,
+                trust,
+                stigma,
                 __rtfSource: 'custom'
             };
         }
@@ -345,6 +361,8 @@ function addNPC() {
             leverage,
             imageUrl,
             notes,
+            trust,
+            stigma,
             __rtfSource: 'custom'
         });
     }
@@ -385,6 +403,20 @@ function deleteNPC(npcId) {
     if (editingNPCId === id) {
         cancelNPCEdit();
     }
+    save();
+}
+
+function updateNPCTrack(npcId, field, delta) {
+    if (field !== 'trust' && field !== 'stigma') return;
+    const { npc, index } = findNPCById(npcId);
+    if (!npc || index < 0) return;
+    const c = getCampaign();
+    if (!c || !Array.isArray(c.npcs)) return;
+    const current = clampTrackLevel(npc[field], field === 'trust' ? 2 : 0);
+    c.npcs[index] = {
+        ...npc,
+        [field]: clampTrackLevel(current + Number(delta || 0), current)
+    };
     save();
 }
 
@@ -435,6 +467,8 @@ function render() {
     container.innerHTML = filtered.map(npc => {
         const npcId = String(npc.id || '');
         const npcIdArg = escapeJsString(npcId);
+        const trust = clampTrackLevel(npc.trust, 2);
+        const stigma = clampTrackLevel(npc.stigma, 0);
         const imageUrl = sanitizeImageUrl(npc.imageUrl || '');
         const imageMarkup = imageUrl
             ? `<div class="roster-npc-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(npc.name || 'NPC')} portrait"></div>`
@@ -460,6 +494,22 @@ function render() {
                     <div class="roster-npc-meta-block">
                         <div class="roster-npc-meta-label">Leverage</div>
                         ${escapeHtml(npc.leverage || '-')}
+                    </div>
+                    <div class="roster-npc-meta-block">
+                        <div class="roster-npc-meta-label">Trust</div>
+                        <div class="roster-track-row">
+                            <button class="btn roster-track-btn" data-onclick="updateNPCTrack('${npcIdArg}', 'trust', -1)">-</button>
+                            <span class="roster-track-value">${escapeHtml(TRUST_LABELS[trust])}</span>
+                            <button class="btn roster-track-btn" data-onclick="updateNPCTrack('${npcIdArg}', 'trust', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="roster-npc-meta-block">
+                        <div class="roster-npc-meta-label">Stigma</div>
+                        <div class="roster-track-row">
+                            <button class="btn roster-track-btn" data-onclick="updateNPCTrack('${npcIdArg}', 'stigma', -1)">-</button>
+                            <span class="roster-track-value">${escapeHtml(STIGMA_LABELS[stigma])}</span>
+                            <button class="btn roster-track-btn" data-onclick="updateNPCTrack('${npcIdArg}', 'stigma', 1)">+</button>
+                        </div>
                     </div>
                 </div>
 
@@ -500,3 +550,4 @@ window.addEventListener('rtf-store-updated', () => {
 
 window.copyNPCLink = copyNPCLink;
 window.openNPCInBoard = openNPCInBoard;
+window.updateNPCTrack = updateNPCTrack;

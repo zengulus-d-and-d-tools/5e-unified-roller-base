@@ -7,6 +7,7 @@
     const VALID_FILTERS = new Set(['all', 'prep', 'procedure']);
     const VALID_TYPES = new Set(['prep', 'procedure']);
     const PREP_CATEGORIES = ['Intel', 'Access', 'Cover', 'Tools'];
+    const STORAGE_KEY = 'rtf_prep_procedure_state_v1';
 
     const DEFAULT_EXAMPLES = [
         {
@@ -229,6 +230,26 @@
         return JSON.stringify(a) === JSON.stringify(b);
     }
 
+    function loadPersistedState() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (err) {
+            return null;
+        }
+    }
+
+    function persistState(nextState) {
+        if (!nextState || typeof nextState !== 'object') return;
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
+        } catch (err) {
+            // Ignore quota/storage errors in offline mode.
+        }
+    }
+
     function getConfiguredMaxPrepTokens(root, config) {
         const cfg = toObject(config);
         const fromConfig = toInt(cfg.maxPrepTokens, NaN);
@@ -243,7 +264,9 @@
     const pageConfig = toObject(global.PREP_PROCEDURE_CONFIG);
     const maxPrepTokens = getConfiguredMaxPrepTokens(root, pageConfig);
     const defaultState = createDefaultState(maxPrepTokens);
-    let state = normalizeState(pageConfig.initialState, defaultState, maxPrepTokens);
+    const persistedState = loadPersistedState();
+    const seededState = persistedState || pageConfig.initialState;
+    let state = normalizeState(seededState, defaultState, maxPrepTokens);
 
     const refs = {
         clocks: {
@@ -407,6 +430,7 @@
         const normalized = normalizeState(nextState, state, maxPrepTokens);
         const changed = !statesEqual(normalized, state);
         state = normalized;
+        persistState(state);
         render();
         if (changed) emitChange();
         return getState();
@@ -594,6 +618,7 @@
     refs.resetAll.addEventListener('click', () => {
         const nextDefaults = createDefaultState(maxPrepTokens);
         state = nextDefaults;
+        persistState(state);
         render();
         emitChange();
         setStatus('All prep/procedure values reset to defaults.', 'success');
@@ -620,6 +645,7 @@
     bindClockControls('prep');
     bindClockControls('procedure');
 
+    persistState(state);
     render();
     setStatus('');
 
@@ -630,6 +656,7 @@
     };
 
     global.PrepProcedureClocks = api;
+    global.PREP_PROCEDURE_STATE_KEY = STORAGE_KEY;
     if (typeof global.getState !== 'function') global.getState = getState;
     if (typeof global.setState !== 'function') global.setState = setState;
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : this));

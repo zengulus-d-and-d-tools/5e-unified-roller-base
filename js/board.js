@@ -82,6 +82,7 @@ const NODE_TYPE_LABELS = {
     person: 'Person',
     location: 'Location',
     clue: 'Clue',
+    theory: 'Theory',
     note: 'Note',
     event: 'Event',
     requisition: 'Requisition'
@@ -90,6 +91,7 @@ const NODE_TYPE_ICONS = {
     person: '👤',
     location: '📍',
     clue: '🔍',
+    theory: '🧠',
     note: '📝',
     event: '🕰️',
     requisition: '📦',
@@ -117,6 +119,11 @@ const EDGE_CONNECT_ZONE_PX = 18;
 const BOARD_LINK_FLASH_MS = 2200;
 const BOARD_CROSSLINK_TYPES = new Set(['npc', 'location', 'timeline-event', 'requisition']);
 const ENCOUNTER_DRAFT_STORAGE_PREFIX = 'rtf_encounter_draft_';
+const LEAD_STORAGE_KEY = 'rtf_lead_queue_v1';
+const THEORY_RELATIONS = ['supports', 'contradicts', 'related'];
+const THEORY_STATUSES = new Set(['unproven', 'confirmed', 'disproven']);
+const TRUST_LEVEL_LABELS = ['Hostile', 'Wary', 'Neutral', 'Trusted', 'Loyal'];
+const STIGMA_LEVEL_LABELS = ['Clean', 'Rumored', 'Noticed', 'Marked', 'Burned'];
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -360,6 +367,70 @@ function getPortFromEventTarget(target) {
     return normalizeConnectionPort(portEl.dataset.port);
 }
 
+function normalizeTheoryStatus(value) {
+    const clean = String(value || '').trim().toLowerCase();
+    return THEORY_STATUSES.has(clean) ? clean : 'unproven';
+}
+
+function normalizeTheoryRelation(value) {
+    const clean = String(value || '').trim().toLowerCase();
+    return THEORY_RELATIONS.includes(clean) ? clean : 'supports';
+}
+
+function clampPercent(value, fallback = 50) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
+function clampTrackIndex(value, fallback = 0) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.min(4, parsed));
+}
+
+function getTheoryStatusLabel(status) {
+    const clean = normalizeTheoryStatus(status);
+    if (clean === 'confirmed') return 'Confirmed';
+    if (clean === 'disproven') return 'Disproven';
+    return 'Unproven';
+}
+
+function getTheoryRelationLabel(relation) {
+    const clean = normalizeTheoryRelation(relation);
+    if (clean === 'contradicts') return 'Contradicts';
+    if (clean === 'related') return 'Related';
+    return 'Supports';
+}
+
+function readLeadStorage() {
+    try {
+        const raw = localStorage.getItem(LEAD_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (err) {
+        return {};
+    }
+}
+
+function writeLeadStorage(next) {
+    const clean = next && typeof next === 'object' ? next : {};
+    localStorage.setItem(LEAD_STORAGE_KEY, JSON.stringify(clean));
+}
+
+function getActiveLeadCaseId() {
+    if (window.RTF_STORE && typeof window.RTF_STORE.getActiveCaseId === 'function') {
+        return String(window.RTF_STORE.getActiveCaseId() || 'case_primary');
+    }
+    return 'case_primary';
+}
+
+function isTheoryNodeId(nodeId) {
+    const nodeEl = document.getElementById(nodeId);
+    return !!(nodeEl && nodeEl.classList && nodeEl.classList.contains('type-theory'));
+}
+
 function findConnectionBetween(nodeAId, nodeBId) {
     return connections.find((c) =>
         (c.from === nodeAId && c.to === nodeBId) ||
@@ -393,6 +464,8 @@ function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toP
 
     const fromLinksBefore = getNodeLinkCount(fromNodeId);
     const toLinksBefore = getNodeLinkCount(toNodeId);
+    const touchesTheory = isTheoryNodeId(fromNodeId) || isTheoryNodeId(toNodeId);
+    const initialTheoryRelation = touchesTheory ? 'supports' : '';
 
     const newConn = {
         id: 'conn_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
@@ -401,11 +474,12 @@ function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toP
         fromPort: normalizedFromPort,
         toPort: normalizedToPort,
         portPinned: normalizedFromPort !== 'auto' || normalizedToPort !== 'auto',
-        label: '',
+        label: touchesTheory ? getTheoryRelationLabel(initialTheoryRelation) : '',
         arrowLeft: 0,
         arrowRight: 0,
         relationshipLogged: false,
-        colorIndex: 0
+        colorIndex: 0,
+        theoryRelation: initialTheoryRelation
     };
 
     connections.push(newConn);
@@ -936,6 +1010,7 @@ function buildEncounterDraftFromCluster(rootId) {
         person: [],
         location: [],
         clue: [],
+        theory: [],
         note: [],
         event: [],
         requisition: [],
@@ -965,6 +1040,7 @@ function buildEncounterDraftFromCluster(rootId) {
 
     const objective = trimSingleLine(
         (byType.event[0] && byType.event[0].title)
+        || (byType.theory[0] && `Test theory: ${byType.theory[0].title}`)
         || (byType.clue[0] && `Secure ${byType.clue[0].title}`)
         || `Resolve lead: ${anchorSummary.title}`,
         180
@@ -984,6 +1060,9 @@ function buildEncounterDraftFromCluster(rootId) {
     });
     byType.note.forEach((entry) => {
         hazards.push(`Complication: ${trimSingleLine(entry.title, 80)}${entry.bodyText ? ` - ${trimSingleLine(entry.bodyText, 90)}` : ''}`);
+    });
+    byType.theory.forEach((entry) => {
+        hazards.push(`Theory risk: ${trimSingleLine(entry.title, 80)} may be misleading if unverified.`);
     });
     byType.event.forEach((entry) => {
         const heat = extractEventHeat(entry);
@@ -1167,6 +1246,10 @@ function getBoardGuildEntries() {
 function buildNPCNodePayload(npc) {
     const source = npc && typeof npc === 'object' ? npc : {};
     let body = `${sanitizeText(source.guild || 'Unassigned')}`;
+    const safeTrustIdx = clampTrackIndex(source.trust, 2);
+    const safeStigmaIdx = clampTrackIndex(source.stigma, 0);
+    body += `<br><strong>Trust:</strong> ${sanitizeText(TRUST_LEVEL_LABELS[safeTrustIdx] || 'Neutral')}`;
+    body += `<br><strong>Stigma:</strong> ${sanitizeText(STIGMA_LEVEL_LABELS[safeStigmaIdx] || 'Clean')}`;
     if (source.wants) body += `<br><strong>Wants:</strong> ${sanitizeMultiline(source.wants)}`;
     if (source.leverage) body += `<br><strong>Lev:</strong> ${sanitizeMultiline(source.leverage)}`;
     if (source.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(source.notes)}`;
@@ -1181,7 +1264,9 @@ function buildNPCNodePayload(npc) {
                 sourceType: 'npc',
                 npcId: source.id || '',
                 npcName: source.name || 'Unknown NPC',
-                guild: source.guild || ''
+                guild: source.guild || '',
+                trust: safeTrustIdx,
+                stigma: safeStigmaIdx
             }
         }
     };
@@ -1190,7 +1275,13 @@ function buildNPCNodePayload(npc) {
 function buildLocationNodePayload(location) {
     const source = location && typeof location === 'object' ? location : {};
     let body = `${sanitizeText(source.district || '')}`;
+    const safeTrustIdx = clampTrackIndex(source.trust, 2);
+    const safeStigmaIdx = clampTrackIndex(source.stigma, 0);
+    body += `<br><strong>Trust:</strong> ${sanitizeText(TRUST_LEVEL_LABELS[safeTrustIdx] || 'Neutral')}`;
+    body += `<br><strong>Stigma:</strong> ${sanitizeText(STIGMA_LEVEL_LABELS[safeStigmaIdx] || 'Clean')}`;
     if (source.desc) body += `<br>${sanitizeMultiline(source.desc)}`;
+    if (source.connections) body += `<br><strong>Connections:</strong> ${sanitizeMultiline(source.connections)}`;
+    if (source.properties) body += `<br><strong>Properties:</strong> ${sanitizeMultiline(source.properties)}`;
     if (source.notes) body += `<br><strong>Note:</strong> ${sanitizeMultiline(source.notes)}`;
 
     return {
@@ -1203,7 +1294,9 @@ function buildLocationNodePayload(location) {
                 sourceType: 'location',
                 locationId: source.id || '',
                 locationName: source.name || 'Location',
-                district: source.district || ''
+                district: source.district || '',
+                trust: safeTrustIdx,
+                stigma: safeStigmaIdx
             }
         }
     };
@@ -1328,7 +1421,9 @@ function renderNPCs() {
     listContainer.innerHTML = '';
 
     const filtered = npcs.filter(npc => {
-        const text = `${npc.name} ${npc.wants || ''} ${npc.leverage || ''} ${npc.notes || ''} ${npc.guild || ''}`.toLowerCase();
+        const trust = TRUST_LEVEL_LABELS[clampTrackIndex(npc.trust, 2)] || '';
+        const stigma = STIGMA_LEVEL_LABELS[clampTrackIndex(npc.stigma, 0)] || '';
+        const text = `${npc.name} ${npc.wants || ''} ${npc.leverage || ''} ${npc.notes || ''} ${npc.guild || ''} ${trust} ${stigma}`.toLowerCase();
         const matchesSearch = text.includes(searchTerm);
         const matchesGuild = !guildFilter || (npc.guild && npc.guild.includes(guildFilter));
         return matchesSearch && matchesGuild;
@@ -1381,7 +1476,9 @@ function renderLocations() {
     listContainer.innerHTML = '';
 
     const filtered = locs.filter(loc => {
-        const text = `${loc.name} ${loc.district || ''} ${loc.desc || ''} ${loc.notes || ''}`.toLowerCase();
+        const trust = TRUST_LEVEL_LABELS[clampTrackIndex(loc.trust, 2)] || '';
+        const stigma = STIGMA_LEVEL_LABELS[clampTrackIndex(loc.stigma, 0)] || '';
+        const text = `${loc.name} ${loc.district || ''} ${loc.desc || ''} ${loc.notes || ''} ${loc.connections || ''} ${loc.properties || ''} ${trust} ${stigma}`.toLowerCase();
         const matchesSearch = text.includes(searchTerm);
         // Location "District" is essentially the Guild
         const matchesGuild = !guildFilter || (loc.district && loc.district.includes(guildFilter));
@@ -2398,6 +2495,22 @@ function createNodeMarkup(type, content = {}) {
         `;
     }
 
+    if (type === 'theory') {
+        return `
+            <div class="node-theory-head">
+                ${withTitle}
+                <div class="theory-status-pill" data-theory-status>Unproven</div>
+            </div>
+            <div class="theory-confidence-wrap">
+                <div class="theory-confidence-label">Confidence <span data-theory-confidence>50%</span></div>
+                <div class="theory-confidence-track">
+                    <div class="theory-confidence-fill" data-theory-fill></div>
+                </div>
+            </div>
+            <div class="node-body">${bodyHtml}</div>
+        `;
+    }
+
     if (type === 'note') {
         return `
             <div class="sticky-sheet" data-edge-target>
@@ -2438,6 +2551,36 @@ function createNodeMarkup(type, content = {}) {
         </div>
         <div class="node-body">${bodyHtml}</div>
     `;
+}
+
+function ensureTheoryNodeMeta(nodeEl) {
+    if (!nodeEl || !nodeEl.classList || !nodeEl.classList.contains('type-theory')) return null;
+    const baseMeta = getNodeMeta(nodeEl) || {};
+    const clean = {
+        ...baseMeta,
+        sourceType: String(baseMeta.sourceType || 'theory'),
+        theoryStatus: normalizeTheoryStatus(baseMeta.theoryStatus),
+        confidence: clampPercent(baseMeta.confidence, 50)
+    };
+    setNodeMeta(nodeEl, clean);
+    return clean;
+}
+
+function syncTheoryNodeDisplay(nodeEl) {
+    if (!nodeEl || !nodeEl.classList || !nodeEl.classList.contains('type-theory')) return;
+    const meta = ensureTheoryNodeMeta(nodeEl);
+    if (!meta) return;
+    const statusEl = nodeEl.querySelector('[data-theory-status]');
+    const confidenceEl = nodeEl.querySelector('[data-theory-confidence]');
+    const fillEl = nodeEl.querySelector('[data-theory-fill]');
+    const status = normalizeTheoryStatus(meta.theoryStatus);
+    const confidence = clampPercent(meta.confidence, 50);
+
+    nodeEl.classList.remove('theory-unproven', 'theory-confirmed', 'theory-disproven');
+    nodeEl.classList.add(`theory-${status}`);
+    if (statusEl) statusEl.textContent = getTheoryStatusLabel(status);
+    if (confidenceEl) confidenceEl.textContent = `${confidence}%`;
+    if (fillEl) fillEl.style.width = `${confidence}%`;
 }
 
 function applyNodeImage(nodeEl, imageUrl = '') {
@@ -2528,6 +2671,10 @@ function createNode(type, x, y, id = null, content = {}) {
 
     container.appendChild(nodeEl);
     setNodeMeta(nodeEl, safeMeta);
+    if (type === 'theory') {
+        ensureTheoryNodeMeta(nodeEl);
+        syncTheoryNodeDisplay(nodeEl);
+    }
     applyNodeImage(nodeEl, requestedImageUrl);
     updateNodeCache(nodeId);
 
@@ -2580,8 +2727,19 @@ function syncConnectionLabelColor(conn, labelEl, waxBtn = null) {
     }
 }
 
+function connectionTouchesTheory(conn) {
+    if (!conn) return false;
+    return isTheoryNodeId(conn.from) || isTheoryNodeId(conn.to);
+}
+
 function createLabelDOM(conn) {
     conn.colorIndex = clampConnectionColorIndex(conn.colorIndex);
+    if (connectionTouchesTheory(conn)) {
+        conn.theoryRelation = normalizeTheoryRelation(conn.theoryRelation);
+        if (!String(conn.label || '').trim()) {
+            conn.label = getTheoryRelationLabel(conn.theoryRelation);
+        }
+    }
 
     const el = document.createElement('div');
     el.id = 'lbl_' + conn.id;
@@ -2618,6 +2776,12 @@ function createLabelDOM(conn) {
         const previousLabel = (conn.label || '').trim();
         const nextLabel = (e.target.innerText || '').trim();
         conn.label = e.target.innerText;
+        if (connectionTouchesTheory(conn)) {
+            const lowered = nextLabel.toLowerCase();
+            if (lowered.includes('contradict')) conn.theoryRelation = 'contradicts';
+            else if (lowered.includes('relat')) conn.theoryRelation = 'related';
+            else if (lowered.includes('support')) conn.theoryRelation = 'supports';
+        }
 
         if (!conn.relationshipLogged && !previousLabel && nextLabel) {
             conn.relationshipLogged = true;
@@ -2649,7 +2813,37 @@ function createLabelDOM(conn) {
     syncConnectionLabelColor(conn, el, waxBtn);
     const controls = document.createElement('div');
     controls.className = 'string-controls';
-    controls.append(btnL, waxBtn, btnR);
+    controls.append(btnL, waxBtn);
+
+    if (connectionTouchesTheory(conn)) {
+        const relationBtn = document.createElement('button');
+        relationBtn.type = 'button';
+        relationBtn.className = 'relation-btn';
+        const updateRelationBtn = () => {
+            relationBtn.textContent = getTheoryRelationLabel(conn.theoryRelation);
+            relationBtn.title = `Theory link: ${getTheoryRelationLabel(conn.theoryRelation)}`;
+        };
+        relationBtn.onmousedown = (e) => e.stopPropagation();
+        relationBtn.onclick = (e) => {
+            e.stopPropagation();
+            const current = normalizeTheoryRelation(conn.theoryRelation);
+            const idx = THEORY_RELATIONS.indexOf(current);
+            const next = THEORY_RELATIONS[(idx + 1) % THEORY_RELATIONS.length];
+            conn.theoryRelation = next;
+            const nextLabel = getTheoryRelationLabel(next);
+            const normalizedCurrentLabel = getTheoryRelationLabel(current);
+            if (!String(conn.label || '').trim() || String(conn.label || '').trim() === normalizedCurrentLabel) {
+                conn.label = nextLabel;
+                input.innerText = nextLabel;
+            }
+            updateRelationBtn();
+            saveBoard();
+        };
+        updateRelationBtn();
+        controls.append(relationBtn);
+    }
+
+    controls.append(btnR);
     el.append(controls, input);
     syncConnectionArrowButtons(conn, el);
     labelContainer.appendChild(el);
@@ -2762,7 +2956,8 @@ function saveBoard() {
             portPinned: !!c.portPinned,
             label: c.label, arrowLeft: c.arrowLeft, arrowRight: c.arrowRight,
             relationshipLogged: !!c.relationshipLogged,
-            colorIndex: clampConnectionColorIndex(c.colorIndex)
+            colorIndex: clampConnectionColorIndex(c.colorIndex),
+            theoryRelation: c.theoryRelation ? normalizeTheoryRelation(c.theoryRelation) : ''
         }))
     };
     if (!writeStoreBoardPayload(data)) {
@@ -2805,14 +3000,22 @@ function loadBoard(options = {}) {
         const isPinned = !!c.portPinned;
         const hydratedFromPort = isPinned ? normalizeConnectionPort(c.fromPort) : 'auto';
         const hydratedToPort = isPinned ? normalizeConnectionPort(c.toPort) : 'auto';
+        const touchesTheory = isTheoryNodeId(c.from) || isTheoryNodeId(c.to);
+        const inferredRelation = touchesTheory
+            ? normalizeTheoryRelation(c.theoryRelation || (String(c.label || '').toLowerCase().includes('contradict') ? 'contradicts' : 'supports'))
+            : '';
         const hydrated = {
             ...c,
             fromPort: hydratedFromPort,
             toPort: hydratedToPort,
             portPinned: isPinned && (hydratedFromPort !== 'auto' || hydratedToPort !== 'auto'),
             relationshipLogged: !!c.relationshipLogged,
-            colorIndex: clampConnectionColorIndex(c.colorIndex)
+            colorIndex: clampConnectionColorIndex(c.colorIndex),
+            theoryRelation: inferredRelation
         };
+        if (touchesTheory && !String(hydrated.label || '').trim()) {
+            hydrated.label = getTheoryRelationLabel(inferredRelation);
+        }
         connections.push(hydrated);
         registerConnection(hydrated);
     });
@@ -2839,11 +3042,20 @@ function showContextMenu(e, node) {
     contextMenu.style.top = e.clientY + 'px';
     contextMenu.dataset.target = node.id;
 
+    const type = getNodeTypeFromEl(node);
+    const isTheory = type === 'theory';
     const setImageItem = document.getElementById('menu-set-image');
+    const theoryConfidenceItem = document.getElementById('menu-set-theory-confidence');
+    const theoryConfirmedItem = document.getElementById('menu-mark-theory-confirmed');
+    const theoryDisprovenItem = document.getElementById('menu-mark-theory-disproven');
+    const createLeadItem = document.getElementById('menu-create-lead');
     if (setImageItem) {
-        const type = getNodeTypeFromEl(node);
         setImageItem.style.display = IMAGE_EDITABLE_NODE_TYPES.has(type) ? 'block' : 'none';
     }
+    if (theoryConfidenceItem) theoryConfidenceItem.style.display = isTheory ? 'block' : 'none';
+    if (theoryConfirmedItem) theoryConfirmedItem.style.display = isTheory ? 'block' : 'none';
+    if (theoryDisprovenItem) theoryDisprovenItem.style.display = isTheory ? 'block' : 'none';
+    if (createLeadItem) createLeadItem.style.display = 'block';
     const draftItem = document.getElementById('menu-draft-encounter');
     if (draftItem) {
         draftItem.style.display = e.shiftKey ? 'block' : 'none';
@@ -2920,6 +3132,143 @@ function setTargetNodeImageUrl() {
     persistLinkedNodeImageUrl(el, trimmed);
     updateNodeCache(el.id);
     saveBoard();
+    contextMenu.style.display = 'none';
+}
+
+function getContextTargetNode() {
+    const id = contextMenu && contextMenu.dataset ? contextMenu.dataset.target : '';
+    if (!id) return null;
+    return document.getElementById(id);
+}
+
+function setTargetTheoryConfidence() {
+    const nodeEl = getContextTargetNode();
+    if (!nodeEl || !nodeEl.classList.contains('type-theory')) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+    const meta = ensureTheoryNodeMeta(nodeEl) || {};
+    const nextRaw = prompt('Set theory confidence (0-100):', String(clampPercent(meta.confidence, 50)));
+    if (nextRaw === null) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+    const nextValue = clampPercent(nextRaw, 50);
+    setNodeMeta(nodeEl, {
+        ...(getNodeMeta(nodeEl) || {}),
+        sourceType: 'theory',
+        theoryStatus: normalizeTheoryStatus(meta.theoryStatus),
+        confidence: nextValue
+    });
+    syncTheoryNodeDisplay(nodeEl);
+    updateNodeCache(nodeEl.id);
+    saveBoard();
+    contextMenu.style.display = 'none';
+}
+
+function logTheoryStatusEvent(nodeEl, status) {
+    const store = window.RTF_STORE;
+    if (!store || typeof store.addEvent !== 'function' || !nodeEl) return;
+    const summary = getNodeSummary(nodeEl.id);
+    const theoryTitle = summary ? summary.title : 'Theory';
+    const statusLabel = getTheoryStatusLabel(status);
+    const highlights = `${theoryTitle} marked ${statusLabel.toLowerCase()} on the case board.`;
+    store.addEvent({
+        id: `event_theory_${status}_${Date.now().toString(36)}`,
+        title: `Theory ${statusLabel}: ${theoryTitle}`,
+        focus: getCaseName(),
+        heatDelta: '',
+        tags: `theory,board,${status}`,
+        highlights,
+        fallout: '',
+        followUp: '',
+        source: 'board',
+        kind: `theory-${status}`,
+        resolved: status === 'disproven',
+        created: new Date().toISOString()
+    });
+}
+
+function markTargetTheory(status) {
+    const cleanStatus = normalizeTheoryStatus(status);
+    const nodeEl = getContextTargetNode();
+    if (!nodeEl || !nodeEl.classList.contains('type-theory')) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+    const meta = ensureTheoryNodeMeta(nodeEl) || {};
+    setNodeMeta(nodeEl, {
+        ...(getNodeMeta(nodeEl) || {}),
+        sourceType: 'theory',
+        confidence: clampPercent(meta.confidence, 50),
+        theoryStatus: cleanStatus
+    });
+    syncTheoryNodeDisplay(nodeEl);
+    updateNodeCache(nodeEl.id);
+    saveBoard();
+    logTheoryStatusEvent(nodeEl, cleanStatus);
+    contextMenu.style.display = 'none';
+}
+
+function createLeadFromTargetNode() {
+    const nodeEl = getContextTargetNode();
+    if (!nodeEl) return;
+    const summary = getNodeSummary(nodeEl.id);
+    if (!summary) {
+        contextMenu.style.display = 'none';
+        return;
+    }
+    const meta = summary.meta && typeof summary.meta === 'object' ? summary.meta : {};
+    let leadType = 'other';
+    let targetId = summary.id;
+    if (meta.sourceType === 'npc' && meta.npcId) {
+        leadType = 'npc';
+        targetId = String(meta.npcId);
+    } else if (meta.sourceType === 'location' && meta.locationId) {
+        leadType = 'location';
+        targetId = String(meta.locationId);
+    } else if (meta.sourceType === 'timeline-event' && meta.eventId) {
+        leadType = 'event';
+        targetId = String(meta.eventId);
+    } else if (meta.sourceType === 'requisition' && meta.requisitionId) {
+        leadType = 'requisition';
+        targetId = String(meta.requisitionId);
+    } else if (summary.type === 'clue') {
+        leadType = 'clue';
+    } else if (summary.type === 'theory') {
+        leadType = 'theory';
+    }
+
+    const typeHints = {
+        npc: 'Interview this contact and verify motive.',
+        location: 'Run surveillance and identify traffic patterns.',
+        event: 'Pull linked evidence and interview witnesses.',
+        requisition: 'Secure the requested asset for this thread.',
+        clue: 'Cross-reference this clue against active suspects.',
+        theory: 'Test this theory with one falsifiable scene action.',
+        other: 'Choose one concrete scene action to pursue this lead.'
+    };
+
+    const storeObj = readLeadStorage();
+    const caseId = getActiveLeadCaseId();
+    const list = Array.isArray(storeObj[caseId]) ? storeObj[caseId] : [];
+    list.push({
+        id: `lead_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        type: leadType,
+        targetId,
+        title: summary.title || 'New Lead',
+        question: leadType === 'theory'
+            ? `Is "${summary.title}" actually true?`
+            : `What does "${summary.title}" reveal?`,
+        nextStep: typeHints[leadType] || typeHints.other,
+        status: 'open',
+        votes: {},
+        created: new Date().toISOString(),
+        updated: new Date().toISOString()
+    });
+    storeObj[caseId] = list;
+    writeLeadStorage(storeObj);
+    alert(`Lead created for ${summary.title}.`);
     contextMenu.style.display = 'none';
 }
 
@@ -3696,3 +4045,6 @@ window.renderLocations = renderLocations;
 window.renderBoardEvents = renderBoardEvents;
 window.renderBoardRequisitions = renderBoardRequisitions;
 window.draftEncounterFromTargetNode = draftEncounterFromTargetNode;
+window.createLeadFromTargetNode = createLeadFromTargetNode;
+window.setTargetTheoryConfidence = setTargetTheoryConfidence;
+window.markTargetTheory = markTargetTheory;

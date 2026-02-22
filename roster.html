@@ -55,6 +55,22 @@
                 <div class="roster-mb-10">
                     <textarea id="npcNotes" rows="2" placeholder="Notes / Description..."></textarea>
                 </div>
+                <div class="grid-5 roster-grid-two roster-mb-10">
+                    <select id="npcTrust">
+                        <option value="0">Trust: Hostile</option>
+                        <option value="1">Trust: Wary</option>
+                        <option value="2" selected>Trust: Neutral</option>
+                        <option value="3">Trust: Trusted</option>
+                        <option value="4">Trust: Loyal</option>
+                    </select>
+                    <select id="npcStigma">
+                        <option value="0" selected>Stigma: Clean</option>
+                        <option value="1">Stigma: Rumored</option>
+                        <option value="2">Stigma: Noticed</option>
+                        <option value="3">Stigma: Marked</option>
+                        <option value="4">Stigma: Burned</option>
+                    </select>
+                </div>
                 <div class="roster-form-actions">
                     <button class="btn btn-dp" id="npcSaveBtn" data-onclick="addNPC()">Save NPC</button>
                     <button class="btn roster-hidden" id="npcCancelBtn" data-onclick="cancelNPCEdit()">Cancel Edit</button>
@@ -80,7 +96,7 @@
     <script src="js/data-npcs.js"></script>
     <script src="js/data-locations.js"></script>
     <script src="js/store.js?v=20260222a"></script>
-    <script src="js/roster.js?v=20260222a"></script>
+    <script src="js/roster.js?v=20260222b"></script>
     <script src="js/vector-field.js"></script>
 </body>
 

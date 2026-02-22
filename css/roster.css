@@ -65,7 +65,7 @@
 
 .roster-npc-summary {
     display: grid;
-    grid-template-columns: 1.3fr 0.9fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 10px;
     align-items: start;
 }
@@ -101,6 +101,28 @@
     color: #888;
     font-size: 0.8rem;
     text-transform: uppercase;
+}
+
+.roster-track-row {
+    margin-top: 5px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.roster-track-btn {
+    padding: 2px 7px;
+    line-height: 1.2;
+}
+
+.roster-track-value {
+    min-width: 64px;
+    text-align: center;
+    font-size: 0.8rem;
 }
 
 .roster-npc-notes {

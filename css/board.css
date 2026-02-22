@@ -423,6 +423,88 @@ body.mobile-board .popup-menu * {
     line-height: 1.35;
 }
 
+/* Theory: The Dossier */
+.type-theory {
+    width: 250px;
+    min-height: 180px;
+    padding: 12px;
+    border: 1px solid rgba(155, 184, 255, 0.38);
+    border-radius: 11px;
+    background: linear-gradient(160deg, rgba(18, 23, 39, 0.92), rgba(11, 15, 28, 0.92));
+}
+
+.type-theory .node-theory-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.type-theory .node-title {
+    font-size: 0.95rem;
+    letter-spacing: 0.02em;
+}
+
+.type-theory .theory-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.67rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #d2ddff;
+    background: rgba(18, 23, 38, 0.7);
+}
+
+.type-theory .theory-confidence-wrap {
+    margin-top: 8px;
+}
+
+.type-theory .theory-confidence-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    color: #9eb7f7;
+    margin-bottom: 4px;
+}
+
+.type-theory .theory-confidence-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+.type-theory .theory-confidence-fill {
+    height: 100%;
+    width: 50%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, rgba(120, 173, 255, 0.95), rgba(144, 238, 199, 0.95));
+}
+
+.type-theory.theory-confirmed {
+    border-color: rgba(98, 220, 161, 0.6);
+}
+
+.type-theory.theory-confirmed .theory-status-pill {
+    color: #d8ffea;
+    border-color: rgba(98, 220, 161, 0.58);
+    background: rgba(17, 61, 43, 0.55);
+}
+
+.type-theory.theory-disproven {
+    border-color: rgba(255, 133, 133, 0.6);
+}
+
+.type-theory.theory-disproven .theory-status-pill {
+    color: #ffe0e0;
+    border-color: rgba(255, 133, 133, 0.58);
+    background: rgba(73, 21, 25, 0.56);
+}
+
 /* Note: The Sticky */
 .type-note {
     width: 210px;
@@ -807,6 +889,22 @@ body.show-ports .node .port {
 
 .wax-btn:hover {
     transform: scale(1.08);
+}
+
+.relation-btn {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(12, 14, 20, 0.86);
+    color: var(--string-color);
+    font-size: 0.64rem;
+    line-height: 1;
+    padding: 1px 6px;
+    cursor: pointer;
+    min-height: 18px;
+}
+
+.relation-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 .arrow-btn {

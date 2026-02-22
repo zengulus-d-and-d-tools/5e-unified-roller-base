@@ -99,6 +99,28 @@
     const HEAT_SYNC_KEY = 'rtf_timeline_auto_heat';
     const HEAT_MIN = 0;
     const HEAT_MAX = 6;
+    const LEAD_STORAGE_KEY = 'rtf_lead_queue_v1';
+    const LEAD_VOTER_NAME_KEY = 'rtf_lead_voter_name_v1';
+    const LEAD_TYPES = ['npc', 'location', 'clue', 'event', 'requisition', 'theory', 'other'];
+    const LEAD_STATUSES = ['open', 'blocked', 'resolved', 'dead-end'];
+    const LEAD_STATUS_LABELS = {
+        open: 'Open',
+        blocked: 'Blocked',
+        resolved: 'Resolved',
+        'dead-end': 'Dead End'
+    };
+    const LEAD_VOTE_LABELS = {
+        hot: 'Hot',
+        cold: 'Cold',
+        'dead-end': 'Dead End'
+    };
+    const LEAD_VOTE_SCORES = {
+        hot: 2,
+        cold: 0,
+        'dead-end': -2
+    };
+    const PREP_PROCEDURE_STATE_KEY = 'rtf_prep_procedure_state_v1';
+    const FREE_SHIELD_SESSION_PREFIX = 'rtf_procedure_free_shield_used_v1:';
 
     const parseHeatDelta = (value) => {
         const parsed = parseInt(value, 10);
@@ -123,6 +145,159 @@
         const current = Number(store.state.campaign.heat) || 0;
         store.state.campaign.heat = clampHeat(current + delta);
         if (typeof store.save === 'function') store.save({ scope: 'campaign.heat' });
+    };
+
+    const getActiveCaseId = () => {
+        const store = getStore();
+        if (!store || typeof store.getActiveCaseId !== 'function') return 'case_primary';
+        return String(store.getActiveCaseId() || 'case_primary');
+    };
+
+    const normalizeLeadType = (value) => {
+        const clean = String(value || '').trim().toLowerCase();
+        return LEAD_TYPES.includes(clean) ? clean : 'other';
+    };
+
+    const normalizeLeadStatus = (value) => {
+        const clean = String(value || '').trim().toLowerCase();
+        return LEAD_STATUSES.includes(clean) ? clean : 'open';
+    };
+
+    const normalizeLeadVotes = (votes) => {
+        const source = votes && typeof votes === 'object' ? votes : {};
+        const out = {};
+        Object.keys(source).forEach((name) => {
+            const cleanName = String(name || '').trim().slice(0, 60);
+            const vote = String(source[name] || '').trim().toLowerCase();
+            if (!cleanName) return;
+            if (!Object.prototype.hasOwnProperty.call(LEAD_VOTE_LABELS, vote)) return;
+            out[cleanName] = vote;
+        });
+        return out;
+    };
+
+    const createLeadId = () => `lead_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+
+    const sanitizeLead = (raw, idx = 0) => {
+        const source = raw && typeof raw === 'object' ? raw : {};
+        const nowIso = new Date().toISOString();
+        return {
+            id: String(source.id || `lead_${idx + 1}`).trim() || createLeadId(),
+            type: normalizeLeadType(source.type),
+            targetId: String(source.targetId || '').trim().slice(0, 120),
+            title: String(source.title || '').trim().slice(0, 180) || `Lead ${idx + 1}`,
+            question: String(source.question || '').trim().slice(0, 500),
+            nextStep: String(source.nextStep || '').trim().slice(0, 500),
+            status: normalizeLeadStatus(source.status),
+            votes: normalizeLeadVotes(source.votes),
+            created: String(source.created || nowIso),
+            updated: String(source.updated || source.created || nowIso)
+        };
+    };
+
+    const readLeadStorage = () => {
+        try {
+            const raw = localStorage.getItem(LEAD_STORAGE_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (err) {
+            return {};
+        }
+    };
+
+    const writeLeadStorage = (value) => {
+        const clean = value && typeof value === 'object' ? value : {};
+        localStorage.setItem(LEAD_STORAGE_KEY, JSON.stringify(clean));
+    };
+
+    const getCaseLeads = (caseId = getActiveCaseId()) => {
+        const all = readLeadStorage();
+        const list = Array.isArray(all[caseId]) ? all[caseId] : [];
+        return list.map((entry, idx) => sanitizeLead(entry, idx));
+    };
+
+    const saveCaseLeads = (leads, caseId = getActiveCaseId()) => {
+        const all = readLeadStorage();
+        const clean = Array.isArray(leads) ? leads.map((entry, idx) => sanitizeLead(entry, idx)) : [];
+        all[caseId] = clean;
+        writeLeadStorage(all);
+    };
+
+    const getLeadScore = (lead) => {
+        if (!lead || !lead.votes || typeof lead.votes !== 'object') return 0;
+        return Object.values(lead.votes).reduce((sum, vote) => {
+            if (!Object.prototype.hasOwnProperty.call(LEAD_VOTE_SCORES, vote)) return sum;
+            return sum + LEAD_VOTE_SCORES[vote];
+        }, 0);
+    };
+
+    const formatLeadVotes = (lead) => {
+        if (!lead || !lead.votes || typeof lead.votes !== 'object') return 'No votes yet';
+        const voters = Object.keys(lead.votes);
+        if (!voters.length) return 'No votes yet';
+        return voters.map((name) => `${name}: ${LEAD_VOTE_LABELS[lead.votes[name]] || lead.votes[name]}`).join(' | ');
+    };
+
+    const getLeadStatusRank = (status) => {
+        if (status === 'open') return 0;
+        if (status === 'blocked') return 1;
+        if (status === 'resolved') return 2;
+        if (status === 'dead-end') return 3;
+        return 4;
+    };
+
+    const getCurrentLeadVoter = () => {
+        const input = document.getElementById('leadVoter');
+        const fromInput = input ? String(input.value || '').trim() : '';
+        if (fromInput) {
+            localStorage.setItem(LEAD_VOTER_NAME_KEY, fromInput);
+            return fromInput.slice(0, 60);
+        }
+        const stored = String(localStorage.getItem(LEAD_VOTER_NAME_KEY) || '').trim();
+        if (stored) {
+            if (input) input.value = stored;
+            return stored.slice(0, 60);
+        }
+        return '';
+    };
+
+    const getProcedureState = () => {
+        try {
+            const raw = localStorage.getItem(PREP_PROCEDURE_STATE_KEY);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== 'object') return null;
+            const prep = parsed.prep && typeof parsed.prep === 'object' ? parsed.prep : null;
+            const procedure = parsed.procedure && typeof parsed.procedure === 'object' ? parsed.procedure : null;
+            if (!prep || !procedure) return null;
+            const prepTotal = Number.isFinite(Number(prep.total)) ? Math.max(1, Number(prep.total)) : 4;
+            const prepFilled = Number.isFinite(Number(prep.filled)) ? Math.max(0, Math.min(prepTotal, Number(prep.filled))) : 0;
+            const procedureTotal = Number.isFinite(Number(procedure.total)) ? Math.max(1, Number(procedure.total)) : 4;
+            const procedureFilled = Number.isFinite(Number(procedure.filled)) ? Math.max(0, Math.min(procedureTotal, Number(procedure.filled))) : 0;
+            return {
+                ...parsed,
+                prep: { ...prep, total: prepTotal, filled: prepFilled },
+                procedure: { ...procedure, total: procedureTotal, filled: procedureFilled }
+            };
+        } catch (err) {
+            return null;
+        }
+    };
+
+    const saveProcedureState = (state) => {
+        if (!state || typeof state !== 'object') return;
+        localStorage.setItem(PREP_PROCEDURE_STATE_KEY, JSON.stringify(state));
+    };
+
+    const getFreeShieldSessionKey = () => `${FREE_SHIELD_SESSION_PREFIX}${getActiveCaseId()}`;
+
+    const hasFreeShieldAvailable = (procedureState = getProcedureState()) => {
+        if (!procedureState || !procedureState.prep) return false;
+        const prep = procedureState.prep;
+        const prepReady = Number(prep.total) > 0 && Number(prep.filled) >= Number(prep.total);
+        if (!prepReady) return false;
+        return sessionStorage.getItem(getFreeShieldSessionKey()) !== '1';
     };
 
     function clearTimelineLinkParamsFromUrl() {
@@ -215,6 +390,294 @@
         renderTimeline();
     }
 
+    function addLead(leadLike) {
+        const caseId = getActiveCaseId();
+        const existing = getCaseLeads(caseId);
+        const lead = sanitizeLead({
+            ...leadLike,
+            id: createLeadId(),
+            created: new Date().toISOString(),
+            updated: new Date().toISOString()
+        }, existing.length);
+        existing.push(lead);
+        saveCaseLeads(existing, caseId);
+        renderLeadQueue();
+        return lead;
+    }
+
+    function addLeadFromForm() {
+        const type = normalizeLeadType(document.getElementById('leadType').value);
+        const title = String(document.getElementById('leadTitle').value || '').trim();
+        const targetId = String(document.getElementById('leadTargetId').value || '').trim();
+        const question = String(document.getElementById('leadQuestion').value || '').trim();
+        const nextStep = String(document.getElementById('leadNextStep').value || '').trim();
+        if (!title || !question || !nextStep) {
+            alert('Lead title, question, and next step are required.');
+            return;
+        }
+        addLead({
+            type,
+            title,
+            targetId,
+            question,
+            nextStep,
+            status: 'open',
+            votes: {}
+        });
+        document.getElementById('leadTitle').value = '';
+        document.getElementById('leadTargetId').value = '';
+        document.getElementById('leadQuestion').value = '';
+        document.getElementById('leadNextStep').value = '';
+    }
+
+    function addLeadFromEvent(eventId) {
+        const cleanId = String(eventId || '').trim();
+        if (!cleanId) return;
+        const store = getStore();
+        if (!store || typeof store.getEvents !== 'function') return;
+        const evt = (store.getEvents() || []).find((entry) => String(entry && entry.id || '') === cleanId);
+        if (!evt) return;
+        addLead({
+            type: 'event',
+            targetId: cleanId,
+            title: evt.title || 'Untitled Event',
+            question: `What does this event reveal about the case?`,
+            nextStep: `Follow up on "${evt.title || 'event'}".`,
+            status: 'open',
+            votes: {}
+        });
+    }
+
+    function updateLeadField(leadId, field, value) {
+        const id = String(leadId || '').trim();
+        if (!id) return;
+        const caseId = getActiveCaseId();
+        const list = getCaseLeads(caseId);
+        const idx = list.findIndex((lead) => lead.id === id);
+        if (idx < 0) return;
+
+        if (field === 'title' || field === 'question' || field === 'nextStep' || field === 'targetId') {
+            list[idx][field] = String(value || '').trim();
+        }
+        if (field === 'type') list[idx].type = normalizeLeadType(value);
+        if (field === 'status') list[idx].status = normalizeLeadStatus(value);
+        list[idx].updated = new Date().toISOString();
+        saveCaseLeads(list, caseId);
+        renderLeadQueue();
+    }
+
+    function setLeadVote(leadId, vote) {
+        const id = String(leadId || '').trim();
+        const voteKey = String(vote || '').trim().toLowerCase();
+        if (!id || !Object.prototype.hasOwnProperty.call(LEAD_VOTE_LABELS, voteKey)) return;
+        const voter = getCurrentLeadVoter();
+        if (!voter) {
+            alert('Enter your voter name before voting.');
+            return;
+        }
+        const caseId = getActiveCaseId();
+        const list = getCaseLeads(caseId);
+        const idx = list.findIndex((lead) => lead.id === id);
+        if (idx < 0) return;
+        list[idx].votes = list[idx].votes && typeof list[idx].votes === 'object' ? list[idx].votes : {};
+        list[idx].votes[voter] = voteKey;
+        list[idx].updated = new Date().toISOString();
+        saveCaseLeads(list, caseId);
+        renderLeadQueue();
+    }
+
+    function clearLeadVote(leadId) {
+        const id = String(leadId || '').trim();
+        if (!id) return;
+        const voter = getCurrentLeadVoter();
+        if (!voter) return;
+        const caseId = getActiveCaseId();
+        const list = getCaseLeads(caseId);
+        const idx = list.findIndex((lead) => lead.id === id);
+        if (idx < 0) return;
+        if (!list[idx].votes || typeof list[idx].votes !== 'object') return;
+        delete list[idx].votes[voter];
+        list[idx].updated = new Date().toISOString();
+        saveCaseLeads(list, caseId);
+        renderLeadQueue();
+    }
+
+    function deleteLead(leadId) {
+        const id = String(leadId || '').trim();
+        if (!id) return;
+        const caseId = getActiveCaseId();
+        const list = getCaseLeads(caseId);
+        const idx = list.findIndex((lead) => lead.id === id);
+        if (idx < 0) return;
+        list.splice(idx, 1);
+        saveCaseLeads(list, caseId);
+        renderLeadQueue();
+    }
+
+    function openLeadOnBoard(leadId) {
+        const id = String(leadId || '').trim();
+        if (!id) return;
+        const list = getCaseLeads(getActiveCaseId());
+        const lead = list.find((entry) => entry.id === id);
+        if (!lead) return;
+        const target = String(lead.targetId || '').trim();
+        if (!target) {
+            alert('This lead has no target ID to open on board.');
+            return;
+        }
+
+        const linkTypeMap = {
+            npc: 'npc',
+            location: 'location',
+            event: 'timeline-event',
+            requisition: 'requisition'
+        };
+        const linkType = linkTypeMap[lead.type];
+        if (!linkType) {
+            alert('Board jump is available for NPC, location, event, and requisition leads.');
+            return;
+        }
+        const url = new URL('board.html', window.location.href);
+        url.searchParams.set('linkType', linkType);
+        url.searchParams.set('id', target);
+        window.location.assign(url.toString());
+    }
+
+    function renderLeadQueue() {
+        const listEl = document.getElementById('leadList');
+        const summaryEl = document.getElementById('leadSummary');
+        if (!listEl || !summaryEl) return;
+
+        const voter = getCurrentLeadVoter();
+        const leads = getCaseLeads(getActiveCaseId());
+        const sorted = leads.slice().sort((a, b) => {
+            const statusDelta = getLeadStatusRank(a.status) - getLeadStatusRank(b.status);
+            if (statusDelta !== 0) return statusDelta;
+            const scoreDelta = getLeadScore(b) - getLeadScore(a);
+            if (scoreDelta !== 0) return scoreDelta;
+            return String(b.updated || '').localeCompare(String(a.updated || ''));
+        });
+
+        const openCount = sorted.filter((lead) => lead.status === 'open').length;
+        const blockedCount = sorted.filter((lead) => lead.status === 'blocked').length;
+        summaryEl.textContent = `${sorted.length} leads • ${openCount} open • ${blockedCount} blocked${voter ? ` • voting as ${voter}` : ''}`;
+
+        if (!sorted.length) {
+            listEl.innerHTML = '<div class="lead-empty">No leads yet. Create one from events or add manually.</div>';
+            return;
+        }
+
+        listEl.innerHTML = sorted.map((lead) => {
+            const leadId = escapeJsString(lead.id);
+            const score = getLeadScore(lead);
+            const currentVote = voter && lead.votes ? lead.votes[voter] : '';
+            return `
+                <article class="lead-card">
+                    <div class="lead-head">
+                        <strong>${escapeHtml(lead.title)}</strong>
+                        <div class="lead-meta">
+                            <span class="lead-pill">${escapeHtml((lead.type || 'other').toUpperCase())}</span>
+                            <span class="lead-pill">${escapeHtml(LEAD_STATUS_LABELS[lead.status] || 'Open')}</span>
+                            <span class="lead-pill score">Score ${score >= 0 ? '+' : ''}${score}</span>
+                        </div>
+                    </div>
+                    <div class="lead-row">
+                        <div>
+                            <label>Question</label>
+                            <input type="text" value="${escapeHtml(lead.question || '')}" data-onchange="updateLeadField('${leadId}', 'question', this.value)">
+                        </div>
+                        <div>
+                            <label>Next Step</label>
+                            <input type="text" value="${escapeHtml(lead.nextStep || '')}" data-onchange="updateLeadField('${leadId}', 'nextStep', this.value)">
+                        </div>
+                    </div>
+                    <div class="lead-row">
+                        <div>
+                            <label>Status</label>
+                            <select data-onchange="updateLeadField('${leadId}', 'status', this.value)">
+                                ${LEAD_STATUSES.map((status) => `<option value="${status}" ${status === lead.status ? 'selected' : ''}>${escapeHtml(LEAD_STATUS_LABELS[status])}</option>`).join('')}
+                            </select>
+                        </div>
+                        <div>
+                            <label>Target ID</label>
+                            <input type="text" value="${escapeHtml(lead.targetId || '')}" data-onchange="updateLeadField('${leadId}', 'targetId', this.value)">
+                        </div>
+                    </div>
+                    <div class="lead-vote-row">
+                        <button class="btn ${currentVote === 'hot' ? 'is-selected' : ''}" data-onclick="setLeadVote('${leadId}', 'hot')">Hot</button>
+                        <button class="btn ${currentVote === 'cold' ? 'is-selected' : ''}" data-onclick="setLeadVote('${leadId}', 'cold')">Cold</button>
+                        <button class="btn ${currentVote === 'dead-end' ? 'is-selected' : ''}" data-onclick="setLeadVote('${leadId}', 'dead-end')">Dead End</button>
+                        <button class="btn" data-onclick="clearLeadVote('${leadId}')">Clear Vote</button>
+                    </div>
+                    <div class="lead-vote-summary">${escapeHtml(formatLeadVotes(lead))}</div>
+                    <div class="lead-actions">
+                        <button class="btn" data-onclick="openLeadOnBoard('${leadId}')">Board</button>
+                        <button class="btn btn-danger" data-onclick="deleteLead('${leadId}')">Delete</button>
+                    </div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    function spendProcedureShield(eventId) {
+        const cleanId = String(eventId || '').trim();
+        if (!cleanId) return;
+        const store = getStore();
+        if (!store || typeof store.getEvents !== 'function') return;
+        const events = store.getEvents() || [];
+        const evt = events.find((entry) => String(entry && entry.id || '') === cleanId);
+        if (!evt) return;
+
+        const heat = parseHeatDelta(evt.heatDelta);
+        if (heat <= 0) {
+            alert('Procedure Shield can only be used on events with positive Heat.');
+            return;
+        }
+
+        const procedureState = getProcedureState();
+        if (!procedureState) {
+            alert('Open Prep & Procedure Clocks first so shield resources are available.');
+            return;
+        }
+
+        const freeShield = hasFreeShieldAvailable(procedureState);
+        if (!freeShield && Number(procedureState.procedure.filled || 0) < 1) {
+            alert('No Procedure segments available to spend.');
+            return;
+        }
+
+        if (freeShield) {
+            sessionStorage.setItem(getFreeShieldSessionKey(), '1');
+        } else {
+            procedureState.procedure.filled = Math.max(0, Number(procedureState.procedure.filled || 0) - 1);
+            saveProcedureState(procedureState);
+        }
+
+        const nextHeat = Math.max(0, heat - 1);
+        updateEventField(cleanId, 'heatDelta', String(nextHeat));
+
+        const priorFollowUp = String(evt.followUp || '').trim();
+        const shieldLine = `Procedure Shield used (${freeShield ? 'free prep bonus' : 'spent 1 Procedure'}): Heat ${heat > 0 ? '+' : ''}${heat} -> ${nextHeat > 0 ? '+' : ''}${nextHeat}.`;
+        const mergedFollowUp = priorFollowUp ? `${priorFollowUp}\n${shieldLine}` : shieldLine;
+        updateEventField(cleanId, 'followUp', mergedFollowUp);
+
+        store.addEvent({
+            id: `event_proc_shield_${Date.now()}`,
+            title: 'Procedure Shield Activated',
+            focus: evt.focus || 'Timeline',
+            heatDelta: '',
+            tags: 'procedure,shield,heat-control',
+            highlights: `${shieldLine} Source event: ${evt.title || cleanId}.`,
+            fallout: '',
+            followUp: '',
+            source: 'timeline',
+            kind: 'procedure-shield',
+            resolved: false,
+            created: new Date().toISOString()
+        });
+        renderTimeline();
+    }
+
     function updateEventField(id, field, value) {
         const store = getStore();
         if (!store) return;
@@ -299,6 +762,11 @@
         const imageMarkup = imageUrl
             ? `<div class="event-image-block"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(evt.title || 'Event')} image"></div>`
             : '';
+        const showProcedureShield = !isNaN(heat) && heat > 0;
+        const freeShieldAvailable = showProcedureShield && hasFreeShieldAvailable(getProcedureState());
+        const procedureShieldButton = showProcedureShield
+            ? `<button class="btn btn-procedure ${freeShieldAvailable ? 'is-free' : ''}" data-onclick="spendProcedureShield('${evtId}')">${freeShieldAvailable ? 'Shield -1 (Free)' : 'Shield -1'}</button>`
+            : '';
 
         return `
         <div class="event-card${imageMarkup ? ' has-image' : ''}">
@@ -340,6 +808,8 @@
                 </div>
                 <div class="event-actions">
                     <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
+                    ${procedureShieldButton}
+                    <button class="btn" data-onclick="addLeadFromEvent('${evtId}')">Lead</button>
                     <button class="btn" data-onclick="openTimelineEventInBoard('${evtId}')">Board</button>
                     <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evtId}')">Delete</button>
                 </div>
@@ -482,6 +952,7 @@
         container.innerHTML = filtered.length
             ? filtered.map(buildEventCard).join('')
             : '<div class="empty-state">No events logged yet.</div>';
+        renderLeadQueue();
     }
 
     function init() {
@@ -491,6 +962,14 @@
             setButtonPressed(autoHeatToggle, isHeatAutoSyncEnabled());
         }
         applyTimelineLinkFiltersFromUrl();
+        const voterInput = document.getElementById('leadVoter');
+        if (voterInput) {
+            voterInput.value = String(localStorage.getItem(LEAD_VOTER_NAME_KEY) || '');
+            voterInput.addEventListener('input', () => {
+                localStorage.setItem(LEAD_VOTER_NAME_KEY, String(voterInput.value || '').trim().slice(0, 60));
+                renderLeadQueue();
+            });
+        }
         renderTimeline();
     }
 
@@ -510,6 +989,14 @@
     window.setHeatAutoSync = setHeatAutoSync;
     window.exportTimelineRecap = exportTimelineRecap;
     window.openTimelineEventInBoard = openTimelineEventInBoard;
+    window.spendProcedureShield = spendProcedureShield;
+    window.addLeadFromEvent = addLeadFromEvent;
+    window.addLeadFromForm = addLeadFromForm;
+    window.updateLeadField = updateLeadField;
+    window.setLeadVote = setLeadVote;
+    window.clearLeadVote = clearLeadVote;
+    window.deleteLead = deleteLead;
+    window.openLeadOnBoard = openLeadOnBoard;
     window.toggleFilterButton = toggleFilterButton;
     window.toggleAutoHeat = toggleAutoHeat;
     window.toggleResolved = toggleResolved;
@@ -518,6 +1005,14 @@
     window.addEventListener('beforeunload', () => {
         const manager = getDeleteManager();
         if (manager && typeof manager.flush === 'function') manager.flush();
+    });
+    window.addEventListener('storage', (event) => {
+        if (!event || event.key !== LEAD_STORAGE_KEY) return;
+        renderLeadQueue();
+    });
+    window.addEventListener('rtf-store-updated', (event) => {
+        if (!event || !event.detail || event.detail.source !== 'remote') return;
+        renderTimeline();
     });
 
     function setButtonPressed(button, pressed) {

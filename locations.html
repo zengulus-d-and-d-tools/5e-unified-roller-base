@@ -54,6 +54,26 @@
                 <div class="locations-mb-10">
                     <textarea id="locNotes" rows="2" placeholder="Location Notes..."></textarea>
                 </div>
+                <div class="grid-5 locations-grid-two locations-mb-10">
+                    <textarea id="locConnections" rows="2" placeholder="Connections (informants, allies, guild favors)..."></textarea>
+                    <textarea id="locProperties" rows="2" placeholder="Properties (safehouse, workshop, stash)..."></textarea>
+                </div>
+                <div class="grid-5 locations-grid-two locations-mb-10">
+                    <select id="locTrust">
+                        <option value="0">Trust: Hostile</option>
+                        <option value="1">Trust: Wary</option>
+                        <option value="2" selected>Trust: Neutral</option>
+                        <option value="3">Trust: Trusted</option>
+                        <option value="4">Trust: Loyal</option>
+                    </select>
+                    <select id="locStigma">
+                        <option value="0" selected>Stigma: Clean</option>
+                        <option value="1">Stigma: Rumored</option>
+                        <option value="2">Stigma: Noticed</option>
+                        <option value="3">Stigma: Marked</option>
+                        <option value="4">Stigma: Burned</option>
+                    </select>
+                </div>
                 <button class="btn btn-dp" data-onclick="addLocation()">Save Location</button>
             </div>
 

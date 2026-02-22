@@ -7,7 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <title>Ravnica Investigation Board</title>
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
-    <link rel="stylesheet" href="css/board.css?v=20260209c">
+    <link rel="stylesheet" href="css/board.css?v=20260222a">
     <meta name="theme-color" content="#1e1e1e">
 </head>
 
@@ -68,6 +68,10 @@
                     <div class="icon">🔍</div>
                     <div class="label">Clue</div>
                 </div>
+                <div class="tool-item" data-node-type="theory" draggable="true" data-ondragstart="startDragNew(event, 'theory')">
+                    <div class="icon">🧠</div>
+                    <div class="label">Theory</div>
+                </div>
                 <div class="tool-item" data-node-type="note" draggable="true" data-ondragstart="startDragNew(event, 'note')">
                     <div class="icon">📝</div>
                     <div class="label">Note</div>
@@ -121,6 +125,10 @@
     <div id="context-menu" class="context-menu">
         <div class="menu-item" data-onclick="editTargetNode()">✏️ Edit Text</div>
         <div class="menu-item" id="menu-set-image" data-onclick="setTargetNodeImageUrl()">🖼️ Set Image URL</div>
+        <div class="menu-item" id="menu-create-lead" data-onclick="createLeadFromTargetNode()">🧭 Create Lead</div>
+        <div class="menu-item" id="menu-set-theory-confidence" data-onclick="setTargetTheoryConfidence()">📊 Set Theory Confidence</div>
+        <div class="menu-item" id="menu-mark-theory-confirmed" data-onclick="markTargetTheory('confirmed')">✅ Mark Theory Confirmed</div>
+        <div class="menu-item" id="menu-mark-theory-disproven" data-onclick="markTargetTheory('disproven')">❌ Mark Theory Disproven</div>
         <div class="menu-item" data-onclick="centerAndOptimize()">🎯 Center & Optimize</div>
         <div class="menu-item" id="menu-undo-optimize" data-onclick="undoLastOptimize()">↩️ Undo Last Optimize</div>
         <div class="menu-item" id="menu-draft-encounter" data-onclick="draftEncounterFromTargetNode()">⚔️ Draft Encounter</div>
@@ -137,7 +145,7 @@
     <script src="js/store.js?v=20260222a"></script>
     <script src="js/session-log.js"></script>
     <script src="js/vector-field.js"></script>
-    <script src="js/board.js?v=20260209c"></script>
+    <script src="js/board.js?v=20260222a"></script>
 </body>
 
 </html>

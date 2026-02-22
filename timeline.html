@@ -93,6 +93,52 @@
                 </div>
             </div>
 
+            <section class="lead-panel" aria-label="Lead Queue">
+                <div class="lead-panel-head">
+                    <h3>Lead Queue</h3>
+                    <p>Actionable threads for the active case. Vote to prioritize next moves.</p>
+                </div>
+                <div class="lead-form-grid">
+                    <div>
+                        <label for="leadType">Lead Type</label>
+                        <select id="leadType">
+                            <option value="event">Event</option>
+                            <option value="npc">NPC</option>
+                            <option value="location">Location</option>
+                            <option value="clue">Clue</option>
+                            <option value="requisition">Requisition</option>
+                            <option value="theory">Theory</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="leadTitle">Lead Title</label>
+                        <input type="text" id="leadTitle" placeholder="Dock 9 courier pattern">
+                    </div>
+                    <div>
+                        <label for="leadTargetId">Target ID (optional)</label>
+                        <input type="text" id="leadTargetId" placeholder="event_xxx, npc_xxx, loc_xxx">
+                    </div>
+                    <div>
+                        <label for="leadQuestion">Question</label>
+                        <input type="text" id="leadQuestion" placeholder="What does this thread answer?">
+                    </div>
+                    <div>
+                        <label for="leadNextStep">Next Step</label>
+                        <input type="text" id="leadNextStep" placeholder="Concrete player action">
+                    </div>
+                    <div>
+                        <label for="leadVoter">Voter Name</label>
+                        <input type="text" id="leadVoter" placeholder="Your handle for voting">
+                    </div>
+                </div>
+                <div class="lead-form-actions">
+                    <button class="btn btn-dp" data-onclick="addLeadFromForm()">Add Lead</button>
+                </div>
+                <div class="lead-summary" id="leadSummary"></div>
+                <div class="lead-list" id="leadList"></div>
+            </section>
+
             <div class="timeline-wrapper" id="timelineList"></div>
         </div>
     </div>

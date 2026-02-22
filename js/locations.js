@@ -41,6 +41,14 @@ const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
 let pendingLinkLocationId = '';
+const TRUST_LABELS = ['Hostile', 'Wary', 'Neutral', 'Trusted', 'Loyal'];
+const STIGMA_LABELS = ['Clean', 'Rumored', 'Noticed', 'Marked', 'Burned'];
+
+function clampTrackLevel(value, fallback) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(0, Math.min(4, parsed));
+}
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -192,6 +200,10 @@ function addLocation() {
     const imageRaw = document.getElementById('locImageUrl').value.trim();
     const imageUrl = sanitizeImageUrl(imageRaw);
     const notes = document.getElementById('locNotes').value;
+    const connections = document.getElementById('locConnections').value;
+    const properties = document.getElementById('locProperties').value;
+    const trust = clampTrackLevel(document.getElementById('locTrust').value, 2);
+    const stigma = clampTrackLevel(document.getElementById('locStigma').value, 0);
 
     if (!name) { alert("Name Required"); return; }
     if (imageRaw && !imageUrl) { alert("Please provide a valid image URL."); return; }
@@ -199,7 +211,18 @@ function addLocation() {
     const c = getCampaign();
     if (!c) return;
     if (!c.locations) c.locations = [];
-    c.locations.push({ id: createLocationId(), name, district, desc, imageUrl, notes });
+    c.locations.push({
+        id: createLocationId(),
+        name,
+        district,
+        desc,
+        imageUrl,
+        notes,
+        connections,
+        properties,
+        trust,
+        stigma
+    });
     save();
 
     // Reset Form
@@ -208,6 +231,10 @@ function addLocation() {
     document.getElementById('locDesc').value = '';
     document.getElementById('locImageUrl').value = '';
     document.getElementById('locNotes').value = '';
+    document.getElementById('locConnections').value = '';
+    document.getElementById('locProperties').value = '';
+    document.getElementById('locTrust').value = '2';
+    document.getElementById('locStigma').value = '0';
     toggleLocationForm();
 }
 
@@ -229,6 +256,39 @@ function updateLocationImage(locationId, value) {
     c.locations[idx] = {
         ...c.locations[idx],
         imageUrl
+    };
+    save();
+}
+
+function updateLocationField(locationId, field, value) {
+    const c = getCampaign();
+    if (!c || !Array.isArray(c.locations)) return;
+    const id = String(locationId || '');
+    const idx = c.locations.findIndex((entry) => String(entry && entry.id || '') === id);
+    if (idx < 0) return;
+
+    const allowed = new Set(['name', 'district', 'desc', 'notes', 'connections', 'properties']);
+    if (!allowed.has(field)) return;
+    c.locations[idx] = {
+        ...c.locations[idx],
+        [field]: String(value || '').trim()
+    };
+    save();
+}
+
+function updateLocationTrack(locationId, field, delta) {
+    const c = getCampaign();
+    if (!c || !Array.isArray(c.locations)) return;
+    const id = String(locationId || '');
+    const idx = c.locations.findIndex((entry) => String(entry && entry.id || '') === id);
+    if (idx < 0) return;
+
+    if (field !== 'trust' && field !== 'stigma') return;
+    const current = clampTrackLevel(c.locations[idx][field], field === 'trust' ? 2 : 0);
+    const next = clampTrackLevel(current + Number(delta || 0), current);
+    c.locations[idx] = {
+        ...c.locations[idx],
+        [field]: next
     };
     save();
 }
@@ -283,6 +343,8 @@ function render() {
         const locationId = String(loc.id || '');
         const locationIdArg = escapeJsString(locationId);
         const imageUrl = sanitizeImageUrl(loc.imageUrl || '');
+        const trust = clampTrackLevel(loc.trust, 2);
+        const stigma = clampTrackLevel(loc.stigma, 0);
         const imageMarkup = imageUrl
             ? `<div class="locations-image"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(loc.name || 'Location')} image"></div>`
             : '';
@@ -292,22 +354,56 @@ function render() {
             ${imageMarkup}
             <div class="locations-content">
                 <div class="locations-summary">
-                    <div class="locations-name">${escapeHtml(loc.name)}</div>
-                    <div class="locations-district">${escapeHtml(loc.district || 'Unassigned')}</div>
+                    <div class="locations-desc-block">
+                        <div class="locations-desc-label">Name</div>
+                        <input type="text" value="${escapeHtml(loc.name || '')}" placeholder="Location name"
+                            data-onchange="updateLocationField('${locationIdArg}', 'name', this.value)">
+                    </div>
+                    <div class="locations-desc-block">
+                        <div class="locations-desc-label">District / Guild</div>
+                        <select data-onchange="updateLocationField('${locationIdArg}', 'district', this.value)">
+                            <option value="">Unassigned</option>
+                            ${guilds.map((g) => `<option value="${escapeHtml(g)}" ${g === String(loc.district || '') ? 'selected' : ''}>${escapeHtml(g)}</option>`).join('')}
+                        </select>
+                    </div>
 
                     <div class="locations-desc-block">
                         <div class="locations-desc-label">Description</div>
-                        ${escapeHtml(loc.desc || '-')}
+                        <textarea rows="3" data-onchange="updateLocationField('${locationIdArg}', 'desc', this.value)">${escapeHtml(loc.desc || '')}</textarea>
                     </div>
                     <div class="locations-desc-block">
                         <div class="locations-desc-label">Image URL</div>
                         <input type="url" value="${escapeHtml(loc.imageUrl || '')}" placeholder="https://..."
                             data-onchange="updateLocationImage('${locationIdArg}', this.value)">
                     </div>
+                    <div class="locations-desc-block">
+                        <div class="locations-desc-label">Connections</div>
+                        <textarea rows="3" data-onchange="updateLocationField('${locationIdArg}', 'connections', this.value)">${escapeHtml(loc.connections || '')}</textarea>
+                    </div>
+                    <div class="locations-desc-block">
+                        <div class="locations-desc-label">Properties</div>
+                        <textarea rows="3" data-onchange="updateLocationField('${locationIdArg}', 'properties', this.value)">${escapeHtml(loc.properties || '')}</textarea>
+                    </div>
                 </div>
 
                 <div class="locations-notes">
-                    ${escapeHtml(loc.notes || '')}
+                    <div class="locations-desc-label">Notes</div>
+                    <textarea rows="2" data-onchange="updateLocationField('${locationIdArg}', 'notes', this.value)">${escapeHtml(loc.notes || '')}</textarea>
+                </div>
+
+                <div class="locations-track-row">
+                    <div class="locations-track">
+                        <span class="locations-track-label">Trust</span>
+                        <button class="btn locations-track-btn" data-onclick="updateLocationTrack('${locationIdArg}', 'trust', -1)">-</button>
+                        <span class="locations-track-value">${escapeHtml(TRUST_LABELS[trust])}</span>
+                        <button class="btn locations-track-btn" data-onclick="updateLocationTrack('${locationIdArg}', 'trust', 1)">+</button>
+                    </div>
+                    <div class="locations-track">
+                        <span class="locations-track-label">Stigma</span>
+                        <button class="btn locations-track-btn" data-onclick="updateLocationTrack('${locationIdArg}', 'stigma', -1)">-</button>
+                        <span class="locations-track-value">${escapeHtml(STIGMA_LABELS[stigma])}</span>
+                        <button class="btn locations-track-btn" data-onclick="updateLocationTrack('${locationIdArg}', 'stigma', 1)">+</button>
+                    </div>
                 </div>
             </div>
 
@@ -337,3 +433,5 @@ window.addEventListener('rtf-store-updated', () => {
 window.copyLocationLink = copyLocationLink;
 window.openLocationInBoard = openLocationInBoard;
 window.updateLocationImage = updateLocationImage;
+window.updateLocationField = updateLocationField;
+window.updateLocationTrack = updateLocationTrack;
