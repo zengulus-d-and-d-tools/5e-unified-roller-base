@@ -713,9 +713,10 @@ function normalizeSrdSpellReference(record) {
     const row = isPlainObject(record) ? record : {};
     const normalizedActionType = formatSpellActionType(row.actionType);
     const castingTime = sanitizeString(row.castingTime || normalizedActionType, '', 160);
+    const rawLevel = row.level === undefined ? row.lvl : row.level;
     return {
         name: sanitizeString(row.name || '', '', 180),
-        lvl: Math.round(sanitizeNumber(row.level, 0, 0, 9)),
+        lvl: Math.round(sanitizeNumber(rawLevel, 0, 0, 9)),
         school: toTitleCaseWords(sanitizeString(row.school || '', '', 80)),
         classes: sanitizeString(formatSpellClasses(row.classes), '', 240),
         actionType: sanitizeString(normalizedActionType, '', 80),
