@@ -88,6 +88,10 @@
     margin-left: auto;
 }
 
+.clock-export-btn {
+    width: 100%;
+}
+
 .clock-pie-wrap {
     display: grid;
     justify-items: center;

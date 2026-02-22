@@ -9,6 +9,7 @@
   - `Danger` (red)
 - Type colors are fixed and do not use the page accent palette.
 - Per-clock controls: `+1`, `-1`, `Reset`, `Remove`.
+- Per-clock export: `Export this clock` generates a PNG snapshot with clock name, type, and fill state.
 - Inline editing for clock `Name`, `Type`, and `Total`.
 - Fill value is always clamped to `0..total`.
 - Local persistence via `localStorage` key: `rtf_clocks_page_v1`.
