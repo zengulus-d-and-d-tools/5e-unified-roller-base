@@ -857,12 +857,27 @@
         return sanitizeSyncConfig({ ...DEFAULT_SYNC_CONFIG, ...(boot || {}), ...(stored || {}) });
     };
 
+    const coerceAutoConnectBackendMode = (config) => {
+        const clean = sanitizeSyncConfig(config);
+        if (!clean.enabled || !clean.autoConnect) {
+            return { config: clean, changed: false };
+        }
+        if (clean.backendMode !== SYNC_BACKEND_LEGACY) {
+            return { config: clean, changed: false };
+        }
+        return {
+            config: { ...clean, backendMode: SYNC_BACKEND_NORMALIZED },
+            changed: true
+        };
+    };
+
     class Store {
         constructor() {
             this.state = deepClone(DEFAULT_STATE);
+            const coercedSyncConfig = coerceAutoConnectBackendMode(getMergedSyncConfig());
 
             this.sync = {
-                config: getMergedSyncConfig(),
+                config: coercedSyncConfig.config,
                 client: null,
                 channel: null,
                 clientKey: '',
@@ -888,6 +903,14 @@
                 remoteSoftLocks: new Map(),
                 remotePeers: new Map()
             };
+
+            if (coercedSyncConfig.changed) {
+                try {
+                    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(this.sync.config));
+                } catch (err) {
+                    console.warn('RTF_STORE: Failed to persist migrated sync backend mode', err);
+                }
+            }
 
             this.isApplyingRemote = false;
             this.syncStatusListeners = new Set();
@@ -916,6 +939,11 @@
                 updatedAt: Date.now()
             };
 
+            this.onStorageSyncEvent = this.onStorageSyncEvent.bind(this);
+            if (typeof global.addEventListener === 'function') {
+                global.addEventListener('storage', this.onStorageSyncEvent);
+            }
+
             this.load();
             this.emitSyncStatus();
 
@@ -928,6 +956,34 @@
                         lastError: err && err.message ? err.message : String(err)
                     });
                 });
+            }
+        }
+
+        onStorageSyncEvent(event) {
+            if (!event || event.key !== STORE_KEY) return;
+            if (!event.newValue || event.newValue === event.oldValue) return;
+
+            try {
+                const parsed = JSON.parse(event.newValue);
+                if (!parsed || typeof parsed !== 'object') return;
+
+                const updatedAt = toTimestamp(parsed.meta && parsed.meta.updated, Date.now());
+                const revision = toNonNegativeInt(parsed.meta && parsed.meta.syncRevision, 0);
+                const applied = this.applyRemoteState(parsed, {
+                    source: 'storage',
+                    updatedAt,
+                    revision,
+                    clearDirty: true
+                });
+                if (!applied) return;
+
+                this.sync.lastPullAt = Date.now();
+                this.updateSyncStatus({
+                    lastPullAt: this.sync.lastPullAt,
+                    lastError: ''
+                });
+            } catch (err) {
+                console.warn('RTF_STORE: Failed to apply cross-tab storage update', err);
             }
         }
 
@@ -1300,7 +1356,8 @@
             const reconnect = opts.reconnect !== false;
 
             const base = merge ? this.sync.config : DEFAULT_SYNC_CONFIG;
-            const next = sanitizeSyncConfig({ ...base, ...(configPatch || {}) });
+            const sanitized = sanitizeSyncConfig({ ...base, ...(configPatch || {}) });
+            const next = coerceAutoConnectBackendMode(sanitized).config;
 
             this.sync.config = next;
             try {
@@ -2182,6 +2239,16 @@
         }
 
         async connectSync() {
+            const coerced = coerceAutoConnectBackendMode(this.sync.config);
+            if (coerced.changed) {
+                this.sync.config = coerced.config;
+                try {
+                    localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(coerced.config));
+                } catch (err) {
+                    console.warn('RTF_STORE: Failed to persist coerced sync backend mode', err);
+                }
+            }
+
             const config = this.sync.config;
             if (!config.enabled) {
                 this.updateSyncStatus({

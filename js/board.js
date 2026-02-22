@@ -3597,24 +3597,56 @@ function distToSegment(p, v, w) {
     return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
 }
 
+function getEventTargetElement(target) {
+    if (!target) return null;
+    if (target instanceof Element) return target;
+    if (target instanceof Node && target.parentElement) return target.parentElement;
+    return null;
+}
+
+function clearBoardFocusMode() {
+    focusMode = false;
+    document.body.classList.remove('focus-active');
+    document.querySelectorAll('.node').forEach((el) => {
+        el.classList.remove('blurred');
+        el.classList.remove('focused');
+    });
+}
+
+function applyBoardFocusMode(nodeEl) {
+    if (!nodeEl) return;
+    focusMode = true;
+    document.body.classList.add('focus-active');
+    document.querySelectorAll('.node').forEach((el) => {
+        el.classList.add('blurred');
+        el.classList.remove('focused');
+    });
+    nodeEl.classList.remove('blurred');
+    nodeEl.classList.add('focused');
+
+    // Unblur immediate neighbors for local context without changing the selected focal node.
+    const neighborIds = new Set();
+    connections.forEach((conn) => {
+        if (conn.from === nodeEl.id) neighborIds.add(conn.to);
+        if (conn.to === nodeEl.id) neighborIds.add(conn.from);
+    });
+    neighborIds.forEach((neighborId) => {
+        const neighborEl = document.getElementById(neighborId);
+        if (!neighborEl) return;
+        neighborEl.classList.remove('blurred');
+    });
+}
+
 // RESTORED HIT TEST
 document.addEventListener('dblclick', (e) => {
-    const n = e.target.closest('.node');
+    const targetEl = getEventTargetElement(e.target);
+    if (!targetEl) return;
+
+    if (targetEl.closest('input, textarea, select, button, .label-input, [contenteditable="true"]')) return;
+
+    const n = targetEl.closest('.node');
     if (n) {
-        focusMode = true;
-        document.body.classList.add('focus-active');
-        document.querySelectorAll('.node').forEach(el => el.classList.add('blurred'));
-        n.classList.remove('blurred');
-        // Unblur neighbors
-        const neighborIds = new Set();
-        connections.forEach(c => {
-            if (c.from === n.id) neighborIds.add(c.to);
-            if (c.to === n.id) neighborIds.add(c.from);
-        });
-        neighborIds.forEach(nid => {
-            const el = document.getElementById(nid);
-            if (el) el.classList.remove('blurred');
-        });
+        applyBoardFocusMode(n);
         return;
     }
 
@@ -3654,10 +3686,7 @@ document.addEventListener('dblclick', (e) => {
         }
     } else {
         // RESET FOCUS
-        focusMode = false;
-        document.body.classList.remove('focus-active');
-        // Unblur all nodes explicitly
-        document.querySelectorAll('.node').forEach(el => el.classList.remove('blurred'));
+        clearBoardFocusMode();
     }
 });
 
