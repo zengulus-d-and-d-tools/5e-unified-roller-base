@@ -8,6 +8,18 @@
     const VALID_TYPES = new Set(['prep', 'procedure']);
     const PREP_CATEGORIES = ['Intel', 'Access', 'Cover', 'Tools'];
     const STORAGE_KEY = 'rtf_prep_procedure_state_v1';
+    const FLASHBACK_PRESETS = {
+        minor: {
+            tier: 'minor',
+            label: 'Minor Flashback',
+            cost: 1
+        },
+        major: {
+            tier: 'major',
+            label: 'Major Flashback',
+            cost: 2
+        }
+    };
 
     const DEFAULT_EXAMPLES = [
         {
@@ -291,6 +303,8 @@
         },
         resetAll: document.getElementById('reset-all-btn'),
         logPrepTimeline: document.getElementById('log-prep-timeline-btn'),
+        flashbackMinor: document.getElementById('flashback-minor-btn'),
+        flashbackMajor: document.getElementById('flashback-major-btn'),
         heatShield: document.getElementById('heat-shield-btn'),
         tokensMinus: document.getElementById('tokens-minus'),
         tokensPlus: document.getElementById('tokens-plus'),
@@ -304,12 +318,23 @@
         popoverBackdrop: document.getElementById('prep-log-popover-backdrop'),
         popoverTitle: document.getElementById('prep-log-popover-title'),
         popoverBody: document.getElementById('prep-log-popover-body'),
+        popoverNoteWrap: document.getElementById('prep-log-popover-note-wrap'),
+        popoverNoteLabel: document.getElementById('prep-log-popover-note-label'),
+        popoverNote: document.getElementById('prep-log-popover-note'),
         popoverCancel: document.getElementById('prep-log-popover-cancel'),
         popoverConfirm: document.getElementById('prep-log-popover-confirm')
     };
 
     const listeners = new Set();
     let pendingPopoverContext = null;
+
+    function pluralizeToken(cost) {
+        return cost === 1 ? 'token' : 'tokens';
+    }
+
+    function getFlashbackPreset(tier) {
+        return FLASHBACK_PRESETS[tier] || FLASHBACK_PRESETS.minor;
+    }
 
     function getState() {
         return cloneState(state);
@@ -381,6 +406,9 @@
             });
             refs.tokenBubbles.appendChild(bubble);
         }
+
+        if (refs.flashbackMinor) refs.flashbackMinor.disabled = state.tokens.count < FLASHBACK_PRESETS.minor.cost;
+        if (refs.flashbackMajor) refs.flashbackMajor.disabled = state.tokens.count < FLASHBACK_PRESETS.major.cost;
     }
 
     function getFilteredExamples() {
@@ -444,23 +472,46 @@
         return `Prep ${snapshot.prep.filled}/${snapshot.prep.total} | Procedure ${snapshot.procedure.filled}/${snapshot.procedure.total} | Tokens ${snapshot.tokens.count}/${snapshot.tokens.max}`;
     }
 
+    function getPopoverNoteValue() {
+        if (!refs.popoverNote) return '';
+        return String(refs.popoverNote.value || '').trim().slice(0, 600);
+    }
+
     function openLogPopover(context) {
         const ctx = context && typeof context === 'object' ? context : { source: 'button' };
         pendingPopoverContext = ctx;
         const snapshot = getState();
         const isExample = ctx.source === 'example' && ctx.example;
+        const isFlashback = ctx.source === 'flashback';
 
-        refs.popoverTitle.textContent = isExample ? 'Log Example to Timeline' : 'Log Prep Snapshot';
-        if (isExample) {
+        refs.popoverConfirm.textContent = 'Log to Timeline';
+        if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.add('is-hidden');
+        if (refs.popoverNote) refs.popoverNote.value = '';
+
+        if (isFlashback) {
+            const preset = getFlashbackPreset(ctx.tier);
+            const remaining = Math.max(0, snapshot.tokens.count - preset.cost);
+            refs.popoverTitle.textContent = `${preset.label} Spend`;
+            refs.popoverBody.textContent = `Spend ${preset.cost} Prep ${pluralizeToken(preset.cost)} to trigger a ${preset.label.toLowerCase()}.\nRemaining after spend: ${remaining}/${snapshot.tokens.max}\nSnapshot: ${getSnapshotLine(snapshot)}`;
+            refs.popoverConfirm.textContent = `Spend ${preset.cost} & Log`;
+            if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.remove('is-hidden');
+            if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = `${preset.label} Note (optional)`;
+        } else if (isExample) {
+            refs.popoverTitle.textContent = 'Log Example to Timeline';
             const typeLabel = ctx.example.type === 'procedure' ? 'Procedure' : 'Prep';
             refs.popoverBody.textContent = `${typeLabel} • ${ctx.example.category} • ${ctx.example.name}\nSnapshot: ${getSnapshotLine(snapshot)}`;
         } else {
+            refs.popoverTitle.textContent = 'Log Prep Snapshot';
             refs.popoverBody.textContent = `Snapshot: ${getSnapshotLine(snapshot)}`;
         }
 
         refs.popoverBackdrop.classList.remove('is-hidden');
         refs.popoverBackdrop.setAttribute('aria-hidden', 'false');
         document.body.classList.add('prep-popover-open');
+        if (isFlashback && refs.popoverNote) {
+            refs.popoverNote.focus();
+            return;
+        }
         refs.popoverConfirm.focus();
     }
 
@@ -468,6 +519,10 @@
         refs.popoverBackdrop.classList.add('is-hidden');
         refs.popoverBackdrop.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('prep-popover-open');
+        refs.popoverConfirm.textContent = 'Log to Timeline';
+        if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.add('is-hidden');
+        if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = 'Flashback Note (optional)';
+        if (refs.popoverNote) refs.popoverNote.value = '';
         pendingPopoverContext = null;
     }
 
@@ -541,6 +596,59 @@
         };
     }
 
+    function buildFlashbackTimelineEntry(snapshot, preset, note, remainingTokens) {
+        const stamp = new Date().toLocaleString();
+        const safeNote = String(note || '').trim();
+        const noteLine = safeNote ? `Flashback note: ${safeNote}` : 'Flashback note: (none)';
+        const tokenLine = `Prep tokens: ${snapshot.tokens.count} -> ${remainingTokens}`;
+
+        return {
+            id: `event_flashback_${Date.now()}`,
+            title: `${preset.label} Activated`,
+            focus: 'Prep & Procedure Clocks',
+            heatDelta: '',
+            tags: `flashback, prep-token, ${preset.tier}, prep, procedure`,
+            highlights: `${preset.label} used by spending ${preset.cost} Prep ${pluralizeToken(preset.cost)}.\n${tokenLine}\nSnapshot: ${getSnapshotLine(snapshot)}`,
+            fallout: '',
+            followUp: `${noteLine}\nLogged at ${stamp}.`,
+            source: 'prep-procedure',
+            kind: 'prep-flashback',
+            resolved: false,
+            created: new Date().toISOString()
+        };
+    }
+
+    function spendFlashbackToTimeline(context) {
+        const ctx = context && typeof context === 'object' ? context : { source: 'flashback', tier: 'minor' };
+        const preset = getFlashbackPreset(ctx.tier);
+        const tokenCount = Number(state.tokens.count) || 0;
+        if (tokenCount < preset.cost) {
+            setStatus(`Not enough Prep tokens for ${preset.label.toLowerCase()} (need ${preset.cost}).`, 'error');
+            return false;
+        }
+
+        const store = getStore();
+        if (!store || typeof store.addEvent !== 'function') {
+            setStatus('Flashback failed: store is unavailable on this page.', 'error');
+            return false;
+        }
+
+        const snapshot = getState();
+        const remainingTokens = tokenCount - preset.cost;
+        const eventPayload = buildFlashbackTimelineEntry(snapshot, preset, ctx.note, remainingTokens);
+        const eventId = store.addEvent(eventPayload);
+        if (!eventId) {
+            setStatus('Flashback failed: event could not be saved.', 'error');
+            return false;
+        }
+
+        setState({ tokens: { count: remainingTokens } });
+        const activeCase = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
+        const caseLabel = activeCase && activeCase.name ? activeCase.name : 'active case';
+        setStatus(`${preset.label} logged (${caseLabel}). Spent ${preset.cost} Prep ${pluralizeToken(preset.cost)}.`, 'success');
+        return true;
+    }
+
     function logPrepToTimeline(context) {
         const store = getStore();
         if (!store || typeof store.addEvent !== 'function') {
@@ -566,6 +674,21 @@
             return;
         }
         setStatus(`Prep snapshot logged to timeline (${caseLabel}).`, 'success');
+    }
+
+    function confirmPopoverAction() {
+        if (!pendingPopoverContext) return;
+        const context = { ...pendingPopoverContext };
+        if (context.source === 'flashback') {
+            context.note = getPopoverNoteValue();
+            const spent = spendFlashbackToTimeline(context);
+            if (!spent) return;
+            closeLogPopover();
+            return;
+        }
+
+        logPrepToTimeline(context);
+        closeLogPopover();
     }
 
     function updateClock(clockKey, update) {
@@ -626,12 +749,15 @@
     refs.logPrepTimeline.addEventListener('click', () => {
         openLogPopover({ source: 'button' });
     });
+    refs.flashbackMinor.addEventListener('click', () => {
+        openLogPopover({ source: 'flashback', tier: 'minor' });
+    });
+    refs.flashbackMajor.addEventListener('click', () => {
+        openLogPopover({ source: 'flashback', tier: 'major' });
+    });
     refs.heatShield.addEventListener('click', clearProcedureClockForHeatShield);
     refs.popoverCancel.addEventListener('click', closeLogPopover);
-    refs.popoverConfirm.addEventListener('click', () => {
-        if (pendingPopoverContext) logPrepToTimeline(pendingPopoverContext);
-        closeLogPopover();
-    });
+    refs.popoverConfirm.addEventListener('click', confirmPopoverAction);
     refs.popoverBackdrop.addEventListener('click', (event) => {
         if (event.target !== refs.popoverBackdrop) return;
         closeLogPopover();

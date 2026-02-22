@@ -204,7 +204,13 @@
 
 .clocks-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
+    gap: 8px;
+}
+
+.clocks-actions .btn {
+    min-width: 180px;
 }
 
 .examples-card {
@@ -364,6 +370,31 @@ body.prep-popover-open {
     white-space: pre-line;
     line-height: 1.45;
     font-size: 0.9rem;
+}
+
+.prep-popover-note {
+    display: grid;
+    gap: 6px;
+}
+
+.prep-popover-note span {
+    color: var(--hq-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.prep-popover-note textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 78px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: #fff;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    line-height: 1.35;
 }
 
 .prep-popover-actions {

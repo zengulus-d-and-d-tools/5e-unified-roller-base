@@ -5,7 +5,11 @@
 ## Features
 - `PREP` and `PROCEDURE` pie clocks with per-clock controls: `+1`, `-1`, `Reset`, and total segment input.
 - Prep token bubbles are positioned between the two clocks and support click-to-set plus `+/-`.
-- `Log Prep to Timeline` is a single action button that opens a confirmation popover before writing a snapshot event for the active case.
+- `Log Prep to Timeline` opens a confirmation popover before writing a snapshot event for the active case.
+- Flashback spend actions are built into the same action row:
+  - `Minor Flashback (-1 Prep)` spends 1 prep token and logs the flashback to timeline.
+  - `Major Flashback (-2 Prep)` spends 2 prep tokens and logs the flashback to timeline.
+  - Flashback popover includes an optional note field that is saved in the timeline follow-up text.
 - `Activate Heat Shield` clears only the `PROCEDURE` clock fill (`procedure.filled = 0`) and logs this timeline action: `Thanks to good procedure, the Task Force's reputation was preserved.`
 - Example table with `Type`, `Category`, and `Example Name`.
 - Example rows are D&D procedure-focused and mundane-first (chain of custody, witness handling, scene control, vault sign-off), with magic only as escalation/fallback when mundane methods are insufficient. Rows include `category` from the controlled set: `Intel`, `Access`, `Cover`, `Tools`.
