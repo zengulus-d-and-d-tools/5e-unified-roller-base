@@ -178,6 +178,131 @@ const Importer = {
         return 0;
     },
 
+    parseSpellcastingAbility: function (rawValue) {
+        if (rawValue === null || rawValue === undefined) return null;
+        const raw = String(rawValue).trim();
+        if (!raw) return null;
+        const upper = raw.toUpperCase();
+        const explicit = {
+            STR: 'str',
+            DEX: 'dex',
+            CON: 'con',
+            INT: 'int',
+            WIS: 'wis',
+            CHA: 'cha',
+            STRENGTH: 'str',
+            DEXTERITY: 'dex',
+            CONSTITUTION: 'con',
+            INTELLIGENCE: 'int',
+            WISDOM: 'wis',
+            CHARISMA: 'cha'
+        };
+        if (explicit[upper]) return explicit[upper];
+        const token = upper.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b/);
+        if (token && explicit[token[1]]) return explicit[token[1]];
+        if (upper.includes('STRENGTH')) return 'str';
+        if (upper.includes('DEXTERITY')) return 'dex';
+        if (upper.includes('CONSTITUTION')) return 'con';
+        if (upper.includes('INTELLIGENCE')) return 'int';
+        if (upper.includes('WISDOM')) return 'wis';
+        if (upper.includes('CHARISMA')) return 'cha';
+        return null;
+    },
+
+    inferSpellcastingAbilityFromDc: function (rawDc, d) {
+        const dc = parseInt(rawDc, 10);
+        if (!Number.isFinite(dc)) return null;
+        const level = Math.max(1, Math.min(20, parseInt(d && d.meta ? d.meta.level : 1, 10) || 1));
+        const pb = Math.ceil(level / 4) + 1;
+        const candidates = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
+        let best = null;
+        let bestDiff = Infinity;
+        candidates.forEach((stat) => {
+            const score = d && d.stats && d.stats[stat] ? parseInt(d.stats[stat].val, 10) : 10;
+            const mod = Math.floor(((Number.isFinite(score) ? score : 10) - 10) / 2);
+            const projectedDc = 8 + pb + mod;
+            const diff = Math.abs(projectedDc - dc);
+            if (diff < bestDiff) {
+                best = stat;
+                bestDiff = diff;
+            }
+        });
+        return bestDiff <= 1 ? best : null;
+    },
+
+    extractSpellLevelFromField: function (fieldName, value) {
+        const source = `${fieldName || ''} ${value || ''}`.toLowerCase();
+        if (/cantrip/.test(source)) return 0;
+
+        const levelPatterns = [
+            /(?:^|[^a-z])(level|lvl)\s*([1-9])/,
+            /([1-9])(?:st|nd|rd|th)\s*level/,
+            /(?:^|[^a-z])([1-9])\s*lvl/,
+            /spell\s*level\s*([1-9])/
+        ];
+
+        for (const pattern of levelPatterns) {
+            const match = source.match(pattern);
+            if (match) {
+                const valuePart = parseInt(match[2] || match[1], 10);
+                if (Number.isFinite(valuePart) && valuePart >= 1 && valuePart <= 9) return valuePart;
+            }
+        }
+
+        return 1;
+    },
+
+    isLikelySpellNameField: function (fieldName) {
+        const key = String(fieldName || '').toLowerCase();
+        if (!/(spell|cantrip)/.test(key)) return false;
+        if (/(spell\s*save|spell\s*attack|spellcasting|slot|prepared|slots|class|ability|dc)/.test(key)) return false;
+        if (/(description|desc|range|duration|component|damage|notes?|time|ritual|concentration)/.test(key)) return false;
+        return true;
+    },
+
+    extractSpellbookEntries: function (pdfData) {
+        if (!pdfData || typeof pdfData !== 'object') return [];
+        const entries = [];
+        const seen = new Set();
+
+        Object.entries(pdfData).forEach(([fieldName, rawValue]) => {
+            if (!this.isLikelySpellNameField(fieldName)) return;
+            if (rawValue === null || rawValue === undefined) return;
+
+            const text = String(rawValue).replace(/\r\n/g, '\n').trim();
+            if (!text) return;
+
+            const level = this.extractSpellLevelFromField(fieldName, text);
+            const candidates = text
+                .split(/\n|,|;/)
+                .map(part => part.trim())
+                .filter(Boolean);
+
+            candidates.forEach((candidate) => {
+                if (!candidate) return;
+                if (candidate.length > 180) return;
+                if (/^\d+$/.test(candidate)) return;
+                const cleaned = candidate
+                    .replace(/\s{2,}/g, ' ')
+                    .replace(/^[\*\-•]+/, '')
+                    .trim();
+                if (!cleaned) return;
+                const dedupeKey = `${level}:${cleaned.toLowerCase()}`;
+                if (seen.has(dedupeKey)) return;
+                seen.add(dedupeKey);
+                entries.push({
+                    name: cleaned.slice(0, 180),
+                    lvl: level,
+                    save: 'none',
+                    notes: ''
+                });
+            });
+        });
+
+        return entries.slice(0, 250);
+    },
+
     // Map extracted PDF data to the application's data structure
     applyToSheet: function (pdfData) {
         if (typeof window.data === 'undefined' || typeof window.save !== 'function') {
@@ -198,6 +323,23 @@ const Importer = {
             const match = pdfData["CLASS  LEVEL"].match(/(\d+)/);
             if (match) d.meta.level = parseInt(match[1]);
         }
+
+        let importedSpellAttr = null;
+        let importedSpellDc = null;
+        for (const [fieldName, fieldValue] of Object.entries(pdfData)) {
+            const key = String(fieldName || '').toLowerCase();
+            if (!importedSpellAttr && /spellcasting.*abil|spell\s*ability|spellcastingability/.test(key)) {
+                importedSpellAttr = this.parseSpellcastingAbility(fieldValue);
+            }
+            if (importedSpellDc === null && /spell\s*save\s*dc/.test(key)) {
+                const parsedDc = parseInt(fieldValue, 10);
+                if (Number.isFinite(parsedDc)) importedSpellDc = parsedDc;
+            }
+        }
+        if (!importedSpellAttr && importedSpellDc !== null) {
+            importedSpellAttr = this.inferSpellcastingAbilityFromDc(importedSpellDc, d);
+        }
+        if (importedSpellAttr) d.meta.spellAttr = importedSpellAttr;
 
         // --- ATTRIBUTES ---
         const statMap = {
@@ -252,6 +394,13 @@ const Importer = {
             if (profLevel > 0) {
                 d.skills[sheetKey] = Math.max(d.skills[sheetKey] || 0, profLevel);
             }
+        }
+
+        // --- SPELLBOOK ---
+        const importedSpellbook = this.extractSpellbookEntries(pdfData);
+        if (importedSpellbook.length > 0) {
+            d.spellbook = importedSpellbook;
+            this.debug(`Imported ${importedSpellbook.length} spells.`);
         }
 
         // --- FEATURES & TRAITS ---

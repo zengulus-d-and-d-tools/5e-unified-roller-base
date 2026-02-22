@@ -2279,18 +2279,6 @@
                         return { ok: false, reason: 'locked', locks: lockConflicts };
                     }
 
-                    const payloadState = stripLocalOnlyFieldsForCloud(this.state);
-                    const nextSig = JSON.stringify(payloadState);
-                    const hasLocalDirty = !!(this.sync.localDirtyScopes && this.sync.localDirtyScopes.size);
-                    if (nextSig === this.sync.lastCloudStateSig && !hasLocalDirty) {
-                        this.updateSyncStatus({
-                            mode: 'ready',
-                            connected: true,
-                            pendingPush: false
-                        });
-                        return { ok: true, reason: 'no-change' };
-                    }
-
                     const fetched = await this.fetchCloudRow({ silent: true });
                     if (!fetched.ok) return fetched;
                     const remoteRow = fetched.row;
@@ -2313,6 +2301,22 @@
                         }
                         this.setPendingConflict(conflict);
                         return { ok: false, reason: 'conflict', conflict: this.getPendingConflict() };
+                    }
+
+                    // Build cloud payload additively: keep remote scopes we did not edit locally.
+                    const mergedForCloud = remoteRow
+                        ? mergeStateByScopes(remoteRow.state, this.state, dirtyScopes)
+                        : sanitizeState(this.state);
+                    const payloadState = stripLocalOnlyFieldsForCloud(mergedForCloud);
+                    const nextSig = JSON.stringify(payloadState);
+                    const hasLocalDirty = !!(this.sync.localDirtyScopes && this.sync.localDirtyScopes.size);
+                    if (nextSig === this.sync.lastCloudStateSig && !hasLocalDirty) {
+                        this.updateSyncStatus({
+                            mode: 'ready',
+                            connected: true,
+                            pendingPush: false
+                        });
+                        return { ok: true, reason: 'no-change' };
                     }
 
                     const nextRevision = Math.max(baseRevision, remoteRevision) + 1;

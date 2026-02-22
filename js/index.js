@@ -6,6 +6,8 @@ const stats = ['str',
     'wis',
     'cha'];
 const attackStats = ['none', ...stats];
+const sheetFaces = ['front', 'inventory', 'spells'];
+const spellcastingAttrOptions = ['auto', ...stats];
 
 const skillsMap = {
     'acrobatics': 'dex', 'animal handling': 'wis', 'arcana': 'int', 'athletics': 'str',
@@ -136,21 +138,53 @@ function bindDelegatedDataHandlers() {
 
 bindDelegatedDataHandlers();
 
-function applySheetFlipState(isFlipped) {
+function normalizeSheetFace(face, fallbackFlipped = false) {
+    const normalized = String(face || '').toLowerCase();
+    if (sheetFaces.includes(normalized)) return normalized;
+    return fallbackFlipped ? 'inventory' : 'front';
+}
+
+function applySheetFaceState(face) {
     if (!data.uiState) data.uiState = {}
 
         ;
     const flipper = document.getElementById('sheetFlipper');
     const btn = document.getElementById('btnFlipSheet');
-    const nextVal = !!isFlipped;
-    if (flipper) flipper.classList.toggle('flipped', nextVal);
-    if (btn) btn.setAttribute('aria-pressed', nextVal ? 'true' : 'false');
-    data.uiState.isFlipped = nextVal;
+    const nextFace = normalizeSheetFace(face, !!data.uiState.isFlipped);
+    const faceLabelMap = {
+        front: 'Front Sheet',
+        inventory: 'Inventory',
+        spells: 'Spellbook'
+    };
+    if (flipper) {
+        flipper.classList.remove('flipped');
+        flipper.classList.remove('view-front', 'view-inventory', 'view-spells');
+        flipper.classList.add(`view-${nextFace}`);
+    }
+    if (btn) {
+        btn.setAttribute('aria-pressed', nextFace === 'front' ? 'false' : 'true');
+        const activeLabel = faceLabelMap[nextFace] || 'Sheet';
+        btn.setAttribute('title', `Rotate Sheet (${activeLabel})`);
+        btn.setAttribute('aria-label', `Rotate Sheet (${activeLabel})`);
+    }
+    data.uiState.sheetFace = nextFace;
+    // Legacy compatibility for stored v4.8 data.
+    data.uiState.isFlipped = nextFace !== 'front';
+}
+
+function applySheetFlipState(isFlipped) {
+    applySheetFaceState(isFlipped ? 'inventory' : 'front');
 }
 
 function toggleSheetFlip() {
-    const current = data && data.uiState ? !!data.uiState.isFlipped : false;
-    applySheetFlipState(!current);
+    const current = normalizeSheetFace(
+        data && data.uiState ? data.uiState.sheetFace : '',
+        data && data.uiState ? !!data.uiState.isFlipped : false
+    );
+    const currentIndex = sheetFaces.indexOf(current);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextFace = sheetFaces[(safeIndex + 1) % sheetFaces.length];
+    applySheetFaceState(nextFace);
     save();
 }
 
@@ -420,7 +454,7 @@ function ensureInventoryStructure(charData) {
 function getDefaultChar() {
     let char = {
         meta: {
-            player: '', name: 'New Character', level: 1, casterType: 'none', webhook: '', discordActive: false, init: 0, speed: ''
+            player: '', name: 'New Character', level: 1, casterType: 'none', webhook: '', discordActive: false, init: 0, speed: '', spellAttr: 'auto'
         }
 
         ,
@@ -489,10 +523,12 @@ function getDefaultChar() {
         attacks: [],
         features: [],
         spells: [],
+        spellbook: [],
         resources: [],
         rollMode: 'norm',
         uiState: {
-            cardOrder: []
+            cardOrder: [],
+            sheetFace: 'front'
         },
         inventory: getDefaultInventory()
     }
@@ -557,6 +593,8 @@ function sanitizeCharacterData(rawChar) {
     out.meta.discordActive = sanitizeBoolean(out.meta.discordActive, false);
     out.meta.init = sanitizeString(String(out.meta.init ?? ''), '', 24);
     out.meta.speed = sanitizeString(String(out.meta.speed ?? ''), '', 24);
+    const spellAttrRaw = sanitizeString(String(out.meta.spellAttr ?? 'auto'), 'auto', 16).toLowerCase();
+    out.meta.spellAttr = spellcastingAttrOptions.includes(spellAttrRaw) ? spellAttrRaw : 'auto';
 
     if (isPlainObject(source.vitals)) out.vitals = { ...out.vitals, ...source.vitals };
     out.vitals.curr = sanitizeNumber(out.vitals.curr, 0, 0, 999999);
@@ -668,6 +706,16 @@ function sanitizeCharacterData(rawChar) {
             used: sanitizeNumber(row.used, 0, 0, 99)
         });
     }
+    out.spellbook = Array.isArray(source.spellbook) ? source.spellbook.slice(0, 400).map((entry) => {
+        const row = isPlainObject(entry) ? entry : {};
+        const saveAttr = String(row.save || 'none').toLowerCase();
+        return {
+            name: sanitizeString(row.name || '', '', 180),
+            lvl: Math.round(sanitizeNumber(row.lvl, 1, 0, 9)),
+            save: (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none',
+            notes: sanitizeString(row.notes || '', '', 5000)
+        };
+    }) : [];
 
     out.resources = Array.isArray(source.resources) ? source.resources.slice(0, 200).map((entry) => {
         const row = isPlainObject(entry) ? entry : {};
@@ -688,7 +736,9 @@ function sanitizeCharacterData(rawChar) {
     if (isPlainObject(source.uiState)) {
         out.uiState = { ...out.uiState, ...source.uiState };
     }
-    out.uiState.isFlipped = sanitizeBoolean(out.uiState.isFlipped, false);
+    const legacyFlipped = sanitizeBoolean(out.uiState.isFlipped, false);
+    out.uiState.sheetFace = normalizeSheetFace(out.uiState.sheetFace, legacyFlipped);
+    out.uiState.isFlipped = out.uiState.sheetFace !== 'front';
     out.uiState.cardOrder = Array.isArray(out.uiState.cardOrder) ? out.uiState.cardOrder.slice(0, 200).map((entry) => sanitizeString(entry, '', 120)).filter(Boolean) : [];
 
     if (isPlainObject(source.inventory)) {
@@ -909,9 +959,10 @@ function populateUI() {
     if (!data.skillOverrides) data.skillOverrides = {}
 
         ;
+    if (!Array.isArray(data.spellbook)) data.spellbook = [];
 
     ensureInventoryStructure(data);
-    applySheetFlipState(data.uiState && data.uiState.isFlipped);
+    applySheetFaceState(normalizeSheetFace(data.uiState && data.uiState.sheetFace, data.uiState && data.uiState.isFlipped));
 
     document.getElementById('playerName').value = data.meta.player || '';
     document.getElementById('charName').value = data.meta.name || '';
@@ -922,6 +973,8 @@ function populateUI() {
 
     document.getElementById('initBonus').value = data.meta.init || "+0";
     document.getElementById('speedVal').value = data.meta.speed || '';
+    const spellAttrSelect = document.getElementById('spellCastingAttr');
+    if (spellAttrSelect) spellAttrSelect.value = spellcastingAttrOptions.includes(data.meta.spellAttr) ? data.meta.spellAttr : 'auto';
 
     toggleDiscord(data.meta.discordActive);
 
@@ -1035,6 +1088,8 @@ function save() {
     data.vitals.hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
     data.vitals.hdMax = parseInt(document.getElementById('hdMax').value) || 0;
     data.meta.casterType = document.getElementById('casterType').value;
+    const spellAttrSelect = document.getElementById('spellCastingAttr');
+    data.meta.spellAttr = spellAttrSelect && spellcastingAttrOptions.includes(spellAttrSelect.value) ? spellAttrSelect.value : 'auto';
 
     if (document.getElementById('ds-s1')) {
         data.vitals.ds = {
@@ -1311,6 +1366,15 @@ function parseComplexBonus(str) {
     const diceRegex = /([+-]?)\s*(\d+)d(\d+)\s*([a-z0-9]*)/gi;
     let match;
     let diceMatches = [];
+    const pushPart = (sign, text) => {
+        const cleanText = String(text || '').trim();
+        if (!cleanText) return;
+        if (!parts.length) {
+            parts.push(sign === -1 ? `-${cleanText}` : cleanText);
+            return;
+        }
+        parts.push(`${sign === -1 ? '-' : '+'} ${cleanText}`);
+    };
 
     while ((match = diceRegex.exec(str)) !== null) {
         diceMatches.push(match);
@@ -1326,21 +1390,10 @@ function parseComplexBonus(str) {
         const res = coreRoll(count, sides, 'norm', mods);
 
         total += (res.total * sign);
-        const signStr = sign === -1 ? '-' : '+';
         let form = res.formula;
 
-        if (modStr) form += `${modStr
-            }
-
-                    `;
-
-        parts.push(`${signStr
-            }
-
-                        ${form
-            }
-
-                        `);
+        if (modStr) form += modStr;
+        pushPart(sign, form);
     });
 
     let cleanStr = str.replace(diceRegex, '');
@@ -1350,19 +1403,12 @@ function parseComplexBonus(str) {
         const sign = (match[1].trim() === '-') ? -1 : 1;
         const val = parseInt(match[2]);
         total += (val * sign);
-
-        parts.push(`${sign === -1 ? '-' : '+'
-            }
-
-                    ${val
-            }
-
-                    `);
+        pushPart(sign, val);
     }
 
     return {
         total,
-        text: parts.join(' ')
+        text: parts.join(' ').trim()
     }
 
         ;
@@ -1375,6 +1421,83 @@ function getMod(score) {
 
 function getPB(level) {
     return Math.ceil(level / 4) + 1;
+}
+
+function formatSignedNumber(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '--';
+    return `${num >= 0 ? '+' : ''}${num}`;
+}
+
+function getSpellcastingAbilityContext() {
+    const selected = spellcastingAttrOptions.includes(data?.meta?.spellAttr) ? data.meta.spellAttr : 'auto';
+    let ability = selected;
+    if (ability === 'auto') {
+        const mentalStats = ['int', 'wis', 'cha'];
+        ability = mentalStats.reduce((best, stat) => {
+            const bestScoreRaw = data?.stats?.[best]?.val;
+            const statScoreRaw = data?.stats?.[stat]?.val;
+            const bestScore = Number.isFinite(Number(bestScoreRaw)) ? Number(bestScoreRaw) : 10;
+            const statScore = Number.isFinite(Number(statScoreRaw)) ? Number(statScoreRaw) : 10;
+            return getMod(statScore) > getMod(bestScore) ? stat : best;
+        }, 'int');
+    }
+    if (!stats.includes(ability)) ability = 'int';
+    const scoreRaw = data?.stats?.[ability]?.val;
+    const score = Number.isFinite(Number(scoreRaw)) ? Number(scoreRaw) : 10;
+    const pb = getPB(data?.meta?.level || 1);
+    const mod = getMod(score);
+    return {
+        selected,
+        ability,
+        pb,
+        mod
+    };
+}
+
+function getSpellSaveDC() {
+    const context = getSpellcastingAbilityContext();
+    return 8 + context.pb + context.mod;
+}
+
+function getSpellAttackBonus() {
+    const context = getSpellcastingAbilityContext();
+    return context.pb + context.mod;
+}
+
+function updateSpellcastingDisplays() {
+    const context = getSpellcastingAbilityContext();
+    const dc = getSpellSaveDC();
+    const attackBonus = getSpellAttackBonus();
+    const abilityLabel = context.ability.toUpperCase();
+
+    const globalDcEl = document.getElementById('globalDC');
+    if (globalDcEl) {
+        globalDcEl.innerText = dc;
+        globalDcEl.title = `Spellcasting: ${abilityLabel}`;
+    }
+
+    const spellDcEl = document.getElementById('spellSheetDcValue');
+    if (spellDcEl) spellDcEl.innerText = dc;
+
+    const spellAtkEl = document.getElementById('spellSheetAtkValue');
+    if (spellAtkEl) spellAtkEl.innerText = formatSignedNumber(attackBonus);
+
+    const spellAttrEl = document.getElementById('spellSheetAttrValue');
+    if (spellAttrEl) spellAttrEl.innerText = abilityLabel;
+
+    const select = document.getElementById('spellCastingAttr');
+    if (select && spellcastingAttrOptions.includes(context.selected) && select.value !== context.selected) {
+        select.value = context.selected;
+    }
+}
+
+function updateSpellcastingAttr(value) {
+    if (!data.meta) data.meta = {};
+    data.meta.spellAttr = spellcastingAttrOptions.includes(value) ? value : 'auto';
+    updateSpellcastingDisplays();
+    save();
+    renderSpellbook();
 }
 
 function updateLevel(val) {
@@ -1414,15 +1537,8 @@ function updateAll() {
         document.getElementById(`skill-bonus-${s}`).innerText = (bonus >= 0 ? "+" : "") + bonus;
     });
 
-    const statsArr = ['int',
-        'wis',
-        'cha'];
-    let maxMod = -5;
-
-    statsArr.forEach(s => {
-        const m = getMod(data.stats[s].val); if (m > maxMod) maxMod = m;
-    });
-    document.getElementById('globalDC').innerText = 8 + pb + maxMod;
+    updateSpellcastingDisplays();
+    renderSpellbook();
 
     updateAC();
     if (data.vitals && data.vitals.hpAutoState && data.vitals.hpAutoState.enabled) updateHP();
@@ -1704,28 +1820,10 @@ function rollHitDie() {
     updateHP();
     save();
 
-    const formula = `[${rollVal
-        }
-
-            ] ${conMod >= 0 ? '+' : ''
-        }
-
-            ${conMod
-        }
-
-            (Con)`;
+    const formula = `[${rollVal}] ${conMod >= 0 ? '+' : ''}${conMod} (Con)`;
     showLog(formula, total);
 
-    sendToDiscord("Short Rest", `Used 1${dieStr
-        }
-
-                . Formula: ${formula
-        }
-
-                `, `**Healed ${hpCurr - oldHp
-    }
-
-                HP**`, 'check');
+    sendToDiscord("Short Rest", `Used 1${dieStr}. Formula: ${formula}`, `**Healed ${hpCurr - oldHp} HP**`, 'check');
 }
 
 function shortRest() {
@@ -1840,13 +1938,7 @@ function rollCustom() {
 
     showLog(parsed.text, parsed.total);
 
-    sendToDiscord(label + ": " + formula, `Dice: ${parsed.text
-        }
-
-                `, `**${parsed.total
-    }
-
-                **`, 'dmg');
+    sendToDiscord(`${label}: ${formula}`, `Dice: ${parsed.text}`, `**${parsed.total}**`, 'dmg');
 }
 
 function rollDamage(idx) {
@@ -1860,35 +1952,19 @@ function rollDamage(idx) {
 
     const miscStr = document.getElementById('globalMisc').value.trim();
     const dmgBonusStr = typeof atk.dmgBonus === 'string' ? atk.dmgBonus : '';
-    const dmgStr = `${atk.dmg || ""
-        } ${dmgBonusStr
-        } ${miscStr
-        }`.trim();
+    const dmgStr = `${atk.dmg || ''} ${dmgBonusStr} ${miscStr}`.trim();
     const parsed = parseComplexBonus(dmgStr);
     if (parsed.text === '') return;
     let total = parsed.total + mod;
     let formulaText = parsed.text;
 
     if (mod !== 0) {
-        formulaText += ` ${mod >= 0 ? '+' : ''
-            }
-
-                ${mod
-            }
-
-                (${dmgStat.toUpperCase()
-            })`;
+        formulaText += ` ${mod >= 0 ? '+' : ''}${mod} (${dmgStat.toUpperCase()})`;
     }
 
     showLog(formulaText, total);
 
-    sendToDiscord((atk.name || 'Weapon') + " Damage", `Dice: ${formulaText
-        }
-
-                `, `**${total
-    }
-
-                **`, 'dmg', atk.desc);
+    sendToDiscord(`${atk.name || 'Weapon'} Damage`, `Dice: ${formulaText}`, `**${total}**`, 'dmg', atk.desc);
 }
 
 function rollInitiative() {
@@ -1914,39 +1990,17 @@ function rollInitiative() {
     const total = result.total + dexMod + parsedInit.total + parsedMisc.total;
     const finalScore = (total + tieBreaker).toFixed(2);
 
-    let formulaText = `${result.formula
-        }
+    let formulaText = `${result.formula} ${dexMod >= 0 ? '+' : ''}${dexMod} (Dex)`;
 
-            ${dexMod >= 0 ? '+' : ''
-        }
+    if (parsedInit.total !== 0) formulaText += ` ${parsedInit.text} (Init)`;
 
-            ${dexMod
-        }
+    if (parsedMisc.total !== 0) formulaText += ` ${parsedMisc.text} (Misc)`;
 
-            (Dex)`;
-
-    if (parsedInit.total !== 0) formulaText += ` ${parsedInit.text
-        }
-
-            (Init)`;
-
-    if (parsedMisc.total !== 0) formulaText += ` ${parsedMisc.text
-        }
-
-            (Misc)`;
-
-    if (effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()
-        })`;
+    if (effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
 
     showLog(`Init`, finalScore);
 
-    sendToDiscord("Initiative", `Dice: ${formulaText
-        }
-
-                `, `**${finalScore
-    }
-
-                **`, 'check');
+    sendToDiscord("Initiative", `Dice: ${formulaText}`, `**${finalScore}**`, 'check');
     if (consumedInsp) consumeInspiration();
 }
 
@@ -1984,13 +2038,7 @@ function rollDeathSave() {
 
     showLog("Death Save", r, isCrit, isFail);
 
-    sendToDiscord("Death Save", `Rolled: ${r
-        }
-
-                `, `**${msg
-    }
-
-                **`, 'save');
+    sendToDiscord("Death Save", `Rolled: ${r}`, `**${msg}**`, 'save');
 }
 
 function updateDS(type) {
@@ -2179,6 +2227,157 @@ function renderSpells() {
                     </div> `;
         list.appendChild(div);
     });
+    renderSpellbook();
+}
+
+function spellLevelOptionsMarkup(selectedLevel = 1) {
+    let options = `<option value="0"${selectedLevel === 0 ? ' selected' : ''}>Cantrip</option>`;
+    for (let level = 1; level <= 9; level += 1) {
+        options += `<option value="${level}"${selectedLevel === level ? ' selected' : ''}>Level ${level}</option>`;
+    }
+    return options;
+}
+
+function spellSaveOptionsMarkup(selectedSave = 'none') {
+    const normalized = String(selectedSave || 'none').toLowerCase();
+    const safeSave = (normalized === 'none' || stats.includes(normalized)) ? normalized : 'none';
+    let options = `<option value="none"${safeSave === 'none' ? ' selected' : ''}>No Save (Attack/Effect)</option>`;
+    stats.forEach((stat) => {
+        options += `<option value="${stat}"${safeSave === stat ? ' selected' : ''}>${stat.toUpperCase()} Save</option>`;
+    });
+    return options;
+}
+
+function getSpellSlotSummary(level) {
+    if (level <= 0) return 'No slot needed';
+    const slot = Array.isArray(data.spells) ? data.spells[level - 1] : null;
+    if (!slot) return `Level ${level} slots unavailable`;
+    const max = Math.max(0, parseInt(slot.max, 10) || 0);
+    const used = Math.max(0, Math.min(max, parseInt(slot.used, 10) || 0));
+    const remaining = Math.max(0, max - used);
+    return `Level ${level} slots: ${remaining}/${max} ready`;
+}
+
+function renderSpellbook() {
+    const list = document.getElementById('spellbookList');
+    if (!list) return;
+    if (!Array.isArray(data.spellbook)) data.spellbook = [];
+
+    if (data.spellbook.length === 0) {
+        list.innerHTML = '<div class="spellbook-empty">No spells yet. Add one to enable quick casting.</div>';
+        return;
+    }
+
+    const dc = getSpellSaveDC();
+    const attackBonus = getSpellAttackBonus();
+
+    list.innerHTML = data.spellbook.map((entry, idx) => {
+        const spell = entry && typeof entry === 'object' ? entry : {};
+        const safeName = escapeHtml(spell.name || '');
+        const level = Math.max(0, Math.min(9, parseInt(spell.lvl, 10) || 0));
+        const saveAttrRaw = String(spell.save || 'none').toLowerCase();
+        const saveAttr = (saveAttrRaw === 'none' || stats.includes(saveAttrRaw)) ? saveAttrRaw : 'none';
+        const safeNotes = escapeHtml(spell.notes || '');
+        const castSummary = saveAttr === 'none'
+            ? `Spell Attack ${formatSignedNumber(attackBonus)}`
+            : `${saveAttr.toUpperCase()} Save DC ${dc}`;
+        const slotSummary = getSpellSlotSummary(level);
+        return `<div class="spellbook-row">
+            <div class="spellbook-main">
+                <input type="text" class="spellbook-name" placeholder="Spell Name" value="${safeName}" data-oninput="updateSpellbookEntry(${idx}, 'name', this.value)">
+                <select class="spellbook-level" data-onchange="updateSpellbookEntry(${idx}, 'lvl', this.value)">
+                    ${spellLevelOptionsMarkup(level)}
+                </select>
+                <select class="spellbook-save" data-onchange="updateSpellbookEntry(${idx}, 'save', this.value)">
+                    ${spellSaveOptionsMarkup(saveAttr)}
+                </select>
+                <button type="button" class="spellbook-cast-btn" data-onclick="castSpell(${idx})">Cast</button>
+                <button type="button" class="inventory-delete-btn" data-onclick="deleteSpellbookEntry(${idx})">&times;</button>
+            </div>
+            <div class="spellbook-meta">${escapeHtml(slotSummary)} | ${escapeHtml(castSummary)}</div>
+            <textarea class="spellbook-notes" placeholder="Notes / effect text" data-oninput="updateSpellbookEntry(${idx}, 'notes', this.value)">${safeNotes}</textarea>
+        </div>`;
+    }).join('');
+}
+
+function addSpellbookEntry() {
+    if (!Array.isArray(data.spellbook)) data.spellbook = [];
+    data.spellbook.push({
+        name: '',
+        lvl: 1,
+        save: 'none',
+        notes: ''
+    });
+    save();
+    renderSpellbook();
+}
+
+function updateSpellbookEntry(idx, field, value) {
+    if (!Array.isArray(data.spellbook) || !data.spellbook[idx]) return;
+    const spell = data.spellbook[idx];
+    if (field === 'name') {
+        spell.name = String(value || '').slice(0, 180);
+    } else if (field === 'lvl') {
+        spell.lvl = Math.max(0, Math.min(9, parseInt(value, 10) || 0));
+    } else if (field === 'save') {
+        const saveAttr = String(value || 'none').toLowerCase();
+        spell.save = (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none';
+    } else if (field === 'notes') {
+        spell.notes = String(value || '').slice(0, 5000);
+    } else {
+        return;
+    }
+
+    save();
+    if (field === 'lvl' || field === 'save') renderSpellbook();
+}
+
+function deleteSpellbookEntry(idx) {
+    if (!Array.isArray(data.spellbook)) return;
+    if (idx < 0 || idx >= data.spellbook.length) return;
+    data.spellbook.splice(idx, 1);
+    save();
+    renderSpellbook();
+}
+
+function castSpell(idx) {
+    if (!Array.isArray(data.spellbook) || !data.spellbook[idx]) return;
+    const spell = data.spellbook[idx];
+    const name = (spell.name || '').trim() || `Spell ${idx + 1}`;
+    const level = Math.max(0, Math.min(9, parseInt(spell.lvl, 10) || 0));
+    const saveAttrRaw = String(spell.save || 'none').toLowerCase();
+    const saveAttr = (saveAttrRaw === 'none' || stats.includes(saveAttrRaw)) ? saveAttrRaw : 'none';
+
+    const context = getSpellcastingAbilityContext();
+    const dc = getSpellSaveDC();
+    const attackBonus = getSpellAttackBonus();
+    const castSummary = saveAttr === 'none'
+        ? `Spell Attack ${formatSignedNumber(attackBonus)}`
+        : `${saveAttr.toUpperCase()} Save DC ${dc}`;
+
+    let slotSummary = 'No slot needed';
+    if (level > 0) {
+        const slot = Array.isArray(data.spells) ? data.spells[level - 1] : null;
+        if (slot) {
+            const max = Math.max(0, parseInt(slot.max, 10) || 0);
+            const used = Math.max(0, parseInt(slot.used, 10) || 0);
+            if (used < max) {
+                slot.used = used + 1;
+                slotSummary = `Slot ${level} spent (${slot.used}/${max} used)`;
+            } else {
+                slotSummary = `No level ${level} slots left`;
+            }
+        } else {
+            slotSummary = `Level ${level} slot tracker missing`;
+        }
+    }
+
+    save();
+    renderSpells();
+
+    showLog(`Cast: ${name}`, `${castSummary} | ${slotSummary}`);
+    const discordFormula = `Casting (${context.ability.toUpperCase()}): ${castSummary} | ${slotSummary}`;
+    sendToDiscord(`Cast ${name}`, discordFormula, `**${castSummary}**`, saveAttr === 'none' ? 'atk' : 'save', spell.notes || '');
 }
 
 function calcSpellSlots() {
@@ -3008,28 +3207,9 @@ function rollResRecharge(i) {
     save();
     renderResources();
 
-    showLog(`Recharge ${formula
-        }
+    showLog(`Recharge ${formula}`, total);
 
-                `, total);
-
-    sendToDiscord(`Recharge: ${res.name
-        }
-
-                `, `Rolled ${formula
-    }
-
-                : ${result.formula
-    }
-
-                ${modStr
-    }
-
-                `, `**+${total
-    }
-
-                ** (Curr: ${res.curr
-    })`, 'check');
+    sendToDiscord(`Recharge: ${res.name}`, `Rolled ${formula}: ${result.formula} ${modStr}`, `**+${total}** (Curr: ${res.curr})`, 'check');
 }
 
 function toggleDiscord(active) {
@@ -3056,7 +3236,13 @@ function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '
 
     else {
         const baseText = `**Result:** ${result}\n${formulaStr}`;
-        descText = customDesc ? `*${customDesc}*\n\n${baseText}` : baseText;
+        const note = typeof customDesc === 'string' ? customDesc : '';
+        const normalizedNote = note
+            .replace(/\r\n/g, '\n')
+            .replace(/^\*\s*$/gm, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+        descText = normalizedNote ? `${normalizedNote}\n\n${baseText}` : baseText;
     }
 
     const isDeathSave = (label === "Death Save");

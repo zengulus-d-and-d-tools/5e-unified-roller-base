@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e1e1e">
 
     <link rel="stylesheet" href="css/theme.css">
-    <link rel="stylesheet" href="css/index.css?v=20260210a">
+    <link rel="stylesheet" href="css/index.css?v=20260222a">
 
 </head>
 
@@ -42,7 +42,7 @@
         </div>
 
         <div class="hero-actions roller-actions">
-            <button class="hero-btn ghost" id="btnFlipSheet" data-onclick="toggleSheetFlip()" title="Flip Sheet"
+            <button class="hero-btn ghost" id="btnFlipSheet" data-onclick="toggleSheetFlip()" title="Rotate Sheet"
                 aria-pressed="false">🔁</button>
             <a href="tools.html" class="hero-btn ghost">Portal</a>
             <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨</button>
@@ -53,7 +53,7 @@
             data-onchange="setAccentColor(this.value)" class="ix-inl-001">
     </header>
     <div class="scene" id="sheetScene">
-        <div class="sheet-flipper" id="sheetFlipper">
+        <div class="sheet-flipper view-front" id="sheetFlipper">
             <div class="face front">
                 <div class="sheet-container">
                     <!-- START CREATE BUTTON --><button data-onclick="openCharCreator()" class="ix-inl-002">✨
@@ -372,6 +372,53 @@
                                 <button type="button" data-onclick="handleLooseItemAdd()">Add</button>
                             </div>
                         </aside>
+                    </div>
+                </div>
+            </div>
+            <div class="face spellbook">
+                <div class="spell-sheet">
+                    <div class="spell-sheet-header">
+                        <div>
+                            <p class="inventory-eyebrow">Back of Sheet</p>
+                            <h2>Spellbook & Casting</h2>
+                        </div>
+                        <div class="spell-sheet-tools">
+                            <button class="inventory-create-btn spell-import-btn" type="button"
+                                data-onclick="Importer.triggerImport()">📂 Import PDF</button>
+                            <button class="inventory-create-btn" type="button" data-onclick="addSpellbookEntry()">+ Add
+                                Spell</button>
+                        </div>
+                    </div>
+                    <div class="spell-sheet-grid">
+                        <div class="spell-sheet-casting">
+                            <div class="field-group">
+                                <label>Spellcasting Attribute</label>
+                                <select id="spellCastingAttr" data-onchange="updateSpellcastingAttr(this.value)">
+                                    <option value="auto">Auto (Best Mental)</option>
+                                    <option value="str">Strength</option>
+                                    <option value="dex">Dexterity</option>
+                                    <option value="con">Constitution</option>
+                                    <option value="int">Intelligence</option>
+                                    <option value="wis">Wisdom</option>
+                                    <option value="cha">Charisma</option>
+                                </select>
+                            </div>
+                            <div class="spell-sheet-metrics">
+                                <div class="spell-metric">
+                                    <span>Spell DC</span>
+                                    <strong id="spellSheetDcValue">--</strong>
+                                </div>
+                                <div class="spell-metric">
+                                    <span>Spell Attack</span>
+                                    <strong id="spellSheetAtkValue">--</strong>
+                                </div>
+                                <div class="spell-metric">
+                                    <span>Using</span>
+                                    <strong id="spellSheetAttrValue">--</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="spell-sheet-list" id="spellbookList"></div>
                     </div>
                 </div>
             </div>
