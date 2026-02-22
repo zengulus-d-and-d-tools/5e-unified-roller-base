@@ -77,8 +77,8 @@ function getCampaign() {
     return window.RTF_STORE.state.campaign;
 }
 
-function save() {
-    if (window.RTF_STORE) window.RTF_STORE.save({ scope: 'campaign' });
+function save(scope = 'campaign') {
+    if (window.RTF_STORE) window.RTF_STORE.save({ scope });
     render();
 }
 
@@ -107,7 +107,7 @@ function saveCase() {
     c.clock = document.getElementById('caseClock').value;
     c.obstacles = document.getElementById('caseObstacles').value;
     c.setPiece = document.getElementById('caseSetPiece').value;
-    save();
+    save('campaign.case');
 }
 
 function resetAll() {
@@ -125,14 +125,14 @@ function modRep(g, amt) {
     const key = String(g || '');
     if (key === '__proto__' || key === 'prototype' || key === 'constructor') return;
     rep[key] = Math.max(-2, Math.min(2, (Number(rep[key]) || 0) + amt));
-    save();
+    save('campaign.rep');
 }
 
 function modHeat(amt) {
     const c = getCampaign();
     if (!c) return;
     c.heat = Math.max(0, Math.min(6, (c.heat || 0) + amt));
-    save();
+    save('campaign.heat');
 }
 
 // --- PLAYER LOGIC ---
@@ -151,7 +151,7 @@ function addPlayer() {
         pp: 10,
         dc: 10
     });
-    save();
+    save('campaign.players');
 }
 
 function modDP(idx, amt) {
@@ -160,7 +160,7 @@ function modDP(idx, amt) {
     const p = campaign.players[idx];
     if (!p) return;
     p.dp = Math.max(0, Math.min(4, (Number(p.dp) || 0) + amt));
-    save();
+    save('campaign.players');
 }
 
 function grantWeeklyDP() {
@@ -170,7 +170,7 @@ function grantWeeklyDP() {
         if (!p) return;
         p.dp = Math.max(0, Math.min(4, (Number(p.dp) || 0) + 2));
     });
-    save();
+    save('campaign.players');
 }
 
 function modClock(idx, amt) {
@@ -179,7 +179,7 @@ function modClock(idx, amt) {
     const p = campaign.players[idx];
     if (!p) return;
     p.projectClock = Math.max(0, Math.min(4, (Number(p.projectClock) || 0) + amt));
-    save();
+    save('campaign.players');
 }
 
 function deletePlayer(idx) {
@@ -187,7 +187,7 @@ function deletePlayer(idx) {
     const campaign = getCampaign();
     if (!campaign || !Array.isArray(campaign.players)) return;
     campaign.players.splice(idx, 1);
-    save();
+    save('campaign.players');
 }
 
 function renderClockPie(value, total = 4, extraClass = '') {
@@ -214,7 +214,7 @@ function updatePlayer(idx, field, val) {
     if (!campaign.players[idx]) return;
     if (!['name', 'projectName', 'projectReward'].includes(field)) return;
     campaign.players[idx][field] = val;
-    save();
+    save('campaign.players');
 }
 
 

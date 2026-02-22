@@ -4,6 +4,10 @@ Optional cloud sync for the shared campaign stack (`hub`, `board`, `roster`, `lo
 
 The Character Sheet (`index.html`) is intentionally separate and remains local per browser by default.
 
+For higher-concurrency deployments, see the hybrid normalized model:
+- `docs/SupabaseSyncNormalized.md`
+- `docs/SupabaseSyncNormalized.sql`
+
 ## 1. Create Table
 
 Run this in Supabase SQL Editor:

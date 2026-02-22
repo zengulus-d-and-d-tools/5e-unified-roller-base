@@ -88,6 +88,9 @@
     const DEFAULT_CASE_NAME = 'Primary Case';
     const SYNC_SCOPE_GLOBAL = 'state';
     const SYNC_SCOPE_CASES_META = 'cases.meta';
+    const SYNC_BACKEND_LEGACY = 'legacy';
+    const SYNC_BACKEND_LEGACY_MIRROR = 'legacy_mirror';
+    const SYNC_BACKEND_NORMALIZED = 'normalized';
 
     const DEFAULT_STATE = {
         meta: { version: 1, created: Date.now(), updated: 0, syncRevision: 0, scopeUpdated: {} },
@@ -124,8 +127,19 @@
         anonKey: '',
         campaignId: '',
         profileName: '',
+        backendMode: SYNC_BACKEND_LEGACY,
         schema: 'public',
         tableName: 'rtf_campaign_state',
+        normalizedCoreTable: 'rtf_campaign_core',
+        normalizedHQTable: 'rtf_campaign_hq',
+        normalizedCaseStateTable: 'rtf_case_state',
+        normalizedCaseBoardsTable: 'rtf_case_boards',
+        normalizedCaseEventsTable: 'rtf_case_events',
+        normalizedPlayersTable: 'rtf_campaign_players',
+        normalizedNPCsTable: 'rtf_campaign_npcs',
+        normalizedLocationsTable: 'rtf_campaign_locations',
+        normalizedRequisitionsTable: 'rtf_campaign_requisitions',
+        normalizedEncountersTable: 'rtf_campaign_encounters',
         syncDelayMs: 900,
         reconcileIntervalMs: 20000,
         presenceHeartbeatMs: 8000,
@@ -799,6 +813,15 @@
         }
     };
 
+    const sanitizeSyncBackendMode = (value) => {
+        const raw = typeof value === 'string' ? value.trim().toLowerCase() : '';
+        if (raw === SYNC_BACKEND_NORMALIZED || raw === 'norm' || raw === 'normalized-only') return SYNC_BACKEND_NORMALIZED;
+        if (raw === SYNC_BACKEND_LEGACY_MIRROR || raw === 'legacy+mirror' || raw === 'legacy-mirror' || raw === 'mirror' || raw === 'dualwrite') {
+            return SYNC_BACKEND_LEGACY_MIRROR;
+        }
+        return SYNC_BACKEND_LEGACY;
+    };
+
     const sanitizeSyncConfig = (config) => {
         const source = config && typeof config === 'object' ? config : {};
         return {
@@ -808,8 +831,19 @@
             anonKey: typeof source.anonKey === 'string' ? source.anonKey.trim() : '',
             campaignId: sanitizeCampaignId(source.campaignId),
             profileName: sanitizeProfileName(source.profileName),
+            backendMode: sanitizeSyncBackendMode(source.backendMode),
             schema: sanitizeIdentifier(source.schema, DEFAULT_SYNC_CONFIG.schema),
             tableName: sanitizeIdentifier(source.tableName, DEFAULT_SYNC_CONFIG.tableName),
+            normalizedCoreTable: sanitizeIdentifier(source.normalizedCoreTable, DEFAULT_SYNC_CONFIG.normalizedCoreTable),
+            normalizedHQTable: sanitizeIdentifier(source.normalizedHQTable, DEFAULT_SYNC_CONFIG.normalizedHQTable),
+            normalizedCaseStateTable: sanitizeIdentifier(source.normalizedCaseStateTable, DEFAULT_SYNC_CONFIG.normalizedCaseStateTable),
+            normalizedCaseBoardsTable: sanitizeIdentifier(source.normalizedCaseBoardsTable, DEFAULT_SYNC_CONFIG.normalizedCaseBoardsTable),
+            normalizedCaseEventsTable: sanitizeIdentifier(source.normalizedCaseEventsTable, DEFAULT_SYNC_CONFIG.normalizedCaseEventsTable),
+            normalizedPlayersTable: sanitizeIdentifier(source.normalizedPlayersTable, DEFAULT_SYNC_CONFIG.normalizedPlayersTable),
+            normalizedNPCsTable: sanitizeIdentifier(source.normalizedNPCsTable, DEFAULT_SYNC_CONFIG.normalizedNPCsTable),
+            normalizedLocationsTable: sanitizeIdentifier(source.normalizedLocationsTable, DEFAULT_SYNC_CONFIG.normalizedLocationsTable),
+            normalizedRequisitionsTable: sanitizeIdentifier(source.normalizedRequisitionsTable, DEFAULT_SYNC_CONFIG.normalizedRequisitionsTable),
+            normalizedEncountersTable: sanitizeIdentifier(source.normalizedEncountersTable, DEFAULT_SYNC_CONFIG.normalizedEncountersTable),
             syncDelayMs: Math.max(250, toNonNegativeInt(source.syncDelayMs, DEFAULT_SYNC_CONFIG.syncDelayMs) || DEFAULT_SYNC_CONFIG.syncDelayMs),
             reconcileIntervalMs: Math.max(5000, toNonNegativeInt(source.reconcileIntervalMs, DEFAULT_SYNC_CONFIG.reconcileIntervalMs) || DEFAULT_SYNC_CONFIG.reconcileIntervalMs),
             presenceHeartbeatMs: Math.max(3000, toNonNegativeInt(source.presenceHeartbeatMs, DEFAULT_SYNC_CONFIG.presenceHeartbeatMs) || DEFAULT_SYNC_CONFIG.presenceHeartbeatMs),
@@ -839,6 +873,7 @@
                 presenceTrackingInFlight: false,
                 pushInFlight: false,
                 pushQueued: false,
+                normalizedPullTimer: null,
                 lastRemoteSeenAt: 0,
                 lastPushAt: 0,
                 lastPullAt: 0,
@@ -864,6 +899,7 @@
                 connected: false,
                 campaignId: this.sync.config.campaignId,
                 profileName: this.sync.config.profileName,
+                backendMode: this.sync.config.backendMode,
                 userId: '',
                 pendingPush: false,
                 lastPushAt: null,
@@ -1276,7 +1312,8 @@
             this.updateSyncStatus({
                 enabled: next.enabled,
                 campaignId: next.campaignId,
-                profileName: next.profileName
+                profileName: next.profileName,
+                backendMode: next.backendMode
             });
             if (this.syncStatus.connected) this.startReconcileLoop();
 
@@ -1316,6 +1353,7 @@
                 connected: false,
                 campaignId: '',
                 profileName: '',
+                backendMode: this.sync.config.backendMode,
                 message: 'Cloud sync is disabled.'
             });
 
@@ -1556,12 +1594,366 @@
             }
         }
 
+        isNormalizedReadMode() {
+            return this.sync.config.backendMode === SYNC_BACKEND_NORMALIZED;
+        }
+
+        isNormalizedMirrorMode() {
+            return this.sync.config.backendMode === SYNC_BACKEND_LEGACY_MIRROR;
+        }
+
+        getNormalizedTables() {
+            const cfg = this.sync.config;
+            return {
+                core: cfg.normalizedCoreTable,
+                hq: cfg.normalizedHQTable,
+                caseState: cfg.normalizedCaseStateTable,
+                caseBoards: cfg.normalizedCaseBoardsTable,
+                caseEvents: cfg.normalizedCaseEventsTable,
+                players: cfg.normalizedPlayersTable,
+                npcs: cfg.normalizedNPCsTable,
+                locations: cfg.normalizedLocationsTable,
+                requisitions: cfg.normalizedRequisitionsTable,
+                encounters: cfg.normalizedEncountersTable
+            };
+        }
+
+        getRealtimeTableTargets() {
+            if (this.isNormalizedReadMode()) {
+                const tables = Object.values(this.getNormalizedTables());
+                return Array.from(new Set(tables.filter(Boolean)));
+            }
+            return [this.sync.config.tableName];
+        }
+
+        clearNormalizedRealtimePull() {
+            if (this.sync.normalizedPullTimer) {
+                clearTimeout(this.sync.normalizedPullTimer);
+                this.sync.normalizedPullTimer = null;
+            }
+        }
+
+        scheduleNormalizedRealtimePull() {
+            if (!this.isNormalizedReadMode()) return;
+            this.clearNormalizedRealtimePull();
+            this.sync.normalizedPullTimer = setTimeout(() => {
+                this.sync.normalizedPullTimer = null;
+                if (!this.syncStatus.connected) return;
+                this.pullFromCloud({ force: false, silent: true }).catch(() => { });
+            }, 350);
+        }
+
+        async fetchNormalizedSingle(tableName) {
+            const result = await this.sync.client
+                .from(tableName)
+                .select('payload,revision,updated_at,updated_by,updated_by_name')
+                .eq('campaign_id', this.sync.config.campaignId)
+                .maybeSingle();
+            if (result.error) {
+                const code = result.error.code || '';
+                if (code === 'PGRST116') return { ok: true, data: null };
+                return {
+                    ok: false,
+                    error: result.error.message || `Cloud read failed for ${tableName}.`
+                };
+            }
+            return { ok: true, data: result.data || null };
+        }
+
+        async fetchNormalizedList(tableName, selectCols, order = null) {
+            let query = this.sync.client
+                .from(tableName)
+                .select(selectCols)
+                .eq('campaign_id', this.sync.config.campaignId);
+            if (order && order.column) {
+                query = query.order(order.column, { ascending: order.ascending !== false });
+            }
+            const result = await query;
+            if (result.error) {
+                return {
+                    ok: false,
+                    error: result.error.message || `Cloud read failed for ${tableName}.`
+                };
+            }
+            return { ok: true, data: Array.isArray(result.data) ? result.data : [] };
+        }
+
+        extractRowMeta(rows) {
+            const list = Array.isArray(rows) ? rows : [rows];
+            const out = [];
+            list.forEach((row) => {
+                if (!row || typeof row !== 'object') return;
+                out.push({
+                    revision: toNonNegativeInt(row.revision, 0),
+                    updatedAt: toTimestamp(row.updated_at, 0),
+                    updatedAtRaw: typeof row.updated_at === 'string' ? row.updated_at : '',
+                    updatedBy: toTrimmedString(row.updated_by, '', 120),
+                    updatedByName: toTrimmedString(row.updated_by_name, '', 120)
+                });
+            });
+            return out;
+        }
+
+        ensureEntityId(payload, fallbackId, key) {
+            const source = payload && typeof payload === 'object' ? payload : {};
+            const out = { ...source };
+            const nextId = toTrimmedString(source[key] || fallbackId, fallbackId, 80);
+            out[key] = nextId;
+            return out;
+        }
+
+        composeNormalizedState(snapshot) {
+            const base = sanitizeState(null);
+            const source = snapshot && typeof snapshot === 'object' ? snapshot : {};
+            const core = source.core || null;
+            const hq = source.hq || null;
+            const caseStateRows = Array.isArray(source.caseStateRows) ? source.caseStateRows : [];
+            const boardRows = Array.isArray(source.boardRows) ? source.boardRows : [];
+            const eventRows = Array.isArray(source.eventRows) ? source.eventRows : [];
+            const playerRows = Array.isArray(source.playerRows) ? source.playerRows : [];
+            const npcRows = Array.isArray(source.npcRows) ? source.npcRows : [];
+            const locationRows = Array.isArray(source.locationRows) ? source.locationRows : [];
+            const requisitionRows = Array.isArray(source.requisitionRows) ? source.requisitionRows : [];
+            const encounterRows = Array.isArray(source.encounterRows) ? source.encounterRows : [];
+
+            if (core && core.payload && typeof core.payload === 'object') {
+                const payload = core.payload;
+                if (Object.prototype.hasOwnProperty.call(payload, 'rep')) base.campaign.rep = sanitizeRep(payload.rep);
+                if (Object.prototype.hasOwnProperty.call(payload, 'heat')) base.campaign.heat = toNumber(payload.heat, 0);
+                if (Object.prototype.hasOwnProperty.call(payload, 'case')) base.campaign.case = sanitizeCase(payload.case);
+            }
+
+            if (hq && hq.payload && typeof hq.payload === 'object') {
+                base.hq = sanitizeHQ(hq.payload);
+            }
+
+            base.campaign.players = playerRows.map((row) =>
+                this.ensureEntityId(row && row.payload, toTrimmedString(row && row.player_id, buildEntityId('player'), 80), 'id')
+            );
+            base.campaign.npcs = npcRows.map((row) =>
+                this.ensureEntityId(row && row.payload, toTrimmedString(row && row.npc_id, buildEntityId('npc'), 80), 'id')
+            );
+            base.campaign.locations = locationRows.map((row) =>
+                this.ensureEntityId(row && row.payload, toTrimmedString(row && row.location_id, buildEntityId('loc'), 80), 'id')
+            );
+            base.campaign.requisitions = requisitionRows.map((row) =>
+                this.ensureEntityId(row && row.payload, toTrimmedString(row && row.requisition_id, buildEntityId('req'), 80), 'id')
+            );
+            base.campaign.encounters = encounterRows.map((row) =>
+                this.ensureEntityId(row && row.payload, toTrimmedString(row && row.encounter_id, buildEntityId('enc'), 80), 'id')
+            );
+
+            const caseOrder = [];
+            const caseMap = new Map();
+            caseStateRows.forEach((row) => {
+                const caseId = sanitizeCaseId(row && row.case_id, 'case_primary');
+                const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
+                const caseName = sanitizeCaseName(row && row.case_name ? row.case_name : payload.name, DEFAULT_CASE_NAME);
+                caseOrder.push(caseId);
+                caseMap.set(caseId, {
+                    id: caseId,
+                    name: caseName,
+                    board: sanitizeBoard({ name: caseName }),
+                    events: []
+                });
+            });
+
+            boardRows.forEach((row) => {
+                const caseId = sanitizeCaseId(row && row.case_id, 'case_primary');
+                if (!caseMap.has(caseId)) {
+                    caseMap.set(caseId, {
+                        id: caseId,
+                        name: DEFAULT_CASE_NAME,
+                        board: sanitizeBoard(null),
+                        events: []
+                    });
+                    caseOrder.push(caseId);
+                }
+                const entry = caseMap.get(caseId);
+                entry.board = sanitizeBoard(row && row.payload ? row.payload : null);
+                if (!entry.board.name) entry.board.name = entry.name || DEFAULT_CASE_NAME;
+            });
+
+            const eventBuckets = new Map();
+            eventRows.forEach((row) => {
+                const caseId = sanitizeCaseId(row && row.case_id, 'case_primary');
+                const payload = row && row.payload && typeof row.payload === 'object' ? row.payload : {};
+                const normalized = {
+                    ...payload,
+                    id: toTrimmedString(payload.id || (row && row.event_id), buildEntityId('event'), 80),
+                    caseId
+                };
+                if (!eventBuckets.has(caseId)) eventBuckets.set(caseId, []);
+                eventBuckets.get(caseId).push(normalized);
+            });
+
+            eventBuckets.forEach((events, caseId) => {
+                if (!caseMap.has(caseId)) {
+                    caseMap.set(caseId, {
+                        id: caseId,
+                        name: DEFAULT_CASE_NAME,
+                        board: sanitizeBoard(null),
+                        events: []
+                    });
+                    caseOrder.push(caseId);
+                }
+                const entry = caseMap.get(caseId);
+                entry.events = sanitizeEventList(events);
+            });
+
+            let activeCaseId = '';
+            caseStateRows.some((row) => {
+                if (row && row.is_active) {
+                    activeCaseId = sanitizeCaseId(row.case_id, '');
+                    return true;
+                }
+                return false;
+            });
+
+            const orderedItems = [];
+            const seen = new Set();
+            caseOrder.forEach((id) => {
+                if (!caseMap.has(id) || seen.has(id)) return;
+                orderedItems.push(caseMap.get(id));
+                seen.add(id);
+            });
+            caseMap.forEach((entry, id) => {
+                if (seen.has(id)) return;
+                orderedItems.push(entry);
+            });
+
+            const cases = sanitizeCases({
+                activeCaseId: activeCaseId || (orderedItems[0] && orderedItems[0].id) || 'case_primary',
+                items: orderedItems
+            }, base.campaign, base.board);
+            base.cases = cases;
+            const active = cases.items.find((entry) => entry.id === cases.activeCaseId) || cases.items[0];
+            base.board = active ? active.board : sanitizeBoard(null);
+            base.campaign.events = active ? active.events : [];
+
+            return sanitizeState(base);
+        }
+
+        async fetchCloudRowNormalized(options = {}) {
+            const opts = options && typeof options === 'object' ? options : {};
+            const silent = !!opts.silent;
+            const tables = this.getNormalizedTables();
+
+            const tasks = await Promise.all([
+                this.fetchNormalizedSingle(tables.core),
+                this.fetchNormalizedSingle(tables.hq),
+                this.fetchNormalizedList(tables.caseState, 'case_id,case_name,is_active,sort_order,payload,revision,updated_at,updated_by,updated_by_name', { column: 'sort_order', ascending: true }),
+                this.fetchNormalizedList(tables.caseBoards, 'case_id,payload,revision,updated_at,updated_by,updated_by_name'),
+                this.fetchNormalizedList(tables.caseEvents, 'case_id,event_id,payload,revision,updated_at,updated_by,updated_by_name'),
+                this.fetchNormalizedList(tables.players, 'player_id,payload,revision,updated_at,updated_by,updated_by_name'),
+                this.fetchNormalizedList(tables.npcs, 'npc_id,payload,revision,updated_at,updated_by,updated_by_name'),
+                this.fetchNormalizedList(tables.locations, 'location_id,payload,revision,updated_at,updated_by,updated_by_name'),
+                this.fetchNormalizedList(tables.requisitions, 'requisition_id,payload,revision,updated_at,updated_by,updated_by_name'),
+                this.fetchNormalizedList(tables.encounters, 'encounter_id,payload,revision,updated_at,updated_by,updated_by_name')
+            ]);
+
+            const failing = tasks.find((entry) => !entry.ok);
+            if (failing) {
+                if (!silent) {
+                    this.updateSyncStatus({
+                        mode: 'error',
+                        message: 'Cloud read failed.',
+                        lastError: failing.error || 'Normalized read failed.'
+                    });
+                }
+                return {
+                    ok: false,
+                    reason: 'error',
+                    error: failing.error || 'Normalized read failed.'
+                };
+            }
+
+            const [coreRes, hqRes, caseStateRes, boardsRes, eventsRes, playersRes, npcsRes, locationsRes, requisitionsRes, encountersRes] = tasks;
+            const rowCount =
+                (coreRes.data ? 1 : 0)
+                + (hqRes.data ? 1 : 0)
+                + caseStateRes.data.length
+                + boardsRes.data.length
+                + eventsRes.data.length
+                + playersRes.data.length
+                + npcsRes.data.length
+                + locationsRes.data.length
+                + requisitionsRes.data.length
+                + encountersRes.data.length;
+
+            if (!rowCount) {
+                return { ok: true, reason: 'empty', row: null };
+            }
+
+            const assembledState = this.composeNormalizedState({
+                core: coreRes.data,
+                hq: hqRes.data,
+                caseStateRows: caseStateRes.data,
+                boardRows: boardsRes.data,
+                eventRows: eventsRes.data,
+                playerRows: playersRes.data,
+                npcRows: npcsRes.data,
+                locationRows: locationsRes.data,
+                requisitionRows: requisitionsRes.data,
+                encounterRows: encountersRes.data
+            });
+
+            const metaRows = [
+                ...this.extractRowMeta(coreRes.data),
+                ...this.extractRowMeta(hqRes.data),
+                ...this.extractRowMeta(caseStateRes.data),
+                ...this.extractRowMeta(boardsRes.data),
+                ...this.extractRowMeta(eventsRes.data),
+                ...this.extractRowMeta(playersRes.data),
+                ...this.extractRowMeta(npcsRes.data),
+                ...this.extractRowMeta(locationsRes.data),
+                ...this.extractRowMeta(requisitionsRes.data),
+                ...this.extractRowMeta(encountersRes.data)
+            ];
+
+            let remoteRevision = 0;
+            let remoteUpdatedAt = 0;
+            let remoteUpdatedAtRaw = '';
+            let remoteUpdatedBy = '';
+            let remoteUpdatedByName = '';
+            metaRows.forEach((meta) => {
+                if (!meta) return;
+                if (meta.revision > remoteRevision) remoteRevision = meta.revision;
+                if (meta.updatedAt >= remoteUpdatedAt) {
+                    remoteUpdatedAt = meta.updatedAt;
+                    remoteUpdatedAtRaw = meta.updatedAtRaw;
+                    remoteUpdatedBy = meta.updatedBy;
+                    remoteUpdatedByName = meta.updatedByName;
+                }
+            });
+
+            assembledState.meta.updated = remoteUpdatedAt || assembledState.meta.updated;
+            assembledState.meta.syncRevision = remoteRevision || assembledState.meta.syncRevision;
+
+            return {
+                ok: true,
+                reason: 'row',
+                row: {
+                    state: sanitizeState(assembledState),
+                    revision: toNonNegativeInt(assembledState.meta.syncRevision, remoteRevision),
+                    updatedAt: toTimestamp(assembledState.meta.updated, remoteUpdatedAt),
+                    updatedAtRaw: remoteUpdatedAtRaw,
+                    updatedBy: remoteUpdatedBy,
+                    updatedByName: remoteUpdatedByName
+                }
+            };
+        }
+
         async fetchCloudRow(options = {}) {
             const opts = options && typeof options === 'object' ? options : {};
             const silent = !!opts.silent;
 
             if (!this.sync.client || !this.syncStatus.connected) {
                 return { ok: false, reason: 'not-connected' };
+            }
+
+            if (this.isNormalizedReadMode()) {
+                return this.fetchCloudRowNormalized(opts);
             }
 
             const config = this.sync.config;
@@ -1899,6 +2291,7 @@
         async disconnectSync(reason = 'manual') {
             this.cancelCloudPush();
             this.stopReconcileLoop();
+            this.clearNormalizedRealtimePull();
 
             if (this.sync.channel && this.sync.client) {
                 try {
@@ -2036,14 +2429,16 @@
             const channelName = `rtf-sync-${config.campaignId}-${this.sync.instanceId}`;
             const filter = `campaign_id=eq.${config.campaignId}`;
             const channel = this.sync.client.channel(channelName);
-
-            channel.on('postgres_changes', {
-                event: '*',
-                schema: config.schema,
-                table: config.tableName,
-                filter
-            }, (payload) => {
-                this.handleRealtimePayload(payload);
+            const realtimeTables = this.getRealtimeTableTargets();
+            realtimeTables.forEach((tableName) => {
+                channel.on('postgres_changes', {
+                    event: '*',
+                    schema: config.schema,
+                    table: tableName,
+                    filter
+                }, (payload) => {
+                    this.handleRealtimePayload(payload);
+                });
             });
 
             channel.on('presence', { event: 'sync' }, () => {
@@ -2085,7 +2480,15 @@
 
         handleRealtimePayload(payload) {
             const row = payload && payload.new ? payload.new : null;
-            if (!row || !row.state) return;
+            if (!row) return;
+
+            if (this.isNormalizedReadMode()) {
+                const updatedByNormalized = row.updated_by || '';
+                if (updatedByNormalized && updatedByNormalized === this.sync.instanceId) return;
+                this.scheduleNormalizedRealtimePull();
+                return;
+            }
+            if (!row.state) return;
 
             const updatedAt = toTimestamp(row.updated_at, Date.now());
             const updatedBy = row.updated_by || '';
@@ -2160,6 +2563,561 @@
                 this.sync.pushTimer = null;
             }
             this.updateSyncStatus({ pendingPush: false });
+        }
+
+        buildNormalizedScopePlan(scopes, state) {
+            const cleanState = sanitizeState(state);
+            const scopeList = normalizeScopeList(scopes);
+            const caseIds = Array.isArray(cleanState.cases && cleanState.cases.items)
+                ? cleanState.cases.items.map((entry) => entry && entry.id).filter(Boolean)
+                : [];
+            const writeAll = scopeList.some((scope) => scope === SYNC_SCOPE_GLOBAL);
+
+            const plan = {
+                writeCore: writeAll,
+                writeHQ: writeAll,
+                writePlayers: writeAll,
+                writeNPCs: writeAll,
+                writeLocations: writeAll,
+                writeRequisitions: writeAll,
+                writeEncounters: writeAll,
+                writeCaseState: writeAll,
+                writeAllCaseBoards: writeAll,
+                writeAllCaseEvents: writeAll,
+                caseBoards: new Set(),
+                caseEvents: new Set()
+            };
+
+            const markCampaignAll = () => {
+                plan.writeCore = true;
+                plan.writePlayers = true;
+                plan.writeNPCs = true;
+                plan.writeLocations = true;
+                plan.writeRequisitions = true;
+                plan.writeEncounters = true;
+            };
+
+            scopeList.forEach((scope) => {
+                if (scope === SYNC_SCOPE_GLOBAL) return;
+                if (scope === 'campaign' || scope.startsWith('campaign.')) {
+                    if (scope === 'campaign') {
+                        markCampaignAll();
+                        return;
+                    }
+                    if (scope === 'campaign.heat' || scope === 'campaign.rep' || scope === 'campaign.case') plan.writeCore = true;
+                    if (scope === 'campaign.players') plan.writePlayers = true;
+                    if (scope === 'campaign.npcs') plan.writeNPCs = true;
+                    if (scope === 'campaign.locations') plan.writeLocations = true;
+                    if (scope === 'campaign.requisitions') plan.writeRequisitions = true;
+                    if (scope === 'campaign.encounters') plan.writeEncounters = true;
+                    return;
+                }
+                if (scope === 'hq') {
+                    plan.writeHQ = true;
+                    return;
+                }
+                if (scope === 'cases' || scope === SYNC_SCOPE_CASES_META) {
+                    plan.writeCaseState = true;
+                    return;
+                }
+                const caseFieldMatch = scope.match(/^cases\.([a-z0-9_-]+)\.(board|events|name)$/);
+                if (caseFieldMatch) {
+                    const caseId = sanitizeCaseId(caseFieldMatch[1], 'case_primary');
+                    const field = caseFieldMatch[2];
+                    if (field === 'board') plan.caseBoards.add(caseId);
+                    if (field === 'events') plan.caseEvents.add(caseId);
+                    if (field === 'name') plan.writeCaseState = true;
+                    return;
+                }
+                const caseWholeMatch = scope.match(/^cases\.([a-z0-9_-]+)$/);
+                if (caseWholeMatch) {
+                    const caseId = sanitizeCaseId(caseWholeMatch[1], 'case_primary');
+                    plan.writeCaseState = true;
+                    plan.caseBoards.add(caseId);
+                    plan.caseEvents.add(caseId);
+                }
+            });
+
+            if (plan.writeAllCaseBoards) {
+                caseIds.forEach((id) => plan.caseBoards.add(id));
+            }
+            if (plan.writeAllCaseEvents) {
+                caseIds.forEach((id) => plan.caseEvents.add(id));
+            }
+            if (plan.writeCaseState) {
+                caseIds.forEach((id) => {
+                    if (!plan.writeAllCaseBoards && scopeList.some((scope) => scope === 'cases' || scope === SYNC_SCOPE_CASES_META)) {
+                        // cases.meta affects active case/order/name only; board/event payload stays scoped separately.
+                        return;
+                    }
+                    if (plan.writeAllCaseBoards) plan.caseBoards.add(id);
+                    if (plan.writeAllCaseEvents) plan.caseEvents.add(id);
+                });
+            }
+
+            return plan;
+        }
+
+        buildNormalizedWriteMeta(state, meta = {}) {
+            const updatedAt = toTimestamp(meta.updatedAt, toTimestamp(state && state.meta && state.meta.updated, Date.now()));
+            return {
+                revision: toNonNegativeInt(state && state.meta && state.meta.syncRevision, 0),
+                updated_at: new Date(updatedAt || Date.now()).toISOString(),
+                updated_by: toTrimmedString(meta.updatedBy, this.sync.instanceId, 120),
+                updated_by_user: Object.prototype.hasOwnProperty.call(meta, 'updatedByUser') ? (meta.updatedByUser || null) : (this.sync.userId || null),
+                updated_by_name: Object.prototype.hasOwnProperty.call(meta, 'updatedByName') ? (meta.updatedByName || null) : (this.sync.config.profileName || null)
+            };
+        }
+
+        async replaceEntityCollection(tableName, idColumn, sourceItems, writeMeta) {
+            const campaignId = this.sync.config.campaignId;
+            const list = Array.isArray(sourceItems) ? sourceItems : [];
+            const rows = [];
+            const localIds = new Set();
+            list.forEach((item, idx) => {
+                if (!item || typeof item !== 'object') return;
+                const fallback = buildEntityId(idColumn.replace(/_id$/i, ''), idx);
+                const id = toTrimmedString(item.id, fallback, 80);
+                const payload = { ...item, id };
+                localIds.add(id);
+                rows.push({
+                    campaign_id: campaignId,
+                    [idColumn]: id,
+                    payload,
+                    ...writeMeta
+                });
+            });
+
+            const existing = await this.sync.client
+                .from(tableName)
+                .select(idColumn)
+                .eq('campaign_id', campaignId);
+            if (existing.error) {
+                return { ok: false, error: existing.error.message || `Failed reading ${tableName}.` };
+            }
+
+            const existingIds = (Array.isArray(existing.data) ? existing.data : [])
+                .map((row) => toTrimmedString(row && row[idColumn], '', 80))
+                .filter(Boolean);
+            const toDelete = existingIds.filter((id) => !localIds.has(id));
+            if (toDelete.length) {
+                const del = await this.sync.client
+                    .from(tableName)
+                    .delete()
+                    .eq('campaign_id', campaignId)
+                    .in(idColumn, toDelete);
+                if (del.error) {
+                    return { ok: false, error: del.error.message || `Failed deleting from ${tableName}.` };
+                }
+            }
+
+            if (rows.length) {
+                const upsert = await this.sync.client
+                    .from(tableName)
+                    .upsert(rows, { onConflict: `campaign_id,${idColumn}` });
+                if (upsert.error) {
+                    return { ok: false, error: upsert.error.message || `Failed writing ${tableName}.` };
+                }
+            }
+            return { ok: true };
+        }
+
+        async syncCaseStateRows(state, writeMeta) {
+            const tables = this.getNormalizedTables();
+            const campaignId = this.sync.config.campaignId;
+            const cases = Array.isArray(state && state.cases && state.cases.items) ? state.cases.items : [];
+            const activeCaseId = toTrimmedString(state && state.cases && state.cases.activeCaseId, 'case_primary', 80);
+
+            const rows = cases.map((entry, idx) => {
+                const caseId = sanitizeCaseId(entry && entry.id, `case_${idx + 1}`);
+                const caseName = sanitizeCaseName(entry && entry.name, DEFAULT_CASE_NAME);
+                return {
+                    campaign_id: campaignId,
+                    case_id: caseId,
+                    case_name: caseName,
+                    is_active: caseId === activeCaseId,
+                    sort_order: idx,
+                    payload: { name: caseName },
+                    ...writeMeta
+                };
+            });
+            if (!rows.length) {
+                rows.push({
+                    campaign_id: campaignId,
+                    case_id: 'case_primary',
+                    case_name: DEFAULT_CASE_NAME,
+                    is_active: true,
+                    sort_order: 0,
+                    payload: { name: DEFAULT_CASE_NAME },
+                    ...writeMeta
+                });
+            }
+
+            const existing = await this.sync.client
+                .from(tables.caseState)
+                .select('case_id')
+                .eq('campaign_id', campaignId);
+            if (existing.error) {
+                return { ok: false, error: existing.error.message || 'Failed reading case state.' };
+            }
+
+            const localCaseIds = new Set(rows.map((row) => row.case_id));
+            const existingCaseIds = (Array.isArray(existing.data) ? existing.data : [])
+                .map((row) => sanitizeCaseId(row && row.case_id, ''))
+                .filter(Boolean);
+            const toDelete = existingCaseIds.filter((id) => !localCaseIds.has(id));
+            if (toDelete.length) {
+                const [delEvents, delBoards, delCases] = await Promise.all([
+                    this.sync.client.from(tables.caseEvents).delete().eq('campaign_id', campaignId).in('case_id', toDelete),
+                    this.sync.client.from(tables.caseBoards).delete().eq('campaign_id', campaignId).in('case_id', toDelete),
+                    this.sync.client.from(tables.caseState).delete().eq('campaign_id', campaignId).in('case_id', toDelete)
+                ]);
+                if (delEvents.error) return { ok: false, error: delEvents.error.message || 'Failed pruning case events.' };
+                if (delBoards.error) return { ok: false, error: delBoards.error.message || 'Failed pruning case boards.' };
+                if (delCases.error) return { ok: false, error: delCases.error.message || 'Failed pruning case state.' };
+            }
+
+            const upsert = await this.sync.client
+                .from(tables.caseState)
+                .upsert(rows, { onConflict: 'campaign_id,case_id' });
+            if (upsert.error) {
+                return { ok: false, error: upsert.error.message || 'Failed writing case state.' };
+            }
+            return { ok: true };
+        }
+
+        async syncCaseBoardsRows(state, caseIds, writeMeta) {
+            const tables = this.getNormalizedTables();
+            const campaignId = this.sync.config.campaignId;
+            const cases = Array.isArray(state && state.cases && state.cases.items) ? state.cases.items : [];
+            const byId = new Map();
+            cases.forEach((entry) => {
+                if (!entry || !entry.id) return;
+                byId.set(entry.id, entry);
+            });
+            const rows = [];
+            caseIds.forEach((caseId) => {
+                const entry = byId.get(caseId);
+                if (!entry) return;
+                rows.push({
+                    campaign_id: campaignId,
+                    case_id: caseId,
+                    payload: sanitizeBoard(entry.board || { name: entry.name || DEFAULT_CASE_NAME }),
+                    ...writeMeta
+                });
+            });
+            if (!rows.length) return { ok: true };
+            const upsert = await this.sync.client
+                .from(tables.caseBoards)
+                .upsert(rows, { onConflict: 'campaign_id,case_id' });
+            if (upsert.error) {
+                return { ok: false, error: upsert.error.message || 'Failed writing case boards.' };
+            }
+            return { ok: true };
+        }
+
+        async syncCaseEventsRows(state, caseIds, writeMeta) {
+            const tables = this.getNormalizedTables();
+            const campaignId = this.sync.config.campaignId;
+            const cases = Array.isArray(state && state.cases && state.cases.items) ? state.cases.items : [];
+            const byId = new Map();
+            cases.forEach((entry) => {
+                if (!entry || !entry.id) return;
+                byId.set(entry.id, entry);
+            });
+
+            for (const caseId of caseIds) {
+                const entry = byId.get(caseId);
+                const events = Array.isArray(entry && entry.events) ? entry.events : [];
+                const normalizedRows = [];
+                const localIds = new Set();
+                events.forEach((event, idx) => {
+                    if (!event || typeof event !== 'object') return;
+                    const fallback = buildEntityId('event', idx);
+                    const eventId = toTrimmedString(event.id, fallback, 80);
+                    const payload = { ...event, id: eventId, caseId };
+                    localIds.add(eventId);
+                    normalizedRows.push({
+                        campaign_id: campaignId,
+                        case_id: caseId,
+                        event_id: eventId,
+                        payload,
+                        ...writeMeta
+                    });
+                });
+
+                const existing = await this.sync.client
+                    .from(tables.caseEvents)
+                    .select('event_id')
+                    .eq('campaign_id', campaignId)
+                    .eq('case_id', caseId);
+                if (existing.error) {
+                    return { ok: false, error: existing.error.message || `Failed reading events for ${caseId}.` };
+                }
+                const existingIds = (Array.isArray(existing.data) ? existing.data : [])
+                    .map((row) => toTrimmedString(row && row.event_id, '', 80))
+                    .filter(Boolean);
+                const toDelete = existingIds.filter((id) => !localIds.has(id));
+                if (toDelete.length) {
+                    const del = await this.sync.client
+                        .from(tables.caseEvents)
+                        .delete()
+                        .eq('campaign_id', campaignId)
+                        .eq('case_id', caseId)
+                        .in('event_id', toDelete);
+                    if (del.error) {
+                        return { ok: false, error: del.error.message || `Failed deleting events for ${caseId}.` };
+                    }
+                }
+
+                if (normalizedRows.length) {
+                    const upsert = await this.sync.client
+                        .from(tables.caseEvents)
+                        .upsert(normalizedRows, { onConflict: 'campaign_id,case_id,event_id' });
+                    if (upsert.error) {
+                        return { ok: false, error: upsert.error.message || `Failed writing events for ${caseId}.` };
+                    }
+                }
+            }
+
+            return { ok: true };
+        }
+
+        async writeNormalizedStateByScopes(state, scopes, meta = {}) {
+            if (!this.sync.client || !this.syncStatus.connected) {
+                return { ok: false, error: 'Not connected.' };
+            }
+
+            const cleanState = sanitizeState(state);
+            const plan = this.buildNormalizedScopePlan(scopes, cleanState);
+            const writeMeta = this.buildNormalizedWriteMeta(cleanState, meta);
+            const tables = this.getNormalizedTables();
+            const campaignId = this.sync.config.campaignId;
+            const caseIds = Array.isArray(cleanState.cases && cleanState.cases.items)
+                ? cleanState.cases.items.map((entry) => entry && entry.id).filter(Boolean)
+                : [];
+
+            if (plan.writeCore) {
+                const corePayload = {
+                    rep: cleanState.campaign.rep,
+                    heat: cleanState.campaign.heat,
+                    case: cleanState.campaign.case
+                };
+                const coreUpsert = await this.sync.client
+                    .from(tables.core)
+                    .upsert([{
+                        campaign_id: campaignId,
+                        payload: corePayload,
+                        ...writeMeta
+                    }], { onConflict: 'campaign_id' });
+                if (coreUpsert.error) return { ok: false, error: coreUpsert.error.message || 'Failed writing campaign core.' };
+            }
+
+            if (plan.writeHQ) {
+                const hqUpsert = await this.sync.client
+                    .from(tables.hq)
+                    .upsert([{
+                        campaign_id: campaignId,
+                        payload: cleanState.hq || {},
+                        ...writeMeta
+                    }], { onConflict: 'campaign_id' });
+                if (hqUpsert.error) return { ok: false, error: hqUpsert.error.message || 'Failed writing HQ state.' };
+            }
+
+            if (plan.writeCaseState) {
+                const caseStateResult = await this.syncCaseStateRows(cleanState, writeMeta);
+                if (!caseStateResult.ok) return caseStateResult;
+            }
+
+            if (plan.writePlayers) {
+                const result = await this.replaceEntityCollection(tables.players, 'player_id', cleanState.campaign.players, writeMeta);
+                if (!result.ok) return result;
+            }
+            if (plan.writeNPCs) {
+                const result = await this.replaceEntityCollection(tables.npcs, 'npc_id', cleanState.campaign.npcs, writeMeta);
+                if (!result.ok) return result;
+            }
+            if (plan.writeLocations) {
+                const result = await this.replaceEntityCollection(tables.locations, 'location_id', cleanState.campaign.locations, writeMeta);
+                if (!result.ok) return result;
+            }
+            if (plan.writeRequisitions) {
+                const result = await this.replaceEntityCollection(tables.requisitions, 'requisition_id', cleanState.campaign.requisitions, writeMeta);
+                if (!result.ok) return result;
+            }
+            if (plan.writeEncounters) {
+                const result = await this.replaceEntityCollection(tables.encounters, 'encounter_id', cleanState.campaign.encounters, writeMeta);
+                if (!result.ok) return result;
+            }
+
+            const boardIds = plan.writeAllCaseBoards ? caseIds : Array.from(plan.caseBoards.values());
+            if (boardIds.length) {
+                const boardResult = await this.syncCaseBoardsRows(cleanState, boardIds, writeMeta);
+                if (!boardResult.ok) return boardResult;
+            }
+
+            const eventIds = plan.writeAllCaseEvents ? caseIds : Array.from(plan.caseEvents.values());
+            if (eventIds.length) {
+                const eventResult = await this.syncCaseEventsRows(cleanState, eventIds, writeMeta);
+                if (!eventResult.ok) return eventResult;
+            }
+
+            return { ok: true };
+        }
+
+        async pushToCloudNormalized(options = {}, precomputedDirtyScopes = null) {
+            const opts = options && typeof options === 'object' ? options : {};
+            const silent = !!opts.silent;
+            const force = !!opts.force;
+            const startAttempt = toNonNegativeInt(opts.attempt, 0);
+            const dirtyScopes = precomputedDirtyScopes || this.getDirtyScopesSnapshot(opts.scopes);
+
+            if (!this.sync.client || !this.syncStatus.connected) {
+                return { ok: false, reason: 'not-connected' };
+            }
+
+            if (this.sync.pushInFlight) {
+                this.sync.pushQueued = true;
+                this.updateSyncStatus({ pendingPush: true });
+                return { ok: false, reason: 'queued' };
+            }
+
+            this.sync.pushInFlight = true;
+            this.cancelCloudPush();
+
+            try {
+                let baseRevision = toNonNegativeInt(
+                    opts.baseRevision !== undefined ? opts.baseRevision : (this.state.meta && this.state.meta.syncRevision),
+                    toNonNegativeInt(this.state.meta && this.state.meta.syncRevision, 0)
+                );
+
+                for (let attempt = startAttempt; attempt <= 2; attempt += 1) {
+                    this.touchSoftLockScopes(dirtyScopes);
+                    const lockConflicts = this.getRemoteLockConflicts(dirtyScopes);
+                    if (lockConflicts.length && !force) {
+                        this.updateSyncStatus({
+                            mode: 'locked',
+                            pendingPush: true,
+                            message: 'Another player is actively editing one of these scopes.',
+                            lastError: ''
+                        });
+                        return { ok: false, reason: 'locked', locks: lockConflicts };
+                    }
+
+                    const fetched = await this.fetchCloudRowNormalized({ silent: true });
+                    if (!fetched.ok) return fetched;
+                    const remoteRow = fetched.row;
+                    const remoteRevision = remoteRow ? toNonNegativeInt(remoteRow.revision, 0) : 0;
+
+                    if (remoteRow && remoteRevision > baseRevision) {
+                        const conflict = this.buildConflictRecord(remoteRow, dirtyScopes);
+                        if (!conflict.overlappingScopes.length && attempt < 2) {
+                            this.state = sanitizeState(conflict.mergedState);
+                            this.syncActiveCaseLegacyState();
+                            this.ensureCampaignEntityIds(false);
+                            this.markLocalDirtyScopes(dirtyScopes, Date.now());
+                            try {
+                                localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
+                            } catch (writeErr) {
+                                console.warn('RTF_STORE: Failed writing merged local state', writeErr);
+                            }
+                            baseRevision = conflict.remoteRevision;
+                            continue;
+                        }
+                        this.setPendingConflict(conflict);
+                        return { ok: false, reason: 'conflict', conflict: this.getPendingConflict() };
+                    }
+
+                    const mergedForCloud = remoteRow
+                        ? mergeStateByScopes(remoteRow.state, this.state, dirtyScopes)
+                        : sanitizeState(this.state);
+                    const payloadState = stripLocalOnlyFieldsForCloud(mergedForCloud);
+                    const nextSig = JSON.stringify(payloadState);
+                    const hasLocalDirty = !!(this.sync.localDirtyScopes && this.sync.localDirtyScopes.size);
+                    if (nextSig === this.sync.lastCloudStateSig && !hasLocalDirty) {
+                        this.updateSyncStatus({
+                            mode: 'ready',
+                            connected: true,
+                            pendingPush: false
+                        });
+                        return { ok: true, reason: 'no-change' };
+                    }
+
+                    const nextRevision = Math.max(baseRevision, remoteRevision) + 1;
+                    const updatedAt = Date.now();
+                    payloadState.meta.updated = updatedAt;
+                    payloadState.meta.syncRevision = nextRevision;
+                    payloadState.meta.scopeUpdated = sanitizeScopeUpdatedMap(this.state.meta && this.state.meta.scopeUpdated);
+
+                    this.state.meta.updated = updatedAt;
+                    this.state.meta.syncRevision = nextRevision;
+                    this.sync.lastKnownRemoteRevision = nextRevision;
+
+                    const write = await this.writeNormalizedStateByScopes(payloadState, dirtyScopes, {
+                        updatedAt,
+                        updatedBy: this.sync.instanceId,
+                        updatedByUser: this.sync.userId || null,
+                        updatedByName: this.sync.config.profileName || null
+                    });
+                    if (!write.ok) {
+                        const message = write.error || 'Cloud push failed.';
+                        if (!silent) {
+                            this.updateSyncStatus({
+                                mode: 'error',
+                                connected: false,
+                                pendingPush: false,
+                                message: 'Cloud push failed.',
+                                lastError: message
+                            });
+                        }
+                        return { ok: false, reason: 'error', error: message };
+                    }
+
+                    try {
+                        localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
+                    } catch (writeErr) {
+                        console.warn('RTF_STORE: Failed updating local timestamp after cloud push', writeErr);
+                    }
+
+                    this.clearLocalDirtyScopes(dirtyScopes);
+                    this.sync.lastPushAt = Date.now();
+                    this.sync.lastCloudStateSig = JSON.stringify(stripLocalOnlyFieldsForCloud(payloadState));
+                    this.sync.lastSyncedState = sanitizeState(this.state);
+                    this.clearPendingConflict({ keepStatus: true });
+                    if (updatedAt > this.sync.lastRemoteSeenAt) this.sync.lastRemoteSeenAt = updatedAt;
+
+                    this.updateSyncStatus({
+                        mode: 'ready',
+                        connected: true,
+                        pendingPush: false,
+                        lastPushAt: this.sync.lastPushAt,
+                        message: 'Cloud sync updated.',
+                        lastError: ''
+                    });
+
+                    return { ok: true, revision: nextRevision };
+                }
+
+                return { ok: false, reason: 'conflict' };
+            } catch (err) {
+                const message = err && err.message ? err.message : String(err);
+                if (!silent) {
+                    this.updateSyncStatus({
+                        mode: 'error',
+                        connected: false,
+                        pendingPush: false,
+                        message: 'Cloud push failed.',
+                        lastError: message
+                    });
+                }
+                return { ok: false, reason: 'error', error: message };
+            } finally {
+                this.sync.pushInFlight = false;
+                if (this.sync.pushQueued) {
+                    this.sync.pushQueued = false;
+                    this.scheduleCloudPush('queued');
+                }
+            }
         }
 
         async pullFromCloud(options = {}) {
@@ -2248,6 +3206,10 @@
 
             if (!this.sync.client || !this.syncStatus.connected) {
                 return { ok: false, reason: 'not-connected' };
+            }
+
+            if (this.isNormalizedReadMode()) {
+                return this.pushToCloudNormalized(opts, dirtyScopes);
             }
 
             if (this.sync.pushInFlight) {
@@ -2432,6 +3394,17 @@
                         message: 'Cloud sync updated.',
                         lastError: ''
                     });
+
+                    if (this.isNormalizedMirrorMode()) {
+                        this.writeNormalizedStateByScopes(payloadState, dirtyScopes, {
+                            updatedAt,
+                            updatedBy: this.sync.instanceId,
+                            updatedByUser: this.sync.userId || null,
+                            updatedByName: config.profileName || null
+                        }).catch((mirrorErr) => {
+                            console.warn('RTF_STORE: Normalized mirror write failed', mirrorErr);
+                        });
+                    }
 
                     return { ok: true, revision: nextRevision };
                 }

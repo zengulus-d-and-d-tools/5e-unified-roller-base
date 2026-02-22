@@ -122,7 +122,7 @@
         if (!isHeatAutoSyncEnabled()) return;
         const current = Number(store.state.campaign.heat) || 0;
         store.state.campaign.heat = clampHeat(current + delta);
-        if (typeof store.save === 'function') store.save({ scope: 'campaign' });
+        if (typeof store.save === 'function') store.save({ scope: 'campaign.heat' });
     };
 
     function clearTimelineLinkParamsFromUrl() {

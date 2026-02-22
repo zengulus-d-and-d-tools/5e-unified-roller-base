@@ -77,11 +77,16 @@
                     <label for="sync-profile">Profile Name (Optional)</label>
                     <input id="sync-profile" type="text" placeholder="DM Console">
                 </div>
+                <div class="sync-field">
+                    <label for="sync-autoconnect">Auto-connect on load</label>
+                    <input id="sync-autoconnect" type="checkbox" checked>
+                </div>
             </div>
             <div class="sync-actions">
                 <button class="sync-btn" data-onclick="saveSyncConfig()">Save Config</button>
                 <button class="sync-btn primary" data-onclick="connectSync()">Connect</button>
                 <button class="sync-btn" data-onclick="disconnectSync()">Disconnect</button>
+                <button class="sync-btn" data-onclick="cancelAutoConnect()">Cancel Auto-Connect</button>
                 <button class="sync-btn" data-onclick="pullSyncNow()">Pull Latest</button>
                 <button class="sync-btn" data-onclick="pushSyncNow()">Push Now</button>
                 <button class="sync-btn" data-onclick="anonymousSignIn()">Anonymous Sign-In</button>

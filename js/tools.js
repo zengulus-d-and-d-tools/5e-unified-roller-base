@@ -2,6 +2,39 @@ let latestSyncStatus = null;
 const delegatedHandlerEvents = ['click', 'change', 'input'];
 const delegatedHandlerCache = new Map();
 let delegatedHandlersBound = false;
+const AUTO_CONNECT_CANCEL_KEY = 'rtf_sync_autoconnect_cancelled';
+
+function isAutoConnectCancelledPreference() {
+    try {
+        return localStorage.getItem(AUTO_CONNECT_CANCEL_KEY) === '1';
+    } catch (err) {
+        return false;
+    }
+}
+
+function setAutoConnectCancelledPreference(cancelled) {
+    try {
+        if (cancelled) {
+            localStorage.setItem(AUTO_CONNECT_CANCEL_KEY, '1');
+        } else {
+            localStorage.removeItem(AUTO_CONNECT_CANCEL_KEY);
+        }
+    } catch (err) {
+        // noop: preference persistence is best-effort.
+    }
+}
+
+function parseBooleanInput(value, fallback = true) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') {
+        const raw = value.trim().toLowerCase();
+        if (!raw) return fallback;
+        if (raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on') return true;
+        if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+    }
+    return fallback;
+}
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -217,11 +250,13 @@ function deleteActiveCase() {
 }
 
 function getSyncFormValues() {
+    const autoConnectEl = document.getElementById('sync-autoconnect');
     return {
         supabaseUrl: (document.getElementById('sync-url').value || '').trim(),
         anonKey: (document.getElementById('sync-key').value || '').trim(),
         campaignId: (document.getElementById('sync-campaign').value || '').trim(),
-        profileName: (document.getElementById('sync-profile').value || '').trim()
+        profileName: (document.getElementById('sync-profile').value || '').trim(),
+        autoConnect: autoConnectEl ? !!autoConnectEl.checked : true
     };
 }
 
@@ -231,15 +266,37 @@ function normalizeConnectPayload(raw) {
     const anonKey = (raw.anonKey || raw.key || raw.publicKey || '').trim();
     const campaignId = (raw.campaignId || raw.slug || raw.campaign || '').trim();
     const profileName = (raw.profileName || raw.profile || '').trim();
+    const autoConnect = parseBooleanInput(raw.autoConnect, true);
+    const backendMode = String(raw.backendMode || raw.syncBackend || '').trim() || 'normalized';
     if (!supabaseUrl || !anonKey || !campaignId) return null;
-    return {
+    const payload = {
         supabaseUrl,
         anonKey,
         campaignId,
         profileName,
         enabled: true,
-        autoConnect: true
+        autoConnect,
+        backendMode
     };
+    const optionalMap = [
+        ['schema', raw.schema || ''],
+        ['tableName', raw.tableName || raw.stateTable || ''],
+        ['normalizedCoreTable', raw.normalizedCoreTable || raw.coreTable || ''],
+        ['normalizedHQTable', raw.normalizedHQTable || raw.hqTable || ''],
+        ['normalizedCaseStateTable', raw.normalizedCaseStateTable || raw.caseStateTable || ''],
+        ['normalizedCaseBoardsTable', raw.normalizedCaseBoardsTable || raw.caseBoardsTable || ''],
+        ['normalizedCaseEventsTable', raw.normalizedCaseEventsTable || raw.caseEventsTable || ''],
+        ['normalizedPlayersTable', raw.normalizedPlayersTable || raw.playersTable || ''],
+        ['normalizedNPCsTable', raw.normalizedNPCsTable || raw.npcsTable || ''],
+        ['normalizedLocationsTable', raw.normalizedLocationsTable || raw.locationsTable || ''],
+        ['normalizedRequisitionsTable', raw.normalizedRequisitionsTable || raw.requisitionsTable || ''],
+        ['normalizedEncountersTable', raw.normalizedEncountersTable || raw.encountersTable || '']
+    ];
+    optionalMap.forEach(([key, value]) => {
+        const next = String(value || '').trim();
+        if (next) payload[key] = next;
+    });
+    return payload;
 }
 
 function promptRequiredConnectPlayerName() {
@@ -261,6 +318,7 @@ async function applyConnectProfile(raw, opts = {}) {
     const profileName = suppliedProfileName || promptRequiredConnectPlayerName();
     if (!profileName) return { ok: false, error: 'Player name is required to connect.' };
     payload.profileName = profileName;
+    setAutoConnectCancelledPreference(payload.autoConnect === false);
 
     window.RTF_STORE.setSyncConfig(payload, { reconnect: false });
     applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
@@ -335,6 +393,10 @@ async function useBundledConnect() {
 
 async function tryAutoConnectFromBundledDefault() {
     if (!window.RTF_STORE) return;
+    if (isAutoConnectCancelledPreference()) {
+        setQuickStatus('auto-connect is disabled on this browser.');
+        return;
+    }
     const current = window.RTF_STORE.getSyncConfig();
     const hasStoredConfig = !!(current && current.supabaseUrl && current.anonKey && current.campaignId);
     if (hasStoredConfig) return;
@@ -350,6 +412,8 @@ function applySyncConfigToForm(config) {
     document.getElementById('sync-key').value = config.anonKey || '';
     document.getElementById('sync-campaign').value = config.campaignId || '';
     document.getElementById('sync-profile').value = config.profileName || '';
+    const autoConnectEl = document.getElementById('sync-autoconnect');
+    if (autoConnectEl) autoConnectEl.checked = config.autoConnect !== false;
 }
 
 function fmtSyncTime(ts) {
@@ -369,8 +433,14 @@ function setSyncStatusText(status) {
         renderSyncConflictPanel(null);
         return;
     }
+    const config = (window.RTF_STORE && typeof window.RTF_STORE.getSyncConfig === 'function')
+        ? window.RTF_STORE.getSyncConfig()
+        : null;
+    const autoConnect = config ? (config.autoConnect !== false ? 'on' : 'off') : '—';
     const parts = [
         `Mode: ${status.mode || 'unknown'}`,
+        `Backend: ${status.backendMode || 'legacy'}`,
+        `Auto-Connect: ${autoConnect}`,
         `Connected: ${status.connected ? 'yes' : 'no'}`,
         `Campaign: ${status.campaignId || '—'}`,
         `User: ${status.userId ? status.userId.slice(0, 8) + '…' : '—'}`,
@@ -683,6 +753,7 @@ function saveSyncConfig() {
         return;
     }
     const form = getSyncFormValues();
+    setAutoConnectCancelledPreference(form.autoConnect === false);
     window.RTF_STORE.setSyncConfig({
         ...form,
         enabled: true
@@ -698,6 +769,7 @@ async function connectSync() {
         return;
     }
     const form = getSyncFormValues();
+    setAutoConnectCancelledPreference(form.autoConnect === false);
     window.RTF_STORE.setSyncConfig({
         ...form,
         enabled: true
@@ -713,6 +785,27 @@ async function connectSync() {
 async function disconnectSync() {
     if (!window.RTF_STORE) return;
     await window.RTF_STORE.disconnectSync('manual');
+}
+
+async function cancelAutoConnect() {
+    setAutoConnectCancelledPreference(true);
+    if (!window.RTF_STORE) {
+        setQuickStatus('auto-connect disabled for this browser.');
+        return;
+    }
+
+    window.RTF_STORE.setSyncConfig({ autoConnect: false }, { reconnect: false });
+    applySyncConfigToForm(window.RTF_STORE.getSyncConfig());
+
+    const status = window.RTF_STORE.getSyncStatus();
+    if (status && (status.connected || status.mode === 'connecting')) {
+        await window.RTF_STORE.disconnectSync('manual');
+    }
+
+    const nextStatus = window.RTF_STORE.getSyncStatus();
+    setSyncStatusText(nextStatus);
+    setQuickStatus('auto-connect disabled for this browser.');
+    alert('Auto-connect disabled for this browser. Re-check "Auto-connect on load" and save config to re-enable.');
 }
 
 async function pullSyncNow() {
@@ -791,8 +884,28 @@ function exportConnectFile() {
         supabaseUrl: config.supabaseUrl || '',
         anonKey: config.anonKey || '',
         campaignId: config.campaignId || '',
-        profileName: ''
+        profileName: '',
+        backendMode: config.backendMode || 'legacy',
+        autoConnect: config.autoConnect !== false
     };
+    const optionalTableKeys = [
+        'schema',
+        'tableName',
+        'normalizedCoreTable',
+        'normalizedHQTable',
+        'normalizedCaseStateTable',
+        'normalizedCaseBoardsTable',
+        'normalizedCaseEventsTable',
+        'normalizedPlayersTable',
+        'normalizedNPCsTable',
+        'normalizedLocationsTable',
+        'normalizedRequisitionsTable',
+        'normalizedEncountersTable'
+    ];
+    optionalTableKeys.forEach((key) => {
+        const value = config[key];
+        if (typeof value === 'string' && value.trim()) payload[key] = value.trim();
+    });
     if (!payload.supabaseUrl || !payload.anonKey || !payload.campaignId) {
         alert('Missing URL, anon key, or campaign ID.');
         return;
