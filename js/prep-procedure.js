@@ -302,7 +302,8 @@
             }
         },
         resetAll: document.getElementById('reset-all-btn'),
-        logPrepTimeline: document.getElementById('log-prep-timeline-btn'),
+        logCustomPrep: document.getElementById('log-custom-prep-btn'),
+        logCustomProcedure: document.getElementById('log-custom-procedure-btn'),
         flashbackMinor: document.getElementById('flashback-minor-btn'),
         flashbackMajor: document.getElementById('flashback-major-btn'),
         heatShield: document.getElementById('heat-shield-btn'),
@@ -318,6 +319,12 @@
         popoverBackdrop: document.getElementById('prep-log-popover-backdrop'),
         popoverTitle: document.getElementById('prep-log-popover-title'),
         popoverBody: document.getElementById('prep-log-popover-body'),
+        popoverPlayerWrap: document.getElementById('prep-log-popover-player-wrap'),
+        popoverPlayerLabel: document.getElementById('prep-log-popover-player-label'),
+        popoverPlayer: document.getElementById('prep-log-popover-player'),
+        popoverCategoryWrap: document.getElementById('prep-log-popover-category-wrap'),
+        popoverCategoryLabel: document.getElementById('prep-log-popover-category-label'),
+        popoverCategory: document.getElementById('prep-log-popover-category'),
         popoverNoteWrap: document.getElementById('prep-log-popover-note-wrap'),
         popoverNoteLabel: document.getElementById('prep-log-popover-note-label'),
         popoverNote: document.getElementById('prep-log-popover-note'),
@@ -334,6 +341,55 @@
 
     function getFlashbackPreset(tier) {
         return FLASHBACK_PRESETS[tier] || FLASHBACK_PRESETS.minor;
+    }
+
+    function normalizePlayerName(value) {
+        return String(value || '').trim().slice(0, 80);
+    }
+
+    function getRosterPlayerNames() {
+        const store = getStore();
+        if (!store || typeof store.getPlayers !== 'function') return [];
+        const players = store.getPlayers();
+        if (!Array.isArray(players)) return [];
+        const seen = new Set();
+        const names = [];
+        players.forEach((player, idx) => {
+            const fallback = `Player ${idx + 1}`;
+            const rawName = player && typeof player === 'object' ? player.name : '';
+            const name = normalizePlayerName(rawName || fallback);
+            if (!name) return;
+            const key = name.toLowerCase();
+            if (seen.has(key)) return;
+            seen.add(key);
+            names.push(name);
+        });
+        return names;
+    }
+
+    function buildCategoryOptions() {
+        if (!refs.popoverCategory) return;
+        refs.popoverCategory.innerHTML = PREP_CATEGORIES.map((category) =>
+            `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`
+        ).join('');
+    }
+
+    function populatePlayerOptions(preferred = '') {
+        if (!refs.popoverPlayer) return;
+        const preferredName = normalizePlayerName(preferred);
+        const names = getRosterPlayerNames();
+        if (!names.length) {
+            refs.popoverPlayer.innerHTML = '<option value="">No roster players found</option>';
+            refs.popoverPlayer.disabled = true;
+            return;
+        }
+
+        refs.popoverPlayer.disabled = false;
+        refs.popoverPlayer.innerHTML = names.map((name) =>
+            `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`
+        ).join('');
+        const hasPreferred = preferredName && names.includes(preferredName);
+        refs.popoverPlayer.value = hasPreferred ? preferredName : names[0];
     }
 
     function getState() {
@@ -477,16 +533,38 @@
         return String(refs.popoverNote.value || '').trim().slice(0, 600);
     }
 
+    function getPopoverPlayerValue() {
+        if (!refs.popoverPlayer || refs.popoverPlayer.disabled) return '';
+        return normalizePlayerName(refs.popoverPlayer.value);
+    }
+
+    function getPopoverCategoryValue() {
+        if (!refs.popoverCategory || refs.popoverCategory.disabled) return '';
+        const value = String(refs.popoverCategory.value || '').trim();
+        return normalizeCategory(value, PREP_CATEGORIES[0]);
+    }
+
     function openLogPopover(context) {
         const ctx = context && typeof context === 'object' ? context : { source: 'button' };
         pendingPopoverContext = ctx;
         const snapshot = getState();
         const isExample = ctx.source === 'example' && ctx.example;
         const isFlashback = ctx.source === 'flashback';
+        const isCustomPrep = ctx.source === 'custom-prep';
+        const isCustomProcedure = ctx.source === 'custom-procedure';
 
         refs.popoverConfirm.textContent = 'Log to Timeline';
+        refs.popoverConfirm.disabled = false;
+        if (refs.popoverPlayerWrap) refs.popoverPlayerWrap.classList.add('is-hidden');
+        if (refs.popoverCategoryWrap) refs.popoverCategoryWrap.classList.add('is-hidden');
         if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.add('is-hidden');
+        if (refs.popoverPlayerLabel) refs.popoverPlayerLabel.textContent = 'Player';
+        if (refs.popoverCategoryLabel) refs.popoverCategoryLabel.textContent = 'Category';
+        if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = 'Details (optional)';
         if (refs.popoverNote) refs.popoverNote.value = '';
+        if (refs.popoverNote) refs.popoverNote.placeholder = 'Add details for the timeline log.';
+        if (refs.popoverCategory) refs.popoverCategory.value = PREP_CATEGORIES[0];
+        if (refs.popoverPlayer) refs.popoverPlayer.value = '';
 
         if (isFlashback) {
             const preset = getFlashbackPreset(ctx.tier);
@@ -494,8 +572,26 @@
             refs.popoverTitle.textContent = `${preset.label} Spend`;
             refs.popoverBody.textContent = `Spend ${preset.cost} Prep ${pluralizeToken(preset.cost)} to trigger a ${preset.label.toLowerCase()}.\nRemaining after spend: ${remaining}/${snapshot.tokens.max}\nSnapshot: ${getSnapshotLine(snapshot)}`;
             refs.popoverConfirm.textContent = `Spend ${preset.cost} & Log`;
+            if (refs.popoverPlayerWrap) refs.popoverPlayerWrap.classList.remove('is-hidden');
+            if (refs.popoverPlayerLabel) refs.popoverPlayerLabel.textContent = `${preset.label} Player`;
+            populatePlayerOptions(ctx.playerName);
             if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.remove('is-hidden');
-            if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = `${preset.label} Note (optional)`;
+            if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = `${preset.label} Details (optional)`;
+            if (refs.popoverNote) refs.popoverNote.placeholder = 'What prep was already handled off-screen?';
+        } else if (isCustomPrep || isCustomProcedure) {
+            const typeLabel = isCustomProcedure ? 'Procedure' : 'Prep';
+            refs.popoverTitle.textContent = `Log Custom ${typeLabel}`;
+            refs.popoverBody.textContent = `Choose player and category, then add any optional detail for timeline context.\nSnapshot: ${getSnapshotLine(snapshot)}`;
+            refs.popoverConfirm.textContent = `Log Custom ${typeLabel}`;
+            if (refs.popoverPlayerWrap) refs.popoverPlayerWrap.classList.remove('is-hidden');
+            if (refs.popoverCategoryWrap) refs.popoverCategoryWrap.classList.remove('is-hidden');
+            if (refs.popoverPlayerLabel) refs.popoverPlayerLabel.textContent = `${typeLabel} Player`;
+            if (refs.popoverCategoryLabel) refs.popoverCategoryLabel.textContent = `${typeLabel} Category`;
+            populatePlayerOptions(ctx.playerName);
+            if (refs.popoverCategory) refs.popoverCategory.value = normalizeCategory(ctx.category, PREP_CATEGORIES[0]);
+            if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.remove('is-hidden');
+            if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = `${typeLabel} Details (optional)`;
+            if (refs.popoverNote) refs.popoverNote.placeholder = `What custom ${typeLabel.toLowerCase()} was handled?`;
         } else if (isExample) {
             refs.popoverTitle.textContent = 'Log Example to Timeline';
             const typeLabel = ctx.example.type === 'procedure' ? 'Procedure' : 'Prep';
@@ -508,8 +604,8 @@
         refs.popoverBackdrop.classList.remove('is-hidden');
         refs.popoverBackdrop.setAttribute('aria-hidden', 'false');
         document.body.classList.add('prep-popover-open');
-        if (isFlashback && refs.popoverNote) {
-            refs.popoverNote.focus();
+        if ((isFlashback || isCustomPrep || isCustomProcedure) && refs.popoverPlayer && !refs.popoverPlayer.disabled) {
+            refs.popoverPlayer.focus();
             return;
         }
         refs.popoverConfirm.focus();
@@ -520,9 +616,17 @@
         refs.popoverBackdrop.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('prep-popover-open');
         refs.popoverConfirm.textContent = 'Log to Timeline';
+        refs.popoverConfirm.disabled = false;
+        if (refs.popoverPlayerWrap) refs.popoverPlayerWrap.classList.add('is-hidden');
+        if (refs.popoverCategoryWrap) refs.popoverCategoryWrap.classList.add('is-hidden');
+        if (refs.popoverPlayerLabel) refs.popoverPlayerLabel.textContent = 'Player';
+        if (refs.popoverCategoryLabel) refs.popoverCategoryLabel.textContent = 'Category';
         if (refs.popoverNoteWrap) refs.popoverNoteWrap.classList.add('is-hidden');
-        if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = 'Flashback Note (optional)';
+        if (refs.popoverNoteLabel) refs.popoverNoteLabel.textContent = 'Details (optional)';
         if (refs.popoverNote) refs.popoverNote.value = '';
+        if (refs.popoverNote) refs.popoverNote.placeholder = 'Add details for the timeline log.';
+        if (refs.popoverPlayer) refs.popoverPlayer.value = '';
+        if (refs.popoverCategory) refs.popoverCategory.value = PREP_CATEGORIES[0];
         pendingPopoverContext = null;
     }
 
@@ -596,10 +700,12 @@
         };
     }
 
-    function buildFlashbackTimelineEntry(snapshot, preset, note, remainingTokens) {
+    function buildFlashbackTimelineEntry(snapshot, preset, note, remainingTokens, playerName) {
         const stamp = new Date().toLocaleString();
         const safeNote = String(note || '').trim();
+        const safePlayer = normalizePlayerName(playerName || '');
         const noteLine = safeNote ? `Flashback note: ${safeNote}` : 'Flashback note: (none)';
+        const playerLine = safePlayer ? `Player: ${safePlayer}` : 'Player: (unassigned)';
         const tokenLine = `Prep tokens: ${snapshot.tokens.count} -> ${remainingTokens}`;
 
         return {
@@ -608,7 +714,7 @@
             focus: 'Prep & Procedure Clocks',
             heatDelta: '',
             tags: `flashback, prep-token, ${preset.tier}, prep, procedure`,
-            highlights: `${preset.label} used by spending ${preset.cost} Prep ${pluralizeToken(preset.cost)}.\n${tokenLine}\nSnapshot: ${getSnapshotLine(snapshot)}`,
+            highlights: `${preset.label} used by spending ${preset.cost} Prep ${pluralizeToken(preset.cost)}.\n${playerLine}\n${tokenLine}\nSnapshot: ${getSnapshotLine(snapshot)}`,
             fallout: '',
             followUp: `${noteLine}\nLogged at ${stamp}.`,
             source: 'prep-procedure',
@@ -621,6 +727,11 @@
     function spendFlashbackToTimeline(context) {
         const ctx = context && typeof context === 'object' ? context : { source: 'flashback', tier: 'minor' };
         const preset = getFlashbackPreset(ctx.tier);
+        const playerName = normalizePlayerName(ctx.playerName);
+        if (!playerName) {
+            setStatus(`Select a player before spending ${preset.label.toLowerCase()}.`, 'error');
+            return false;
+        }
         const tokenCount = Number(state.tokens.count) || 0;
         if (tokenCount < preset.cost) {
             setStatus(`Not enough Prep tokens for ${preset.label.toLowerCase()} (need ${preset.cost}).`, 'error');
@@ -635,7 +746,7 @@
 
         const snapshot = getState();
         const remainingTokens = tokenCount - preset.cost;
-        const eventPayload = buildFlashbackTimelineEntry(snapshot, preset, ctx.note, remainingTokens);
+        const eventPayload = buildFlashbackTimelineEntry(snapshot, preset, ctx.note, remainingTokens, playerName);
         const eventId = store.addEvent(eventPayload);
         if (!eventId) {
             setStatus('Flashback failed: event could not be saved.', 'error');
@@ -646,6 +757,65 @@
         const activeCase = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
         const caseLabel = activeCase && activeCase.name ? activeCase.name : 'active case';
         setStatus(`${preset.label} logged (${caseLabel}). Spent ${preset.cost} Prep ${pluralizeToken(preset.cost)}.`, 'success');
+        return true;
+    }
+
+    function buildCustomTimelineEntry(snapshot, type, playerName, category, note) {
+        const safeType = type === 'procedure' ? 'procedure' : 'prep';
+        const typeLabel = safeType === 'procedure' ? 'Procedure' : 'Prep';
+        const safePlayer = normalizePlayerName(playerName);
+        const safeCategory = normalizeCategory(category, PREP_CATEGORIES[0]);
+        const safeNote = String(note || '').trim();
+        const stamp = new Date().toLocaleString();
+
+        return {
+            id: `event_custom_${safeType}_${Date.now()}`,
+            title: `Custom ${typeLabel}: ${safeCategory}`,
+            focus: 'Prep & Procedure Clocks',
+            heatDelta: '',
+            tags: `custom, ${safeType}, ${String(safeCategory).toLowerCase()}, prep-procedure`,
+            highlights: `Player: ${safePlayer}\nCategory: ${safeCategory}\nSnapshot: ${getSnapshotLine(snapshot)}`,
+            fallout: '',
+            followUp: `${safeNote ? safeNote : 'No additional details.'}\nLogged at ${stamp}.`,
+            source: 'prep-procedure',
+            kind: `custom-${safeType}-log`,
+            resolved: false,
+            created: new Date().toISOString()
+        };
+    }
+
+    function logCustomToTimeline(context) {
+        const ctx = context && typeof context === 'object' ? context : { source: 'custom-prep' };
+        const type = ctx.source === 'custom-procedure' ? 'procedure' : 'prep';
+        const typeLabel = type === 'procedure' ? 'Procedure' : 'Prep';
+        const playerName = normalizePlayerName(ctx.playerName);
+        const category = normalizeCategory(ctx.category, PREP_CATEGORIES[0]);
+        if (!playerName) {
+            setStatus(`Select a ${typeLabel.toLowerCase()} player before logging.`, 'error');
+            return false;
+        }
+        if (!category) {
+            setStatus(`Select a ${typeLabel.toLowerCase()} category before logging.`, 'error');
+            return false;
+        }
+
+        const store = getStore();
+        if (!store || typeof store.addEvent !== 'function') {
+            setStatus('Timeline log failed: store is unavailable on this page.', 'error');
+            return false;
+        }
+
+        const snapshot = getState();
+        const payload = buildCustomTimelineEntry(snapshot, type, playerName, category, ctx.note);
+        const eventId = store.addEvent(payload);
+        if (!eventId) {
+            setStatus('Timeline log failed: custom event could not be saved.', 'error');
+            return false;
+        }
+
+        const activeCase = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
+        const caseLabel = activeCase && activeCase.name ? activeCase.name : 'active case';
+        setStatus(`Custom ${typeLabel.toLowerCase()} logged to timeline (${caseLabel}).`, 'success');
         return true;
     }
 
@@ -680,9 +850,20 @@
         if (!pendingPopoverContext) return;
         const context = { ...pendingPopoverContext };
         if (context.source === 'flashback') {
+            context.playerName = getPopoverPlayerValue();
             context.note = getPopoverNoteValue();
             const spent = spendFlashbackToTimeline(context);
             if (!spent) return;
+            closeLogPopover();
+            return;
+        }
+
+        if (context.source === 'custom-prep' || context.source === 'custom-procedure') {
+            context.playerName = getPopoverPlayerValue();
+            context.category = getPopoverCategoryValue();
+            context.note = getPopoverNoteValue();
+            const logged = logCustomToTimeline(context);
+            if (!logged) return;
             closeLogPopover();
             return;
         }
@@ -746,8 +927,11 @@
         emitChange();
         setStatus('All prep/procedure values reset to defaults.', 'success');
     });
-    refs.logPrepTimeline.addEventListener('click', () => {
-        openLogPopover({ source: 'button' });
+    refs.logCustomPrep.addEventListener('click', () => {
+        openLogPopover({ source: 'custom-prep', category: PREP_CATEGORIES[0] });
+    });
+    refs.logCustomProcedure.addEventListener('click', () => {
+        openLogPopover({ source: 'custom-procedure', category: PREP_CATEGORIES[0] });
     });
     refs.flashbackMinor.addEventListener('click', () => {
         openLogPopover({ source: 'flashback', tier: 'minor' });
@@ -770,6 +954,7 @@
 
     bindClockControls('prep');
     bindClockControls('procedure');
+    buildCategoryOptions();
 
     persistState(state);
     render();

@@ -372,11 +372,13 @@ body.prep-popover-open {
     font-size: 0.9rem;
 }
 
+.prep-popover-field,
 .prep-popover-note {
     display: grid;
     gap: 6px;
 }
 
+.prep-popover-field span,
 .prep-popover-note span {
     color: var(--hq-muted);
     font-size: 0.8rem;
@@ -384,16 +386,20 @@ body.prep-popover-open {
     letter-spacing: 0.03em;
 }
 
+.prep-popover-field select,
 .prep-popover-note textarea {
     width: 100%;
-    resize: vertical;
-    min-height: 78px;
     background: var(--input-bg);
     border: 1px solid var(--border);
     color: #fff;
     border-radius: 8px;
     padding: 8px 10px;
     font-size: 0.9rem;
+}
+
+.prep-popover-note textarea {
+    resize: vertical;
+    min-height: 78px;
     line-height: 1.35;
 }
 
