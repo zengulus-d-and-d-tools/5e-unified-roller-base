@@ -1962,26 +1962,32 @@ function renderStats() {
         return `<div class="stat-card" > <div class="stat-top-line" > <h3>${s.toUpperCase()
             }</h3> <input type="number" class="score-input" value="${score}" data-onchange="updateStat('${s}', this.value)" > <div class="mod-display" id="mod-${s}" >+0</div> <div class="save-prof" data-onclick="toggleSave('${s}', event)" ><input type="checkbox"${row.save ? 'checked' : ''
             }
-            > Def Prof</div> </div> <div class="defense-box" ><div class="defense-val" id="def-${s}" >11</div></div> <div class="stat-btn-row" > <button class="btn-sm-roll" data-onclick="rollCheck('${s}')" >Check</button> <button class="btn-sm-save" data-onclick="rollSave('${s}')" >Save</button> </div> </div>`;
+            > Def Prof</div> </div> <div class="defense-box" ><span class="defense-label" >Static Defense</span> <div class="defense-val" id="def-${s}" >11</div></div> <div class="stat-btn-row" > <button class="btn-sm-roll" data-onclick="rollCheck('${s}')" >Check</button> <button class="btn-sm-save" data-onclick="rollSave('${s}')" >Save</button> </div> </div>`;
     }).join('');
 }
 
 function renderFavoriteFeatures() {
     const list = document.getElementById('favoriteFeaturesList');
     if (!list) return;
-    const favorites = Array.isArray(data.features) ? data.features.filter((f) => f && f.favorite) : [];
+    const favorites = [];
+
+    if (Array.isArray(data.features)) {
+        data.features.forEach((feat, idx) => {
+            if (feat && feat.favorite) favorites.push({ feat, idx });
+        });
+    }
 
     if (!favorites.length) {
         list.innerHTML = '<div class="favorite-features-empty">No favorite features yet. Click the star on a feature to pin it here.</div>';
         return;
     }
 
-    list.innerHTML = favorites.map((feat) => {
+    list.innerHTML = favorites.map(({ feat, idx }) => {
         const safeName = escapeHtml(feat.name || 'Unnamed Feature');
         const safeDesc = escapeHtml(feat.desc || '');
         return `<div class="favorite-feature-row" > <div class="favorite-feature-head" >${safeName
             }</div> <div class="favorite-feature-desc" >${safeDesc || 'No description.'
-            }</div> </div>`;
+            }</div> <div class="favorite-feature-actions" > <button class="feat-post-btn" data-onclick="postFeature(${idx})" >📢 Post to Chat</button> <button class="feat-favorite-btn active" title="Unfavorite feature" data-onclick="toggleFeatureFavorite(${idx})" >&#9733;</button> </div> </div>`;
     }).join('');
 }
 
@@ -2085,12 +2091,13 @@ function renderFeatures() {
         const safeDesc = escapeHtml(feat && feat.desc ? feat.desc : '');
         const favClass = featureFavoriteClass(feat);
         const favTitle = feat && feat.favorite ? 'Unfavorite feature' : 'Favorite feature';
-        return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${safeName}" data-onchange="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc feat-desc" placeholder="Feature description..." data-onchange="updateFeature(${i}, 'desc', this.value)" >${safeDesc
+        return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${safeName}" data-oninput="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc feat-desc" placeholder="Feature description..." data-oninput="updateFeature(${i}, 'desc', this.value)" >${safeDesc
         }
 
                 </textarea> <div class="atk-controls feat-controls" > <button class="feat-post-btn" data-onclick="postFeature(${i})" >📢 Post to Chat</button> <button class="feat-favorite-btn${favClass}" title="${favTitle}" data-onclick="toggleFeatureFavorite(${i})" >${feat && feat.favorite ? '&#9733;' : '&#9734;'
             }</button> <button class="atk-btn-del" data-onclick="delFeature(${i})" >&times; </button> </div> </div> `;
     }).join('');
+    renderFavoriteFeatures();
 }
 
 function renderSpells() {
@@ -2821,7 +2828,6 @@ function addFeature() {
     });
     save();
     renderFeatures();
-    renderFavoriteFeatures();
 }
 
 function updateFeature(idx, field, val) {
@@ -2830,7 +2836,7 @@ function updateFeature(idx, field, val) {
     if (field === 'favorite') {
         data.features[idx][field] = !!val;
         save();
-        renderFavoriteFeatures();
+        renderFeatures();
         return;
     }
     data.features[idx][field] = String(val || '').slice(0, field === 'desc' ? 4000 : 240);
@@ -2842,7 +2848,6 @@ function delFeature(idx) {
     data.features.splice(idx, 1);
     save();
     renderFeatures();
-    renderFavoriteFeatures();
 }
 
 function toggleFeatureFavorite(idx) {
@@ -2850,7 +2855,6 @@ function toggleFeatureFavorite(idx) {
     data.features[idx].favorite = !data.features[idx].favorite;
     save();
     renderFeatures();
-    renderFavoriteFeatures();
 }
 
 function postFeature(idx) {
