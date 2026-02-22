@@ -163,6 +163,21 @@ const Importer = {
         }
     },
 
+    parseProficiencyMarker: function (marker) {
+        if (marker === null || marker === undefined) return 0;
+        const raw = String(marker).trim();
+        if (!raw) return 0;
+        const upper = raw.toUpperCase();
+
+        if (upper === 'E' || upper === 'EXPERTISE' || /\bE\b/.test(upper) || upper.includes('EXPERT')) {
+            return 2;
+        }
+        if (upper === 'P' || upper === 'PROFICIENT' || /\bP\b/.test(upper) || upper.includes('PROF') || raw.includes('•')) {
+            return 1;
+        }
+        return 0;
+    },
+
     // Map extracted PDF data to the application's data structure
     applyToSheet: function (pdfData) {
         if (typeof window.data === 'undefined' || typeof window.save !== 'function') {
@@ -202,7 +217,8 @@ const Importer = {
             "IntProf": "int", "WisProf": "wis", "ChaProf": "cha"
         };
         for (const [pdfKey, sheetKey] of Object.entries(saveMap)) {
-            if (pdfData[pdfKey] && (pdfData[pdfKey].includes("•") || pdfData[pdfKey] === "P")) {
+            const profLevel = this.parseProficiencyMarker(pdfData[pdfKey]);
+            if (profLevel > 0) {
                 d.stats[sheetKey].save = true;
             }
         }
@@ -232,8 +248,9 @@ const Importer = {
         for (const [pdfKey, sheetKey] of Object.entries(skillKeys)) {
             // Check proficiency marker (e.g. "AthleticsProf": "P")
             const profKey = pdfKey + "Prof";
-            if (pdfData[profKey] === "P" || pdfData[profKey] === "•") {
-                d.skills[sheetKey] = 1; // Proficient
+            const profLevel = this.parseProficiencyMarker(pdfData[profKey]);
+            if (profLevel > 0) {
+                d.skills[sheetKey] = Math.max(d.skills[sheetKey] || 0, profLevel);
             }
         }
 

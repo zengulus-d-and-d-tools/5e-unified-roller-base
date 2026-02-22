@@ -1177,33 +1177,16 @@ function coreRoll(count, sides, mode = 'norm', mods = {}) {
     if (count === 1 && sides === 20 && mode !== 'norm') {
         const r1 = Math.floor(Math.random() * sides) + 1;
         const r2 = Math.floor(Math.random() * sides) + 1;
-        rolls = [r1,
-            r2];
+        rolls = [r1, r2];
 
         if (mode === 'adv') {
             total = Math.max(r1, r2);
-
-            formula = `[${r1
-                }
-
-                    ,
-                    ${r2
-                }
-
-                    ] (High)`;
+            formula = `[${r1}, ${r2}] (High)`;
         }
 
         else {
             total = Math.min(r1, r2);
-
-            formula = `[${r1
-                }
-
-                    ,
-                    ${r2
-                }
-
-                    ] (Low)`;
+            formula = `[${r1}, ${r2}] (Low)`;
         }
 
         if (total === 20) isCrit = true;
@@ -1248,20 +1231,13 @@ function coreRoll(count, sides, mode = 'norm', mods = {}) {
 
         rollObjs.forEach(obj => {
             if (!obj.dropped) total += obj.val;
-
-            valList.push(obj.dropped ? `~~${obj.val
-                }
-
-                        ~~` : obj.val);
+            valList.push(obj.dropped ? `~~${obj.val}~~` : obj.val);
         });
 
         if (count === 1 && sides === 20 && total === 20) isCrit = true;
         if (count === 1 && sides === 20 && total === 1) isFail = true;
 
-        formula = `[${valList.join('+')
-            }
-
-            ]`;
+        formula = `[${valList.join('+')}]`;
     }
 
     return {
@@ -2764,20 +2740,11 @@ function rollSkill(skill) {
     const misc = getSkillMiscBonus(skill);
     const miscRaw = (data.skillMisc && data.skillMisc[skill]) ? data.skillMisc[skill] : "";
 
-    let label = `${skill.charAt(0).toUpperCase() + skill.slice(1)
-        }
-
-            (${activeStat.toUpperCase()
-        })`;
+    let label = `${skill.charAt(0).toUpperCase() + skill.slice(1)} (${activeStat.toUpperCase()})`;
 
     if (misc !== 0) {
-
-        // If it's a stat name, add that to label
-        if (stats.includes(miscRaw)) label += `+${miscRaw.toUpperCase()
-            }
-
-                `;
-        else label += `+Bonus`;
+        if (stats.includes(miscRaw)) label += ` +${miscRaw.toUpperCase()}`;
+        else label += ` +Bonus`;
     }
 
     rollDie(20, mod + (profLevel * pb) + misc, label, true, 'check');
@@ -3088,27 +3055,14 @@ function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '
     }
 
     else {
-        descText = `**Result:** ${result
-            }
-
-                \n\n${formulaStr
-            }
-
-                `;
-
-        if (customDesc) descText = `*${customDesc
-            }
-
-                *\n\n`+ descText;
+        const baseText = `**Result:** ${result}\n${formulaStr}`;
+        descText = customDesc ? `*${customDesc}*\n\n${baseText}` : baseText;
     }
 
     const isDeathSave = (label === "Death Save");
 
     if (secretMode || isDeathSave) {
-        descText = `|| ${descText
-            }
-
-                ||`;
+        descText = `||${descText}||`;
     }
 
     const payload = {
@@ -3122,10 +3076,7 @@ function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '
             description: descText,
             color: color,
             footer: {
-                text: `Player: ${data.meta.player
-                    }
-
-                        `
+                text: `Player: ${data.meta.player}`
             }
         }
 
