@@ -55,10 +55,15 @@ const Importer = {
             throw new Error('pdf.js runtime unavailable.');
         }
 
+        // pdf.js may transfer/detach the provided buffer when worker loading fails.
+        // Keep an immutable source copy and clone for each attempt.
+        const sourceBytes = new Uint8Array(arrayBuffer.slice(0));
+        const createAttemptData = () => new Uint8Array(sourceBytes);
+
         for (const workerSrc of candidates) {
             try {
                 this.setWorkerSrc(runtime, workerSrc);
-                const loadingTask = runtime.getDocument({ data: arrayBuffer });
+                const loadingTask = runtime.getDocument({ data: createAttemptData() });
                 return await loadingTask.promise;
             } catch (error) {
                 lastError = error;
@@ -69,7 +74,7 @@ const Importer = {
         // Final fallback for builds that can run in "fake worker" mode.
         try {
             this.setWorkerSrc(runtime, '');
-            const loadingTask = runtime.getDocument({ data: arrayBuffer, disableWorker: true });
+            const loadingTask = runtime.getDocument({ data: createAttemptData(), disableWorker: true });
             return await loadingTask.promise;
         } catch (error) {
             lastError = error;
