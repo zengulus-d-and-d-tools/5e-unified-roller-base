@@ -83,14 +83,19 @@ const Importer = {
         throw lastError || new Error("Unable to initialize PDF parser.");
     },
 
+    normalizeImportMode: function (mode) {
+        return String(mode || '').toLowerCase() === 'spells' ? 'spells' : 'full';
+    },
+
     // Trigger file selection
-    triggerImport: function () {
+    triggerImport: function (mode) {
         if (!this.getPdfRuntime()) {
             console.error("Cannot import PDF: pdf.js runtime unavailable.");
             alert("PDF parser not loaded yet. Refresh and try again.");
             return;
         }
 
+        const importMode = this.normalizeImportMode(mode);
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.pdf';
@@ -98,15 +103,16 @@ const Importer = {
             const target = e && e.target ? e.target : null;
             const files = target && target.files ? target.files : null;
             if (files && files.length > 0) {
-                this.processFile(files[0]);
+                this.processFile(files[0], importMode);
             }
         };
         input.click();
     },
 
     // Process the selected file
-    processFile: async function (file) {
-        this.debug(`Processing file: ${file.name}`);
+    processFile: async function (file, mode) {
+        const importMode = this.normalizeImportMode(mode);
+        this.debug(`Processing file: ${file.name}`, importMode);
 
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -153,9 +159,13 @@ const Importer = {
             this.debug("--- Extracted Text End ---");
 
             // Smart Sort / Mapping
-            this.applyToSheet(parsedData);
+            this.applyToSheet(parsedData, importMode);
 
-            alert("PDF Imported! Character sheet updated.");
+            if (importMode === 'spells') {
+                alert("PDF Imported! Spells updated.");
+            } else {
+                alert("PDF Imported! Character sheet updated.");
+            }
 
         } catch (error) {
             console.error("Error processing PDF:", error);
@@ -231,87 +241,266 @@ const Importer = {
         return bestDiff <= 1 ? best : null;
     },
 
-    extractSpellLevelFromField: function (fieldName, value) {
+    normalizeFieldKey: function (fieldName) {
+        return String(fieldName || '').replace(/[\s_-]+/g, '').toLowerCase();
+    },
+
+    parseSpellLevelFromLabel: function (rawValue) {
+        const text = String(rawValue || '').toLowerCase();
+        if (!text) return null;
+        if (text.includes('cantrip') || text.includes('at will')) return 0;
+
+        const patterns = [
+            /([1-9])(?:st|nd|rd|th)\s*level/,
+            /(?:^|[^a-z])level\s*([1-9])/,
+            /(?:^|[^a-z])lvl\s*([1-9])/,
+            /(?:^|[^a-z])([1-9])\s*lvl/
+        ];
+        for (const pattern of patterns) {
+            const match = text.match(pattern);
+            if (!match) continue;
+            const parsed = parseInt(match[1], 10);
+            if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 9) return parsed;
+        }
+
+        return null;
+    },
+
+    extractSpellLevelFromField: function (fieldName, value, fallbackLevel) {
         const source = `${fieldName || ''} ${value || ''}`.toLowerCase();
         if (/cantrip/.test(source)) return 0;
 
-        const levelPatterns = [
-            /(?:^|[^a-z])(level|lvl)\s*([1-9])/,
-            /([1-9])(?:st|nd|rd|th)\s*level/,
-            /(?:^|[^a-z])([1-9])\s*lvl/,
-            /spell\s*level\s*([1-9])/
-        ];
+        const parsed = this.parseSpellLevelFromLabel(source);
+        if (parsed !== null) return parsed;
 
-        for (const pattern of levelPatterns) {
-            const match = source.match(pattern);
-            if (match) {
-                const valuePart = parseInt(match[2] || match[1], 10);
-                if (Number.isFinite(valuePart) && valuePart >= 1 && valuePart <= 9) return valuePart;
-            }
-        }
-
+        const safeFallback = parseInt(fallbackLevel, 10);
+        if (Number.isFinite(safeFallback) && safeFallback >= 0 && safeFallback <= 9) return safeFallback;
         return 1;
     },
 
-    isLikelySpellNameField: function (fieldName) {
-        const key = String(fieldName || '').toLowerCase();
-        if (!/(spell|cantrip)/.test(key)) return false;
-        if (/(spell\s*save|spell\s*attack|spellcasting|slot|prepared|slots|class|ability|dc)/.test(key)) return false;
-        if (/(description|desc|range|duration|component|damage|notes?|time|ritual|concentration)/.test(key)) return false;
+    getSpellNameFieldInfo: function (fieldName) {
+        const normalized = this.normalizeFieldKey(fieldName);
+        let match = normalized.match(/^spellname(\d+)$/);
+        if (!match) {
+            match = normalized.match(/^cantripname(\d+)$/);
+        }
+        if (!match) return null;
+        const idx = parseInt(match[1], 10);
+        if (!Number.isFinite(idx) || idx < 0) return null;
+        return { index: idx, normalized };
+    },
+
+    isLikelySpellNameValue: function (rawValue) {
+        const text = String(rawValue || '').replace(/\s+/g, ' ').trim();
+        if (!text || text.length > 180) return false;
+        if (/^(o|p|--|n\/a)$/i.test(text)) return false;
+        if (/^={2,}/.test(text)) return false;
+        if (/^(at\s*will|\(at\s*will\))$/i.test(text)) return false;
+        if (/^\+?-?\d+$/.test(text)) return false;
+        if (/^slots?\b/i.test(text)) return false;
+        if (/^phb\b/i.test(text)) return false;
+        if (/^(v|s|m)([\/,\s]+(v|s|m))*$/i.test(text)) return false;
+        if (/^d:\s*/i.test(text)) return false;
+        if (/^(cleric|wizard|druid|bard|paladin|ranger|warlock|sorcerer|artificer)(\b|\s|\()/i.test(text)) return false;
         return true;
+    },
+
+    parseSpellSaveAttr: function (rawValue) {
+        const text = String(rawValue || '').toUpperCase();
+        const match = text.match(/\b(STR|DEX|CON|INT|WIS|CHA)\b/);
+        if (!match) return 'none';
+        const map = {
+            STR: 'str',
+            DEX: 'dex',
+            CON: 'con',
+            INT: 'int',
+            WIS: 'wis',
+            CHA: 'cha'
+        };
+        return map[match[1]] || 'none';
+    },
+
+    parseSpellSlotCount: function (rawValue) {
+        const text = String(rawValue || '').trim();
+        if (!text) return null;
+        const numeric = text.match(/(\d+)\s*slots?/i);
+        if (numeric) {
+            const parsed = parseInt(numeric[1], 10);
+            if (Number.isFinite(parsed) && parsed >= 0) return Math.min(parsed, 20);
+        }
+        const bubbles = text.match(/\b[Oo]{1,20}\b/);
+        if (bubbles) return bubbles[0].length;
+        return null;
     },
 
     extractSpellbookEntries: function (pdfData) {
         if (!pdfData || typeof pdfData !== 'object') return [];
         const entries = [];
         const seen = new Set();
+        const fieldMap = new Map();
 
         Object.entries(pdfData).forEach(([fieldName, rawValue]) => {
-            if (!this.isLikelySpellNameField(fieldName)) return;
-            if (rawValue === null || rawValue === undefined) return;
+            fieldMap.set(this.normalizeFieldKey(fieldName), rawValue);
+        });
 
-            const text = String(rawValue).replace(/\r\n/g, '\n').trim();
-            if (!text) return;
+        let activeLevel = 1;
+        Object.entries(pdfData).forEach(([fieldName, rawValue]) => {
+            const normalizedField = this.normalizeFieldKey(fieldName);
+            if (/^spellheader\d+$/.test(normalizedField)) {
+                const parsedLevel = this.parseSpellLevelFromLabel(rawValue);
+                if (parsedLevel !== null) activeLevel = parsedLevel;
+                return;
+            }
 
-            const level = this.extractSpellLevelFromField(fieldName, text);
-            const candidates = text
-                .split(/\n|,|;/)
-                .map(part => part.trim())
-                .filter(Boolean);
+            const nameFieldInfo = this.getSpellNameFieldInfo(fieldName);
+            if (!nameFieldInfo) return;
 
-            candidates.forEach((candidate) => {
-                if (!candidate) return;
-                if (candidate.length > 180) return;
-                if (/^\d+$/.test(candidate)) return;
-                const cleaned = candidate
-                    .replace(/\s{2,}/g, ' ')
-                    .replace(/^[\*\-•]+/, '')
-                    .trim();
-                if (!cleaned) return;
-                const dedupeKey = `${level}:${cleaned.toLowerCase()}`;
-                if (seen.has(dedupeKey)) return;
-                seen.add(dedupeKey);
-                entries.push({
-                    name: cleaned.slice(0, 180),
-                    lvl: level,
-                    save: 'none',
-                    notes: ''
-                });
+            const cleanedName = String(rawValue || '')
+                .replace(/\r\n/g, '\n')
+                .replace(/\s+/g, ' ')
+                .replace(/^[\*\-•]+/, '')
+                .trim();
+            if (!this.isLikelySpellNameValue(cleanedName)) return;
+
+            const spellLevel = this.extractSpellLevelFromField(fieldName, cleanedName, activeLevel);
+            const saveRaw = fieldMap.get(`spellsavehit${nameFieldInfo.index}`) ?? fieldMap.get(`savehit${nameFieldInfo.index}`);
+            const notesRaw = fieldMap.get(`spellnotes${nameFieldInfo.index}`) ?? fieldMap.get(`notes${nameFieldInfo.index}`) ?? '';
+            const safeNotes = String(notesRaw || '').trim();
+            const dedupeKey = `${spellLevel}:${cleanedName.toLowerCase()}`;
+            if (seen.has(dedupeKey)) return;
+            seen.add(dedupeKey);
+
+            entries.push({
+                name: cleanedName.slice(0, 180),
+                lvl: spellLevel,
+                save: this.parseSpellSaveAttr(saveRaw),
+                notes: safeNotes.length <= 5000 ? safeNotes : safeNotes.slice(0, 5000)
             });
         });
 
-        return entries.slice(0, 250);
+        return entries.slice(0, 300);
+    },
+
+    extractSpellSlots: function (pdfData, currentSlots) {
+        if (!pdfData || typeof pdfData !== 'object') return null;
+        const slots = Array.isArray(currentSlots) && currentSlots.length > 0
+            ? currentSlots.map((slot, idx) => ({
+                lvl: idx + 1,
+                max: Math.max(0, parseInt(slot && slot.max, 10) || 0),
+                used: Math.max(0, parseInt(slot && slot.used, 10) || 0)
+            }))
+            : Array.from({ length: 9 }, (_, idx) => ({ lvl: idx + 1, max: 0, used: 0 }));
+
+        const sectionLevelMap = new Map();
+        Object.entries(pdfData).forEach(([fieldName, rawValue]) => {
+            const normalized = this.normalizeFieldKey(fieldName);
+            const match = normalized.match(/^spellheader(\d+)$/);
+            if (!match) return;
+            const sectionIdx = parseInt(match[1], 10);
+            if (!Number.isFinite(sectionIdx)) return;
+            const parsedLevel = this.parseSpellLevelFromLabel(rawValue);
+            if (parsedLevel !== null) sectionLevelMap.set(sectionIdx, parsedLevel);
+        });
+
+        let updated = false;
+        Object.entries(pdfData).forEach(([fieldName, rawValue]) => {
+            const normalized = this.normalizeFieldKey(fieldName);
+            const match = normalized.match(/^spellslotheader(\d+)$/);
+            if (!match) return;
+
+            const sectionIdx = parseInt(match[1], 10);
+            if (!Number.isFinite(sectionIdx)) return;
+            const parsedMax = this.parseSpellSlotCount(rawValue);
+            if (!Number.isFinite(parsedMax)) return;
+
+            const sectionLevel = sectionLevelMap.has(sectionIdx)
+                ? sectionLevelMap.get(sectionIdx)
+                : this.parseSpellLevelFromLabel(rawValue);
+            if (!Number.isFinite(sectionLevel) || sectionLevel < 1 || sectionLevel > 9) return;
+
+            const slotIndex = sectionLevel - 1;
+            if (!slots[slotIndex]) {
+                slots[slotIndex] = { lvl: sectionLevel, max: 0, used: 0 };
+            }
+            const prevUsed = Math.max(0, parseInt(slots[slotIndex].used, 10) || 0);
+            slots[slotIndex].max = parsedMax;
+            slots[slotIndex].used = Math.min(prevUsed, parsedMax);
+            updated = true;
+        });
+
+        return updated ? slots.slice(0, 9) : null;
+    },
+
+    extractSpellcastingMeta: function (pdfData, d) {
+        let importedSpellAttr = null;
+        let importedSpellDc = null;
+
+        for (const [fieldName, fieldValue] of Object.entries(pdfData)) {
+            const key = String(fieldName || '').toLowerCase();
+            if (!importedSpellAttr && /spellcasting.*abil|spell\s*ability|spellcastingability/.test(key)) {
+                importedSpellAttr = this.parseSpellcastingAbility(fieldValue);
+            }
+            if (importedSpellDc === null && /spell\s*save\s*dc/.test(key)) {
+                const parsedDc = parseInt(fieldValue, 10);
+                if (Number.isFinite(parsedDc)) importedSpellDc = parsedDc;
+            }
+        }
+
+        if (!importedSpellAttr && importedSpellDc !== null) {
+            importedSpellAttr = this.inferSpellcastingAbilityFromDc(importedSpellDc, d);
+        }
+
+        return {
+            spellAttr: importedSpellAttr,
+            spellDc: importedSpellDc
+        };
+    },
+
+    applySpellImportData: function (pdfData, d) {
+        const spellMeta = this.extractSpellcastingMeta(pdfData, d);
+        if (spellMeta.spellAttr) d.meta.spellAttr = spellMeta.spellAttr;
+
+        const importedSpellbook = this.extractSpellbookEntries(pdfData);
+        if (importedSpellbook.length > 0) {
+            d.spellbook = importedSpellbook;
+        }
+
+        const importedSlots = this.extractSpellSlots(pdfData, d.spells);
+        if (importedSlots) {
+            d.spells = importedSlots;
+        }
+
+        this.debug(`Spell import summary: ${importedSpellbook.length} spells${importedSlots ? ', slots updated' : ''}.`);
+    },
+
+    refreshAndSave: function () {
+        if (typeof window.populateUI === 'function') {
+            window.populateUI();
+        } else if (typeof window.init === 'function') {
+            window.init();
+        }
+
+        if (typeof window.save === 'function') {
+            window.save();
+        }
     },
 
     // Map extracted PDF data to the application's data structure
-    applyToSheet: function (pdfData) {
+    applyToSheet: function (pdfData, mode) {
         if (typeof window.data === 'undefined' || typeof window.save !== 'function') {
             console.error("Application data not found. Cannot apply import.");
             return;
         }
 
+        const importMode = this.normalizeImportMode(mode);
         const d = window.data;
-        this.debug("Applying data to sheet...", pdfData);
+        this.debug("Applying data to sheet...", importMode, pdfData);
+
+        if (importMode === 'spells') {
+            this.applySpellImportData(pdfData, d);
+            this.refreshAndSave();
+            return;
+        }
 
         // --- META ---
         if (pdfData["CharacterName"]) d.meta.name = pdfData["CharacterName"];
@@ -323,23 +512,6 @@ const Importer = {
             const match = pdfData["CLASS  LEVEL"].match(/(\d+)/);
             if (match) d.meta.level = parseInt(match[1]);
         }
-
-        let importedSpellAttr = null;
-        let importedSpellDc = null;
-        for (const [fieldName, fieldValue] of Object.entries(pdfData)) {
-            const key = String(fieldName || '').toLowerCase();
-            if (!importedSpellAttr && /spellcasting.*abil|spell\s*ability|spellcastingability/.test(key)) {
-                importedSpellAttr = this.parseSpellcastingAbility(fieldValue);
-            }
-            if (importedSpellDc === null && /spell\s*save\s*dc/.test(key)) {
-                const parsedDc = parseInt(fieldValue, 10);
-                if (Number.isFinite(parsedDc)) importedSpellDc = parsedDc;
-            }
-        }
-        if (!importedSpellAttr && importedSpellDc !== null) {
-            importedSpellAttr = this.inferSpellcastingAbilityFromDc(importedSpellDc, d);
-        }
-        if (importedSpellAttr) d.meta.spellAttr = importedSpellAttr;
 
         // --- ATTRIBUTES ---
         const statMap = {
@@ -397,11 +569,7 @@ const Importer = {
         }
 
         // --- SPELLBOOK ---
-        const importedSpellbook = this.extractSpellbookEntries(pdfData);
-        if (importedSpellbook.length > 0) {
-            d.spellbook = importedSpellbook;
-            this.debug(`Imported ${importedSpellbook.length} spells.`);
-        }
+        this.applySpellImportData(pdfData, d);
 
         // --- FEATURES & TRAITS ---
         // Combine all FeaturesTraits fields
@@ -438,17 +606,7 @@ const Importer = {
             // For now, let's verify if this regex catches the user's example.
         }
 
-        // Refresh UI first (Push Data -> DOM)
-        if (typeof window.populateUI === 'function') {
-            window.populateUI();
-        } else if (typeof window.init === 'function') {
-            window.init();
-        }
-
-        // Then Save (Persist DOM/Data to Storage)
-        if (typeof window.save === 'function') {
-            window.save();
-        }
+        this.refreshAndSave();
     }
 };
 

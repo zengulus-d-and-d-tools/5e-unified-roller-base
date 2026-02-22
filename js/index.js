@@ -144,15 +144,62 @@ function normalizeSheetFace(face, fallbackFlipped = false) {
     return fallbackFlipped ? 'inventory' : 'front';
 }
 
+const sheetFaceClassMap = {
+    front: 'front',
+    inventory: 'back',
+    spells: 'spellbook'
+};
+
+function resolveRenderableSheetFace(flipper, requestedFace) {
+    if (!flipper) return requestedFace;
+    const targetClass = sheetFaceClassMap[requestedFace] || sheetFaceClassMap.front;
+    if (flipper.querySelector(`.face.${targetClass}`)) return requestedFace;
+    return 'front';
+}
+
+function renderSheetFaceFallback(flipper, activeFace) {
+    if (!flipper) return;
+    const targetClass = sheetFaceClassMap[activeFace] || sheetFaceClassMap.front;
+    const faces = flipper.querySelectorAll('.face');
+    faces.forEach((faceEl) => {
+        const isVisible = faceEl.classList.contains(targetClass);
+        faceEl.style.display = isVisible ? 'block' : 'none';
+        faceEl.style.position = isVisible ? 'relative' : '';
+        faceEl.style.transform = isVisible ? 'none' : '';
+        faceEl.style.backfaceVisibility = isVisible ? 'visible' : '';
+        faceEl.setAttribute('aria-hidden', isVisible ? 'false' : 'true');
+    });
+}
+
+function bindSheetNavButtons() {
+    document.querySelectorAll('.sheet-nav-btn').forEach((btn) => {
+        if (btn.dataset.boundNativeClick === '1') return;
+        btn.dataset.boundNativeClick = '1';
+        const face = normalizeSheetFace(btn.getAttribute('data-face'));
+        btn.removeAttribute('data-onclick');
+        btn.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setSheetFace(face);
+        });
+    });
+}
+bindSheetNavButtons();
+
 function applySheetFaceState(face) {
     if (!data.uiState) data.uiState = {}
 
         ;
     const flipper = document.getElementById('sheetFlipper');
-    const nextFace = normalizeSheetFace(face, !!data.uiState.isFlipped);
+    bindSheetNavButtons();
+    const requestedFace = normalizeSheetFace(face, !!data.uiState.isFlipped);
+    const nextFace = resolveRenderableSheetFace(flipper, requestedFace);
     if (flipper) {
+        flipper.classList.remove('flipped');
         flipper.classList.remove('view-front', 'view-inventory', 'view-spells');
         flipper.classList.add(`view-${nextFace}`);
+        flipper.style.transform = 'none';
+        renderSheetFaceFallback(flipper, nextFace);
     }
     document.querySelectorAll('.sheet-nav-btn').forEach((btn) => {
         const isActive = btn.getAttribute('data-face') === nextFace;
@@ -3957,3 +4004,5 @@ Object.defineProperty(window, 'allData', { get: () => allData });
 window.save = save;
 window.populateUI = populateUI;
 window.init = init;
+window.setSheetFace = setSheetFace;
+window.toggleSheetFlip = toggleSheetFlip;
