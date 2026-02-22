@@ -306,7 +306,6 @@
         logCustomProcedure: document.getElementById('log-custom-procedure-btn'),
         flashbackMinor: document.getElementById('flashback-minor-btn'),
         flashbackMajor: document.getElementById('flashback-major-btn'),
-        heatShield: document.getElementById('heat-shield-btn'),
         tokensMinus: document.getElementById('tokens-minus'),
         tokensPlus: document.getElementById('tokens-plus'),
         tokensReadout: document.getElementById('tokens-readout'),
@@ -630,35 +629,6 @@
         pendingPopoverContext = null;
     }
 
-    function clearProcedureClockForHeatShield() {
-        setState({ procedure: { filled: 0 } });
-        const store = getStore();
-        let logged = false;
-        if (store && typeof store.addEvent === 'function') {
-            const eventId = store.addEvent({
-                id: `event_heat_shield_${Date.now()}`,
-                title: 'Heat Shield Activated',
-                focus: 'Procedure',
-                heatDelta: '',
-                tags: 'procedure, heat-shield',
-                highlights: "Thanks to good procedure, the Task Force's reputation was preserved.",
-                fallout: '',
-                followUp: '',
-                source: 'prep-procedure',
-                kind: 'heat-shield',
-                resolved: false,
-                created: new Date().toISOString()
-            });
-            logged = !!eventId;
-        }
-
-        if (logged) {
-            setStatus('Heat Shield activated. Procedure clock emptied and timeline action logged.', 'success');
-            return;
-        }
-        setStatus('Heat Shield activated. Procedure clock emptied.', 'success');
-    }
-
     function buildTimelineEntryFromState(snapshot) {
         const prep = snapshot.prep;
         const procedure = snapshot.procedure;
@@ -815,7 +785,14 @@
 
         const activeCase = typeof store.getActiveCase === 'function' ? store.getActiveCase() : null;
         const caseLabel = activeCase && activeCase.name ? activeCase.name : 'active case';
-        setStatus(`Custom ${typeLabel.toLowerCase()} logged to timeline (${caseLabel}).`, 'success');
+        const beforeFill = Number(state[type].filled) || 0;
+        setState({ [type]: { filled: beforeFill + 1 } });
+        const afterFill = Number(state[type].filled) || 0;
+        const ticked = afterFill > beforeFill;
+        setStatus(
+            `Custom ${typeLabel.toLowerCase()} logged to timeline (${caseLabel}). ${typeLabel} clock ${ticked ? 'advanced by 1.' : 'already full.'}`,
+            'success'
+        );
         return true;
     }
 
@@ -939,7 +916,6 @@
     refs.flashbackMajor.addEventListener('click', () => {
         openLogPopover({ source: 'flashback', tier: 'major' });
     });
-    refs.heatShield.addEventListener('click', clearProcedureClockForHeatShield);
     refs.popoverCancel.addEventListener('click', closeLogPopover);
     refs.popoverConfirm.addEventListener('click', confirmPopoverAction);
     refs.popoverBackdrop.addEventListener('click', (event) => {

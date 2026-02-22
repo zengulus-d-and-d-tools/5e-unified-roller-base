@@ -80,7 +80,6 @@
                         <button type="button" class="btn" id="procedure-minus">-1</button>
                         <button type="button" class="btn btn-dp" id="procedure-plus">+1</button>
                         <button type="button" class="btn" id="procedure-reset">Reset</button>
-                        <button type="button" class="btn btn-heat-shield" id="heat-shield-btn">Activate Heat Shield</button>
                     </div>
                     <label class="clock-total-field">
                         <span>Total Segments</span>
@@ -89,10 +88,14 @@
                 </article>
             </div>
             <div class="clocks-actions">
-                <button class="btn btn-dp" type="button" id="log-custom-prep-btn">Log Custom Prep</button>
-                <button class="btn btn-dp" type="button" id="log-custom-procedure-btn">Log Custom Procedure</button>
-                <button class="btn" type="button" id="flashback-minor-btn">Minor Flashback (-1 Prep)</button>
-                <button class="btn" type="button" id="flashback-major-btn">Major Flashback (-2 Prep)</button>
+                <div class="clocks-actions-row clocks-actions-row-custom">
+                    <button class="btn btn-dp" type="button" id="log-custom-prep-btn">Log Custom Prep</button>
+                    <button class="btn btn-dp" type="button" id="log-custom-procedure-btn">Log Custom Procedure</button>
+                </div>
+                <div class="clocks-actions-row clocks-actions-row-flashback">
+                    <button class="btn" type="button" id="flashback-minor-btn">Minor Flashback (-1 Prep)</button>
+                    <button class="btn" type="button" id="flashback-major-btn">Major Flashback (-2 Prep)</button>
+                </div>
             </div>
         </section>
 

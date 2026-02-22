@@ -5,15 +5,14 @@
 ## Features
 - `PREP` and `PROCEDURE` pie clocks with per-clock controls: `+1`, `-1`, `Reset`, and total segment input.
 - Prep token bubbles are positioned between the two clocks and support click-to-set plus `+/-`.
-- Custom logging actions are built into the action row:
-  - `Log Custom Prep` posts a prep timeline event with player + category metadata.
-  - `Log Custom Procedure` posts a procedure timeline event with player + category metadata.
+- Custom logging actions are in the first action row:
+  - `Log Custom Prep` posts a prep timeline event with player + category metadata and increments the `PREP` clock by 1 (clamped at total).
+  - `Log Custom Procedure` posts a procedure timeline event with player + category metadata and increments the `PROCEDURE` clock by 1 (clamped at total).
   - Both custom logs use popover inputs for player (from roster dropdown), category, and optional detail text.
-- Flashback spend actions are built into the same action row:
+- Flashback spend actions are in a second row beneath custom logging:
   - `Minor Flashback (-1 Prep)` spends 1 prep token and logs the flashback to timeline.
   - `Major Flashback (-2 Prep)` spends 2 prep tokens and logs the flashback to timeline.
   - Flashback popover includes required player selection (from roster dropdown) and optional detail text.
-- `Activate Heat Shield` clears only the `PROCEDURE` clock fill (`procedure.filled = 0`) and logs this timeline action: `Thanks to good procedure, the Task Force's reputation was preserved.`
 - Example table with `Type`, `Category`, and `Example Name`.
 - Example rows are D&D procedure-focused and mundane-first (chain of custody, witness handling, scene control, vault sign-off), with magic only as escalation/fallback when mundane methods are insufficient. Rows include `category` from the controlled set: `Intel`, `Access`, `Cover`, `Tools`.
 - Double-clicking an example row opens the same popover and logs that example context to timeline on confirmation.
