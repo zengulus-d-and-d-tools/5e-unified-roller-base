@@ -173,7 +173,15 @@ function setAccordionExpanded(content, expanded, animate = true) {
     if (!shouldAnimate) {
         content.classList.toggle('collapsed', !expanded);
         content.style.height = expanded ? 'auto' : '0px';
-        content.style.overflow = expanded ? 'visible' : 'hidden';
+        if (expanded) {
+            content.style.overflow = '';
+            content.style.overflowX = '';
+            content.style.overflowY = '';
+        } else {
+            content.style.overflow = 'hidden';
+            content.style.overflowX = 'hidden';
+            content.style.overflowY = 'hidden';
+        }
         return;
     }
 
@@ -183,9 +191,13 @@ function setAccordionExpanded(content, expanded, animate = true) {
         content._accordionTransitionEnd = null;
         if (expanded) {
             content.style.height = 'auto';
-            content.style.overflow = 'visible';
+            content.style.overflow = '';
+            content.style.overflowX = '';
+            content.style.overflowY = '';
         } else {
             content.style.overflow = 'hidden';
+            content.style.overflowX = 'hidden';
+            content.style.overflowY = 'hidden';
         }
     };
     content._accordionTransitionEnd = onTransitionEnd;
@@ -195,13 +207,18 @@ function setAccordionExpanded(content, expanded, animate = true) {
         const startHeight = content.getBoundingClientRect().height;
         content.classList.remove('collapsed');
         content.style.overflow = 'hidden';
-        content.style.height = `${startHeight}px`;
+        // Measure natural expanded height, then animate to it.
+        content.style.height = 'auto';
         const targetHeight = content.scrollHeight;
+        content.style.height = `${startHeight}px`;
+        content.offsetHeight;
         if (Math.abs(targetHeight - startHeight) < 1) {
             content.removeEventListener('transitionend', onTransitionEnd);
             content._accordionTransitionEnd = null;
             content.style.height = 'auto';
-            content.style.overflow = 'visible';
+            content.style.overflow = '';
+            content.style.overflowX = '';
+            content.style.overflowY = '';
             return;
         }
         content._accordionRaf = requestAnimationFrame(() => {
@@ -217,6 +234,9 @@ function setAccordionExpanded(content, expanded, animate = true) {
             content.removeEventListener('transitionend', onTransitionEnd);
             content._accordionTransitionEnd = null;
             content.style.height = '0px';
+            content.style.overflow = 'hidden';
+            content.style.overflowX = 'hidden';
+            content.style.overflowY = 'hidden';
             return;
         }
         content.offsetHeight;
