@@ -155,43 +155,106 @@ function toggleSheetFlip() {
 }
 
 // --- ACCORDION LOGIC ---
+function setAccordionExpanded(content, expanded, animate = true) {
+    if (!content) return;
+
+    const prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const shouldAnimate = animate && !prefersReducedMotion;
+
+    if (content._accordionRaf) {
+        cancelAnimationFrame(content._accordionRaf);
+        content._accordionRaf = null;
+    }
+    if (content._accordionTransitionEnd) {
+        content.removeEventListener('transitionend', content._accordionTransitionEnd);
+        content._accordionTransitionEnd = null;
+    }
+
+    if (!shouldAnimate) {
+        content.classList.toggle('collapsed', !expanded);
+        content.style.height = expanded ? 'auto' : '0px';
+        content.style.overflow = expanded ? 'visible' : 'hidden';
+        return;
+    }
+
+    const onTransitionEnd = (event) => {
+        if (event.target !== content || event.propertyName !== 'height') return;
+        content.removeEventListener('transitionend', onTransitionEnd);
+        content._accordionTransitionEnd = null;
+        if (expanded) {
+            content.style.height = 'auto';
+            content.style.overflow = 'visible';
+        } else {
+            content.style.overflow = 'hidden';
+        }
+    };
+    content._accordionTransitionEnd = onTransitionEnd;
+    content.addEventListener('transitionend', onTransitionEnd);
+
+    if (expanded) {
+        const startHeight = content.getBoundingClientRect().height;
+        content.classList.remove('collapsed');
+        content.style.overflow = 'hidden';
+        content.style.height = `${startHeight}px`;
+        const targetHeight = content.scrollHeight;
+        if (Math.abs(targetHeight - startHeight) < 1) {
+            content.removeEventListener('transitionend', onTransitionEnd);
+            content._accordionTransitionEnd = null;
+            content.style.height = 'auto';
+            content.style.overflow = 'visible';
+            return;
+        }
+        content._accordionRaf = requestAnimationFrame(() => {
+            content.style.height = `${targetHeight}px`;
+            content._accordionRaf = null;
+        });
+    } else {
+        const startHeight = content.getBoundingClientRect().height || content.scrollHeight;
+        content.style.overflow = 'hidden';
+        content.style.height = `${startHeight}px`;
+        if (startHeight < 1) {
+            content.classList.add('collapsed');
+            content.removeEventListener('transitionend', onTransitionEnd);
+            content._accordionTransitionEnd = null;
+            content.style.height = '0px';
+            return;
+        }
+        content.offsetHeight;
+        content.classList.add('collapsed');
+        content._accordionRaf = requestAnimationFrame(() => {
+            content.style.height = '0px';
+            content._accordionRaf = null;
+        });
+    }
+}
+
 function toggleSection(key) {
     const head = document.getElementById('head-' + key);
     const body = document.getElementById('body-' + key);
     const card = document.getElementById('card-' + key);
     const trigger = head ? head.querySelector('.accordion-trigger-abs') : null;
+    const isClosed = !body || body.classList.contains('collapsed');
+    const isOpen = isClosed;
 
-    if (head) head.classList.toggle('collapsed');
-    if (body) body.classList.toggle('collapsed');
-    if (trigger) trigger.classList.toggle('collapsed');
-
-    const isOpen = !body.classList.contains('collapsed');
-
-    if (isOpen) {
-        if (card) card.classList.remove('card-collapsed');
-    }
-
-    else {
-        if (card) card.classList.add('card-collapsed');
-    }
+    if (head) head.classList.toggle('collapsed', !isOpen);
+    if (trigger) trigger.classList.toggle('collapsed', !isOpen);
+    setAccordionExpanded(body, isOpen, true);
+    if (card) card.classList.toggle('card-collapsed', !isOpen);
 
     data.uiState[key] = isOpen;
     save();
 }
 
 function toggleAccordion(trigger) {
-    trigger.classList.toggle('collapsed');
     const content = trigger.parentElement.nextElementSibling;
+    if (!content) return;
+    const isClosed = content.classList.contains('collapsed');
+    const isOpen = isClosed;
 
-    if (content) {
-        content.classList.toggle('collapsed');
-        const card = trigger.closest('.card');
-
-        if (card) {
-            if (content.classList.contains('collapsed')) card.classList.add('card-collapsed');
-            else card.classList.remove('card-collapsed');
-        }
-    }
+    trigger.classList.toggle('collapsed', !isOpen);
+    setAccordionExpanded(content, isOpen, true);
+    const card = trigger.closest('.card');
+    if (card) card.classList.toggle('card-collapsed', !isOpen);
 }
 
 function getDefaultInventory() {
@@ -906,18 +969,14 @@ function populateUI() {
     accKeys.forEach(key => {
         const isClosed = data.uiState[key] === false;
         const card = document.getElementById('card-' + key);
+        const head = document.getElementById('head-' + key);
+        const body = document.getElementById('body-' + key);
+        const trigger = head ? head.querySelector('.accordion-trigger-abs') : null;
 
-        if (isClosed) {
-            document.getElementById('head-' + key).classList.add('collapsed');
-            document.getElementById('body-' + key).classList.add('collapsed');
-            if (card) card.classList.add('card-collapsed');
-        }
-
-        else {
-            if (card) card.classList.remove('card-collapsed');
-            document.getElementById('head-' + key).classList.remove('collapsed');
-            document.getElementById('body-' + key).classList.remove('collapsed');
-        }
+        if (head) head.classList.toggle('collapsed', isClosed);
+        if (trigger) trigger.classList.toggle('collapsed', isClosed);
+        setAccordionExpanded(body, !isClosed, false);
+        if (card) card.classList.toggle('card-collapsed', isClosed);
     });
 
     updateHP();

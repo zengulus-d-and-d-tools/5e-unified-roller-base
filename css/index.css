@@ -577,14 +577,15 @@ input:checked+.slider:before {
 }
 
 .accordion-content {
-    overflow: hidden;
-    transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease;
-    max-height: 3000px;
+    overflow: visible;
+    transition: height 0.3s ease, opacity 0.3s ease-out, margin 0.3s ease;
+    height: auto;
     opacity: 1;
 }
 
 .accordion-content.collapsed {
-    max-height: 0;
+    height: 0;
+    overflow: hidden;
     opacity: 0;
     margin: 0;
     pointer-events: none;
