@@ -1162,25 +1162,35 @@ textarea:focus {
     background: var(--card-bg);
     padding: 8px;
     border-radius: 8px;
-    text-align: center;
+    text-align: left;
     border: 1px solid var(--border);
     display: flex;
     flex-direction: column;
 }
 
+.stat-top-line {
+    display: grid;
+    grid-template-columns: 34px 42px 32px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+}
+
 .stat-card h3 {
-    margin: 0 0 2px 0;
-    font-size: 0.8rem;
+    margin: 0;
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
     color: #aaa;
+    text-align: center;
 }
 
 .score-input {
-    width: 100% !important;
+    width: 42px !important;
+    min-height: 28px;
     text-align: center;
     font-size: 1.1rem;
     font-weight: bold;
-    margin-bottom: 2px;
-    padding: 4px !important;
+    margin-bottom: 0;
+    padding: 0 !important;
     background: transparent !important;
     border: none !important;
     color: #fff !important;
@@ -1189,7 +1199,9 @@ textarea:focus {
 .mod-display {
     font-size: 0.85rem;
     color: #888;
-    margin-bottom: 4px;
+    margin-bottom: 0;
+    min-width: 28px;
+    text-align: center;
 }
 
 .defense-box {
@@ -1208,16 +1220,50 @@ textarea:focus {
 }
 
 .save-prof {
-    font-size: 0.65rem;
+    font-size: 0.66rem;
     font-weight: bold;
     color: #888;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 2px;
+    gap: 4px;
+    margin-bottom: 0;
     cursor: pointer;
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.favorite-features-empty {
+    padding: 10px;
+    border: 1px dashed #444;
+    border-radius: 8px;
+    color: #888;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.favorite-feature-row {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.favorite-feature-head {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.favorite-feature-desc {
+    font-size: 0.82rem;
+    color: #a9a9a9;
+    white-space: pre-wrap;
 }
 
 .read-only-box {
@@ -1387,7 +1433,13 @@ textarea:focus {
 
 .atk-stats-line {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 8px;
+}
+
+.atk-bonus-line {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
 }
 
@@ -2419,6 +2471,15 @@ button {
         grid-template-columns: repeat(2, 1fr) !important;
     }
 
+    .stat-top-line {
+        grid-template-columns: 30px 38px 30px minmax(0, 1fr);
+        gap: 4px;
+    }
+
+    .save-prof {
+        font-size: 0.62rem;
+    }
+
     .span-2 {
         grid-column: span 1;
     }
@@ -2541,12 +2602,27 @@ button {
 }
 
 .feat-controls {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
 }
 
 .feat-post-btn {
     background: var(--accent-feat);
     color: #fff;
+}
+
+.feat-favorite-btn {
+    min-width: 44px;
+    background: #222;
+    color: #9a9a9a;
+    border: 1px solid #444;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.feat-favorite-btn.active {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 65%, #999 35%);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .res-recharge-toggle {
@@ -2714,6 +2790,7 @@ button {
 
     .combat-row,
     .atk-stats-line,
+    .atk-bonus-line,
     .atk-controls {
         grid-template-columns: 1fr;
     }

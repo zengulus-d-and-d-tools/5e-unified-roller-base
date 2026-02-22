@@ -5,6 +5,7 @@ const stats = ['str',
     'int',
     'wis',
     'cha'];
+const attackStats = ['none', ...stats];
 
 const skillsMap = {
     'acrobatics': 'dex', 'animal handling': 'wis', 'arcana': 'int', 'athletics': 'str',
@@ -550,11 +551,17 @@ function sanitizeCharacterData(rawChar) {
 
     out.attacks = Array.isArray(source.attacks) ? source.attacks.slice(0, 100).map((entry) => {
         const row = isPlainObject(entry) ? entry : {};
-        const stat = stats.includes(row.stat) ? row.stat : 'none';
+        const legacyStatRaw = sanitizeString(row.stat || 'none', 'none', 16).toLowerCase();
+        const legacyStat = attackStats.includes(legacyStatRaw) ? legacyStatRaw : 'none';
+        const atkStatRaw = sanitizeString(row.atkStat || legacyStat, legacyStat, 16).toLowerCase();
+        const dmgStatRaw = sanitizeString(row.dmgStat || legacyStat, legacyStat, 16).toLowerCase();
         return {
             name: sanitizeString(row.name || '', '', 160),
             dmg: sanitizeString(row.dmg || '', '', 120),
-            stat,
+            atkStat: attackStats.includes(atkStatRaw) ? atkStatRaw : legacyStat,
+            dmgStat: attackStats.includes(dmgStatRaw) ? dmgStatRaw : legacyStat,
+            atkBonus: sanitizeString(row.atkBonus || '', '', 80),
+            dmgBonus: sanitizeString(row.dmgBonus || '', '', 80),
             desc: sanitizeString(row.desc || '', '', 5000)
         };
     }) : [];
@@ -563,7 +570,8 @@ function sanitizeCharacterData(rawChar) {
         const row = isPlainObject(entry) ? entry : {};
         return {
             name: sanitizeString(row.name || '', '', 200),
-            desc: sanitizeString(row.desc || '', '', 10000)
+            desc: sanitizeString(row.desc || '', '', 10000),
+            favorite: sanitizeBoolean(row.favorite, false)
         };
     }) : [];
 
@@ -887,6 +895,7 @@ function populateUI() {
 
     const accKeys = ['combat',
         'attr',
+        'fav',
         'atk',
         'feats',
         'spells',
@@ -913,6 +922,7 @@ function populateUI() {
 
     updateHP();
     renderStats();
+    renderFavoriteFeatures();
     renderSkills();
     renderAttacks();
     renderFeatures();
@@ -1324,10 +1334,14 @@ function updateAll() {
     stats.forEach(s => {
         const mod = getMod(data.stats[s].val);
         const saveBonus = mod + (data.stats[s].save ? pb : 0);
+        const modText = (mod >= 0 ? "+" : "") + mod;
+        const defText = 11 + saveBonus;
 
-        document.getElementById(`mod-${s}`).innerText = (mod >= 0 ? "+" : "") + mod;
+        const mainModEl = document.getElementById(`mod-${s}`);
+        const mainDefEl = document.getElementById(`def-${s}`);
 
-        document.getElementById(`def-${s}`).innerText = 11 + saveBonus;
+        if (mainModEl) mainModEl.innerText = modText;
+        if (mainDefEl) mainDefEl.innerText = defText;
     });
 
     Object.keys(skillsMap).forEach(s => {
@@ -1782,14 +1796,19 @@ function rollCustom() {
 
 function rollDamage(idx) {
     const atk = data.attacks[idx];
+    const dmgStat = attackStats.includes(atk.dmgStat) ? atk.dmgStat : (attackStats.includes(atk.stat) ? atk.stat : 'none');
     let mod = 0;
 
-    if (atk.stat !== 'none') {
-        mod = getMod(data.stats[atk.stat].val);
+    if (dmgStat !== 'none') {
+        mod = getMod(data.stats[dmgStat].val);
     }
 
     const miscStr = document.getElementById('globalMisc').value.trim();
-    const dmgStr = (atk.dmg || "") + " " + miscStr;
+    const dmgBonusStr = typeof atk.dmgBonus === 'string' ? atk.dmgBonus : '';
+    const dmgStr = `${atk.dmg || ""
+        } ${dmgBonusStr
+        } ${miscStr
+        }`.trim();
     const parsed = parseComplexBonus(dmgStr);
     if (parsed.text === '') return;
     let total = parsed.total + mod;
@@ -1802,7 +1821,7 @@ function rollDamage(idx) {
                 ${mod
             }
 
-                (${atk.stat.toUpperCase()
+                (${dmgStat.toUpperCase()
             })`;
     }
 
@@ -1935,13 +1954,39 @@ function updateDS(type) {
 
 // --- RENDERERS ---
 function renderStats() {
-    document.getElementById('statsGrid').innerHTML = stats.map(s => ` <div class="stat-card" > <h3>${s.toUpperCase()
-        }
+    const grid = document.getElementById('statsGrid');
+    if (!grid) return;
+    grid.innerHTML = stats.map((s) => {
+        const row = data.stats[s] || { val: 10, save: false };
+        const score = parseInt(row.val, 10) || 10;
+        return `<div class="stat-card" > <div class="stat-top-line" > <h3>${s.toUpperCase()
+            }</h3> <input type="number" class="score-input" value="${score}" data-onchange="updateStat('${s}', this.value)" > <div class="mod-display" id="mod-${s}" >+0</div> <div class="save-prof" data-onclick="toggleSave('${s}', event)" ><input type="checkbox"${row.save ? 'checked' : ''
+            }
+            > Def Prof</div> </div> <div class="defense-box" ><div class="defense-val" id="def-${s}" >11</div></div> <div class="stat-btn-row" > <button class="btn-sm-roll" data-onclick="rollCheck('${s}')" >Check</button> <button class="btn-sm-save" data-onclick="rollSave('${s}')" >Save</button> </div> </div>`;
+    }).join('');
+}
 
-                </h3> <input type="number" class="score-input" value="${data.stats[s].val}" data-onchange="updateStat('${s}', this.value)" > <div class="mod-display" id="mod-${s}" >+0</div> <div class="save-prof" data-onclick="toggleSave('${s}', event)" ><input type="checkbox"${data.stats[s].save ? 'checked' : ''
-        }
+function renderFavoriteFeatures() {
+    const list = document.getElementById('favoriteFeaturesList');
+    if (!list) return;
+    const favorites = Array.isArray(data.features) ? data.features.filter((f) => f && f.favorite) : [];
 
-                > Def Prof</div> <div class="defense-box" ><div class="defense-val" id="def-${s}" >11</div></div> <div class="stat-btn-row" > <button class="btn-sm-roll" data-onclick="rollCheck('${s}')" >Check</button> <button class="btn-sm-save" data-onclick="rollSave('${s}')" >Save</button> </div> </div> `).join('');
+    if (!favorites.length) {
+        list.innerHTML = '<div class="favorite-features-empty">No favorite features yet. Click the star on a feature to pin it here.</div>';
+        return;
+    }
+
+    list.innerHTML = favorites.map((feat) => {
+        const safeName = escapeHtml(feat.name || 'Unnamed Feature');
+        const safeDesc = escapeHtml(feat.desc || '');
+        return `<div class="favorite-feature-row" > <div class="favorite-feature-head" >${safeName
+            }</div> <div class="favorite-feature-desc" >${safeDesc || 'No description.'
+            }</div> </div>`;
+    }).join('');
+}
+
+function featureFavoriteClass(feat) {
+    return feat && feat.favorite ? ' active' : '';
 }
 
 function renderSkills() {
@@ -1997,21 +2042,37 @@ function renderAttacks() {
     document.getElementById('attackList').innerHTML = data.attacks.map((atk, i) => {
         const safeName = escapeHtml(atk && atk.name ? atk.name : '');
         const safeDmg = escapeHtml(atk && atk.dmg ? atk.dmg : '');
+        const safeAtkBonus = escapeHtml(atk && atk.atkBonus ? atk.atkBonus : '');
+        const safeDmgBonus = escapeHtml(atk && atk.dmgBonus ? atk.dmgBonus : '');
         const safeDesc = escapeHtml(atk && atk.desc ? atk.desc : '');
-        const safeStat = (atk && typeof atk.stat === 'string') ? atk.stat : 'none';
-        return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${safeName}" data-onchange="updateAttack(${i}, 'name', this.value)" > <div class="atk-stats-line" > <input type="text" placeholder="1d8" value="${safeDmg}" data-onchange="updateAttack(${i}, 'dmg', this.value)" > <select data-onchange="updateAttack(${i}, 'stat', this.value)" > <option value="none"${safeStat === 'none' ? 'selected' : ''
+        const fallbackStat = (atk && typeof atk.stat === 'string' && attackStats.includes(atk.stat)) ? atk.stat : 'none';
+        const safeAtkStat = (atk && typeof atk.atkStat === 'string' && attackStats.includes(atk.atkStat)) ? atk.atkStat : fallbackStat;
+        const safeDmgStat = (atk && typeof atk.dmgStat === 'string' && attackStats.includes(atk.dmgStat)) ? atk.dmgStat : fallbackStat;
+        return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Weapon Name" value="${safeName}" data-onchange="updateAttack(${i}, 'name', this.value)" > <div class="atk-stats-line" > <input type="text" placeholder="Damage (e.g. 1d8)" value="${safeDmg}" data-onchange="updateAttack(${i}, 'dmg', this.value)" > <select data-onchange="updateAttack(${i}, 'atkStat', this.value)" title="Attack bonus stat" > <option value="none"${safeAtkStat === 'none' ? 'selected' : ''
         }
 
-                >NONE</option> ${stats.map(s => `<option value="${s}"${safeStat === s ? 'selected' : ''
+                >ATK: NONE</option> ${stats.map(s => `<option value="${s}"${safeAtkStat === s ? 'selected' : ''
             }
 
-                        >${s.toUpperCase()
+                        >ATK: ${s.toUpperCase()
             }
 
                         </option>`).join('')
         }
 
-                </select> </div> <textarea class="atk-desc" placeholder="Attack description / effect..." data-onchange="updateAttack(${i}, 'desc', this.value)" >${safeDesc
+                </select> <select data-onchange="updateAttack(${i}, 'dmgStat', this.value)" title="Damage bonus stat" > <option value="none"${safeDmgStat === 'none' ? 'selected' : ''
+        }
+
+                >DMG: NONE</option> ${stats.map(s => `<option value="${s}"${safeDmgStat === s ? 'selected' : ''
+            }
+
+                        >DMG: ${s.toUpperCase()
+            }
+
+                        </option>`).join('')
+        }
+
+                </select> </div> <div class="atk-bonus-line" > <input type="text" placeholder="Atk Bonus (e.g. +1)" value="${safeAtkBonus}" data-onchange="updateAttack(${i}, 'atkBonus', this.value)" > <input type="text" placeholder="Dmg Bonus (e.g. +2)" value="${safeDmgBonus}" data-onchange="updateAttack(${i}, 'dmgBonus', this.value)" > </div> <textarea class="atk-desc" placeholder="Attack description / effect..." data-onchange="updateAttack(${i}, 'desc', this.value)" >${safeDesc
         }
 
                 </textarea> <div class="atk-controls" > <button class="atk-btn-atk" data-onclick="rollAttack(${i})" >Atk</button> <button class="atk-btn-dmg" data-onclick="rollDamage(${i})" >Dmg</button> <button class="atk-btn-del" data-onclick="delAttack(${i})" >&times; </button> </div> </div> `;
@@ -2022,10 +2083,13 @@ function renderFeatures() {
     document.getElementById('featureList').innerHTML = data.features.map((feat, i) => {
         const safeName = escapeHtml(feat && feat.name ? feat.name : '');
         const safeDesc = escapeHtml(feat && feat.desc ? feat.desc : '');
+        const favClass = featureFavoriteClass(feat);
+        const favTitle = feat && feat.favorite ? 'Unfavorite feature' : 'Favorite feature';
         return ` <div class="atk-row" > <input class="atk-name-input" type="text" placeholder="Feature Name" value="${safeName}" data-onchange="updateFeature(${i}, 'name', this.value)" > <textarea class="atk-desc feat-desc" placeholder="Feature description..." data-onchange="updateFeature(${i}, 'desc', this.value)" >${safeDesc
         }
 
-                </textarea> <div class="atk-controls feat-controls" > <button class="feat-post-btn" data-onclick="postFeature(${i})" >📢 Post to Chat</button> <button class="atk-btn-del" data-onclick="delFeature(${i})" >&times; </button> </div> </div> `;
+                </textarea> <div class="atk-controls feat-controls" > <button class="feat-post-btn" data-onclick="postFeature(${i})" >📢 Post to Chat</button> <button class="feat-favorite-btn${favClass}" title="${favTitle}" data-onclick="toggleFeatureFavorite(${i})" >${feat && feat.favorite ? '&#9733;' : '&#9734;'
+            }</button> <button class="atk-btn-del" data-onclick="delFeature(${i})" >&times; </button> </div> </div> `;
     }).join('');
 }
 
@@ -2636,13 +2700,15 @@ function rollSkill(skill) {
 function rollAttack(idx) {
     const atk = data.attacks[idx];
     const pb = getPB(data.meta.level);
+    const atkStat = attackStats.includes(atk.atkStat) ? atk.atkStat : (attackStats.includes(atk.stat) ? atk.stat : 'none');
     let mod = 0;
 
-    if (atk.stat !== 'none') {
-        mod = getMod(data.stats[atk.stat].val);
+    if (atkStat !== 'none') {
+        mod = getMod(data.stats[atkStat].val);
     }
 
-    rollDie(20, mod + pb, (atk.name || 'Weapon') + " Atk", true, 'atk', atk.desc);
+    const atkBonus = parseInt(atk.atkBonus, 10) || 0;
+    rollDie(20, mod + pb + atkBonus, (atk.name || 'Weapon') + " Atk", true, 'atk', atk.desc);
 }
 
 function updateStat(stat, val) {
@@ -2652,18 +2718,12 @@ function updateStat(stat, val) {
 }
 
 function toggleSave(stat, e) {
-    if (e.target.tagName !== 'INPUT') {
-        data.stats[stat].save = !data.stats[stat].save;
-        save();
-        renderStats();
-        updateAll();
-    }
-
-    else {
-        data.stats[stat].save = e.target.checked;
-        save();
-        updateAll();
-    }
+    if (!data.stats || !data.stats[stat]) return;
+    if (e.target.tagName === 'INPUT') data.stats[stat].save = !!e.target.checked;
+    else data.stats[stat].save = !data.stats[stat].save;
+    save();
+    renderStats();
+    updateAll();
 }
 
 function cycleSkill(skill) {
@@ -2726,7 +2786,7 @@ function toggleSpellSlot(idx, bubbleIdx) {
 
 function addAttack() {
     data.attacks.push({
-        name: '', stat: 'str', dmg: '1d8', desc: ''
+        name: '', atkStat: 'str', dmgStat: 'str', atkBonus: '', dmgBonus: '', dmg: '1d8', desc: ''
     });
     save();
     renderAttacks();
@@ -2734,10 +2794,15 @@ function addAttack() {
 
 function updateAttack(idx, field, val) {
     if (!Array.isArray(data.attacks) || !data.attacks[idx]) return;
-    if (!['name', 'stat', 'dmg', 'desc'].includes(field)) return;
+    if (!['name', 'stat', 'atkStat', 'dmgStat', 'atkBonus', 'dmgBonus', 'dmg', 'desc'].includes(field)) return;
     if (field === 'stat') {
         const stat = String(val || '').toLowerCase();
-        data.attacks[idx][field] = ['none', 'str', 'dex', 'con', 'int', 'wis', 'cha'].includes(stat) ? stat : 'str';
+        const normalized = attackStats.includes(stat) ? stat : 'str';
+        data.attacks[idx].atkStat = normalized;
+        data.attacks[idx].dmgStat = normalized;
+    } else if (field === 'atkStat' || field === 'dmgStat') {
+        const stat = String(val || '').toLowerCase();
+        data.attacks[idx][field] = attackStats.includes(stat) ? stat : 'str';
     } else {
         data.attacks[idx][field] = String(val || '').slice(0, field === 'desc' ? 4000 : 240);
     }
@@ -2752,23 +2817,40 @@ function delAttack(idx) {
 
 function addFeature() {
     data.features.push({
-        name: '', desc: ''
+        name: '', desc: '', favorite: false
     });
     save();
     renderFeatures();
+    renderFavoriteFeatures();
 }
 
 function updateFeature(idx, field, val) {
     if (!Array.isArray(data.features) || !data.features[idx]) return;
-    if (field !== 'name' && field !== 'desc') return;
+    if (!['name', 'desc', 'favorite'].includes(field)) return;
+    if (field === 'favorite') {
+        data.features[idx][field] = !!val;
+        save();
+        renderFavoriteFeatures();
+        return;
+    }
     data.features[idx][field] = String(val || '').slice(0, field === 'desc' ? 4000 : 240);
     save();
+    renderFavoriteFeatures();
 }
 
 function delFeature(idx) {
     data.features.splice(idx, 1);
     save();
     renderFeatures();
+    renderFavoriteFeatures();
+}
+
+function toggleFeatureFavorite(idx) {
+    if (!Array.isArray(data.features) || !data.features[idx]) return;
+    data.features[idx].favorite = !data.features[idx].favorite;
+    save();
+    renderFeatures();
+    renderFavoriteFeatures();
 }
 
 function postFeature(idx) {
