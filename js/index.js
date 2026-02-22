@@ -56,6 +56,7 @@ const srdSpellLookupState = {
     promise: null,
     byName: new Map()
 };
+let spellbookHideEmptyFieldsOnLoad = true;
 
 function updateRollerStickyOffset() {
     const hero = document.getElementById('rollerBar');
@@ -579,7 +580,8 @@ function getDefaultChar() {
         rollMode: 'norm',
         uiState: {
             cardOrder: [],
-            sheetFace: 'front'
+            sheetFace: 'front',
+            spellbookShowHiddenFields: false
         },
         inventory: getDefaultInventory()
     }
@@ -794,7 +796,8 @@ function sanitizeSpellbookEntry(entry) {
         concentration: sanitizeBoolean(row.concentration, false),
         description: sanitizeString(row.description || '', '', 12000),
         higherLevelSlot: sanitizeString(row.higherLevelSlot || '', '', 8000),
-        cantripUpgrade: sanitizeString(row.cantripUpgrade || '', '', 4000)
+        cantripUpgrade: sanitizeString(row.cantripUpgrade || '', '', 4000),
+        showAllFields: sanitizeBoolean(row.showAllFields, false)
     };
 }
 
@@ -1040,6 +1043,7 @@ function sanitizeCharacterData(rawChar) {
     const legacyFlipped = sanitizeBoolean(out.uiState.isFlipped, false);
     out.uiState.sheetFace = normalizeSheetFace(out.uiState.sheetFace, legacyFlipped);
     out.uiState.isFlipped = out.uiState.sheetFace !== 'front';
+    out.uiState.spellbookShowHiddenFields = sanitizeBoolean(out.uiState.spellbookShowHiddenFields, false);
     out.uiState.cardOrder = Array.isArray(out.uiState.cardOrder) ? out.uiState.cardOrder.slice(0, 200).map((entry) => sanitizeString(entry, '', 120)).filter(Boolean) : [];
 
     if (isPlainObject(source.inventory)) {
@@ -1184,6 +1188,7 @@ function deleteCharacter() {
 function loadActiveChar() {
     data = sanitizeCharacterData(allData.characters[allData.activeId]);
     allData.characters[allData.activeId] = data;
+    spellbookHideEmptyFieldsOnLoad = true;
     refreshCharSelect();
     populateUI();
 }
@@ -1276,6 +1281,7 @@ function populateUI() {
     document.getElementById('speedVal').value = data.meta.speed || '';
     const spellAttrSelect = document.getElementById('spellCastingAttr');
     if (spellAttrSelect) spellAttrSelect.value = spellcastingAttrOptions.includes(data.meta.spellAttr) ? data.meta.spellAttr : 'auto';
+    syncSpellbookShowHiddenFieldsToggle();
 
     toggleDiscord(data.meta.discordActive);
 
@@ -1798,6 +1804,19 @@ function updateSpellcastingAttr(value) {
     updateSpellcastingDisplays();
     save();
     renderSpellbook();
+}
+
+function setSpellbookShowHiddenFields(show) {
+    if (!data.uiState) data.uiState = {};
+    data.uiState.spellbookShowHiddenFields = !!show;
+    save();
+    renderSpellbook();
+}
+
+function syncSpellbookShowHiddenFieldsToggle() {
+    const toggle = document.getElementById('spellShowHiddenFieldsToggle');
+    if (!toggle) return;
+    toggle.checked = !!(data.uiState && data.uiState.spellbookShowHiddenFields);
 }
 
 function updateLevel(val) {
@@ -2766,17 +2785,48 @@ function renderSpellbook() {
     const list = document.getElementById('spellbookList');
     if (!list) return;
     if (!Array.isArray(data.spellbook)) data.spellbook = [];
+    const filterInput = document.getElementById('spellbookFilterInput');
+    const filterCount = document.getElementById('spellbookFilterCount');
+    const rawFilterValue = filterInput ? String(filterInput.value || '') : '';
+    const normalizedFilter = normalizeSpellLookupName(rawFilterValue);
+    const hasFilter = normalizedFilter.length > 0;
+    const showHiddenFields = !!(data.uiState && data.uiState.spellbookShowHiddenFields);
+    const hideEmptyFieldsOnLoad = spellbookHideEmptyFieldsOnLoad && !showHiddenFields;
+
+    if (filterCount) {
+        filterCount.innerText = String(data.spellbook.length);
+    }
 
     if (data.spellbook.length === 0) {
         list.innerHTML = '<div class="spellbook-empty">No spells yet. Add one to enable quick casting.</div>';
         return;
     }
 
+    const spellEntries = data.spellbook.map((entry, idx) => ({
+        idx,
+        spell: sanitizeSpellbookEntry(entry)
+    }));
+    const visibleEntries = hasFilter
+        ? spellEntries.filter(({ spell }) => normalizeSpellLookupName(spell.name).includes(normalizedFilter))
+        : spellEntries;
+
+    if (filterCount) {
+        filterCount.innerText = hasFilter
+            ? `${visibleEntries.length}/${spellEntries.length}`
+            : String(spellEntries.length);
+    }
+
+    if (visibleEntries.length === 0) {
+        const escapedFilter = escapeHtml(rawFilterValue.trim());
+        list.innerHTML = `<div class="spellbook-empty">No spells match "${escapedFilter}".</div>`;
+        return;
+    }
+
     const dc = getSpellSaveDC();
     const attackBonus = getSpellAttackBonus();
 
-    list.innerHTML = data.spellbook.map((entry, idx) => {
-        const spell = sanitizeSpellbookEntry(entry);
+    list.innerHTML = visibleEntries.map(({ idx, spell }) => {
+        const hideEmptyFields = hideEmptyFieldsOnLoad && !spell.showAllFields;
         const safeName = escapeHtml(spell.name);
         const level = spell.lvl;
         const castLvl = spell.castLvl;
@@ -2785,7 +2835,7 @@ function renderSpellbook() {
             ? `Spell Attack ${formatSignedNumber(attackBonus)}`
             : `${saveAttr.toUpperCase()} Save DC ${dc}`;
         const slotSummary = getSpellSlotSummary(level, castLvl);
-        const detailFields = [
+        const allDetailFields = [
             { key: 'school', label: 'School', value: spell.school, maxLen: 80 },
             { key: 'actionType', label: 'Action Type', value: spell.actionType, maxLen: 80 },
             { key: 'castingTime', label: 'Casting Time', value: spell.castingTime, maxLen: 160 },
@@ -2794,7 +2844,10 @@ function renderSpellbook() {
             { key: 'duration', label: 'Duration', value: spell.duration, maxLen: 180 },
             { key: 'components', label: 'Components', value: spell.components, maxLen: 80 },
             { key: 'material', label: 'Material', value: spell.material, maxLen: 500 }
-        ].filter((field) => String(field.value || '').trim().length > 0);
+        ];
+        const detailFields = hideEmptyFields
+            ? allDetailFields.filter((field) => String(field.value || '').trim().length > 0)
+            : allDetailFields;
 
         const detailMarkup = detailFields.length
             ? `<div class="spellbook-detail-grid">${detailFields.map((field) => (
@@ -2806,15 +2859,15 @@ function renderSpellbook() {
             : '';
 
         const flagMarkupItems = [];
-        if (spell.ritual) {
+        if (!hideEmptyFields || spell.ritual) {
             flagMarkupItems.push(`<label class="spellbook-flag">
-                <input type="checkbox" checked data-onchange="updateSpellbookEntry(${idx}, 'ritual', this.checked)">
+                <input type="checkbox"${spell.ritual ? ' checked' : ''} data-onchange="updateSpellbookEntry(${idx}, 'ritual', this.checked)">
                 Ritual
             </label>`);
         }
-        if (spell.concentration) {
+        if (!hideEmptyFields || spell.concentration) {
             flagMarkupItems.push(`<label class="spellbook-flag">
-                <input type="checkbox" checked data-onchange="updateSpellbookEntry(${idx}, 'concentration', this.checked)">
+                <input type="checkbox"${spell.concentration ? ' checked' : ''} data-onchange="updateSpellbookEntry(${idx}, 'concentration', this.checked)">
                 Concentration
             </label>`);
         }
@@ -2823,19 +2876,19 @@ function renderSpellbook() {
             : '';
 
         const textAreaMarkupItems = [];
-        if (String(spell.description || '').trim()) {
+        if (!hideEmptyFields || String(spell.description || '').trim()) {
             textAreaMarkupItems.push(`<div class="spellbook-textarea-group spellbook-description">
                 <label>Description</label>
                 <textarea placeholder="Spell description" data-oninput="updateSpellbookEntry(${idx}, 'description', this.value)">${escapeHtml(spell.description)}</textarea>
             </div>`);
         }
-        if (String(spell.higherLevelSlot || '').trim()) {
+        if (!hideEmptyFields || String(spell.higherLevelSlot || '').trim()) {
             textAreaMarkupItems.push(`<div class="spellbook-textarea-group">
                 <label>Higher-Level Slot</label>
                 <textarea placeholder="At higher level slot details" data-oninput="updateSpellbookEntry(${idx}, 'higherLevelSlot', this.value)">${escapeHtml(spell.higherLevelSlot)}</textarea>
             </div>`);
         }
-        if (String(spell.cantripUpgrade || '').trim()) {
+        if (!hideEmptyFields || String(spell.cantripUpgrade || '').trim()) {
             textAreaMarkupItems.push(`<div class="spellbook-textarea-group">
                 <label>Cantrip Upgrade</label>
                 <textarea placeholder="Cantrip scaling details" data-oninput="updateSpellbookEntry(${idx}, 'cantripUpgrade', this.value)">${escapeHtml(spell.cantripUpgrade)}</textarea>
@@ -2874,7 +2927,8 @@ function addSpellbookEntry() {
         name: '',
         lvl: 1,
         castLvl: 0,
-        save: 'none'
+        save: 'none',
+        showAllFields: true
     }));
     save();
     renderSpellbook();
@@ -2883,6 +2937,7 @@ function addSpellbookEntry() {
 function updateSpellbookEntry(idx, field, value) {
     if (!Array.isArray(data.spellbook) || !data.spellbook[idx]) return;
     const spell = sanitizeSpellbookEntry(data.spellbook[idx]);
+    const wasShowingAllFields = !!spell.showAllFields;
     if (field === 'name') {
         spell.name = String(value || '').slice(0, 180);
     } else if (field === 'lvl') {
@@ -2926,9 +2981,14 @@ function updateSpellbookEntry(idx, field, value) {
         return;
     }
 
+    spell.showAllFields = true;
     data.spellbook[idx] = sanitizeSpellbookEntry(spell);
     save();
-    if (field === 'lvl' || field === 'save' || field === 'castLvl' || field === 'ritual' || field === 'concentration') renderSpellbook();
+    const hideModeActive = spellbookHideEmptyFieldsOnLoad && !(data.uiState && data.uiState.spellbookShowHiddenFields);
+    const revealTriggered = hideModeActive && !wasShowingAllFields;
+    if (revealTriggered || field === 'lvl' || field === 'save' || field === 'castLvl' || field === 'ritual' || field === 'concentration') {
+        renderSpellbook();
+    }
 }
 
 function deleteSpellbookEntry(idx) {
@@ -4583,6 +4643,7 @@ window.populateUI = populateUI;
 window.init = init;
 window.setSheetFace = setSheetFace;
 window.toggleSheetFlip = toggleSheetFlip;
+window.setSpellbookShowHiddenFields = setSpellbookShowHiddenFields;
 window.ensureSrdSpellLookup = ensureSrdSpellLookup;
 window.findSpellReferenceByName = findSpellReferenceByName;
 window.applySpellReferenceToSpellEntry = applySpellReferenceToSpellEntry;

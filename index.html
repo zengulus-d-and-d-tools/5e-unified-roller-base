@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e1e1e">
 
     <link rel="stylesheet" href="css/theme.css">
-    <link rel="stylesheet" href="css/index.css?v=20260222e">
+    <link rel="stylesheet" href="css/index.css?v=20260222g">
 
 </head>
 
@@ -383,6 +383,11 @@
                                 data-onclick="Importer.triggerImport('spells')">📜 Import Spells Only</button>
                             <button class="inventory-create-btn spell-import-btn spell-sync-btn" type="button"
                                 data-onclick="syncSpellbookWithSrd()">🔄 Sync From SRD 5.2</button>
+                            <label class="spell-hidden-toggle" title="Show fields hidden when empty on first load.">
+                                <input id="spellShowHiddenFieldsToggle" type="checkbox"
+                                    data-onchange="setSpellbookShowHiddenFields(this.checked)">
+                                <span>Show Hidden Fields</span>
+                            </label>
                             <button class="inventory-create-btn" type="button" data-onclick="addSpellbookEntry()">+ Add
                                 Spell</button>
                         </div>
@@ -427,6 +432,12 @@
                         <div class="spell-sheet-panel">
                             <div class="spell-sheet-panel-head">
                                 <h3>Spells</h3>
+                                <div class="spellbook-filter-controls">
+                                    <input id="spellbookFilterInput" class="spellbook-filter-input" type="search"
+                                        placeholder="Filter by spell name" aria-label="Filter spells by name"
+                                        data-oninput="renderSpellbook()">
+                                    <span id="spellbookFilterCount" class="spellbook-filter-count">0</span>
+                                </div>
                             </div>
                             <div class="spell-sheet-list" id="spellbookList"></div>
                         </div>
@@ -565,7 +576,7 @@
     <script src="js/sw-register.js"></script>
     <script src="js/pdf.min.js"></script>
     <script src="js/importer.js?v=20260222e"></script>
-    <script src="js/index.js?v=20260222g"></script>
+    <script src="js/index.js?v=20260222i"></script>
     <script src="js/vector-field.js"></script>
 </body>
 

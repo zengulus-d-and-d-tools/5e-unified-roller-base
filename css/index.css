@@ -2068,6 +2068,22 @@ button {
     justify-content: flex-end;
 }
 
+.spell-hidden-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--hq-border);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.78rem;
+    color: var(--accent-muted);
+    background: rgba(0, 0, 0, 0.28);
+}
+
+.spell-hidden-toggle input {
+    margin: 0;
+}
+
 .spell-import-btn {
     background: rgba(0, 0, 0, 0.35);
     color: var(--text);
@@ -2109,6 +2125,33 @@ button {
 .spell-sheet-panel-head h3 {
     margin: 0;
     font-size: 1rem;
+}
+
+.spellbook-filter-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.spellbook-filter-input {
+    min-width: 220px;
+    border-radius: 999px;
+    padding: 8px 12px;
+    border: 1px solid var(--hq-border);
+    background: color-mix(in srgb, var(--surface-soft) 78%, rgba(0, 0, 0, 0.24));
+    color: var(--text);
+}
+
+.spellbook-filter-count {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    color: var(--accent-muted);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    padding: 5px 10px;
+    line-height: 1;
 }
 
 .spell-sheet-casting {
@@ -2662,8 +2705,23 @@ button {
         flex: 1;
     }
 
+    .spell-hidden-toggle {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
     .spell-sheet-panel-head {
         flex-wrap: wrap;
+    }
+
+    .spellbook-filter-controls {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .spellbook-filter-input {
+        width: 100%;
+        min-width: 0;
     }
 
     .inventory-header {
