@@ -51,6 +51,12 @@ const STORAGE_KEYS = {
 
     ;
 
+const SRD_SPELLS_JSON_PATH = 'js/srd-5.2-spells.json';
+const srdSpellLookupState = {
+    promise: null,
+    byName: new Map()
+};
+
 function updateRollerStickyOffset() {
     const hero = document.getElementById('rollerBar');
     const root = document.documentElement;
@@ -621,6 +627,245 @@ function sanitizeBoolean(value, fallback = false) {
     return fallback;
 }
 
+function toTitleCaseWords(value) {
+    const cleaned = String(value || '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (!cleaned) return '';
+    return cleaned.split(' ').map((part) => {
+        if (!part) return '';
+        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    }).join(' ');
+}
+
+function normalizeSpellLookupName(name) {
+    let text = String(name || '').toLowerCase().trim();
+    if (!text) return '';
+    if (typeof text.normalize === 'function') {
+        text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    return text
+        .replace(/['`\u2019]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function formatSpellActionType(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const collapsed = raw.toLowerCase().replace(/[\s_-]+/g, '');
+    const known = {
+        action: 'Action',
+        bonusaction: 'Bonus Action',
+        reaction: 'Reaction',
+        '1minute': '1 Minute',
+        '1hour': '1 Hour'
+    };
+    if (known[collapsed]) return known[collapsed];
+    return toTitleCaseWords(raw.replace(/([a-z])([A-Z])/g, '$1 $2'));
+}
+
+function formatSpellComponents(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map((part) => String(part || '').trim().toUpperCase())
+            .filter(Boolean)
+            .join(', ');
+    }
+    return String(value || '')
+        .split(',')
+        .map((part) => part.trim().toUpperCase())
+        .filter(Boolean)
+        .join(', ');
+}
+
+function formatSpellClasses(value) {
+    const list = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+    return list
+        .map((part) => toTitleCaseWords(String(part || '').trim()))
+        .filter(Boolean)
+        .join(', ');
+}
+
+function normalizeSrdSpellReference(record) {
+    const row = isPlainObject(record) ? record : {};
+    const normalizedActionType = formatSpellActionType(row.actionType);
+    const castingTime = sanitizeString(row.castingTime || normalizedActionType, '', 160);
+    return {
+        name: sanitizeString(row.name || '', '', 180),
+        lvl: Math.round(sanitizeNumber(row.level, 0, 0, 9)),
+        school: toTitleCaseWords(sanitizeString(row.school || '', '', 80)),
+        classes: sanitizeString(formatSpellClasses(row.classes), '', 240),
+        actionType: sanitizeString(normalizedActionType, '', 80),
+        castingTime,
+        castingTrigger: sanitizeString(row.castingTrigger || '', '', 240),
+        range: sanitizeString(row.range || '', '', 160),
+        duration: sanitizeString(row.duration || '', '', 180),
+        components: sanitizeString(formatSpellComponents(row.components), '', 80),
+        material: sanitizeString(row.material || '', '', 500),
+        ritual: sanitizeBoolean(row.ritual, false),
+        concentration: sanitizeBoolean(row.concentration, false),
+        description: sanitizeString(row.description || '', '', 12000),
+        higherLevelSlot: sanitizeString(row.higherLevelSlot || '', '', 8000),
+        cantripUpgrade: sanitizeString(row.cantripUpgrade || '', '', 4000)
+    };
+}
+
+async function ensureSrdSpellLookup(forceReload = false) {
+    if (srdSpellLookupState.promise && !forceReload) return srdSpellLookupState.promise;
+
+    srdSpellLookupState.promise = (async () => {
+        const response = await fetch(SRD_SPELLS_JSON_PATH, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Failed to load SRD spells (${response.status})`);
+        const payload = await response.json();
+        if (!Array.isArray(payload)) throw new Error('Unexpected SRD spell payload.');
+
+        const byName = new Map();
+        payload.forEach((record) => {
+            const normalized = normalizeSrdSpellReference(record);
+            const key = normalizeSpellLookupName(normalized.name);
+            if (!key || byName.has(key)) return;
+            byName.set(key, normalized);
+        });
+
+        if (!byName.size) throw new Error('SRD spell lookup is empty.');
+        srdSpellLookupState.byName = byName;
+        return byName;
+    })().catch((err) => {
+        srdSpellLookupState.promise = null;
+        throw err;
+    });
+
+    return srdSpellLookupState.promise;
+}
+
+async function findSpellReferenceByName(name, options = {}) {
+    const key = normalizeSpellLookupName(name);
+    if (!key) return null;
+    const forceReload = !!(options && options.forceReload);
+    const lookup = await ensureSrdSpellLookup(forceReload);
+    return lookup.get(key) || null;
+}
+
+function sanitizeSpellbookEntry(entry) {
+    const row = isPlainObject(entry) ? entry : {};
+    const saveAttr = String(row.save || 'none').toLowerCase();
+    const level = Math.round(sanitizeNumber(row.lvl, 1, 0, 9));
+    const castLvlRaw = Math.round(sanitizeNumber(row.castLvl, 0, 0, 9));
+    const castLvl = normalizeSpellbookCastLevel(level, castLvlRaw);
+    const classesValue = Array.isArray(row.classes) ? row.classes.join(', ') : row.classes;
+    const componentsValue = Array.isArray(row.components) ? row.components.join(', ') : row.components;
+    return {
+        name: sanitizeString(row.name || '', '', 180),
+        lvl: level,
+        castLvl,
+        save: (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none',
+        school: sanitizeString(row.school || '', '', 80),
+        classes: sanitizeString(classesValue || '', '', 240),
+        actionType: sanitizeString(row.actionType || '', '', 80),
+        castingTime: sanitizeString(row.castingTime || '', '', 160),
+        castingTrigger: sanitizeString(row.castingTrigger || '', '', 240),
+        range: sanitizeString(row.range || '', '', 160),
+        duration: sanitizeString(row.duration || '', '', 180),
+        components: sanitizeString(componentsValue || '', '', 80),
+        material: sanitizeString(row.material || '', '', 500),
+        ritual: sanitizeBoolean(row.ritual, false),
+        concentration: sanitizeBoolean(row.concentration, false),
+        description: sanitizeString(row.description || '', '', 12000),
+        higherLevelSlot: sanitizeString(row.higherLevelSlot || '', '', 8000),
+        cantripUpgrade: sanitizeString(row.cantripUpgrade || '', '', 4000),
+        notes: sanitizeString(row.notes || '', '', 5000)
+    };
+}
+
+function applySpellReferenceToSpellEntry(entry, reference) {
+    const base = sanitizeSpellbookEntry(entry);
+    const normalizedRef = normalizeSrdSpellReference(reference);
+    if (!normalizedRef.name) return base;
+    const merged = {
+        ...base,
+        name: normalizedRef.name,
+        lvl: normalizedRef.lvl,
+        school: normalizedRef.school,
+        classes: normalizedRef.classes,
+        actionType: normalizedRef.actionType,
+        castingTime: normalizedRef.castingTime,
+        castingTrigger: normalizedRef.castingTrigger,
+        range: normalizedRef.range,
+        duration: normalizedRef.duration,
+        components: normalizedRef.components,
+        material: normalizedRef.material,
+        ritual: normalizedRef.ritual,
+        concentration: normalizedRef.concentration,
+        description: normalizedRef.description,
+        higherLevelSlot: normalizedRef.higherLevelSlot,
+        cantripUpgrade: normalizedRef.cantripUpgrade
+    };
+    merged.castLvl = normalizeSpellbookCastLevel(merged.lvl, base.castLvl);
+    return sanitizeSpellbookEntry(merged);
+}
+
+async function matchSpellbookEntriesByName(entries) {
+    const list = Array.isArray(entries) ? entries : [];
+    const lookup = await ensureSrdSpellLookup();
+    return list.slice(0, 400).map((entry) => {
+        const base = sanitizeSpellbookEntry(entry);
+        const key = normalizeSpellLookupName(base.name);
+        if (!key) return base;
+        const reference = lookup.get(key);
+        if (!reference) return base;
+        return applySpellReferenceToSpellEntry(base, reference);
+    });
+}
+
+async function syncSpellbookWithSrd() {
+    if (!Array.isArray(data.spellbook)) data.spellbook = [];
+    if (data.spellbook.length === 0) {
+        alert('No spells to sync. Add or import spells first.');
+        return;
+    }
+
+    try {
+        const lookup = await ensureSrdSpellLookup();
+        let matched = 0;
+        let missing = 0;
+        let unnamed = 0;
+
+        data.spellbook = data.spellbook.slice(0, 400).map((entry) => {
+            const base = sanitizeSpellbookEntry(entry);
+            const key = normalizeSpellLookupName(base.name);
+            if (!key) {
+                unnamed += 1;
+                return base;
+            }
+            const reference = lookup.get(key);
+            if (!reference) {
+                missing += 1;
+                return base;
+            }
+            matched += 1;
+            return applySpellReferenceToSpellEntry(base, reference);
+        });
+
+        save();
+        renderSpellbook();
+
+        const parts = [`${matched} matched`];
+        if (missing > 0) parts.push(`${missing} not found`);
+        if (unnamed > 0) parts.push(`${unnamed} unnamed`);
+        const summary = parts.join(', ');
+        showLog('Spells Sync', summary);
+        alert(`SRD 5.2 sync complete: ${summary}.`);
+    } catch (error) {
+        console.error('Failed to sync spellbook from SRD 5.2', error);
+        alert('Could not load SRD 5.2 spell data. See console for details.');
+    }
+}
+
 function sanitizeCharacterData(rawChar) {
     const source = isPlainObject(rawChar) ? rawChar : {};
     const out = getDefaultChar();
@@ -753,20 +998,9 @@ function sanitizeCharacterData(rawChar) {
             used: Math.min(max, usedRaw)
         });
     }
-    out.spellbook = Array.isArray(source.spellbook) ? source.spellbook.slice(0, 400).map((entry) => {
-        const row = isPlainObject(entry) ? entry : {};
-        const saveAttr = String(row.save || 'none').toLowerCase();
-        const level = Math.round(sanitizeNumber(row.lvl, 1, 0, 9));
-        const castLvlRaw = Math.round(sanitizeNumber(row.castLvl, 0, 0, 9));
-        const castLvl = level <= 0 ? 0 : (castLvlRaw === 0 ? 0 : Math.max(level, castLvlRaw));
-        return {
-            name: sanitizeString(row.name || '', '', 180),
-            lvl: level,
-            castLvl,
-            save: (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none',
-            notes: sanitizeString(row.notes || '', '', 5000)
-        };
-    }) : [];
+    out.spellbook = Array.isArray(source.spellbook) ? source.spellbook.slice(0, 400).map((entry) => (
+        sanitizeSpellbookEntry(entry)
+    )) : [];
 
     out.resources = Array.isArray(source.resources) ? source.resources.slice(0, 200).map((entry) => {
         const row = isPlainObject(entry) ? entry : {};
@@ -2526,13 +2760,24 @@ function renderSpellbook() {
     const attackBonus = getSpellAttackBonus();
 
     list.innerHTML = data.spellbook.map((entry, idx) => {
-        const spell = entry && typeof entry === 'object' ? entry : {};
-        const safeName = escapeHtml(spell.name || '');
-        const level = Math.max(0, Math.min(9, parseInt(spell.lvl, 10) || 0));
-        const castLvl = normalizeSpellbookCastLevel(level, spell.castLvl);
-        const saveAttrRaw = String(spell.save || 'none').toLowerCase();
-        const saveAttr = (saveAttrRaw === 'none' || stats.includes(saveAttrRaw)) ? saveAttrRaw : 'none';
-        const safeNotes = escapeHtml(spell.notes || '');
+        const spell = sanitizeSpellbookEntry(entry);
+        const safeName = escapeHtml(spell.name);
+        const level = spell.lvl;
+        const castLvl = spell.castLvl;
+        const saveAttr = spell.save;
+        const safeNotes = escapeHtml(spell.notes);
+        const safeSchool = escapeHtml(spell.school);
+        const safeClasses = escapeHtml(spell.classes);
+        const safeActionType = escapeHtml(spell.actionType);
+        const safeCastingTime = escapeHtml(spell.castingTime);
+        const safeCastingTrigger = escapeHtml(spell.castingTrigger);
+        const safeRange = escapeHtml(spell.range);
+        const safeDuration = escapeHtml(spell.duration);
+        const safeComponents = escapeHtml(spell.components);
+        const safeMaterial = escapeHtml(spell.material);
+        const safeDescription = escapeHtml(spell.description);
+        const safeHigherLevel = escapeHtml(spell.higherLevelSlot);
+        const safeCantripUpgrade = escapeHtml(spell.cantripUpgrade);
         const castSummary = saveAttr === 'none'
             ? `Spell Attack ${formatSignedNumber(attackBonus)}`
             : `${saveAttr.toUpperCase()} Save DC ${dc}`;
@@ -2553,27 +2798,91 @@ function renderSpellbook() {
                 <button type="button" class="inventory-delete-btn" data-onclick="deleteSpellbookEntry(${idx})">&times;</button>
             </div>
             <div class="spellbook-meta">${escapeHtml(slotSummary)} | ${escapeHtml(castSummary)}</div>
-            <textarea class="spellbook-notes" placeholder="Notes / effect text" data-oninput="updateSpellbookEntry(${idx}, 'notes', this.value)">${safeNotes}</textarea>
+            <div class="spellbook-detail-grid">
+                <div class="spellbook-field">
+                    <label>School</label>
+                    <input type="text" value="${safeSchool}" data-oninput="updateSpellbookEntry(${idx}, 'school', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Classes</label>
+                    <input type="text" value="${safeClasses}" data-oninput="updateSpellbookEntry(${idx}, 'classes', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Action Type</label>
+                    <input type="text" value="${safeActionType}" data-oninput="updateSpellbookEntry(${idx}, 'actionType', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Casting Time</label>
+                    <input type="text" value="${safeCastingTime}" data-oninput="updateSpellbookEntry(${idx}, 'castingTime', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Casting Trigger</label>
+                    <input type="text" value="${safeCastingTrigger}" data-oninput="updateSpellbookEntry(${idx}, 'castingTrigger', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Range</label>
+                    <input type="text" value="${safeRange}" data-oninput="updateSpellbookEntry(${idx}, 'range', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Duration</label>
+                    <input type="text" value="${safeDuration}" data-oninput="updateSpellbookEntry(${idx}, 'duration', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Components</label>
+                    <input type="text" value="${safeComponents}" data-oninput="updateSpellbookEntry(${idx}, 'components', this.value)">
+                </div>
+                <div class="spellbook-field">
+                    <label>Material</label>
+                    <input type="text" value="${safeMaterial}" data-oninput="updateSpellbookEntry(${idx}, 'material', this.value)">
+                </div>
+            </div>
+            <div class="spellbook-flag-row">
+                <label class="spellbook-flag">
+                    <input type="checkbox"${spell.ritual ? ' checked' : ''} data-onchange="updateSpellbookEntry(${idx}, 'ritual', this.checked)">
+                    Ritual
+                </label>
+                <label class="spellbook-flag">
+                    <input type="checkbox"${spell.concentration ? ' checked' : ''} data-onchange="updateSpellbookEntry(${idx}, 'concentration', this.checked)">
+                    Concentration
+                </label>
+            </div>
+            <div class="spellbook-textareas">
+                <div class="spellbook-textarea-group spellbook-description">
+                    <label>Description</label>
+                    <textarea placeholder="Spell description" data-oninput="updateSpellbookEntry(${idx}, 'description', this.value)">${safeDescription}</textarea>
+                </div>
+                <div class="spellbook-textarea-group">
+                    <label>Higher-Level Slot</label>
+                    <textarea placeholder="At higher level slot details" data-oninput="updateSpellbookEntry(${idx}, 'higherLevelSlot', this.value)">${safeHigherLevel}</textarea>
+                </div>
+                <div class="spellbook-textarea-group">
+                    <label>Cantrip Upgrade</label>
+                    <textarea placeholder="Cantrip scaling details" data-oninput="updateSpellbookEntry(${idx}, 'cantripUpgrade', this.value)">${safeCantripUpgrade}</textarea>
+                </div>
+                <div class="spellbook-textarea-group spellbook-description">
+                    <label>Notes</label>
+                    <textarea class="spellbook-notes" placeholder="Custom notes / reminders" data-oninput="updateSpellbookEntry(${idx}, 'notes', this.value)">${safeNotes}</textarea>
+                </div>
+            </div>
         </div>`;
     }).join('');
 }
 
 function addSpellbookEntry() {
     if (!Array.isArray(data.spellbook)) data.spellbook = [];
-    data.spellbook.push({
+    data.spellbook.push(sanitizeSpellbookEntry({
         name: '',
         lvl: 1,
         castLvl: 0,
-        save: 'none',
-        notes: ''
-    });
+        save: 'none'
+    }));
     save();
     renderSpellbook();
 }
 
 function updateSpellbookEntry(idx, field, value) {
     if (!Array.isArray(data.spellbook) || !data.spellbook[idx]) return;
-    const spell = data.spellbook[idx];
+    const spell = sanitizeSpellbookEntry(data.spellbook[idx]);
     if (field === 'name') {
         spell.name = String(value || '').slice(0, 180);
     } else if (field === 'lvl') {
@@ -2585,12 +2894,41 @@ function updateSpellbookEntry(idx, field, value) {
     } else if (field === 'save') {
         const saveAttr = String(value || 'none').toLowerCase();
         spell.save = (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none';
+    } else if (field === 'school') {
+        spell.school = String(value || '').slice(0, 80);
+    } else if (field === 'classes') {
+        spell.classes = String(value || '').slice(0, 240);
+    } else if (field === 'actionType') {
+        spell.actionType = String(value || '').slice(0, 80);
+    } else if (field === 'castingTime') {
+        spell.castingTime = String(value || '').slice(0, 160);
+    } else if (field === 'castingTrigger') {
+        spell.castingTrigger = String(value || '').slice(0, 240);
+    } else if (field === 'range') {
+        spell.range = String(value || '').slice(0, 160);
+    } else if (field === 'duration') {
+        spell.duration = String(value || '').slice(0, 180);
+    } else if (field === 'components') {
+        spell.components = String(value || '').slice(0, 80);
+    } else if (field === 'material') {
+        spell.material = String(value || '').slice(0, 500);
+    } else if (field === 'description') {
+        spell.description = String(value || '').slice(0, 12000);
+    } else if (field === 'higherLevelSlot') {
+        spell.higherLevelSlot = String(value || '').slice(0, 8000);
+    } else if (field === 'cantripUpgrade') {
+        spell.cantripUpgrade = String(value || '').slice(0, 4000);
+    } else if (field === 'ritual') {
+        spell.ritual = !!value;
+    } else if (field === 'concentration') {
+        spell.concentration = !!value;
     } else if (field === 'notes') {
         spell.notes = String(value || '').slice(0, 5000);
     } else {
         return;
     }
 
+    data.spellbook[idx] = sanitizeSpellbookEntry(spell);
     save();
     if (field === 'lvl' || field === 'save' || field === 'castLvl') renderSpellbook();
 }
@@ -2605,7 +2943,8 @@ function deleteSpellbookEntry(idx) {
 
 function castSpell(idx) {
     if (!Array.isArray(data.spellbook) || !data.spellbook[idx]) return;
-    const spell = data.spellbook[idx];
+    const spell = sanitizeSpellbookEntry(data.spellbook[idx]);
+    data.spellbook[idx] = spell;
     const name = (spell.name || '').trim() || `Spell ${idx + 1}`;
     const level = Math.max(0, Math.min(9, parseInt(spell.lvl, 10) || 0));
     const saveAttrRaw = String(spell.save || 'none').toLowerCase();
@@ -2631,7 +2970,8 @@ function castSpell(idx) {
 
     showLog(`Cast: ${name}`, `${castSummary} | ${slotSummary}`);
     const discordFormula = `Casting (${context.ability.toUpperCase()}): ${castSummary} | ${slotSummary}`;
-    sendToDiscord(`Cast ${name}`, discordFormula, `**${castSummary}**`, saveAttr === 'none' ? 'atk' : 'save', spell.notes || '');
+    const spellContext = [spell.description, spell.notes].filter(Boolean).join('\n\n');
+    sendToDiscord(`Cast ${name}`, discordFormula, `**${castSummary}**`, saveAttr === 'none' ? 'atk' : 'save', spellContext);
     sendAvraeSpellCommand(name);
 }
 
@@ -4245,3 +4585,9 @@ window.populateUI = populateUI;
 window.init = init;
 window.setSheetFace = setSheetFace;
 window.toggleSheetFlip = toggleSheetFlip;
+window.ensureSrdSpellLookup = ensureSrdSpellLookup;
+window.findSpellReferenceByName = findSpellReferenceByName;
+window.applySpellReferenceToSpellEntry = applySpellReferenceToSpellEntry;
+window.matchSpellbookEntriesByName = matchSpellbookEntriesByName;
+window.sanitizeSpellbookEntry = sanitizeSpellbookEntry;
+window.syncSpellbookWithSrd = syncSpellbookWithSrd;

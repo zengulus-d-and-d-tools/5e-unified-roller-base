@@ -45,6 +45,12 @@ This project is unofficial Fan Content permitted under the Fan Content Policy. N
 
 **Specific IP Used:**
 * Setting: Ravnica, Guild names, and associated flavor are property of Wizards of the Coast.
+* Spell rules content in `js/srd-5.2-spells.json` is derived from the *System Reference Document 5.2 (SRD 5.2)* by Wizards of the Coast LLC.
+
+**SRD 5.2 License + Attribution (for included spell data):**
+* License: [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
+* Source: [D&D SRD 5.2](https://www.dndbeyond.com/srd)
+* Attribution: This work includes material from the *System Reference Document 5.2 (SRD 5.2)* by Wizards of the Coast LLC, available under the [CC BY 4.0 license](https://creativecommons.org/licenses/by/4.0/).
 
 **Third-Party Libraries:**
 * [pdf.js](https://github.com/mozilla/pdf.js) - [Apache-2.0 License](https://www.apache.org/licenses/LICENSE-2.0)

@@ -159,7 +159,7 @@ const Importer = {
             this.debug("--- Extracted Text End ---");
 
             // Smart Sort / Mapping
-            this.applyToSheet(parsedData, importMode);
+            await this.applyToSheet(parsedData, importMode);
 
             if (importMode === 'spells') {
                 alert("PDF Imported! Spells updated.");
@@ -456,11 +456,21 @@ const Importer = {
         };
     },
 
-    applySpellImportData: function (pdfData, d) {
+    applySpellImportData: async function (pdfData, d) {
         const spellMeta = this.extractSpellcastingMeta(pdfData, d);
         if (spellMeta.spellAttr) d.meta.spellAttr = spellMeta.spellAttr;
 
-        const importedSpellbook = this.extractSpellbookEntries(pdfData);
+        let importedSpellbook = this.extractSpellbookEntries(pdfData);
+        if (importedSpellbook.length > 0 && typeof window.matchSpellbookEntriesByName === 'function') {
+            try {
+                importedSpellbook = await window.matchSpellbookEntriesByName(importedSpellbook);
+            } catch (err) {
+                console.warn('Spell name matching against SRD failed during import.', err);
+            }
+        } else if (importedSpellbook.length > 0 && typeof window.sanitizeSpellbookEntry === 'function') {
+            importedSpellbook = importedSpellbook.map((entry) => window.sanitizeSpellbookEntry(entry));
+        }
+
         if (importedSpellbook.length > 0) {
             d.spellbook = importedSpellbook;
         }
@@ -486,7 +496,7 @@ const Importer = {
     },
 
     // Map extracted PDF data to the application's data structure
-    applyToSheet: function (pdfData, mode) {
+    applyToSheet: async function (pdfData, mode) {
         if (typeof window.data === 'undefined' || typeof window.save !== 'function') {
             console.error("Application data not found. Cannot apply import.");
             return;
@@ -497,7 +507,7 @@ const Importer = {
         this.debug("Applying data to sheet...", importMode, pdfData);
 
         if (importMode === 'spells') {
-            this.applySpellImportData(pdfData, d);
+            await this.applySpellImportData(pdfData, d);
             this.refreshAndSave();
             return;
         }
@@ -569,7 +579,7 @@ const Importer = {
         }
 
         // --- SPELLBOOK ---
-        this.applySpellImportData(pdfData, d);
+        await this.applySpellImportData(pdfData, d);
 
         // --- FEATURES & TRAITS ---
         // Combine all FeaturesTraits fields
