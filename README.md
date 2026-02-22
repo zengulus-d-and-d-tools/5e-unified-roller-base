@@ -2,13 +2,13 @@
 
 A suite of lightweight, offline-first HTML tools for 5th Edition tabletop roleplaying games. Zero dependencies—just open the files in your browser.
 
-Campaign management apps (Tools Hub, Campaign Hub, Case Board, Player Dashboard, NPC Roster, Locations DB, Requisition Vault, Mission Timeline, Encounter Recipes, HQ Foundry) share a unified Local Storage object (`RTF_STORE`). Import/export once from the Tools Hub and those pages stay in lockstep. Other utilities—Player Sheet, Session Tracker, Narrative Engine, Clue Generator, and Tournament Bracket—use their own lightweight storage or rely on inline data.
+Campaign management apps (Tools Hub, Campaign Hub, Case Board, Player Dashboard, NPC Roster, Locations DB, Requisition Vault, Mission Timeline, Encounter Recipes, HQ Foundry) share a unified Local Storage object (`RTF_STORE`). Import/export once from the Tools Hub and those pages stay in lockstep. Lead Queue and both clock pages use dedicated local-storage keys; Lead Queue and Prep/Procedure still integrate with case context and timeline/board links.
 
 Optional Supabase cloud sync is available for the shared `RTF_STORE` stack. See **[Supabase Sync Setup](docs/SupabaseSync.md)**.
 
 ## Components
 
-Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ) shares the `RTF_STORE` object, while utilities like the Player Sheet or Session Tracker keep their own saves.
+Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locations, Requisitions, Timeline, Encounters, HQ) shares the `RTF_STORE` object. Lead Queue, Prep/Procedure, and Clocks keep page-owned state keys; Lead Queue and Prep/Procedure cross-link into the campaign stack while Clocks remains standalone.
 
 | Tool | File | Description |
 |------|------|-------------|
@@ -20,7 +20,9 @@ Each tool runs offline. The campaign stack (Hub, Board, Dashboard, Roster, Locat
 | **[Locations Database](docs/LocationsDatabase.md)** | `locations.html` | Safehouse/district log with filters, notes, and guild tagging. |
 | **[Requisition Vault](docs/RequisitionVault.md)** | `requisitions.html` | Gear request queue with status, priority, and tagging. |
 | **[Mission Timeline](docs/MissionTimeline.md)** | `timeline.html` | Beat log with heat deltas, fallout notes, and filters. |
+| **[Lead Queue](docs/Leads.md)** | `leads.html` | Case-scoped investigation threads with voting and jump-to-board/timeline actions. |
 | **[Prep & Procedure Clocks](docs/PrepProcedureClocks.md)** | `prep-procedure.html` | Dual progress clocks with prep token bubbles and searchable prompt examples. |
+| **[Clocks](docs/Clocks.md)** | `clocks.html` | Generic progress/danger clocks with per-clock controls and PNG exports. |
 | **[Session Tracker](docs/SessionTracker.md)** | `gm.html` | Multi-tab GM console (initiative, roller, reference, loot). |
 | **[Encounter Recipes](docs/EncounterRecipes.md)** | `encounters.html` | Reusable encounter cards with tier tags and searchable notes. |
 | **[Narrative Engine](docs/NarrativeEngine.md)** | `dm-screen.html` | Procedural prompts, NPC hooks, and hazard/debrief generators. |
