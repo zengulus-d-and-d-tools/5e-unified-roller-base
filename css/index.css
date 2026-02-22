@@ -2178,7 +2178,7 @@ button {
 
 .spellbook-main {
     display: grid;
-    grid-template-columns: minmax(200px, 2.5fr) auto auto auto auto;
+    grid-template-columns: minmax(200px, 2.2fr) auto auto auto auto auto;
     gap: 8px;
     align-items: center;
 }
@@ -2189,6 +2189,7 @@ button {
 }
 
 .spellbook-level,
+.spellbook-cast-level,
 .spellbook-save {
     min-width: 120px;
 }
@@ -3134,6 +3135,7 @@ button {
     }
 
     .spellbook-level,
+    .spellbook-cast-level,
     .spellbook-save {
         min-width: 0;
     }

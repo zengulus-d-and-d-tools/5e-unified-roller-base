@@ -745,18 +745,24 @@ function sanitizeCharacterData(rawChar) {
     out.spells = [];
     for (let i = 1; i <= 9; i += 1) {
         const row = isPlainObject(rawSpells[i - 1]) ? rawSpells[i - 1] : {};
+        const max = sanitizeNumber(row.max, 0, 0, 99);
+        const usedRaw = sanitizeNumber(row.used, 0, 0, 99);
         out.spells.push({
             lvl: i,
-            max: sanitizeNumber(row.max, 0, 0, 99),
-            used: sanitizeNumber(row.used, 0, 0, 99)
+            max,
+            used: Math.min(max, usedRaw)
         });
     }
     out.spellbook = Array.isArray(source.spellbook) ? source.spellbook.slice(0, 400).map((entry) => {
         const row = isPlainObject(entry) ? entry : {};
         const saveAttr = String(row.save || 'none').toLowerCase();
+        const level = Math.round(sanitizeNumber(row.lvl, 1, 0, 9));
+        const castLvlRaw = Math.round(sanitizeNumber(row.castLvl, 0, 0, 9));
+        const castLvl = level <= 0 ? 0 : (castLvlRaw === 0 ? 0 : Math.max(level, castLvlRaw));
         return {
             name: sanitizeString(row.name || '', '', 180),
-            lvl: Math.round(sanitizeNumber(row.lvl, 1, 0, 9)),
+            lvl: level,
+            castLvl,
             save: (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none',
             notes: sanitizeString(row.notes || '', '', 5000)
         };
@@ -1870,6 +1876,164 @@ function rollHitDie() {
     sendToDiscord("Short Rest", `Used 1${dieStr}. Formula: ${formula}`, `**Healed ${hpCurr - oldHp} HP**`, 'check');
 }
 
+function clampSpellSlotUsage(slot, level) {
+    if (!slot || typeof slot !== 'object') {
+        return {
+            lvl: level,
+            max: 0,
+            used: 0
+        };
+    }
+
+    slot.lvl = level;
+    const max = Math.max(0, parseInt(slot.max, 10) || 0);
+    const used = Math.max(0, parseInt(slot.used, 10) || 0);
+    slot.max = max;
+    slot.used = Math.min(max, used);
+    return slot;
+}
+
+function normalizeSpellSlots() {
+    if (!Array.isArray(data.spells)) data.spells = [];
+    for (let level = 1; level <= 9; level += 1) {
+        data.spells[level - 1] = clampSpellSlotUsage(data.spells[level - 1], level);
+    }
+}
+
+function getPactSpellSlotLevel(characterLevel) {
+    const lvl = Math.max(1, Math.min(20, parseInt(characterLevel, 10) || 1));
+    if (lvl >= 9) return 5;
+    if (lvl >= 7) return 4;
+    if (lvl >= 5) return 3;
+    if (lvl >= 3) return 2;
+    return 1;
+}
+
+function getPactSpellSlotEntry() {
+    normalizeSpellSlots();
+    const charLevel = data && data.meta ? data.meta.level : 1;
+    const expectedLevel = getPactSpellSlotLevel(charLevel);
+    const expectedSlot = data.spells[expectedLevel - 1] || null;
+    if (expectedSlot && expectedSlot.max > 0) {
+        return {
+            level: expectedLevel,
+            slot: expectedSlot
+        };
+    }
+
+    for (let level = 9; level >= 1; level -= 1) {
+        const candidate = data.spells[level - 1];
+        if (candidate && candidate.max > 0) {
+            return {
+                level,
+                slot: candidate
+            };
+        }
+    }
+
+    return {
+        level: expectedLevel,
+        slot: expectedSlot
+    };
+}
+
+function resetSpellSlotsForRest(options = {}) {
+    normalizeSpellSlots();
+    const pactOnly = !!options.pactOnly;
+    if (!pactOnly) {
+        data.spells.forEach((slot) => {
+            slot.used = 0;
+        });
+        return;
+    }
+
+    const pactState = getPactSpellSlotEntry();
+    if (pactState && pactState.slot) {
+        pactState.slot.used = 0;
+    }
+}
+
+function consumeSpellSlotForCast(spellLevel, castSlotLevel = 0) {
+    if (spellLevel <= 0) {
+        return {
+            ok: true,
+            summary: 'No slot needed'
+        };
+    }
+
+    normalizeSpellSlots();
+    const casterType = data && data.meta ? data.meta.casterType : 'none';
+    const spendLevel = resolveSpellCastSlotLevel(spellLevel, castSlotLevel);
+    if (spendLevel < spellLevel) {
+        return {
+            ok: false,
+            summary: `Choose slot level ${spellLevel}+`
+        };
+    }
+
+    if (casterType === 'pact') {
+        const pactState = getPactSpellSlotEntry();
+        if (!pactState || !pactState.slot) {
+            return {
+                ok: false,
+                summary: 'Pact slot tracker missing'
+            };
+        }
+        if (spellLevel > pactState.level) {
+            return {
+                ok: false,
+                summary: `Needs level ${spellLevel} slot (pact slots are level ${pactState.level})`
+            };
+        }
+
+        const slot = pactState.slot;
+        const max = Math.max(0, parseInt(slot.max, 10) || 0);
+        const used = Math.max(0, parseInt(slot.used, 10) || 0);
+        if (max <= 0) {
+            return {
+                ok: false,
+                summary: `No pact slots available (Level ${pactState.level})`
+            };
+        }
+        if (used >= max) {
+            return {
+                ok: false,
+                summary: `No pact slots left (Level ${pactState.level})`
+            };
+        }
+        slot.used = used + 1;
+        return {
+            ok: true,
+            summary: `Pact slot ${pactState.level} spent (${slot.used}/${max} used)`
+        };
+    }
+
+    const slot = Array.isArray(data.spells) ? data.spells[spendLevel - 1] : null;
+    if (!slot) {
+        return {
+            ok: false,
+            summary: `Level ${spendLevel} slot tracker missing`
+        };
+    }
+
+    const max = Math.max(0, parseInt(slot.max, 10) || 0);
+    const used = Math.max(0, parseInt(slot.used, 10) || 0);
+    if (used >= max) {
+        return {
+            ok: false,
+            summary: `No level ${spendLevel} slots left`
+        };
+    }
+
+    slot.used = used + 1;
+    return {
+        ok: true,
+        summary: spendLevel === spellLevel
+            ? `Slot ${spellLevel} spent (${slot.used}/${max} used)`
+            : `Slot ${spendLevel} spent (upcast, ${slot.used}/${max} used)`
+    };
+}
+
 function shortRest() {
     if (!confirm("SHORT REST\n\n- Reset SR Counters?\n(Hit Dice must be rolled manually)")) return;
 
@@ -1879,7 +2043,7 @@ function shortRest() {
     const type = data.meta.casterType || 'none';
 
     if (type === 'pact') {
-        data.spells.forEach(s => s.used = 0);
+        resetSpellSlotsForRest({ pactOnly: true });
         showLog("Pact Magic", "Slots Reset");
     }
 
@@ -1893,7 +2057,7 @@ function longRest() {
     if (!confirm("LONG REST\n\n- Reset HP to Max\n- Reset Spell Slots\n- Regain ½ Max Hit Dice\n- Reset Death Saves\n- Reset SR/LR Counters")) return;
     document.getElementById('hpCurr').value = document.getElementById('hpMax').value;
     document.getElementById('hpTemp').value = 0;
-    data.spells.forEach(s => s.used = 0);
+    resetSpellSlotsForRest();
     let hdCurr = parseInt(document.getElementById('hdCurr').value) || 0;
     const hdMax = parseInt(document.getElementById('hdMax').value) || 0;
     hdCurr = Math.min(hdMax, hdCurr + Math.max(1, Math.floor(hdMax / 2)));
@@ -2293,14 +2457,59 @@ function spellSaveOptionsMarkup(selectedSave = 'none') {
     return options;
 }
 
-function getSpellSlotSummary(level) {
-    if (level <= 0) return 'No slot needed';
-    const slot = Array.isArray(data.spells) ? data.spells[level - 1] : null;
-    if (!slot) return `Level ${level} slots unavailable`;
+function normalizeSpellbookCastLevel(spellLevel, castLevel) {
+    const baseLevel = Math.max(0, Math.min(9, parseInt(spellLevel, 10) || 0));
+    if (baseLevel <= 0) return 0;
+    const parsed = Math.max(0, Math.min(9, parseInt(castLevel, 10) || 0));
+    if (parsed === 0) return 0;
+    return parsed >= baseLevel ? parsed : 0;
+}
+
+function resolveSpellCastSlotLevel(spellLevel, castLevel) {
+    const baseLevel = Math.max(0, Math.min(9, parseInt(spellLevel, 10) || 0));
+    if (baseLevel <= 0) return 0;
+    const normalized = normalizeSpellbookCastLevel(baseLevel, castLevel);
+    return normalized === 0 ? baseLevel : normalized;
+}
+
+function spellCastLevelOptionsMarkup(spellLevel, selectedCastLevel = 0) {
+    const baseLevel = Math.max(0, Math.min(9, parseInt(spellLevel, 10) || 0));
+    if (baseLevel <= 0) return '<option value="0" selected>Auto (Cantrip)</option>';
+
+    if ((data.meta.casterType || 'none') === 'pact') {
+        const pactLevel = getPactSpellSlotLevel(data.meta.level);
+        const selected = parseInt(selectedCastLevel, 10) === pactLevel ? pactLevel : 0;
+        return `<option value="0"${selected === 0 ? ' selected' : ''}>Auto (Pact L${pactLevel})</option><option value="${pactLevel}"${selected === pactLevel ? ' selected' : ''}>Slot L${pactLevel}</option>`;
+    }
+
+    const normalized = normalizeSpellbookCastLevel(baseLevel, selectedCastLevel);
+    let options = `<option value="0"${normalized === 0 ? ' selected' : ''}>Auto (Base L${baseLevel})</option>`;
+    for (let level = baseLevel; level <= 9; level += 1) {
+        options += `<option value="${level}"${normalized === level ? ' selected' : ''}>Slot L${level}</option>`;
+    }
+    return options;
+}
+
+function getSpellSlotSummary(spellLevel, castSlotLevel = 0) {
+    if (spellLevel <= 0) return 'No slot needed';
+    const spendLevel = resolveSpellCastSlotLevel(spellLevel, castSlotLevel);
+    if (spendLevel < spellLevel) return `Choose slot level ${spellLevel}+`;
+    if ((data.meta.casterType || 'none') === 'pact') {
+        const pactState = getPactSpellSlotEntry();
+        if (!pactState || !pactState.slot) return 'Pact slot tracker missing';
+        const pactMax = Math.max(0, parseInt(pactState.slot.max, 10) || 0);
+        const pactUsed = Math.max(0, Math.min(pactMax, parseInt(pactState.slot.used, 10) || 0));
+        const pactRemaining = Math.max(0, pactMax - pactUsed);
+        if (spellLevel > pactState.level) return `Needs level ${spellLevel} slot (pact slots are level ${pactState.level})`;
+        return `Pact L${pactState.level} slots: ${pactRemaining}/${pactMax} ready`;
+    }
+    const slot = Array.isArray(data.spells) ? data.spells[spendLevel - 1] : null;
+    if (!slot) return `Level ${spendLevel} slots unavailable`;
     const max = Math.max(0, parseInt(slot.max, 10) || 0);
     const used = Math.max(0, Math.min(max, parseInt(slot.used, 10) || 0));
     const remaining = Math.max(0, max - used);
-    return `Level ${level} slots: ${remaining}/${max} ready`;
+    if (spendLevel === spellLevel) return `Level ${spendLevel} slots: ${remaining}/${max} ready`;
+    return `Slot L${spendLevel} (upcast): ${remaining}/${max} ready`;
 }
 
 function renderSpellbook() {
@@ -2320,18 +2529,22 @@ function renderSpellbook() {
         const spell = entry && typeof entry === 'object' ? entry : {};
         const safeName = escapeHtml(spell.name || '');
         const level = Math.max(0, Math.min(9, parseInt(spell.lvl, 10) || 0));
+        const castLvl = normalizeSpellbookCastLevel(level, spell.castLvl);
         const saveAttrRaw = String(spell.save || 'none').toLowerCase();
         const saveAttr = (saveAttrRaw === 'none' || stats.includes(saveAttrRaw)) ? saveAttrRaw : 'none';
         const safeNotes = escapeHtml(spell.notes || '');
         const castSummary = saveAttr === 'none'
             ? `Spell Attack ${formatSignedNumber(attackBonus)}`
             : `${saveAttr.toUpperCase()} Save DC ${dc}`;
-        const slotSummary = getSpellSlotSummary(level);
+        const slotSummary = getSpellSlotSummary(level, castLvl);
         return `<div class="spellbook-row">
             <div class="spellbook-main">
                 <input type="text" class="spellbook-name" placeholder="Spell Name" value="${safeName}" data-oninput="updateSpellbookEntry(${idx}, 'name', this.value)">
                 <select class="spellbook-level" data-onchange="updateSpellbookEntry(${idx}, 'lvl', this.value)">
                     ${spellLevelOptionsMarkup(level)}
+                </select>
+                <select class="spellbook-cast-level" data-onchange="updateSpellbookEntry(${idx}, 'castLvl', this.value)">
+                    ${spellCastLevelOptionsMarkup(level, castLvl)}
                 </select>
                 <select class="spellbook-save" data-onchange="updateSpellbookEntry(${idx}, 'save', this.value)">
                     ${spellSaveOptionsMarkup(saveAttr)}
@@ -2350,6 +2563,7 @@ function addSpellbookEntry() {
     data.spellbook.push({
         name: '',
         lvl: 1,
+        castLvl: 0,
         save: 'none',
         notes: ''
     });
@@ -2364,6 +2578,10 @@ function updateSpellbookEntry(idx, field, value) {
         spell.name = String(value || '').slice(0, 180);
     } else if (field === 'lvl') {
         spell.lvl = Math.max(0, Math.min(9, parseInt(value, 10) || 0));
+        spell.castLvl = normalizeSpellbookCastLevel(spell.lvl, spell.castLvl);
+    } else if (field === 'castLvl') {
+        const baseLevel = Math.max(0, Math.min(9, parseInt(spell.lvl, 10) || 0));
+        spell.castLvl = normalizeSpellbookCastLevel(baseLevel, value);
     } else if (field === 'save') {
         const saveAttr = String(value || 'none').toLowerCase();
         spell.save = (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none';
@@ -2374,7 +2592,7 @@ function updateSpellbookEntry(idx, field, value) {
     }
 
     save();
-    if (field === 'lvl' || field === 'save') renderSpellbook();
+    if (field === 'lvl' || field === 'save' || field === 'castLvl') renderSpellbook();
 }
 
 function deleteSpellbookEntry(idx) {
@@ -2400,22 +2618,13 @@ function castSpell(idx) {
         ? `Spell Attack ${formatSignedNumber(attackBonus)}`
         : `${saveAttr.toUpperCase()} Save DC ${dc}`;
 
-    let slotSummary = 'No slot needed';
-    if (level > 0) {
-        const slot = Array.isArray(data.spells) ? data.spells[level - 1] : null;
-        if (slot) {
-            const max = Math.max(0, parseInt(slot.max, 10) || 0);
-            const used = Math.max(0, parseInt(slot.used, 10) || 0);
-            if (used < max) {
-                slot.used = used + 1;
-                slotSummary = `Slot ${level} spent (${slot.used}/${max} used)`;
-            } else {
-                slotSummary = `No level ${level} slots left`;
-            }
-        } else {
-            slotSummary = `Level ${level} slot tracker missing`;
-        }
+    const castSlotChoice = normalizeSpellbookCastLevel(level, spell.castLvl);
+    const consumeResult = consumeSpellSlotForCast(level, castSlotChoice);
+    if (!consumeResult.ok) {
+        showLog(`Cast Blocked: ${name}`, consumeResult.summary);
+        return;
     }
+    const slotSummary = consumeResult.summary;
 
     save();
     renderSpells();
@@ -2423,15 +2632,20 @@ function castSpell(idx) {
     showLog(`Cast: ${name}`, `${castSummary} | ${slotSummary}`);
     const discordFormula = `Casting (${context.ability.toUpperCase()}): ${castSummary} | ${slotSummary}`;
     sendToDiscord(`Cast ${name}`, discordFormula, `**${castSummary}**`, saveAttr === 'none' ? 'atk' : 'save', spell.notes || '');
+    sendAvraeSpellCommand(name);
 }
 
 function calcSpellSlots() {
+    normalizeSpellSlots();
     const type = document.getElementById('casterType').value;
     const lvl = parseInt(document.getElementById('charLevel').value) || 1;
 
     if (type === 'none') {
         if (!confirm("Clear all spell slots?")) return;
-        data.spells.forEach(s => s.max = 0);
+        data.spells.forEach((slot) => {
+            slot.max = 0;
+            slot.used = 0;
+        });
         save();
         renderSpells();
         return;
@@ -2452,26 +2666,29 @@ function calcSpellSlots() {
     effectiveLvl = Math.max(0, Math.min(20, effectiveLvl));
 
     if (effectiveLvl === 0) {
-        data.spells.forEach(s => s.max = 0);
+        data.spells.forEach((slot) => {
+            slot.max = 0;
+            slot.used = 0;
+        });
     }
 
     else {
         const slots = tableToUse[effectiveLvl - 1] || [];
 
         if (type === 'pact') {
-            let slotLvl = 1;
-            if (lvl >= 3) slotLvl = 2;
-            if (lvl >= 5) slotLvl = 3;
-            if (lvl >= 7) slotLvl = 4;
-            if (lvl >= 9) slotLvl = 5;
-            const slotCount = slots[0];
-            data.spells.forEach(s => s.max = 0);
-            if (data.spells[slotLvl - 1]) data.spells[slotLvl - 1].max = slotCount;
+            const slotLvl = getPactSpellSlotLevel(lvl);
+            const slotCount = Math.max(0, parseInt(slots[0], 10) || 0);
+            data.spells.forEach((slot, index) => {
+                slot.max = (index === slotLvl - 1) ? slotCount : 0;
+                if (index !== slotLvl - 1) slot.used = 0;
+                slot.used = Math.min(slot.max, slot.used);
+            });
         }
 
         else {
             data.spells.forEach((s, i) => {
                 s.max = slots[i] || 0;
+                s.used = Math.min(s.max, s.used);
             });
         }
     }
@@ -3315,6 +3532,28 @@ function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '
     }
 
         ;
+
+    fetch(data.meta.webhook, {
+        method: 'POST', headers: {
+            'Content-Type': 'application/json'
+        }
+
+        , body: JSON.stringify(payload)
+    }).catch(err => console.error(err));
+}
+
+function sendAvraeSpellCommand(spellName) {
+    if (!data.meta.discordActive || !data.meta.webhook) return;
+    const cleanedName = String(spellName || '')
+        .replace(/\r\n/g, ' ')
+        .replace(/\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 180);
+    if (!cleanedName) return;
+    const payload = {
+        content: `!spell ${cleanedName}`
+    };
 
     fetch(data.meta.webhook, {
         method: 'POST', headers: {

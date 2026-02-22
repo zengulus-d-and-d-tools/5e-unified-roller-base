@@ -91,6 +91,27 @@ let editingNPCId = '';
 let pendingLinkNPCId = '';
 
 const normalizeNPCField = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+const GUILD_FILTER_ALIASES = Object.freeze({
+    'azorius senate': 'azorius',
+    'boros legion': 'boros',
+    'house dimir': 'dimir',
+    'golgari swarm': 'golgari',
+    'gruul clans': 'gruul',
+    'izzet league': 'izzet',
+    'orzhov syndicate': 'orzhov',
+    'cult of rakdos': 'rakdos',
+    'selesnya conclave': 'selesnya',
+    'simic combine': 'simic'
+});
+const normalizeGuildFilterKey = (value) => {
+    const raw = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    if (!raw) return '';
+
+    if (Object.prototype.hasOwnProperty.call(GUILD_FILTER_ALIASES, raw)) {
+        return GUILD_FILTER_ALIASES[raw];
+    }
+    return raw;
+};
 const buildNPCSignature = (npc) => {
     if (!npc || typeof npc !== 'object') return '';
     return [
@@ -356,6 +377,7 @@ function render() {
 
     const search = document.getElementById('searchFilter').value.toLowerCase();
     const guildFilter = document.getElementById('guildFilter').value;
+    const guildFilterKey = normalizeGuildFilterKey(guildFilter);
 
     // Populate Filter if empty
     const gFilter = document.getElementById('guildFilter');
@@ -389,7 +411,7 @@ function render() {
         const name = String(npc.name || '');
         const guild = String(npc.guild || '');
         const matchesName = name.toLowerCase().includes(search);
-        const matchesGuild = !guildFilter || guild === guildFilter;
+        const matchesGuild = !guildFilterKey || normalizeGuildFilterKey(guild) === guildFilterKey;
         return matchesName && matchesGuild;
     });
 
