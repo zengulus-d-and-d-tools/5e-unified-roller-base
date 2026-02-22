@@ -1199,6 +1199,13 @@ function deleteCharacter() {
 
 function loadActiveChar() {
     data = sanitizeCharacterData(allData.characters[allData.activeId]);
+    if (Array.isArray(data.spellbook) && data.spellbook.length) {
+        data.spellbook = data.spellbook.map((entry) => {
+            const spell = sanitizeSpellbookEntry(entry);
+            spell.castLvl = 0;
+            return spell;
+        });
+    }
     allData.characters[allData.activeId] = data;
     spellbookHideEmptyFieldsOnLoad = true;
     refreshCharSelect();
@@ -2755,16 +2762,16 @@ function resolveSpellCastSlotLevel(spellLevel, castLevel) {
 
 function spellCastLevelOptionsMarkup(spellLevel, selectedCastLevel = 0) {
     const baseLevel = Math.max(0, Math.min(9, parseInt(spellLevel, 10) || 0));
-    if (baseLevel <= 0) return '<option value="0" selected>Auto (Cantrip)</option>';
+    if (baseLevel <= 0) return '<option value="0" selected>None</option>';
 
     if ((data.meta.casterType || 'none') === 'pact') {
         const pactLevel = getPactSpellSlotLevel(data.meta.level);
         const selected = parseInt(selectedCastLevel, 10) === pactLevel ? pactLevel : 0;
-        return `<option value="0"${selected === 0 ? ' selected' : ''}>Auto (Pact L${pactLevel})</option><option value="${pactLevel}"${selected === pactLevel ? ' selected' : ''}>Slot L${pactLevel}</option>`;
+        return `<option value="0"${selected === 0 ? ' selected' : ''}>None</option><option value="${pactLevel}"${selected === pactLevel ? ' selected' : ''}>Slot L${pactLevel}</option>`;
     }
 
     const normalized = normalizeSpellbookCastLevel(baseLevel, selectedCastLevel);
-    let options = `<option value="0"${normalized === 0 ? ' selected' : ''}>Auto (Base L${baseLevel})</option>`;
+    let options = `<option value="0"${normalized === 0 ? ' selected' : ''}>None</option>`;
     for (let level = baseLevel; level <= 9; level += 1) {
         options += `<option value="${level}"${normalized === level ? ' selected' : ''}>Slot L${level}</option>`;
     }
@@ -3249,21 +3256,25 @@ function renderSpellbook() {
 
         return `<div class="spellbook-row">
             <div class="spellbook-main">
-                <input type="text" class="spellbook-name" placeholder="Spell Name" value="${safeName}" data-oninput="updateSpellbookEntry(${idx}, 'name', this.value)">
-                <select class="spellbook-level" data-onchange="updateSpellbookEntry(${idx}, 'lvl', this.value)">
-                    ${spellLevelOptionsMarkup(level)}
-                </select>
-                <label class="spellbook-upcast-control">
-                    <span class="spellbook-upcast-label">Upcast To</span>
-                    <select class="spellbook-cast-level" data-onchange="updateSpellbookEntry(${idx}, 'castLvl', this.value)">
-                        ${spellCastLevelOptionsMarkup(level, castLvl)}
+                <div class="spellbook-top-row">
+                    <input type="text" class="spellbook-name" placeholder="Spell Name" value="${safeName}" data-oninput="updateSpellbookEntry(${idx}, 'name', this.value)">
+                    <button type="button" class="inventory-delete-btn" data-onclick="deleteSpellbookEntry(${idx})">&times;</button>
+                </div>
+                <div class="spellbook-cast-controls">
+                    <select class="spellbook-level" data-onchange="updateSpellbookEntry(${idx}, 'lvl', this.value)">
+                        ${spellLevelOptionsMarkup(level)}
                     </select>
-                </label>
-                <select class="spellbook-save" data-onchange="updateSpellbookEntry(${idx}, 'save', this.value)">
-                    ${spellSaveOptionsMarkup(spell.save)}
-                </select>
-                <button type="button" class="spellbook-cast-btn" data-onclick="castSpell(${idx})">Cast</button>
-                <button type="button" class="inventory-delete-btn" data-onclick="deleteSpellbookEntry(${idx})">&times;</button>
+                    <label class="spellbook-upcast-control">
+                        <span class="spellbook-upcast-label">Upcast To</span>
+                        <select class="spellbook-cast-level" data-onchange="updateSpellbookEntry(${idx}, 'castLvl', this.value)">
+                            ${spellCastLevelOptionsMarkup(level, castLvl)}
+                        </select>
+                    </label>
+                    <select class="spellbook-save" data-onchange="updateSpellbookEntry(${idx}, 'save', this.value)">
+                        ${spellSaveOptionsMarkup(spell.save)}
+                    </select>
+                    <button type="button" class="spellbook-cast-btn" data-onclick="castSpell(${idx})">Cast</button>
+                </div>
             </div>
             <div class="spellbook-meta">${escapeHtml(slotSummary)} | ${escapeHtml(castSummary)}</div>
             ${detailMarkup}
@@ -3399,7 +3410,7 @@ async function castSpell(idx) {
         const attackResult = rollSpellAttack(name, attackBonus);
         if (shouldPostDiscord && attackResult.ok) {
             await waitMs(100);
-            const attackText = attackResult.isCrit ? `${attackResult.total} CRIT` : `${attackResult.total}`;
+            const attackText = `${attackResult.formulaText} = ${attackResult.total}${attackResult.isCrit ? ' CRIT' : ''}`;
             await sendToDiscordPlain(`${name} Attack`, attackText, 'atk');
             hasPostedStepMessage = true;
         }
@@ -3420,7 +3431,7 @@ async function castSpell(idx) {
         const damageResult = rollSpellDamage(name, damageFormula, spellContext, { postToDiscord: false });
         if (shouldPostDiscord && damageResult.ok) {
             if (hasPostedStepMessage) await waitMs(100);
-            await sendToDiscordPlain(`${name} Damage`, `${damageResult.total}`, 'dmg');
+            await sendToDiscordPlain(`${name} Damage`, `${damageResult.formulaText} = ${damageResult.total}`, 'dmg');
             hasPostedStepMessage = true;
         }
     }
@@ -3430,7 +3441,7 @@ async function castSpell(idx) {
             const arbitraryResult = rollSpellArbitrary(name, formulaForNameRoll, spellContext, { postToDiscord: false });
             if (shouldPostDiscord && arbitraryResult.ok) {
                 await waitMs(100);
-                await sendToDiscordPlain(name, `${arbitraryResult.total}`, 'check');
+                await sendToDiscordPlain(name, `${arbitraryResult.formulaText} = ${arbitraryResult.total}`, 'check');
             }
         }
     }

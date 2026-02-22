@@ -2220,10 +2220,23 @@ button {
 }
 
 .spellbook-main {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.spellbook-top-row {
     display: grid;
-    grid-template-columns: minmax(220px, 2.2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(150px, 1fr) auto auto;
-    gap: 8px;
+    grid-template-columns: minmax(240px, 1fr) auto;
+    gap: 10px;
     align-items: center;
+}
+
+.spellbook-cast-controls {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.8fr) minmax(170px, 1fr) minmax(180px, 1.2fr) auto;
+    gap: 10px;
+    align-items: end;
 }
 
 .spellbook-name {
@@ -2258,14 +2271,16 @@ button {
 .spellbook-level,
 .spellbook-cast-level,
 .spellbook-save {
-    min-width: 120px;
+    min-width: 0;
+    width: 100%;
 }
 
 .spellbook-upcast-control {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-width: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
 }
 
 .spellbook-upcast-label {
@@ -2274,11 +2289,17 @@ button {
     text-transform: uppercase;
     color: var(--accent-muted);
     white-space: nowrap;
+    line-height: 1;
 }
 
 .spellbook-upcast-control .spellbook-cast-level {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: initial;
+}
+
+.spellbook-cast-controls .spellbook-cast-btn {
+    min-height: 36px;
+    align-self: end;
 }
 
 .spellbook-flag-row {
@@ -3269,7 +3290,8 @@ button {
         width: 100%;
     }
 
-    .spellbook-main {
+    .spellbook-top-row,
+    .spellbook-cast-controls {
         grid-template-columns: 1fr;
     }
 
