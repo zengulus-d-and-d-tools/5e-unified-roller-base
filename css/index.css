@@ -2280,10 +2280,6 @@ button {
     grid-column: 1 / -1;
 }
 
-.spellbook-notes {
-    min-height: 88px;
-}
-
 .inventory-header {
     display: flex;
     justify-content: space-between;

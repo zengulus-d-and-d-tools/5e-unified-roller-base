@@ -640,7 +640,8 @@ function toTitleCaseWords(value) {
 }
 
 function normalizeSpellLookupName(name) {
-    let text = String(name || '').toLowerCase().trim();
+    const ritualParsed = parseRitualSpellNameMarker(name);
+    let text = ritualParsed.name.toLowerCase().trim();
     if (!text) return '';
     if (typeof text.normalize === 'function') {
         text = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -650,6 +651,21 @@ function normalizeSpellLookupName(name) {
         .replace(/[^a-z0-9]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+}
+
+function parseRitualSpellNameMarker(rawName) {
+    const original = String(rawName || '')
+        .replace(/\r\n/g, ' ')
+        .replace(/\n/g, ' ');
+    const ritualMarked = /\[\s*r\s*\]/i.test(original);
+    const name = original
+        .replace(/\[\s*r\s*\]/ig, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return {
+        name,
+        ritualMarked
+    };
 }
 
 function formatSpellActionType(value) {
@@ -753,6 +769,7 @@ async function findSpellReferenceByName(name, options = {}) {
 
 function sanitizeSpellbookEntry(entry) {
     const row = isPlainObject(entry) ? entry : {};
+    const parsedName = parseRitualSpellNameMarker(row.name || '');
     const saveAttr = String(row.save || 'none').toLowerCase();
     const level = Math.round(sanitizeNumber(row.lvl, 1, 0, 9));
     const castLvlRaw = Math.round(sanitizeNumber(row.castLvl, 0, 0, 9));
@@ -760,7 +777,7 @@ function sanitizeSpellbookEntry(entry) {
     const classesValue = Array.isArray(row.classes) ? row.classes.join(', ') : row.classes;
     const componentsValue = Array.isArray(row.components) ? row.components.join(', ') : row.components;
     return {
-        name: sanitizeString(row.name || '', '', 180),
+        name: sanitizeString(parsedName.name || '', '', 180),
         lvl: level,
         castLvl,
         save: (saveAttr === 'none' || stats.includes(saveAttr)) ? saveAttr : 'none',
@@ -773,12 +790,11 @@ function sanitizeSpellbookEntry(entry) {
         duration: sanitizeString(row.duration || '', '', 180),
         components: sanitizeString(componentsValue || '', '', 80),
         material: sanitizeString(row.material || '', '', 500),
-        ritual: sanitizeBoolean(row.ritual, false),
+        ritual: sanitizeBoolean(row.ritual, false) || parsedName.ritualMarked,
         concentration: sanitizeBoolean(row.concentration, false),
         description: sanitizeString(row.description || '', '', 12000),
         higherLevelSlot: sanitizeString(row.higherLevelSlot || '', '', 8000),
-        cantripUpgrade: sanitizeString(row.cantripUpgrade || '', '', 4000),
-        notes: sanitizeString(row.notes || '', '', 5000)
+        cantripUpgrade: sanitizeString(row.cantripUpgrade || '', '', 4000)
     };
 }
 
@@ -799,7 +815,7 @@ function applySpellReferenceToSpellEntry(entry, reference) {
         duration: normalizedRef.duration,
         components: normalizedRef.components,
         material: normalizedRef.material,
-        ritual: normalizedRef.ritual,
+        ritual: normalizedRef.ritual || base.ritual,
         concentration: normalizedRef.concentration,
         description: normalizedRef.description,
         higherLevelSlot: normalizedRef.higherLevelSlot,
@@ -2765,23 +2781,70 @@ function renderSpellbook() {
         const level = spell.lvl;
         const castLvl = spell.castLvl;
         const saveAttr = spell.save;
-        const safeNotes = escapeHtml(spell.notes);
-        const safeSchool = escapeHtml(spell.school);
-        const safeClasses = escapeHtml(spell.classes);
-        const safeActionType = escapeHtml(spell.actionType);
-        const safeCastingTime = escapeHtml(spell.castingTime);
-        const safeCastingTrigger = escapeHtml(spell.castingTrigger);
-        const safeRange = escapeHtml(spell.range);
-        const safeDuration = escapeHtml(spell.duration);
-        const safeComponents = escapeHtml(spell.components);
-        const safeMaterial = escapeHtml(spell.material);
-        const safeDescription = escapeHtml(spell.description);
-        const safeHigherLevel = escapeHtml(spell.higherLevelSlot);
-        const safeCantripUpgrade = escapeHtml(spell.cantripUpgrade);
         const castSummary = saveAttr === 'none'
             ? `Spell Attack ${formatSignedNumber(attackBonus)}`
             : `${saveAttr.toUpperCase()} Save DC ${dc}`;
         const slotSummary = getSpellSlotSummary(level, castLvl);
+        const detailFields = [
+            { key: 'school', label: 'School', value: spell.school, maxLen: 80 },
+            { key: 'actionType', label: 'Action Type', value: spell.actionType, maxLen: 80 },
+            { key: 'castingTime', label: 'Casting Time', value: spell.castingTime, maxLen: 160 },
+            { key: 'castingTrigger', label: 'Casting Trigger', value: spell.castingTrigger, maxLen: 240 },
+            { key: 'range', label: 'Range', value: spell.range, maxLen: 160 },
+            { key: 'duration', label: 'Duration', value: spell.duration, maxLen: 180 },
+            { key: 'components', label: 'Components', value: spell.components, maxLen: 80 },
+            { key: 'material', label: 'Material', value: spell.material, maxLen: 500 }
+        ].filter((field) => String(field.value || '').trim().length > 0);
+
+        const detailMarkup = detailFields.length
+            ? `<div class="spellbook-detail-grid">${detailFields.map((field) => (
+                `<div class="spellbook-field">
+                    <label>${escapeHtml(field.label)}</label>
+                    <input type="text" value="${escapeHtml(field.value)}" data-oninput="updateSpellbookEntry(${idx}, '${field.key}', this.value)">
+                </div>`
+            )).join('')}</div>`
+            : '';
+
+        const flagMarkupItems = [];
+        if (spell.ritual) {
+            flagMarkupItems.push(`<label class="spellbook-flag">
+                <input type="checkbox" checked data-onchange="updateSpellbookEntry(${idx}, 'ritual', this.checked)">
+                Ritual
+            </label>`);
+        }
+        if (spell.concentration) {
+            flagMarkupItems.push(`<label class="spellbook-flag">
+                <input type="checkbox" checked data-onchange="updateSpellbookEntry(${idx}, 'concentration', this.checked)">
+                Concentration
+            </label>`);
+        }
+        const flagMarkup = flagMarkupItems.length
+            ? `<div class="spellbook-flag-row">${flagMarkupItems.join('')}</div>`
+            : '';
+
+        const textAreaMarkupItems = [];
+        if (String(spell.description || '').trim()) {
+            textAreaMarkupItems.push(`<div class="spellbook-textarea-group spellbook-description">
+                <label>Description</label>
+                <textarea placeholder="Spell description" data-oninput="updateSpellbookEntry(${idx}, 'description', this.value)">${escapeHtml(spell.description)}</textarea>
+            </div>`);
+        }
+        if (String(spell.higherLevelSlot || '').trim()) {
+            textAreaMarkupItems.push(`<div class="spellbook-textarea-group">
+                <label>Higher-Level Slot</label>
+                <textarea placeholder="At higher level slot details" data-oninput="updateSpellbookEntry(${idx}, 'higherLevelSlot', this.value)">${escapeHtml(spell.higherLevelSlot)}</textarea>
+            </div>`);
+        }
+        if (String(spell.cantripUpgrade || '').trim()) {
+            textAreaMarkupItems.push(`<div class="spellbook-textarea-group">
+                <label>Cantrip Upgrade</label>
+                <textarea placeholder="Cantrip scaling details" data-oninput="updateSpellbookEntry(${idx}, 'cantripUpgrade', this.value)">${escapeHtml(spell.cantripUpgrade)}</textarea>
+            </div>`);
+        }
+        const textAreasMarkup = textAreaMarkupItems.length
+            ? `<div class="spellbook-textareas">${textAreaMarkupItems.join('')}</div>`
+            : '';
+
         return `<div class="spellbook-row">
             <div class="spellbook-main">
                 <input type="text" class="spellbook-name" placeholder="Spell Name" value="${safeName}" data-oninput="updateSpellbookEntry(${idx}, 'name', this.value)">
@@ -2798,72 +2861,9 @@ function renderSpellbook() {
                 <button type="button" class="inventory-delete-btn" data-onclick="deleteSpellbookEntry(${idx})">&times;</button>
             </div>
             <div class="spellbook-meta">${escapeHtml(slotSummary)} | ${escapeHtml(castSummary)}</div>
-            <div class="spellbook-detail-grid">
-                <div class="spellbook-field">
-                    <label>School</label>
-                    <input type="text" value="${safeSchool}" data-oninput="updateSpellbookEntry(${idx}, 'school', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Classes</label>
-                    <input type="text" value="${safeClasses}" data-oninput="updateSpellbookEntry(${idx}, 'classes', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Action Type</label>
-                    <input type="text" value="${safeActionType}" data-oninput="updateSpellbookEntry(${idx}, 'actionType', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Casting Time</label>
-                    <input type="text" value="${safeCastingTime}" data-oninput="updateSpellbookEntry(${idx}, 'castingTime', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Casting Trigger</label>
-                    <input type="text" value="${safeCastingTrigger}" data-oninput="updateSpellbookEntry(${idx}, 'castingTrigger', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Range</label>
-                    <input type="text" value="${safeRange}" data-oninput="updateSpellbookEntry(${idx}, 'range', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Duration</label>
-                    <input type="text" value="${safeDuration}" data-oninput="updateSpellbookEntry(${idx}, 'duration', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Components</label>
-                    <input type="text" value="${safeComponents}" data-oninput="updateSpellbookEntry(${idx}, 'components', this.value)">
-                </div>
-                <div class="spellbook-field">
-                    <label>Material</label>
-                    <input type="text" value="${safeMaterial}" data-oninput="updateSpellbookEntry(${idx}, 'material', this.value)">
-                </div>
-            </div>
-            <div class="spellbook-flag-row">
-                <label class="spellbook-flag">
-                    <input type="checkbox"${spell.ritual ? ' checked' : ''} data-onchange="updateSpellbookEntry(${idx}, 'ritual', this.checked)">
-                    Ritual
-                </label>
-                <label class="spellbook-flag">
-                    <input type="checkbox"${spell.concentration ? ' checked' : ''} data-onchange="updateSpellbookEntry(${idx}, 'concentration', this.checked)">
-                    Concentration
-                </label>
-            </div>
-            <div class="spellbook-textareas">
-                <div class="spellbook-textarea-group spellbook-description">
-                    <label>Description</label>
-                    <textarea placeholder="Spell description" data-oninput="updateSpellbookEntry(${idx}, 'description', this.value)">${safeDescription}</textarea>
-                </div>
-                <div class="spellbook-textarea-group">
-                    <label>Higher-Level Slot</label>
-                    <textarea placeholder="At higher level slot details" data-oninput="updateSpellbookEntry(${idx}, 'higherLevelSlot', this.value)">${safeHigherLevel}</textarea>
-                </div>
-                <div class="spellbook-textarea-group">
-                    <label>Cantrip Upgrade</label>
-                    <textarea placeholder="Cantrip scaling details" data-oninput="updateSpellbookEntry(${idx}, 'cantripUpgrade', this.value)">${safeCantripUpgrade}</textarea>
-                </div>
-                <div class="spellbook-textarea-group spellbook-description">
-                    <label>Notes</label>
-                    <textarea class="spellbook-notes" placeholder="Custom notes / reminders" data-oninput="updateSpellbookEntry(${idx}, 'notes', this.value)">${safeNotes}</textarea>
-                </div>
-            </div>
+            ${detailMarkup}
+            ${flagMarkup}
+            ${textAreasMarkup}
         </div>`;
     }).join('');
 }
@@ -2922,15 +2922,13 @@ function updateSpellbookEntry(idx, field, value) {
         spell.ritual = !!value;
     } else if (field === 'concentration') {
         spell.concentration = !!value;
-    } else if (field === 'notes') {
-        spell.notes = String(value || '').slice(0, 5000);
     } else {
         return;
     }
 
     data.spellbook[idx] = sanitizeSpellbookEntry(spell);
     save();
-    if (field === 'lvl' || field === 'save' || field === 'castLvl') renderSpellbook();
+    if (field === 'lvl' || field === 'save' || field === 'castLvl' || field === 'ritual' || field === 'concentration') renderSpellbook();
 }
 
 function deleteSpellbookEntry(idx) {
@@ -2970,7 +2968,7 @@ function castSpell(idx) {
 
     showLog(`Cast: ${name}`, `${castSummary} | ${slotSummary}`);
     const discordFormula = `Casting (${context.ability.toUpperCase()}): ${castSummary} | ${slotSummary}`;
-    const spellContext = [spell.description, spell.notes].filter(Boolean).join('\n\n');
+    const spellContext = String(spell.description || '').trim();
     sendToDiscord(`Cast ${name}`, discordFormula, `**${castSummary}**`, saveAttr === 'none' ? 'atk' : 'save', spellContext);
     sendAvraeSpellCommand(name);
 }

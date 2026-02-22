@@ -364,8 +364,6 @@ const Importer = {
 
             const spellLevel = this.extractSpellLevelFromField(fieldName, cleanedName, activeLevel);
             const saveRaw = fieldMap.get(`spellsavehit${nameFieldInfo.index}`) ?? fieldMap.get(`savehit${nameFieldInfo.index}`);
-            const notesRaw = fieldMap.get(`spellnotes${nameFieldInfo.index}`) ?? fieldMap.get(`notes${nameFieldInfo.index}`) ?? '';
-            const safeNotes = String(notesRaw || '').trim();
             const dedupeKey = `${spellLevel}:${cleanedName.toLowerCase()}`;
             if (seen.has(dedupeKey)) return;
             seen.add(dedupeKey);
@@ -373,8 +371,7 @@ const Importer = {
             entries.push({
                 name: cleanedName.slice(0, 180),
                 lvl: spellLevel,
-                save: this.parseSpellSaveAttr(saveRaw),
-                notes: safeNotes.length <= 5000 ? safeNotes : safeNotes.slice(0, 5000)
+                save: this.parseSpellSaveAttr(saveRaw)
             });
         });
 
