@@ -136,53 +136,6 @@ body {
     gap: 5px;
 }
 
-/* UI */
-.btn {
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text);
-    border: 1px solid var(--border);
-    padding: 8px 14px;
-    cursor: pointer;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    transition: 0.2s;
-    font-weight: 600;
-}
-
-.btn:hover {
-    border-color: color-mix(in srgb, var(--accent-tertiary) 55%, var(--accent-secondary));
-    background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-tertiary) 40%);
-    color: var(--accent-contrast);
-}
-
-.btn:active {
-    transform: scale(0.96);
-}
-
-.btn-dp {
-    background: var(--gold);
-    color: #000;
-    font-weight: bold;
-    border: none;
-    box-shadow: 0 4px 10px rgba(241, 196, 15, 0.3);
-}
-
-.btn-dp:hover {
-    background: #f3ce34;
-    border-color: transparent;
-}
-
-.btn-danger {
-    color: var(--danger);
-    border-color: rgba(255, 107, 107, 0.3);
-    background: rgba(255, 107, 107, 0.1);
-}
-
-.btn-danger:hover {
-    background: rgba(255, 107, 107, 0.2);
-    border-color: var(--danger);
-}
-
 h2 {
     margin: 0 0 15px 0;
     color: var(--accent-secondary);
@@ -199,24 +152,7 @@ h2 {
 input[type="text"],
 select,
 textarea {
-    background: var(--input-bg);
-    border: 1px solid var(--border);
-    color: #fff;
-    padding: 10px;
-    border-radius: 6px;
     width: 100%;
-    box-sizing: border-box;
-    font-size: 0.95rem;
-    font-family: inherit;
-    transition: 0.2s;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-    outline: none;
-    border-color: var(--accent-tertiary);
-    box-shadow: 0 0 10px color-mix(in srgb, var(--accent-quaternary) 55%, transparent);
 }
 
 .mini-label {

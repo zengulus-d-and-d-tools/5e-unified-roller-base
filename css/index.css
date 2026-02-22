@@ -2111,16 +2111,17 @@ button {
     margin: 0;
 }
 
-.spell-import-btn {
+.inventory-create-btn.spell-import-btn {
     background: rgba(0, 0, 0, 0.35);
     color: var(--text);
     border-color: var(--hq-border);
     box-shadow: none;
 }
 
-.spell-import-btn:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+.inventory-create-btn.spell-import-btn:hover {
+    border-color: color-mix(in srgb, var(--accent-secondary) 68%, rgba(255, 255, 255, 0.18));
+    color: var(--accent-contrast);
+    background: color-mix(in srgb, var(--accent) 86%, var(--accent-quaternary) 14%);
 }
 
 .spell-sheet-grid {
@@ -2459,6 +2460,7 @@ button {
 
 .inventory-create-btn:hover {
     transform: translateY(-1px);
+    color: var(--accent-contrast);
     box-shadow: 0 20px 35px rgba(0, 0, 0, 0.4);
 }
 

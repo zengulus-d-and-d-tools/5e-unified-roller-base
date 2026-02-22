@@ -48,6 +48,9 @@
     --ink-backdrop-light: rgba(255, 255, 255, 0.08);
     --ink-backdrop-fill: color-mix(in srgb, #050910 70%, rgba(255, 255, 255, 0.14));
     --ink-backdrop-border: color-mix(in srgb, var(--border) 62%, rgba(255, 255, 255, 0.18));
+    --ui-radius-sm: 6px;
+    --ui-radius-md: 10px;
+    --ui-transition-fast: 0.2s ease;
 }
 
 @keyframes fadeIn {
@@ -70,6 +73,132 @@ body {
     margin: 0;
     overscroll-behavior-y: none;
     min-height: 100vh;
+}
+
+:where(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+}
+
+.btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+        border-color var(--ui-transition-fast),
+        background-color var(--ui-transition-fast),
+        color var(--ui-transition-fast),
+        transform var(--ui-transition-fast),
+        box-shadow var(--ui-transition-fast);
+}
+
+.btn:hover {
+    border-color: color-mix(in srgb, var(--accent-tertiary) 55%, var(--accent-secondary));
+    background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-tertiary) 40%);
+    color: var(--accent-contrast);
+}
+
+.btn:active {
+    transform: scale(0.96);
+}
+
+.btn-dp {
+    background: var(--gold);
+    color: #111;
+    font-weight: 700;
+    border: 1px solid color-mix(in srgb, var(--gold) 70%, rgba(255, 255, 255, 0.3));
+    box-shadow: 0 4px 10px rgba(241, 196, 15, 0.3);
+}
+
+.btn-dp:hover {
+    background: color-mix(in srgb, var(--gold) 86%, #fff 14%);
+    border-color: color-mix(in srgb, var(--gold) 80%, rgba(255, 255, 255, 0.2));
+}
+
+.btn-danger {
+    color: var(--danger);
+    border-color: rgba(255, 107, 107, 0.3);
+    background: rgba(255, 107, 107, 0.1);
+}
+
+.btn-danger:hover {
+    background: rgba(255, 107, 107, 0.2);
+    border-color: var(--danger);
+}
+
+:where(
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="url"],
+    select,
+    textarea
+) {
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.95rem;
+    transition:
+        border-color var(--ui-transition-fast),
+        box-shadow var(--ui-transition-fast),
+        background-color var(--ui-transition-fast),
+        color var(--ui-transition-fast);
+}
+
+:where(
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="url"],
+    textarea
+)::placeholder {
+    color: color-mix(in srgb, var(--text) 50%, #6b7280 50%);
+}
+
+:where(
+    input[type="text"],
+    input[type="search"],
+    input[type="number"],
+    input[type="email"],
+    input[type="password"],
+    input[type="url"],
+    select,
+    textarea
+):focus {
+    outline: none;
+    border-color: var(--accent-secondary);
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--accent-tertiary) 32%, transparent),
+        0 0 10px color-mix(in srgb, var(--accent-quaternary) 55%, transparent);
+}
+
+textarea {
+    resize: vertical;
+}
+
+/* Keep button labels readable against dynamic accent hues and hover states. */
+:where(button, .btn, .hero-btn, [role="button"]) {
+    text-shadow:
+        0 1px 0 var(--ink-backdrop-light),
+        0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+:where(button, .btn, .hero-btn, [role="button"]):hover,
+:where(button, .btn, .hero-btn, [role="button"]):focus-visible {
+    text-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.14),
+        0 1px 2px rgba(0, 0, 0, 0.68);
 }
 
 canvas#vector-cloud {

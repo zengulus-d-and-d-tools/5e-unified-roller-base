@@ -20,21 +20,12 @@
         }
 
         .btn {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--border);
-            color: #aaa;
-            padding: 8px 14px;
-            border-radius: 6px;
-            cursor: pointer;
+            color: color-mix(in srgb, var(--text) 70%, #888 30%);
             font-size: 0.8rem;
-            transition: 0.2s;
-            font-weight: 600;
         }
 
         .btn:hover {
-            border-color: var(--accent-tertiary);
             color: #fff;
-            background: color-mix(in srgb, rgba(255, 255, 255, 0.1) 60%, var(--accent-quaternary) 40%);
         }
 
         .btn-p {

@@ -83,14 +83,8 @@ canvas#vector-cloud {
 }
 
 .btn {
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--text);
     border-radius: 999px;
     padding: 8px 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
 }
 
 .btn.ghost:hover {
