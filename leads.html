@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="manifest" href="manifest.json">
+    <title>Lead Queue</title>
+    <link rel="stylesheet" href="css/theme.css?v=20260222e">
+    <link rel="stylesheet" href="css/hub.css?v=20260222a">
+    <link rel="stylesheet" href="css/player-nav.css?v=20260222c">
+    <link rel="stylesheet" href="css/timeline.css?v=20260222a">
+</head>
+
+<body data-player-nav="leads">
+    <canvas id="vector-cloud"></canvas>
+
+    <div class="container">
+        <header class="hero-header">
+            <div>
+                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <h1>Lead Queue</h1>
+                <p class="hero-subtitle">Track investigation threads separately from the timeline, then vote and prioritize action.</p>
+            </div>
+            <div class="hero-actions">
+                <div class="hero-action-bar primary">
+                    <a class="hero-btn ghost" href="timeline.html">Timeline</a>
+                    <a class="hero-btn ghost" href="board.html">Board</a>
+                </div>
+                <div class="hero-action-bar secondary">
+                    <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨 Accent</button>
+                    <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌 BG: Field</button>
+                </div>
+                <input type="color" id="accent-picker-input"
+                    class="tl-accent-picker-input" data-onchange="setAccentColor(this.value)">
+            </div>
+        </header>
+
+        <div class="card">
+            <section class="lead-panel" aria-label="Lead Queue">
+                <div class="lead-panel-head">
+                    <h3>Case Leads</h3>
+                    <p>Each lead needs a question and a concrete next step. Vote to decide what gets scene time next.</p>
+                </div>
+                <div class="lead-form-grid">
+                    <div>
+                        <label for="leadType">Lead Type</label>
+                        <select id="leadType">
+                            <option value="event">Event</option>
+                            <option value="npc">NPC</option>
+                            <option value="location">Location</option>
+                            <option value="clue">Clue</option>
+                            <option value="requisition">Requisition</option>
+                            <option value="theory">Theory</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="leadTitle">Lead Title</label>
+                        <input type="text" id="leadTitle" placeholder="Dock 9 courier pattern">
+                    </div>
+                    <div>
+                        <label for="leadTargetId">Target ID (optional)</label>
+                        <input type="text" id="leadTargetId" placeholder="event_xxx, npc_xxx, loc_xxx">
+                    </div>
+                    <div>
+                        <label for="leadQuestion">Question</label>
+                        <input type="text" id="leadQuestion" placeholder="What does this thread answer?">
+                    </div>
+                    <div>
+                        <label for="leadNextStep">Next Step</label>
+                        <input type="text" id="leadNextStep" placeholder="Concrete player action">
+                    </div>
+                    <div>
+                        <label for="leadVoter">Voter Name</label>
+                        <input type="text" id="leadVoter" placeholder="Your handle for voting">
+                    </div>
+                </div>
+                <div class="lead-form-actions">
+                    <button class="btn btn-dp" data-onclick="addLeadFromForm()">Add Lead</button>
+                </div>
+                <div class="lead-summary" id="leadSummary"></div>
+                <div class="lead-list" id="leadList"></div>
+            </section>
+        </div>
+    </div>
+
+    <script src="js/delegated-handler.js"></script>
+    <script src="js/sw-register.js"></script>
+    <script src="js/data-guilds.js"></script>
+    <script src="js/data-setting.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/store.js?v=20260222a"></script>
+    <script src="js/player-nav.js?v=20260222c"></script>
+    <script src="js/vector-field.js"></script>
+    <script src="js/leads.js?v=20260222a"></script>
+</body>
+
+</html>

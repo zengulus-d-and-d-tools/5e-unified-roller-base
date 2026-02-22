@@ -8,10 +8,11 @@
     <title>Prep & Procedure Clocks</title>
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/hub.css?v=20260222a">
+    <link rel="stylesheet" href="css/player-nav.css?v=20260222c">
     <link rel="stylesheet" href="css/prep-procedure.css">
 </head>
 
-<body>
+<body data-player-nav="prep">
     <canvas id="vector-cloud"></canvas>
 
     <div class="container prep-procedure-page" id="prep-procedure-widget" data-max-prep-tokens="6">
@@ -137,6 +138,7 @@
         window.PREP_PROCEDURE_CONFIG = Object.assign({ maxPrepTokens: 6 }, window.PREP_PROCEDURE_CONFIG || {});
     </script>
     <script src="js/store.js?v=20260222a"></script>
+    <script src="js/player-nav.js?v=20260222c"></script>
     <script src="js/sw-register.js"></script>
     <script src="js/vector-field.js"></script>
     <script src="js/prep-procedure.js"></script>

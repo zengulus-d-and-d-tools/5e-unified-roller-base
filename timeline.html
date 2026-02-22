@@ -8,10 +8,11 @@
     <title>Mission Timeline</title>
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/hub.css?v=20260222a">
-    <link rel="stylesheet" href="css/timeline.css">
+    <link rel="stylesheet" href="css/player-nav.css?v=20260222c">
+    <link rel="stylesheet" href="css/timeline.css?v=20260222a">
 </head>
 
-<body>
+<body data-player-nav="timeline">
     <canvas id="vector-cloud"></canvas>
 
     <div class="container">
@@ -88,56 +89,11 @@
                             data-onclick="toggleFilterButton(this, renderTimeline)">Hide Resolved</button>
                     </div>
                     <div class="filter-actions">
+                        <a class="btn" href="leads.html">Leads</a>
                         <button class="btn btn-dp" id="exportRecapBtn" data-onclick="exportTimelineRecap()">Export Recap</button>
                     </div>
                 </div>
             </div>
-
-            <section class="lead-panel" aria-label="Lead Queue">
-                <div class="lead-panel-head">
-                    <h3>Lead Queue</h3>
-                    <p>Actionable threads for the active case. Vote to prioritize next moves.</p>
-                </div>
-                <div class="lead-form-grid">
-                    <div>
-                        <label for="leadType">Lead Type</label>
-                        <select id="leadType">
-                            <option value="event">Event</option>
-                            <option value="npc">NPC</option>
-                            <option value="location">Location</option>
-                            <option value="clue">Clue</option>
-                            <option value="requisition">Requisition</option>
-                            <option value="theory">Theory</option>
-                            <option value="other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="leadTitle">Lead Title</label>
-                        <input type="text" id="leadTitle" placeholder="Dock 9 courier pattern">
-                    </div>
-                    <div>
-                        <label for="leadTargetId">Target ID (optional)</label>
-                        <input type="text" id="leadTargetId" placeholder="event_xxx, npc_xxx, loc_xxx">
-                    </div>
-                    <div>
-                        <label for="leadQuestion">Question</label>
-                        <input type="text" id="leadQuestion" placeholder="What does this thread answer?">
-                    </div>
-                    <div>
-                        <label for="leadNextStep">Next Step</label>
-                        <input type="text" id="leadNextStep" placeholder="Concrete player action">
-                    </div>
-                    <div>
-                        <label for="leadVoter">Voter Name</label>
-                        <input type="text" id="leadVoter" placeholder="Your handle for voting">
-                    </div>
-                </div>
-                <div class="lead-form-actions">
-                    <button class="btn btn-dp" data-onclick="addLeadFromForm()">Add Lead</button>
-                </div>
-                <div class="lead-summary" id="leadSummary"></div>
-                <div class="lead-list" id="leadList"></div>
-            </section>
 
             <div class="timeline-wrapper" id="timelineList"></div>
         </div>
@@ -149,6 +105,7 @@
     <script src="js/data-setting.js"></script>
     <script src="js/data.js"></script>
     <script src="js/store.js?v=20260222a"></script>
+    <script src="js/player-nav.js?v=20260222c"></script>
     <script src="js/soft-delete.js"></script>
     <script src="js/vector-field.js"></script>
     <script src="js/timeline.js"></script>

@@ -1,0 +1,182 @@
+.hero-header.has-player-nav {
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.hero-header.has-player-nav .player-nav-wrap {
+    flex: 1 0 100%;
+    order: 18;
+}
+
+.player-nav-wrap {
+    width: 100%;
+    margin-top: 12px;
+}
+
+.player-nav {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+}
+
+.player-nav-label {
+    font-size: 0.74rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: color-mix(in srgb, var(--accent-secondary) 56%, #d3d8e2 44%);
+}
+
+.player-nav-select {
+    min-width: min(360px, 92vw);
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--accent-secondary) 42%, rgba(255, 255, 255, 0.18));
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: color-mix(in srgb, #0b111c 82%, var(--accent) 18%);
+    color: #edf2fa;
+    font-size: 0.86rem;
+}
+
+.player-nav-select:focus {
+    outline: 2px solid color-mix(in srgb, var(--accent-secondary) 56%, white 44%);
+    outline-offset: 2px;
+}
+
+.hero-actions.has-hero-menu {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: auto;
+}
+
+.hero-actions.has-hero-menu .sheet-nav-group {
+    margin-right: 4px;
+}
+
+.hero-actions.has-hero-menu .hero-menu-controls {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.hero-actions.has-hero-menu .hero-menu-btn {
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 6px 12px;
+    background: color-mix(in srgb, #0a111c 82%, var(--accent-secondary) 18%);
+    color: #e8edf8;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    transition: 0.2s;
+}
+
+.hero-actions.has-hero-menu .hero-menu-btn:hover {
+    border-color: color-mix(in srgb, var(--accent-secondary) 58%, rgba(255, 255, 255, 0.22));
+    background: color-mix(in srgb, #121d2c 70%, var(--accent-secondary) 30%);
+}
+
+.hero-actions.has-hero-menu .hero-menu-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(340px, 86vw);
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    background: color-mix(in srgb, #0a111c 88%, var(--accent) 12%);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
+    z-index: 260;
+}
+
+.hero-actions.has-hero-menu .hero-menu-panel.is-open {
+    display: block;
+}
+
+.hero-actions.has-hero-menu .hero-menu-panel-title {
+    margin-bottom: 8px;
+    font-size: 0.73rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--accent-secondary) 58%, #d4dae6 42%);
+}
+
+.hero-actions.has-hero-menu .hero-menu-panel .hero-action-bar {
+    width: 100%;
+    justify-content: stretch;
+    display: grid;
+    gap: 8px;
+    margin: 0;
+}
+
+.hero-actions.has-hero-menu .hero-menu-panel .hero-action-bar + .hero-action-bar {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.hero-actions.has-hero-menu .hero-menu-panel .hero-btn {
+    width: 100%;
+    justify-content: flex-start;
+}
+
+.hero-add-row {
+    width: min(var(--page-max), calc(100% - (var(--page-inline-gutter) * 2)));
+    margin: -4px auto clamp(10px, 2vw, 16px);
+    display: flex;
+    justify-content: center;
+}
+
+.hero-add-actions {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.hero-add-actions .hero-btn.hero-add-btn {
+    min-width: 170px;
+    justify-content: center;
+}
+
+.board-hero .player-nav-wrap,
+.board-hero .player-nav,
+.board-hero .player-nav-select,
+.board-hero .hero-menu-panel,
+.board-hero .hero-menu-btn {
+    pointer-events: auto;
+}
+
+@media (max-width: 720px) {
+    .player-nav-wrap {
+        margin-top: 10px;
+    }
+
+    .player-nav {
+        align-items: stretch;
+    }
+
+    .player-nav-label {
+        width: 100%;
+    }
+
+    .player-nav-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .hero-actions.has-hero-menu .hero-menu-panel {
+        width: min(360px, 92vw);
+    }
+
+    .hero-add-row {
+        margin-top: 0;
+    }
+}

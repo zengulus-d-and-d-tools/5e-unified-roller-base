@@ -254,12 +254,14 @@
             localStorage.setItem(LEAD_VOTER_NAME_KEY, fromInput);
             return fromInput.slice(0, 60);
         }
-        const stored = String(localStorage.getItem(LEAD_VOTER_NAME_KEY) || '').trim();
+        const stored = getStoredLeadVoter();
         if (stored) {
             if (input) input.value = stored;
-            return stored.slice(0, 60);
+            return stored;
         }
-        return '';
+        const generated = getOrCreateLeadVoter();
+        if (input) input.value = generated;
+        return generated;
     };
 
     const getProcedureState = () => {
@@ -433,11 +435,18 @@
     function addLeadFromEvent(eventId) {
         const cleanId = String(eventId || '').trim();
         if (!cleanId) return;
+        const existing = getCaseLeads(getActiveCaseId()).find((lead) =>
+            lead && lead.type === 'event' &&
+            String(lead.targetId || '') === cleanId &&
+            lead.status !== 'resolved' &&
+            lead.status !== 'dead-end'
+        );
+        if (existing) return existing;
         const store = getStore();
         if (!store || typeof store.getEvents !== 'function') return;
         const evt = (store.getEvents() || []).find((entry) => String(entry && entry.id || '') === cleanId);
         if (!evt) return;
-        addLead({
+        return addLead({
             type: 'event',
             targetId: cleanId,
             title: evt.title || 'Untitled Event',
@@ -446,6 +455,19 @@
             status: 'open',
             votes: {}
         });
+    }
+
+    function openLeadsPage(leadId = '') {
+        const url = new URL('leads.html', window.location.href);
+        const cleanLeadId = String(leadId || '').trim();
+        if (cleanLeadId) url.searchParams.set('leadId', cleanLeadId);
+        window.location.assign(url.toString());
+    }
+
+    function queueLeadFromEvent(eventId) {
+        const lead = addLeadFromEvent(eventId);
+        if (!lead || !lead.id) return;
+        openLeadsPage(lead.id);
     }
 
     function updateLeadField(leadId, field, value) {
@@ -809,7 +831,7 @@
                 <div class="event-actions">
                     <small class="event-log-meta">Logged ${evt.created ? new Date(evt.created).toLocaleString() : '—'}</small>
                     ${procedureShieldButton}
-                    <button class="btn" data-onclick="addLeadFromEvent('${evtId}')">Lead</button>
+                    <button class="btn" data-onclick="queueLeadFromEvent('${evtId}')">Lead Queue</button>
                     <button class="btn" data-onclick="openTimelineEventInBoard('${evtId}')">Board</button>
                     <button class="btn btn-danger" data-onclick="deleteTimelineEvent('${evtId}')">Delete</button>
                 </div>
@@ -851,7 +873,7 @@
 
         const filtered = events.filter(evt => {
             if (manager && manager.isPending(evt.id)) return false;
-            const text = `${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
+            const text = `${evt.id || ''} ${evt.title || ''} ${evt.focus || ''} ${evt.highlights || ''} ${evt.fallout || ''} ${evt.followUp || ''} ${evt.tags || ''}`.toLowerCase();
             const matchesSearch = search ? text.includes(search) : true;
             const matchesFocus = focusFilter ? evt.focus === focusFilter : true;
             const heat = parseInt(evt.heatDelta, 10);
@@ -964,7 +986,7 @@
         applyTimelineLinkFiltersFromUrl();
         const voterInput = document.getElementById('leadVoter');
         if (voterInput) {
-            voterInput.value = String(localStorage.getItem(LEAD_VOTER_NAME_KEY) || '');
+            voterInput.value = getOrCreateLeadVoter();
             voterInput.addEventListener('input', () => {
                 localStorage.setItem(LEAD_VOTER_NAME_KEY, String(voterInput.value || '').trim().slice(0, 60));
                 renderLeadQueue();
@@ -991,7 +1013,9 @@
     window.openTimelineEventInBoard = openTimelineEventInBoard;
     window.spendProcedureShield = spendProcedureShield;
     window.addLeadFromEvent = addLeadFromEvent;
+    window.queueLeadFromEvent = queueLeadFromEvent;
     window.addLeadFromForm = addLeadFromForm;
+    window.openLeadsPage = openLeadsPage;
     window.updateLeadField = updateLeadField;
     window.setLeadVote = setLeadVote;
     window.clearLeadVote = clearLeadVote;
@@ -1048,3 +1072,14 @@
         updateEventField(id, 'resolved', next);
     }
 })();
+    const createDefaultLeadVoter = () => `Player-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const getStoredLeadVoter = () => String(localStorage.getItem(LEAD_VOTER_NAME_KEY) || '').trim().slice(0, 60);
+
+    const getOrCreateLeadVoter = () => {
+        const existing = getStoredLeadVoter();
+        if (existing) return existing;
+        const generated = createDefaultLeadVoter();
+        localStorage.setItem(LEAD_VOTER_NAME_KEY, generated);
+        return generated;
+    };

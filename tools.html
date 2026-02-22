@@ -7,11 +7,12 @@
     <link rel="manifest" href="manifest.json">
     <title>Ravnica DM Portal</title>
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
+    <link rel="stylesheet" href="css/player-nav.css?v=20260222c">
     <link rel="stylesheet" href="css/tools.css">
     <link rel="stylesheet" href="css/tools-page.css">
 </head>
 
-<body>
+<body data-player-nav="tools">
     <canvas id="vector-cloud"></canvas>
 
     <div class="tools-container">
@@ -191,6 +192,14 @@
                 </div>
             </a>
 
+            <a href="leads.html">
+                <div class="card">
+                    <div class="icon">🧭</div>
+                    <div class="title">Lead Queue</div>
+                    <div class="desc">Separate lead board with voting and next-step focus.</div>
+                </div>
+            </a>
+
             <a href="prep-procedure.html">
                 <div class="card">
                     <div class="icon">⏱️</div>
@@ -296,6 +305,7 @@
     <script src="js/data-npcs.js"></script>
     <script src="js/data-locations.js"></script>
     <script src="js/store.js?v=20260222a"></script>
+    <script src="js/player-nav.js?v=20260222c"></script>
     <script src="js/vector-field.js"></script>
     <script src="js/tools.js"></script>
 </body>

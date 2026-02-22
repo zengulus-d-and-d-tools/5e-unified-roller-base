@@ -330,6 +330,11 @@
     gap: 8px;
 }
 
+.lead-card.is-focused {
+    border-color: color-mix(in srgb, var(--accent-secondary) 52%, rgba(255, 255, 255, 0.2));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-secondary) 42%, transparent);
+}
+
 .lead-head {
     display: flex;
     align-items: center;
