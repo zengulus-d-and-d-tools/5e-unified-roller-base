@@ -319,10 +319,12 @@
         const params = new URLSearchParams(window.location.search);
         const search = String(params.get('search') || '').trim();
         const focus = String(params.get('focus') || '').trim();
-        if (!search && !focus) return;
+        const id = String(params.get('id') || '').trim();
+        const effectiveSearch = search || id;
+        if (!effectiveSearch && !focus) return;
 
         const searchInput = document.getElementById('eventSearch');
-        if (searchInput && search) searchInput.value = search;
+        if (searchInput && effectiveSearch) searchInput.value = effectiveSearch;
         pendingDeepLinkFocus = focus;
         clearTimelineLinkParamsFromUrl();
     }
@@ -536,6 +538,11 @@
         renderLeadQueue();
     }
 
+    function isBoardNodeId(value) {
+        const clean = String(value || '').trim();
+        return /^node_[a-z0-9_-]+$/i.test(clean);
+    }
+
     function openLeadOnBoard(leadId) {
         const id = String(leadId || '').trim();
         if (!id) return;
@@ -548,6 +555,13 @@
             return;
         }
 
+        const url = new URL('board.html', window.location.href);
+        if (isBoardNodeId(target)) {
+            url.searchParams.set('nodeId', target);
+            window.location.assign(url.toString());
+            return;
+        }
+
         const linkTypeMap = {
             npc: 'npc',
             location: 'location',
@@ -555,14 +569,14 @@
             requisition: 'requisition'
         };
         const linkType = linkTypeMap[lead.type];
-        if (!linkType) {
-            alert('Board jump is available for NPC, location, event, and requisition leads.');
+        if (linkType) {
+            url.searchParams.set('linkType', linkType);
+            url.searchParams.set('id', target);
+            window.location.assign(url.toString());
             return;
         }
-        const url = new URL('board.html', window.location.href);
-        url.searchParams.set('linkType', linkType);
-        url.searchParams.set('id', target);
-        window.location.assign(url.toString());
+
+        alert('Board jump needs a board node ID (node_...) or an NPC/location/event/requisition lead.');
     }
 
     function renderLeadQueue() {

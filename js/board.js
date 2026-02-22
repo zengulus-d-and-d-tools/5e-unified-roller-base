@@ -822,18 +822,21 @@ function handleBoardResize() {
 
 function getBoardCrossLinkRequestFromUrl() {
     const params = new URLSearchParams(window.location.search);
+    const nodeId = String(params.get('nodeId') || '').trim();
+    if (nodeId) return { kind: 'node', nodeId };
+
     const linkType = String(params.get('linkType') || '').trim().toLowerCase();
     const id = String(params.get('id') || '').trim();
     if (!linkType || !id) return null;
     if (!BOARD_CROSSLINK_TYPES.has(linkType)) return null;
-    return { linkType, id };
+    return { kind: 'cross-link', linkType, id };
 }
 
 function clearBoardCrossLinkParamsFromUrl() {
     if (!window.history || typeof window.history.replaceState !== 'function') return;
     const url = new URL(window.location.href);
     let changed = false;
-    ['linkType', 'id'].forEach((key) => {
+    ['linkType', 'id', 'nodeId'].forEach((key) => {
         if (!url.searchParams.has(key)) return;
         url.searchParams.delete(key);
         changed = true;
@@ -924,8 +927,17 @@ function resolveCrossLinkPayload(request) {
 function applyBoardCrossLinkFromUrl() {
     const request = getBoardCrossLinkRequestFromUrl();
     if (!request) return;
-    const payload = resolveCrossLinkPayload(request);
     clearBoardCrossLinkParamsFromUrl();
+
+    if (request.kind === 'node') {
+        const target = document.getElementById(request.nodeId);
+        if (!target) return;
+        centerViewOnNode(target);
+        flashCrossLinkedNode(target);
+        return;
+    }
+
+    const payload = resolveCrossLinkPayload(request);
     if (!payload) return;
 
     const existing = findNodeBySourceReference(payload.sourceType, payload.sourceIdKey, payload.sourceId);

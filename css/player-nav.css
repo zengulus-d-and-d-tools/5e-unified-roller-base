@@ -45,13 +45,16 @@
     position: absolute;
     top: calc(100% + 10px);
     right: 0;
-    width: min(340px, 86vw);
+    width: min(340px, calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
     padding: 10px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 12px;
     background: color-mix(in srgb, #0a111c 88%, var(--accent) 12%);
     box-shadow: 0 16px 34px rgba(0, 0, 0, 0.45);
     z-index: 260;
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 
 .hero-actions.has-hero-menu .hero-menu-panel.is-open {
@@ -59,8 +62,8 @@
 }
 
 .hero-actions.has-hero-menu .hero-menu-nav-panel {
-    right: auto;
-    left: 0;
+    right: 0;
+    left: auto;
 }
 
 .hero-actions.has-hero-menu .hero-menu-panel-title {
@@ -79,6 +82,10 @@
     margin: 0;
 }
 
+.hero-actions.has-hero-menu .hero-menu-panel .hero-action-bar > * {
+    min-width: 0;
+}
+
 .hero-actions.has-hero-menu .hero-menu-panel .hero-action-bar + .hero-action-bar {
     margin-top: 8px;
     padding-top: 8px;
@@ -88,6 +95,11 @@
 .hero-actions.has-hero-menu .hero-menu-panel .hero-btn {
     width: 100%;
     justify-content: flex-start;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    white-space: normal;
+    text-align: left;
 }
 
 .hero-actions.has-hero-menu .hero-menu-nav {
@@ -136,12 +148,8 @@
 
 @media (max-width: 720px) {
     .hero-actions.has-hero-menu .hero-menu-panel {
-        width: min(360px, 92vw);
-    }
-
-    .hero-actions.has-hero-menu .hero-menu-nav-panel {
-        left: auto;
-        right: 0;
+        width: min(360px, calc(100vw - 16px));
+        max-width: calc(100vw - 16px);
     }
 
     .hero-add-row {

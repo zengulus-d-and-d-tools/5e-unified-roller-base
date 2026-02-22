@@ -339,6 +339,11 @@
         renderLeadQueue();
     }
 
+    function isBoardNodeId(value) {
+        const clean = String(value || '').trim();
+        return /^node_[a-z0-9_-]+$/i.test(clean);
+    }
+
     function openLeadOnBoard(leadId) {
         const id = String(leadId || '').trim();
         if (!id) return;
@@ -351,6 +356,13 @@
             return;
         }
 
+        const url = new URL('board.html', window.location.href);
+        if (isBoardNodeId(target)) {
+            url.searchParams.set('nodeId', target);
+            window.location.assign(url.toString());
+            return;
+        }
+
         const linkTypeMap = {
             npc: 'npc',
             location: 'location',
@@ -358,14 +370,14 @@
             requisition: 'requisition'
         };
         const linkType = linkTypeMap[lead.type];
-        if (!linkType) {
-            alert('Board jump is available for NPC, location, event, and requisition leads.');
+        if (linkType) {
+            url.searchParams.set('linkType', linkType);
+            url.searchParams.set('id', target);
+            window.location.assign(url.toString());
             return;
         }
-        const url = new URL('board.html', window.location.href);
-        url.searchParams.set('linkType', linkType);
-        url.searchParams.set('id', target);
-        window.location.assign(url.toString());
+
+        alert('Board jump needs a board node ID (node_...) or an NPC/location/event/requisition lead.');
     }
 
     function openLeadOnTimeline(leadId) {
@@ -374,13 +386,21 @@
         const list = getCaseLeads(getActiveCaseId());
         const lead = list.find((entry) => entry.id === id);
         if (!lead) return;
-        const query = String(lead.targetId || lead.title || '').trim();
+        const target = String(lead.targetId || '').trim();
+        const queryCandidates = [
+            String(lead.title || '').trim(),
+            String(lead.question || '').trim(),
+            isBoardNodeId(target) ? '' : target
+        ];
+        let query = queryCandidates.find((entry) => entry) || '';
+        if (!query) query = target;
         if (!query) {
             alert('This lead does not have enough data to jump to timeline.');
             return;
         }
         const url = new URL('timeline.html', window.location.href);
         url.searchParams.set('search', query);
+        if (target) url.searchParams.set('id', target);
         window.location.assign(url.toString());
     }
 
