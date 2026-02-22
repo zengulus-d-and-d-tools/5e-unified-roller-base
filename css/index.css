@@ -2261,6 +2261,26 @@ button {
     min-width: 120px;
 }
 
+.spellbook-upcast-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 150px;
+}
+
+.spellbook-upcast-label {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent-muted);
+    white-space: nowrap;
+}
+
+.spellbook-upcast-control .spellbook-cast-level {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
 .spellbook-flag-row {
     display: flex;
     flex-wrap: wrap;
@@ -3257,6 +3277,10 @@ button {
     .spellbook-cast-level,
     .spellbook-save {
         min-width: 0;
+    }
+
+    .spellbook-upcast-control {
+        width: 100%;
     }
 
     .spellbook-detail-grid,
