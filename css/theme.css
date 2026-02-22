@@ -44,6 +44,10 @@
     --btn-surface-muted: color-mix(in srgb, var(--accent-tertiary) 35%, rgba(5, 9, 16, 0.85));
     --btn-border: color-mix(in srgb, var(--accent-quaternary) 60%, rgba(255, 255, 255, 0.16));
     --btn-glow: 0 12px 24px color-mix(in srgb, var(--accent-tertiary) 35%, rgba(0, 0, 0, 0.8));
+    --ink-backdrop-dark: rgba(0, 0, 0, 0.34);
+    --ink-backdrop-light: rgba(255, 255, 255, 0.08);
+    --ink-backdrop-fill: color-mix(in srgb, #050910 70%, rgba(255, 255, 255, 0.14));
+    --ink-backdrop-border: color-mix(in srgb, var(--border) 62%, rgba(255, 255, 255, 0.18));
 }
 
 @keyframes fadeIn {
@@ -560,6 +564,17 @@ body.accent-panel-open {
     font-size: 0.75rem;
     color: color-mix(in srgb, var(--accent-tertiary) 65%, var(--hq-soft) 35%);
     margin: 0;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background:
+        linear-gradient(180deg, var(--ink-backdrop-light), rgba(255, 255, 255, 0) 50%),
+        var(--ink-backdrop-fill);
+    border: 1px solid var(--ink-backdrop-border);
+    box-shadow:
+        inset 0 1px 0 var(--ink-backdrop-light),
+        inset 0 -1px 0 var(--ink-backdrop-dark);
 }
 
 .hero-subtitle {
@@ -608,20 +623,30 @@ body.accent-panel-open {
     align-items: center;
     justify-content: center;
     gap: 6px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+    box-shadow:
+        inset 0 1px 0 var(--ink-backdrop-light),
+        inset 0 -1px 0 var(--ink-backdrop-dark);
 }
 
 .hero-btn.ghost {
-    border-color: color-mix(in srgb, var(--accent-secondary) 65%, rgba(255, 255, 255, 0.15));
-    color: var(--accent-secondary);
-    background: color-mix(in srgb, rgba(255, 255, 255, 0.02) 60%, var(--accent-tertiary) 40%);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    border-color: color-mix(in srgb, var(--accent-secondary) 52%, rgba(255, 255, 255, 0.28));
+    color: color-mix(in srgb, #f4f7ff 82%, var(--accent-secondary) 18%);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0) 38%),
+        color-mix(in srgb, #050910 84%, var(--accent-tertiary) 16%);
 }
 
 .hero-btn.ghost:hover {
-    border-color: var(--accent-secondary);
-    color: var(--accent-contrast);
-    background: linear-gradient(120deg, var(--accent), var(--accent-secondary));
-    box-shadow: 0 0 12px color-mix(in srgb, var(--accent-quaternary) 35%, rgba(0, 0, 0, 0.2));
+    border-color: color-mix(in srgb, var(--accent-secondary) 65%, rgba(255, 255, 255, 0.35));
+    color: #f7f9ff;
+    background:
+        linear-gradient(120deg,
+            color-mix(in srgb, var(--accent) 64%, #0b1424 36%),
+            color-mix(in srgb, var(--accent-secondary) 70%, #060c16 30%));
+    box-shadow:
+        0 0 12px color-mix(in srgb, var(--accent-quaternary) 35%, rgba(0, 0, 0, 0.2)),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
 .hero-btn.accent {
@@ -676,6 +701,17 @@ body.accent-panel-open {
     font-size: 1rem;
     letter-spacing: 0.05em;
     color: color-mix(in srgb, var(--accent-secondary) 70%, var(--hq-soft) 30%);
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background:
+        linear-gradient(180deg, var(--ink-backdrop-light), rgba(255, 255, 255, 0) 50%),
+        var(--ink-backdrop-fill);
+    border: 1px solid var(--ink-backdrop-border);
+    box-shadow:
+        inset 0 1px 0 var(--ink-backdrop-light),
+        inset 0 -1px 0 var(--ink-backdrop-dark);
 }
 
 @media (max-width: 768px) {
