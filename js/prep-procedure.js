@@ -302,6 +302,7 @@
             }
         },
         resetAll: document.getElementById('reset-all-btn'),
+        title: document.getElementById('prep-procedure-title'),
         logCustomPrep: document.getElementById('log-custom-prep-btn'),
         logCustomProcedure: document.getElementById('log-custom-procedure-btn'),
         flashbackMinor: document.getElementById('flashback-minor-btn'),
@@ -333,6 +334,7 @@
 
     const listeners = new Set();
     let pendingPopoverContext = null;
+    let manualClockControlsUnlocked = false;
 
     function pluralizeToken(cost) {
         return cost === 1 ? 'token' : 'tokens';
@@ -431,6 +433,18 @@
         return function unsubscribe() {
             listeners.delete(listener);
         };
+    }
+
+    function setManualClockControlsUnlocked(nextValue, announce) {
+        manualClockControlsUnlocked = !!nextValue;
+        document.body.classList.toggle('manual-clock-controls-unlocked', manualClockControlsUnlocked);
+        if (!announce) return;
+        setStatus(
+            manualClockControlsUnlocked
+                ? 'Manual clock +/- controls unlocked.'
+                : 'Manual clock +/- controls hidden.',
+            'success'
+        );
     }
 
     function renderClock(clockKey) {
@@ -922,6 +936,11 @@
         if (event.target !== refs.popoverBackdrop) return;
         closeLogPopover();
     });
+    refs.title.addEventListener('click', (event) => {
+        if (!event.altKey || !event.shiftKey) return;
+        event.preventDefault();
+        setManualClockControlsUnlocked(!manualClockControlsUnlocked, true);
+    });
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
         if (refs.popoverBackdrop.classList.contains('is-hidden')) return;
@@ -934,6 +953,7 @@
 
     persistState(state);
     render();
+    setManualClockControlsUnlocked(false, false);
     setStatus('');
 
     const api = {

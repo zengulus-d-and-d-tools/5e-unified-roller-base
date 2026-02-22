@@ -19,7 +19,7 @@
         <header class="hero-header">
             <div>
                 <p class="hero-eyebrow">Ravnica Task Force</p>
-                <h1>Prep & Procedure Clocks</h1>
+                <h1 id="prep-procedure-title">Prep & Procedure Clocks</h1>
                 <p class="hero-subtitle">Track setup progress, live procedure pressure, and prep token spend in one compact panel.</p>
             </div>
             <div class="hero-actions">
@@ -46,8 +46,8 @@
                         <div class="clock-pie-center"><span id="prep-filled">0</span>/<span id="prep-total">4</span></div>
                     </div>
                     <div class="clock-controls">
-                        <button type="button" class="btn" id="prep-minus">-1</button>
-                        <button type="button" class="btn btn-dp" id="prep-plus">+1</button>
+                        <button type="button" class="btn manual-clock-control" id="prep-minus">-1</button>
+                        <button type="button" class="btn btn-dp manual-clock-control" id="prep-plus">+1</button>
                         <button type="button" class="btn" id="prep-reset">Reset</button>
                     </div>
                     <label class="clock-total-field">
@@ -77,8 +77,8 @@
                         <div class="clock-pie-center"><span id="procedure-filled">0</span>/<span id="procedure-total">4</span></div>
                     </div>
                     <div class="clock-controls">
-                        <button type="button" class="btn" id="procedure-minus">-1</button>
-                        <button type="button" class="btn btn-dp" id="procedure-plus">+1</button>
+                        <button type="button" class="btn manual-clock-control" id="procedure-minus">-1</button>
+                        <button type="button" class="btn btn-dp manual-clock-control" id="procedure-plus">+1</button>
                         <button type="button" class="btn" id="procedure-reset">Reset</button>
                     </div>
                     <label class="clock-total-field">

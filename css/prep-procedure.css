@@ -121,6 +121,14 @@
     min-width: 68px;
 }
 
+.manual-clock-control {
+    display: none;
+}
+
+body.manual-clock-controls-unlocked .manual-clock-control {
+    display: inline-block;
+}
+
 .clock-total-field {
     display: flex;
     align-items: center;

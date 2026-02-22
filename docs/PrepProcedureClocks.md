@@ -4,6 +4,7 @@
 
 ## Features
 - `PREP` and `PROCEDURE` pie clocks with per-clock controls: `+1`, `-1`, `Reset`, and total segment input.
+- Manual `+1/-1` clock buttons are hidden by default and can be toggled via `Alt+Shift+Click` on the page title.
 - Prep token bubbles are positioned between the two clocks and support click-to-set plus `+/-`.
 - Custom logging actions are in the first action row:
   - `Log Custom Prep` posts a prep timeline event with player + category metadata and increments the `PREP` clock by 1 (clamped at total).
