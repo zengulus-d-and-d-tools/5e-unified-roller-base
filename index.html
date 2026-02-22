@@ -9,7 +9,7 @@
     <meta name="theme-color" content="#1e1e1e">
 
     <link rel="stylesheet" href="css/theme.css">
-    <link rel="stylesheet" href="css/index.css?v=20260222a">
+    <link rel="stylesheet" href="css/index.css?v=20260222b">
 
 </head>
 
@@ -42,8 +42,15 @@
         </div>
 
         <div class="hero-actions roller-actions">
-            <button class="hero-btn ghost" id="btnFlipSheet" data-onclick="toggleSheetFlip()" title="Rotate Sheet"
-                aria-pressed="false">🔁</button>
+            <div class="sheet-nav-group" role="tablist" aria-label="Sheet Views">
+                <button class="hero-btn ghost sheet-nav-btn active" id="btnSheetMain" data-onclick="setSheetFace('front')"
+                    data-face="front" role="tab" aria-selected="true" aria-pressed="true">Main</button>
+                <button class="hero-btn ghost sheet-nav-btn" id="btnSheetInventory"
+                    data-onclick="setSheetFace('inventory')" data-face="inventory" role="tab" aria-selected="false"
+                    aria-pressed="false">Inventory</button>
+                <button class="hero-btn ghost sheet-nav-btn" id="btnSheetSpells" data-onclick="setSheetFace('spells')"
+                    data-face="spells" role="tab" aria-selected="false" aria-pressed="false">Spells</button>
+            </div>
             <a href="tools.html" class="hero-btn ghost">Portal</a>
             <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨</button>
             <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌</button>
@@ -281,19 +288,6 @@
                                 Feature</button>
                         </div>
                     </div>
-                    <div class="card" id="card-spells">
-                        <div class="drag-grip"></div>
-                        <div class="section-title" id="head-spells">
-                            <span>Spell Slots</span>
-                            <span class="accordion-trigger-abs" data-onclick="toggleSection('spells')"></span>
-                        </div>
-                        <div class="accordion-content" id="body-spells">
-                            <div class="ix-inl-039"><button
-                                    data-onclick="calcSpellSlots()" class="ix-inl-040">Auto-Calc
-                                    Slots (From Level)</button></div>
-                            <div id="spellSlotsList"></div>
-                        </div>
-                    </div>
                     <div class="card" id="card-skills">
                         <div class="drag-grip"></div>
                         <div class="section-title" id="head-skills">
@@ -418,7 +412,20 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="spell-sheet-list" id="spellbookList"></div>
+                        <div class="spell-sheet-panel">
+                            <div class="spell-sheet-panel-head">
+                                <h3>Spell Slots</h3>
+                                <button class="add-btn" type="button" data-onclick="calcSpellSlots()">Auto-Calc Slots
+                                    (From Level)</button>
+                            </div>
+                            <div id="spellSlotsList"></div>
+                        </div>
+                        <div class="spell-sheet-panel">
+                            <div class="spell-sheet-panel-head">
+                                <h3>Spells</h3>
+                            </div>
+                            <div class="spell-sheet-list" id="spellbookList"></div>
+                        </div>
                     </div>
                 </div>
             </div>

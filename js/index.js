@@ -149,27 +149,25 @@ function applySheetFaceState(face) {
 
         ;
     const flipper = document.getElementById('sheetFlipper');
-    const btn = document.getElementById('btnFlipSheet');
     const nextFace = normalizeSheetFace(face, !!data.uiState.isFlipped);
-    const faceLabelMap = {
-        front: 'Front Sheet',
-        inventory: 'Inventory',
-        spells: 'Spellbook'
-    };
     if (flipper) {
-        flipper.classList.remove('flipped');
         flipper.classList.remove('view-front', 'view-inventory', 'view-spells');
         flipper.classList.add(`view-${nextFace}`);
     }
-    if (btn) {
-        btn.setAttribute('aria-pressed', nextFace === 'front' ? 'false' : 'true');
-        const activeLabel = faceLabelMap[nextFace] || 'Sheet';
-        btn.setAttribute('title', `Rotate Sheet (${activeLabel})`);
-        btn.setAttribute('aria-label', `Rotate Sheet (${activeLabel})`);
-    }
+    document.querySelectorAll('.sheet-nav-btn').forEach((btn) => {
+        const isActive = btn.getAttribute('data-face') === nextFace;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
     data.uiState.sheetFace = nextFace;
     // Legacy compatibility for stored v4.8 data.
     data.uiState.isFlipped = nextFace !== 'front';
+}
+
+function setSheetFace(face) {
+    applySheetFaceState(face);
+    save();
 }
 
 function applySheetFlipState(isFlipped) {
@@ -1034,7 +1032,6 @@ function populateUI() {
         'fav',
         'atk',
         'feats',
-        'spells',
         'skills',
         'roller',
         'io'];
@@ -2205,6 +2202,7 @@ function renderFeatures() {
 
 function renderSpells() {
     const list = document.getElementById('spellSlotsList');
+    if (!list) return;
     list.innerHTML = '';
 
     data.spells.forEach((slot, idx) => {

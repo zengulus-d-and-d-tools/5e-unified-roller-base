@@ -37,61 +37,29 @@ body {
 /* --- FLIP LAYOUT --- */
 .scene {
     width: 100%;
-    perspective: 2200px;
     padding-bottom: 40px;
     box-sizing: border-box;
 }
 
 .sheet-flipper {
     width: 100%;
-    display: grid;
-    transform-style: preserve-3d;
-    transition: transform 0.75s cubic-bezier(0.22, 0.61, 0.36, 1);
-}
-
-.sheet-flipper.view-front {
-    transform: rotateY(0deg);
-}
-
-.sheet-flipper.view-inventory {
-    transform: rotateY(-120deg);
-}
-
-.sheet-flipper.view-spells {
-    transform: rotateY(-240deg);
+    display: block;
 }
 
 .face {
-    grid-area: 1 / 1;
-    backface-visibility: hidden;
+    display: none;
 }
 
-.face.front {
-    transform: rotateY(0deg);
-    pointer-events: auto;
-}
-
-.face.back {
-    transform: rotateY(120deg);
-    pointer-events: none;
-}
-
-.face.spellbook {
-    transform: rotateY(240deg);
-    pointer-events: none;
-}
-
-.sheet-flipper.view-inventory .face.front,
-.sheet-flipper.view-spells .face.front {
-    pointer-events: none;
+.sheet-flipper.view-front .face.front {
+    display: block;
 }
 
 .sheet-flipper.view-inventory .face.back {
-    pointer-events: auto;
+    display: block;
 }
 
 .sheet-flipper.view-spells .face.spellbook {
-    pointer-events: auto;
+    display: block;
 }
 
 /* --- UTILITY --- */
@@ -231,6 +199,30 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
+}
+
+.sheet-nav-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 4px;
+}
+
+.sheet-nav-btn {
+    min-width: 76px;
+    text-align: center;
+    width: auto;
+}
+
+.sheet-nav-btn.active {
+    background: color-mix(in srgb, var(--accent) 86%, var(--accent-secondary) 14%);
+    border-color: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
 .control-block {
@@ -2099,6 +2091,26 @@ button {
     box-shadow: 0 35px 70px rgba(0, 0, 0, 0.55);
 }
 
+.spell-sheet-panel {
+    background: color-mix(in srgb, var(--surface-soft) 85%, rgba(0, 0, 0, 0.2));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 14px;
+}
+
+.spell-sheet-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.spell-sheet-panel-head h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
 .spell-sheet-casting {
     display: grid;
     grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
@@ -2588,6 +2600,10 @@ button {
         flex: 1;
     }
 
+    .spell-sheet-panel-head {
+        flex-wrap: wrap;
+    }
+
     .inventory-header {
         flex-direction: column;
         align-items: flex-start;
@@ -2683,8 +2699,20 @@ button {
 
     .roller-actions {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
+    }
+
+    .sheet-nav-group {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .sheet-nav-btn {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 4px;
     }
 
     .roller-actions .hero-btn {
