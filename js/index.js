@@ -3261,19 +3261,28 @@ function renderSpellbook() {
                     <button type="button" class="inventory-delete-btn" data-onclick="deleteSpellbookEntry(${idx})">&times;</button>
                 </div>
                 <div class="spellbook-cast-controls">
-                    <select class="spellbook-level" data-onchange="updateSpellbookEntry(${idx}, 'lvl', this.value)">
-                        ${spellLevelOptionsMarkup(level)}
-                    </select>
-                    <label class="spellbook-upcast-control">
-                        <span class="spellbook-upcast-label">Upcast To</span>
+                    <label class="spellbook-cast-field">
+                        <span class="spellbook-cast-label">Level</span>
+                        <select class="spellbook-level" data-onchange="updateSpellbookEntry(${idx}, 'lvl', this.value)">
+                            ${spellLevelOptionsMarkup(level)}
+                        </select>
+                    </label>
+                    <label class="spellbook-cast-field">
+                        <span class="spellbook-cast-label">Upcast To</span>
                         <select class="spellbook-cast-level" data-onchange="updateSpellbookEntry(${idx}, 'castLvl', this.value)">
                             ${spellCastLevelOptionsMarkup(level, castLvl)}
                         </select>
                     </label>
-                    <select class="spellbook-save" data-onchange="updateSpellbookEntry(${idx}, 'save', this.value)">
-                        ${spellSaveOptionsMarkup(spell.save)}
-                    </select>
-                    <button type="button" class="spellbook-cast-btn" data-onclick="castSpell(${idx})">Cast</button>
+                    <label class="spellbook-cast-field">
+                        <span class="spellbook-cast-label">Save Type</span>
+                        <select class="spellbook-save" data-onchange="updateSpellbookEntry(${idx}, 'save', this.value)">
+                            ${spellSaveOptionsMarkup(spell.save)}
+                        </select>
+                    </label>
+                    <div class="spellbook-cast-field spellbook-cast-field-action">
+                        <span class="spellbook-cast-label">Action</span>
+                        <button type="button" class="spellbook-cast-btn" data-onclick="castSpell(${idx})">Cast</button>
+                    </div>
                 </div>
             </div>
             <div class="spellbook-meta">${escapeHtml(slotSummary)} | ${escapeHtml(castSummary)}</div>

@@ -73,6 +73,13 @@ body {
     margin: 0 !important;
 }
 
+:root {
+    --ink-backdrop-dark: rgba(0, 0, 0, 0.34);
+    --ink-backdrop-light: rgba(255, 255, 255, 0.08);
+    --ink-backdrop-fill: color-mix(in srgb, #050910 70%, rgba(255, 255, 255, 0.14));
+    --ink-backdrop-border: color-mix(in srgb, var(--border) 62%, rgba(255, 255, 255, 0.18));
+}
+
 .full-width {
     width: 100%;
     box-sizing: border-box;
@@ -1521,6 +1528,9 @@ button {
     font-weight: bold;
     cursor: pointer;
     font-size: 0.9rem;
+    box-shadow:
+        inset 0 1px 0 var(--ink-backdrop-light),
+        inset 0 -1px 0 var(--ink-backdrop-dark);
 }
 
 .add-btn {
@@ -2234,9 +2244,20 @@ button {
 
 .spellbook-cast-controls {
     display: grid;
-    grid-template-columns: minmax(120px, 0.8fr) minmax(170px, 1fr) minmax(180px, 1.2fr) auto;
+    grid-template-columns: minmax(120px, 0.7fr) minmax(170px, 0.95fr) minmax(180px, 1.25fr) minmax(90px, auto);
     gap: 10px;
-    align-items: end;
+    align-items: stretch;
+}
+
+.spellbook-cast-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.spellbook-cast-field-action {
+    justify-content: space-between;
 }
 
 .spellbook-name {
@@ -2276,32 +2297,18 @@ button {
     height: 42px;
 }
 
-.spellbook-upcast-control {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-}
-
-.spellbook-upcast-label {
+.spellbook-cast-label {
     font-size: 0.68rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--accent-muted);
-    white-space: nowrap;
     line-height: 1;
-}
-
-.spellbook-upcast-control .spellbook-cast-level {
-    min-width: 0;
-    flex: initial;
-    transform: translateY(1px);
+    white-space: nowrap;
 }
 
 .spellbook-cast-controls .spellbook-cast-btn {
-    min-height: 36px;
-    align-self: end;
+    width: 100%;
+    align-self: stretch;
 }
 
 .spellbook-flag-row {
@@ -2338,6 +2345,39 @@ button {
 .spellbook-meta {
     font-size: 0.78rem;
     color: var(--accent-muted);
+}
+
+/* Subtle dark/light backplate for colored text surfaces and chips. */
+:is(
+    .hero-eyebrow,
+    .control-label,
+    .spellbook-cast-label,
+    .spellbook-meta,
+    .spellbook-filter-count,
+    .spellbook-flag,
+    .inventory-eyebrow,
+    .spell-metric span,
+    .discord-active
+) {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background:
+        linear-gradient(180deg, var(--ink-backdrop-light), transparent 50%),
+        var(--ink-backdrop-fill);
+    border: 1px solid var(--ink-backdrop-border);
+    box-shadow:
+        inset 0 1px 0 var(--ink-backdrop-light),
+        inset 0 -1px 0 var(--ink-backdrop-dark);
+}
+
+.spellbook-meta {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 10px;
 }
 
 .spellbook-textareas {
@@ -3305,8 +3345,12 @@ button {
         min-width: 0;
     }
 
-    .spellbook-upcast-control {
+    .spellbook-cast-field {
         width: 100%;
+    }
+
+    .spellbook-cast-field-action {
+        justify-content: flex-start;
     }
 
     .spellbook-detail-grid,
@@ -3318,6 +3362,7 @@ button {
     .spellbook-main .inventory-delete-btn {
         width: 100%;
         height: 36px;
+        min-height: 36px;
     }
 
     .spell-sheet-metrics {
