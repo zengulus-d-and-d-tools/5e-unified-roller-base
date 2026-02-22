@@ -12,13 +12,26 @@ const Importer = {
         console.log(...args);
     },
 
+    getPdfRuntime: function () {
+        if (typeof globalThis === 'undefined') return null;
+        const runtime = globalThis.pdfjsLib;
+        if (!runtime || typeof runtime.getDocument !== 'function') return null;
+        return runtime;
+    },
+
+    setWorkerSrc: function (runtime, workerSrc) {
+        if (!runtime || !runtime.GlobalWorkerOptions) return;
+        runtime.GlobalWorkerOptions.workerSrc = workerSrc;
+    },
+
     // Entry point
     init: function () {
         this.debug("Importer initialized");
-        if (typeof pdfjsLib !== 'undefined') {
+        const runtime = this.getPdfRuntime();
+        if (runtime) {
             // Prefer a local worker when present; if unavailable, runtime falls back below.
             if (this.LOCAL_WORKER_CANDIDATES.length) {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = this.LOCAL_WORKER_CANDIDATES[0];
+                this.setWorkerSrc(runtime, this.LOCAL_WORKER_CANDIDATES[0]);
             }
         } else {
             console.error("pdfjsLib not found! Ensure pdf.min.js is loaded.");
@@ -36,15 +49,16 @@ const Importer = {
     loadPdfDocument: async function (arrayBuffer) {
         let lastError = null;
         const candidates = this.getWorkerCandidates();
+        const runtime = this.getPdfRuntime();
 
-        if (typeof pdfjsLib === 'undefined' || typeof pdfjsLib.getDocument !== 'function') {
+        if (!runtime) {
             throw new Error('pdf.js runtime unavailable.');
         }
 
         for (const workerSrc of candidates) {
             try {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                this.setWorkerSrc(runtime, workerSrc);
+                const loadingTask = runtime.getDocument({ data: arrayBuffer });
                 return await loadingTask.promise;
             } catch (error) {
                 lastError = error;
@@ -54,10 +68,8 @@ const Importer = {
 
         // Final fallback for builds that can run in "fake worker" mode.
         try {
-            if (pdfjsLib.GlobalWorkerOptions) {
-                pdfjsLib.GlobalWorkerOptions.workerSrc = '';
-            }
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer, disableWorker: true });
+            this.setWorkerSrc(runtime, '');
+            const loadingTask = runtime.getDocument({ data: arrayBuffer, disableWorker: true });
             return await loadingTask.promise;
         } catch (error) {
             lastError = error;
@@ -68,6 +80,12 @@ const Importer = {
 
     // Trigger file selection
     triggerImport: function () {
+        if (!this.getPdfRuntime()) {
+            console.error("Cannot import PDF: pdf.js runtime unavailable.");
+            alert("PDF parser not loaded yet. Refresh and try again.");
+            return;
+        }
+
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.pdf';
@@ -262,6 +280,10 @@ const Importer = {
         }
     }
 };
+
+if (typeof globalThis !== 'undefined') {
+    globalThis.Importer = Importer;
+}
 
 // Auto-init if needed, or wait for DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
