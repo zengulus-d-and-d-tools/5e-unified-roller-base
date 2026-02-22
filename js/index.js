@@ -3022,9 +3022,62 @@ function resolveSpellCastProfile(spell) {
     };
 }
 
-function rollSpellDamage(name, damageFormula, spellContext = '') {
+function waitMs(ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, Math.max(0, parseInt(ms, 10) || 0));
+    });
+}
+
+function rollSpellAttack(name, attackBonus) {
+    const miscInput = document.getElementById('globalMisc');
+    const miscStr = miscInput ? String(miscInput.value || '').trim() : '';
+    const parsedMisc = parseComplexBonus(miscStr);
+
+    let effectiveMode = data.rollMode;
+    let consumedInsp = false;
+    if (consumeInspirationOnNextRoll) {
+        effectiveMode = 'adv';
+        consumedInsp = true;
+    }
+
+    const result = coreRoll(1, 20, effectiveMode);
+    let buffTotal = 0;
+    let buffText = '';
+    if (data.buffs) {
+        if (data.buffs.bless) {
+            const blessRoll = Math.floor(Math.random() * 4) + 1;
+            buffTotal += blessRoll;
+            buffText += ` +${blessRoll}(Bless)`;
+        }
+        if (data.buffs.global) {
+            const parsed = parseComplexBonus(data.buffs.global);
+            buffTotal += parsed.total;
+            if (parsed.text) buffText += ` +${parsed.text}(Global)`;
+        }
+    }
+
+    const total = result.total + attackBonus + parsedMisc.total + buffTotal;
+    let formulaText = result.formula;
+    if (attackBonus !== 0) formulaText += ` ${attackBonus >= 0 ? '+' : ''}${attackBonus}`;
+    if (parsedMisc.total !== 0) formulaText += ` +${parsedMisc.text}(Misc)`;
+    formulaText += buffText;
+    if (effectiveMode !== 'norm') formulaText += ` (${effectiveMode.toUpperCase()})`;
+
+    showLog(`${name} Spell Atk`, total, result.isCrit, result.isFail);
+    if (consumedInsp) consumeInspiration();
+
+    return {
+        ok: true,
+        total,
+        formulaText,
+        isCrit: result.isCrit,
+        isFail: result.isFail
+    };
+}
+
+function rollSpellDamage(name, damageFormula, spellContext = '', options = {}) {
     const parsed = parseComplexBonus(damageFormula);
-    if (!parsed.text) return false;
+    if (!parsed.text) return { ok: false };
     const miscInput = document.getElementById('globalMisc');
     const miscStr = miscInput ? String(miscInput.value || '').trim() : '';
     const parsedMisc = parseComplexBonus(miscStr);
@@ -3032,13 +3085,18 @@ function rollSpellDamage(name, damageFormula, spellContext = '') {
     let formulaText = parsed.text;
     if (parsedMisc.total !== 0) formulaText += ` +${parsedMisc.text}(Misc)`;
     showLog(`${name} Dmg`, total);
-    sendToDiscord(`${name} Damage`, `Dice: ${formulaText}`, `**${total}**`, 'dmg', spellContext);
-    return true;
+    const postToDiscord = options.postToDiscord !== false;
+    if (postToDiscord) sendToDiscord(`${name} Damage`, `Dice: ${formulaText}`, `**${total}**`, 'dmg', spellContext);
+    return {
+        ok: true,
+        total,
+        formulaText
+    };
 }
 
-function rollSpellArbitrary(name, formula, spellContext = '') {
+function rollSpellArbitrary(name, formula, spellContext = '', options = {}) {
     const parsed = parseComplexBonus(formula);
-    if (!parsed.text) return false;
+    if (!parsed.text) return { ok: false };
     const miscInput = document.getElementById('globalMisc');
     const miscStr = miscInput ? String(miscInput.value || '').trim() : '';
     const parsedMisc = parseComplexBonus(miscStr);
@@ -3046,8 +3104,13 @@ function rollSpellArbitrary(name, formula, spellContext = '') {
     let formulaText = parsed.text;
     if (parsedMisc.total !== 0) formulaText += ` +${parsedMisc.text}(Misc)`;
     showLog(name, total);
-    sendToDiscord(name, `Dice: ${formulaText}`, `**${total}**`, 'check', spellContext);
-    return true;
+    const postToDiscord = options.postToDiscord !== false;
+    if (postToDiscord) sendToDiscord(name, `Dice: ${formulaText}`, `**${total}**`, 'check', spellContext);
+    return {
+        ok: true,
+        total,
+        formulaText
+    };
 }
 
 function renderSpellbook() {
@@ -3290,7 +3353,7 @@ function deleteSpellbookEntry(idx) {
     renderSpellbook();
 }
 
-function castSpell(idx) {
+async function castSpell(idx) {
     if (!Array.isArray(data.spellbook) || !data.spellbook[idx]) return;
     const spell = sanitizeSpellbookEntry(data.spellbook[idx]);
     data.spellbook[idx] = spell;
@@ -3328,28 +3391,49 @@ function castSpell(idx) {
     showLog(`Cast: ${name}`, castSummaryParts.join(' | '));
 
     const spellContext = String(spell.description || '').trim();
-    sendToDiscord(`Cast ${name}`, `Casting: ${castSummaryParts.join(' | ')}`, `**Slot Spent**`, 'check', spellContext);
+    await sendToDiscord(`Cast ${name}`, `Casting: ${castSummaryParts.join(' | ')}`, `**Slot Spent**`, 'check', spellContext);
+    const shouldPostDiscord = !!(data.meta.discordActive && data.meta.webhook);
+    let hasPostedStepMessage = false;
 
     if (hasAttackRoll) {
-        rollDie(20, attackBonus, `${name} Spell Atk`, true, 'atk', spellContext);
+        const attackResult = rollSpellAttack(name, attackBonus);
+        if (shouldPostDiscord && attackResult.ok) {
+            await waitMs(100);
+            const attackText = attackResult.isCrit ? `${attackResult.total} CRIT` : `${attackResult.total}`;
+            await sendToDiscordPlain(`${name} Attack`, attackText, 'atk');
+            hasPostedStepMessage = true;
+        }
     }
 
     if (saveAttr !== 'none') {
         const saveLabel = `${name} Save DC`;
         const saveText = `DC ${dc} (${saveAttr.toUpperCase()})`;
         showLog(saveLabel, saveText);
-        sendToDiscord(saveLabel, `${saveAttr.toUpperCase()} saving throw`, `**${saveText}**`, 'save', spellContext);
+        if (shouldPostDiscord) {
+            if (hasPostedStepMessage) await waitMs(100);
+            await sendToDiscordPlain(saveLabel, saveText, 'save');
+            hasPostedStepMessage = true;
+        }
     }
 
     if (!noAttackNoSave && damageFormula) {
-        rollSpellDamage(name, damageFormula, spellContext);
+        const damageResult = rollSpellDamage(name, damageFormula, spellContext, { postToDiscord: false });
+        if (shouldPostDiscord && damageResult.ok) {
+            if (hasPostedStepMessage) await waitMs(100);
+            await sendToDiscordPlain(`${name} Damage`, `${damageResult.total}`, 'dmg');
+            hasPostedStepMessage = true;
+        }
     }
     if (noAttackNoSave) {
         const formulaForNameRoll = damageFormula || arbitraryFormula;
-        if (formulaForNameRoll) rollSpellArbitrary(name, formulaForNameRoll, spellContext);
+        if (formulaForNameRoll) {
+            const arbitraryResult = rollSpellArbitrary(name, formulaForNameRoll, spellContext, { postToDiscord: false });
+            if (shouldPostDiscord && arbitraryResult.ok) {
+                await waitMs(100);
+                await sendToDiscordPlain(name, `${arbitraryResult.total}`, 'check');
+            }
+        }
     }
-
-    sendAvraeSpellCommand(name);
 }
 
 function calcSpellSlots() {
@@ -4199,13 +4283,17 @@ function toggleDiscord(active) {
     save();
 }
 
+function getDiscordColor(type = 'check') {
+    if (type === 'atk') return 16739179;
+    if (type === 'dmg') return 9807270;
+    if (type === 'save') return 3066993;
+    if (type === 'feature') return 3447003;
+    return 5164484;
+}
+
 function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '') {
-    if (!data.meta.discordActive || !data.meta.webhook) return;
-    let color = 5164484;
-    if (type === 'atk') color = 16739179;
-    if (type === 'dmg') color = 9807270;
-    if (type === 'save') color = 3066993;
-    if (type === 'feature') color = 3447003;
+    if (!data.meta.discordActive || !data.meta.webhook) return Promise.resolve();
+    const color = getDiscordColor(type);
 
     let descText = "";
 
@@ -4250,7 +4338,7 @@ function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '
 
         ;
 
-    fetch(data.meta.webhook, {
+    return fetch(data.meta.webhook, {
         method: 'POST', headers: {
             'Content-Type': 'application/json'
         }
@@ -4259,25 +4347,32 @@ function sendToDiscord(label, formulaStr, result, type = 'check', customDesc = '
     }).catch(err => console.error(err));
 }
 
-function sendAvraeSpellCommand(spellName) {
-    if (!data.meta.discordActive || !data.meta.webhook) return;
-    const cleanedName = String(spellName || '')
-        .replace(/\r\n/g, ' ')
-        .replace(/\n/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 180);
-    if (!cleanedName) return;
+function sendToDiscordPlain(label, description, type = 'check') {
+    if (!data.meta.discordActive || !data.meta.webhook) return Promise.resolve();
+    let descText = String(description || '').trim();
+    if (!descText) return Promise.resolve();
+    if (secretMode || label === 'Death Save') {
+        descText = `||${descText}||`;
+    }
     const payload = {
-        content: cleanedName
+        embeds: [{
+            author: {
+                name: data.meta.name || 'Character'
+            },
+            title: label,
+            description: descText,
+            color: getDiscordColor(type),
+            footer: {
+                text: `Player: ${data.meta.player}`
+            }
+        }]
     };
-
-    fetch(data.meta.webhook, {
-        method: 'POST', headers: {
+    return fetch(data.meta.webhook, {
+        method: 'POST',
+        headers: {
             'Content-Type': 'application/json'
-        }
-
-        , body: JSON.stringify(payload)
+        },
+        body: JSON.stringify(payload)
     }).catch(err => console.error(err));
 }
 
