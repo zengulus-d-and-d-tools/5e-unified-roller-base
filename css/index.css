@@ -1170,9 +1170,9 @@ textarea:focus {
 
 .stat-top-line {
     display: grid;
-    grid-template-columns: 34px 42px 44px minmax(0, 1fr);
+    grid-template-columns: 34px 42px auto minmax(0, 1fr);
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
 .stat-card h3 {
@@ -1201,7 +1201,8 @@ textarea:focus {
     align-items: center;
     justify-content: center;
     height: 24px;
-    padding: 0 9px;
+    box-sizing: border-box;
+    padding: 0 8px;
     border-radius: 999px;
     border: 1px solid color-mix(in srgb, var(--accent) 55%, #3f3f3f 45%);
     background: color-mix(in srgb, var(--accent) 18%, #1f2633 82%);
@@ -1209,7 +1210,10 @@ textarea:focus {
     font-weight: 800;
     color: var(--accent);
     margin-bottom: 0;
-    min-width: 40px;
+    min-width: 0;
+    width: fit-content;
+    justify-self: start;
+    white-space: nowrap;
     line-height: 1;
     text-align: center;
     text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 25%, transparent);
@@ -2503,7 +2507,7 @@ button {
     }
 
     .stat-top-line {
-        grid-template-columns: 30px 38px 38px minmax(0, 1fr);
+        grid-template-columns: 30px 38px auto minmax(0, 1fr);
         gap: 4px;
     }
 
@@ -2513,7 +2517,6 @@ button {
 
     .mod-display {
         height: 22px;
-        min-width: 36px;
         padding: 0 7px;
         font-size: 0.9rem;
     }
