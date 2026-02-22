@@ -2889,6 +2889,23 @@ function extractDamageDiceFormulas(rawText) {
     return formulas;
 }
 
+function extractAnyDiceFormulas(rawText) {
+    const text = String(rawText || '');
+    if (!text) return [];
+    const formulas = [];
+    const seen = new Set();
+    const diceRegex = /(\d+d\d+(?:\s*[+-]\s*\d+)?)/gi;
+    let match;
+    while ((match = diceRegex.exec(text)) !== null) {
+        const normalized = normalizeDiceFormulaToken(match[1]);
+        if (!normalized || seen.has(normalized)) continue;
+        seen.add(normalized);
+        formulas.push(normalized);
+        if (formulas.length >= 4) break;
+    }
+    return formulas;
+}
+
 function detectCantripScaledDamageFormula(rawText, charLevel) {
     const text = String(rawText || '');
     if (!text) return '';
@@ -2906,14 +2923,14 @@ function detectCantripScaledDamageFormula(rawText, charLevel) {
     return bestFormula;
 }
 
-function extractUpcastDamageFormula(rawText, spellLevel, castSlotLevel) {
+function extractUpcastScalingFormula(rawText, spellLevel, castSlotLevel) {
     const text = String(rawText || '');
     if (!text) return '';
     const castLevel = Math.max(0, Math.min(9, parseInt(castSlotLevel, 10) || 0));
     const level = Math.max(0, Math.min(9, parseInt(spellLevel, 10) || 0));
     if (castLevel <= level) return '';
 
-    const upcastMatch = text.match(/damage increases by\s+(\d+d\d+(?:\s*[+-]\s*\d+)?)[^.!?\n]*?\babove\s+(\d+)/i);
+    const upcastMatch = text.match(/(?:damage|healing)?\s*increases?\s+by\s+(\d+d\d+(?:\s*[+-]\s*\d+)?)[^.!?\n]*?(?:spell\s+slot\s+level\s+above|slot\s+level\s+above|above)\s+(\d+)/i);
     if (!upcastMatch || !upcastMatch[1]) return '';
     const perLevelFormula = normalizeDiceFormulaToken(upcastMatch[1]);
     const aboveLevel = parseInt(upcastMatch[2], 10);
@@ -2945,7 +2962,40 @@ function buildSpellDamageFormula(spell, castSlotLevel) {
         }
     }
 
-    const upcastFormula = extractUpcastDamageFormula(spell && spell.higherLevelSlot, level, castSlotLevel);
+    const upcastFormula = extractUpcastScalingFormula(spell && spell.higherLevelSlot, level, castSlotLevel);
+    if (upcastFormula) formulas.push(upcastFormula);
+
+    return formulas.join('+');
+}
+
+function buildSpellArbitraryFormula(spell, castSlotLevel) {
+    const explicitFormula = normalizeDiceFormulaToken(spell && spell.damageFormula ? spell.damageFormula : '');
+    if (explicitFormula) return explicitFormula;
+
+    const description = String(spell && spell.description ? spell.description : '');
+    const higherLevel = String(spell && spell.higherLevelSlot ? spell.higherLevelSlot : '');
+    const cantripUpgrade = String(spell && spell.cantripUpgrade ? spell.cantripUpgrade : '');
+    const formulas = extractAnyDiceFormulas(description);
+    if (!formulas.length) {
+        formulas.push(...extractAnyDiceFormulas(`${higherLevel}\n${cantripUpgrade}`));
+    }
+    if (!formulas.length) return '';
+
+    const level = Math.max(0, Math.min(9, parseInt(spell && spell.lvl, 10) || 0));
+    if (level === 0) {
+        const charLevel = data && data.meta ? data.meta.level : 1;
+        const scaledCantrip = detectCantripScaledDamageFormula(cantripUpgrade, charLevel);
+        if (scaledCantrip) formulas[0] = scaledCantrip;
+    }
+
+    if (/plus your spellcasting ability modifier/i.test(description)) {
+        const spellMod = getSpellcastingAbilityContext().mod;
+        if (spellMod !== 0) {
+            formulas[0] += spellMod > 0 ? `+${spellMod}` : `${spellMod}`;
+        }
+    }
+
+    const upcastFormula = extractUpcastScalingFormula(higherLevel, level, castSlotLevel);
     if (upcastFormula) formulas.push(upcastFormula);
 
     return formulas.join('+');
@@ -2962,10 +3012,12 @@ function resolveSpellCastProfile(spell) {
         : inferSpellSaveAttrFromRulesText(rulesText);
     const hasAttackRoll = inferSpellAttackRollFromRulesText(rulesText);
     const damageFormula = buildSpellDamageFormula(safeSpell, castSlotLevel);
+    const arbitraryFormula = buildSpellArbitraryFormula(safeSpell, castSlotLevel);
     return {
         saveAttr,
         hasAttackRoll,
         damageFormula,
+        arbitraryFormula,
         castSlotLevel
     };
 }
@@ -2981,6 +3033,20 @@ function rollSpellDamage(name, damageFormula, spellContext = '') {
     if (parsedMisc.total !== 0) formulaText += ` +${parsedMisc.text}(Misc)`;
     showLog(`${name} Dmg`, total);
     sendToDiscord(`${name} Damage`, `Dice: ${formulaText}`, `**${total}**`, 'dmg', spellContext);
+    return true;
+}
+
+function rollSpellArbitrary(name, formula, spellContext = '') {
+    const parsed = parseComplexBonus(formula);
+    if (!parsed.text) return false;
+    const miscInput = document.getElementById('globalMisc');
+    const miscStr = miscInput ? String(miscInput.value || '').trim() : '';
+    const parsedMisc = parseComplexBonus(miscStr);
+    const total = parsed.total + parsedMisc.total;
+    let formulaText = parsed.text;
+    if (parsedMisc.total !== 0) formulaText += ` +${parsedMisc.text}(Misc)`;
+    showLog(name, total);
+    sendToDiscord(name, `Dice: ${formulaText}`, `**${total}**`, 'check', spellContext);
     return true;
 }
 
@@ -3034,6 +3100,7 @@ function renderSpellbook() {
         const level = spell.lvl;
         const castLvl = spell.castLvl;
         const castProfile = resolveSpellCastProfile(spell);
+        const noAttackNoSave = !castProfile.hasAttackRoll && castProfile.saveAttr === 'none';
         const castSummaryParts = [];
         if (castProfile.hasAttackRoll) {
             castSummaryParts.push(`Spell Attack ${formatSignedNumber(attackBonus)}`);
@@ -3041,8 +3108,12 @@ function renderSpellbook() {
         if (castProfile.saveAttr !== 'none') {
             castSummaryParts.push(`${castProfile.saveAttr.toUpperCase()} Save DC ${dc}`);
         }
-        if (castProfile.damageFormula) {
+        if (!noAttackNoSave && castProfile.damageFormula) {
             castSummaryParts.push(`Damage ${castProfile.damageFormula}`);
+        }
+        if (noAttackNoSave) {
+            const arbitraryFormula = castProfile.damageFormula || castProfile.arbitraryFormula;
+            if (arbitraryFormula) castSummaryParts.push(`Roll ${arbitraryFormula}`);
         }
         if (!castSummaryParts.length) {
             castSummaryParts.push('No attack/save/damage roll');
@@ -3229,6 +3300,8 @@ function castSpell(idx) {
     const saveAttr = castProfile.saveAttr;
     const hasAttackRoll = castProfile.hasAttackRoll;
     const damageFormula = castProfile.damageFormula;
+    const arbitraryFormula = castProfile.arbitraryFormula;
+    const noAttackNoSave = !hasAttackRoll && saveAttr === 'none';
 
     const castSlotChoice = normalizeSpellbookCastLevel(level, spell.castLvl);
     const consumeResult = consumeSpellSlotForCast(level, castSlotChoice);
@@ -3246,8 +3319,12 @@ function castSpell(idx) {
     const castSummaryParts = [slotSummary];
     if (hasAttackRoll) castSummaryParts.push(`Spell Attack ${formatSignedNumber(attackBonus)}`);
     if (saveAttr !== 'none') castSummaryParts.push(`${saveAttr.toUpperCase()} Save DC ${dc}`);
-    if (damageFormula) castSummaryParts.push(`Damage ${damageFormula}`);
-    if (!hasAttackRoll && saveAttr === 'none' && !damageFormula) castSummaryParts.push('No roll detected');
+    if (!noAttackNoSave && damageFormula) castSummaryParts.push(`Damage ${damageFormula}`);
+    if (noAttackNoSave) {
+        const formulaForNameRoll = damageFormula || arbitraryFormula;
+        if (formulaForNameRoll) castSummaryParts.push(`Roll ${formulaForNameRoll}`);
+    }
+    if (!hasAttackRoll && saveAttr === 'none' && !damageFormula && !arbitraryFormula) castSummaryParts.push('No roll detected');
     showLog(`Cast: ${name}`, castSummaryParts.join(' | '));
 
     const spellContext = String(spell.description || '').trim();
@@ -3264,8 +3341,12 @@ function castSpell(idx) {
         sendToDiscord(saveLabel, `${saveAttr.toUpperCase()} saving throw`, `**${saveText}**`, 'save', spellContext);
     }
 
-    if (damageFormula) {
+    if (!noAttackNoSave && damageFormula) {
         rollSpellDamage(name, damageFormula, spellContext);
+    }
+    if (noAttackNoSave) {
+        const formulaForNameRoll = damageFormula || arbitraryFormula;
+        if (formulaForNameRoll) rollSpellArbitrary(name, formulaForNameRoll, spellContext);
     }
 
     sendAvraeSpellCommand(name);
@@ -4188,7 +4269,7 @@ function sendAvraeSpellCommand(spellName) {
         .slice(0, 180);
     if (!cleanedName) return;
     const payload = {
-        content: `!spell ${cleanedName}`
+        content: cleanedName
     };
 
     fetch(data.meta.webhook, {
