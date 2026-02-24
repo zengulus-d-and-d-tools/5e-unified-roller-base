@@ -77,9 +77,18 @@
 
         <div class="gm-clear-wrap">
             <button class="btn-danger btn-sm" data-onclick="clearCombat()">⚠ Clear Encounter</button>
+            <button class="btn-sec btn-sm" id="undoBtn" data-onclick="undoLast()" disabled>↶ Undo</button>
         </div>
 
         <div id="combatList" class="combat-list"></div>
+
+        <div class="card gm-card-flush gm-combat-log-card">
+            <div class="gm-combat-log-header">
+                <div class="section-header gm-section-conditions">Combat Log</div>
+                <button class="btn-sec btn-sm" data-onclick="clearCombatLog()">Clear Log</button>
+            </div>
+            <div id="combatLogList" class="gm-combat-log"></div>
+        </div>
 
         <div class="tracker-footer">
             <div class="round-counter">
@@ -165,11 +174,21 @@
 
             <div class="webhook-box">
                 <div class="section-header">Discord Integration</div>
-                <input type="text" id="webhookUrl" placeholder="Webhook URL..." data-oninput="saveGM()">
+                <input type="text" id="webhookUrl" placeholder="Discord Webhook URL..." data-oninput="saveGM()">
                 <label class="gm-check-label">
                     <input type="checkbox" id="discordActive" data-onchange="saveGM()">
                     <span class="gm-text-strong">Active</span>
                 </label>
+                <label class="gm-check-label">
+                    <input type="checkbox" id="discordTurnPing" data-onchange="saveGM()">
+                    <span class="gm-text-strong">Tracker Turn Pings</span>
+                </label>
+                <div class="row gm-row-top-5">
+                    <input type="text" id="discordTurnMention"
+                        placeholder="Optional ping target (@here / @everyone / role mention)"
+                        data-oninput="saveGM()">
+                    <button class="btn-sec gm-btn-w100" data-onclick="sendTurnPing(true)">Test Ping</button>
+                </div>
                 <label class="gm-check-label">
                     <input type="checkbox" id="secretRoll">
                     <span class="gm-text-accent-strong">Secret Roll (||Spoiler||)</span>

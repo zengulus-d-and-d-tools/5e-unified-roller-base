@@ -1,10 +1,13 @@
 const DEFAULT_GM_DATA = {
     combatants: [],
     bestiary: [], // [{name, init, dex, hp, count}]
+    combatLog: [],
     round: 1,
     activeIdx: 0,
     webhook: '',
     discordActive: false,
+    turnPingActive: false,
+    turnPingMention: '',
     scratchpad: '',
     rollLevel: 1
 };
@@ -91,6 +94,14 @@ function sanitizeGMData(raw) {
         const hasHp = row.hp !== null && row.hp !== undefined && row.hp !== '';
         const hp = hasHp ? sanitizeNumber(row.hp, 0, 0, 999999) : null;
         const maxHp = hasHp ? sanitizeNumber(row.maxHp, hp, 0, 999999) : null;
+        const conditions = Array.isArray(row.conditions) ? row.conditions.slice(0, 20).map((condition) => {
+            const cond = condition && typeof condition === 'object' ? condition : {};
+            const name = sanitizeString(cond.name || '', '', 80).trim();
+            if (!name) return null;
+            const hasDuration = cond.duration !== null && cond.duration !== undefined && cond.duration !== '';
+            const duration = hasDuration ? Math.round(sanitizeNumber(cond.duration, 1, 1, 99)) : null;
+            return { name, duration };
+        }).filter(Boolean) : [];
         return {
             id: sanitizeString(String(row.id ?? `combat_${idx}`), `combat_${idx}`, 80),
             name: sanitizeString(row.name || 'Enemy', 'Enemy', 160),
@@ -98,7 +109,12 @@ function sanitizeGMData(raw) {
             tie: sanitizeNumber(row.tie, 10, 1, 30),
             hp,
             maxHp,
-            tags: Array.isArray(row.tags) ? row.tags.slice(0, 20).map((tag) => sanitizeString(tag, '', 120)).filter(Boolean) : []
+            tags: Array.isArray(row.tags) ? row.tags.slice(0, 20).map((tag) => sanitizeString(tag, '', 120)).filter(Boolean) : [],
+            conditions,
+            reactionUsed: !!row.reactionUsed,
+            concentrating: !!row.concentrating,
+            legendaryMax: Math.round(sanitizeNumber(row.legendaryMax, 0, 0, 9)),
+            legendaryUsed: Math.round(sanitizeNumber(row.legendaryUsed, 0, 0, 9))
         };
     }) : [];
 
@@ -113,15 +129,113 @@ function sanitizeGMData(raw) {
             hp: sanitizeNumber(row.hp, 0, 0, 999999)
         };
     }) : [];
+    sanitized.combatLog = Array.isArray(source.combatLog) ? source.combatLog.slice(-400).map((entry) => {
+        const row = entry && typeof entry === 'object' ? entry : {};
+        return {
+            ts: Math.round(sanitizeNumber(row.ts, Date.now(), 0, 9999999999999)),
+            round: Math.round(sanitizeNumber(row.round, 1, 1, 100000)),
+            text: sanitizeString(row.text || '', '', 240)
+        };
+    }).filter((entry) => !!entry.text) : [];
 
     sanitized.round = Math.round(sanitizeNumber(source.round, 1, 1, 100000));
     sanitized.activeIdx = Math.round(sanitizeNumber(source.activeIdx, 0, 0, Math.max(0, sanitized.combatants.length - 1)));
     sanitized.webhook = sanitizeString(source.webhook || '', '', 2000);
     sanitized.discordActive = !!source.discordActive;
+    sanitized.turnPingActive = !!source.turnPingActive;
+    sanitized.turnPingMention = sanitizeString(source.turnPingMention || '', '', 160);
     sanitized.scratchpad = sanitizeString(source.scratchpad || '', '', 100000);
     sanitized.rollLevel = Math.round(sanitizeNumber(source.rollLevel, 1, 1, 30));
 
+    sanitized.combatants.forEach((combatant) => {
+        if (combatant.legendaryUsed > combatant.legendaryMax) {
+            combatant.legendaryUsed = combatant.legendaryMax;
+        }
+    });
+
     return sanitized;
+}
+
+const MAX_UNDO_ENTRIES = 80;
+const MAX_COMBAT_LOG_ENTRIES = 400;
+let undoStack = [];
+
+function syncGMInputsFromData() {
+    const webhookEl = document.getElementById('webhookUrl');
+    if (webhookEl) webhookEl.value = gmData.webhook || '';
+    const discordActiveEl = document.getElementById('discordActive');
+    if (discordActiveEl) discordActiveEl.checked = gmData.discordActive || false;
+    const turnPingToggle = document.getElementById('discordTurnPing');
+    if (turnPingToggle) turnPingToggle.checked = gmData.turnPingActive || false;
+    const turnPingMention = document.getElementById('discordTurnMention');
+    if (turnPingMention) turnPingMention.value = gmData.turnPingMention || '';
+    const scratchpadEl = document.getElementById('scratchpad');
+    if (scratchpadEl) scratchpadEl.value = gmData.scratchpad || '';
+    const rollLevelEl = document.getElementById('rollLevel');
+    if (rollLevelEl) rollLevelEl.value = gmData.rollLevel || 1;
+}
+
+function persistGMData() {
+    gmData = sanitizeGMData(gmData);
+    localStorage.setItem('gmDashboardData', JSON.stringify(gmData));
+}
+
+function updateUndoButton() {
+    const btn = document.getElementById('undoBtn');
+    if (!btn) return;
+    const canUndo = undoStack.length > 0;
+    btn.disabled = !canUndo;
+    btn.title = canUndo ? `Undo: ${undoStack[undoStack.length - 1].label}` : 'Nothing to undo';
+}
+
+function pushUndoSnapshot(label = 'Change') {
+    undoStack.push({
+        label: sanitizeString(label, 'Change', 80),
+        snapshot: sanitizeGMData(gmData)
+    });
+    if (undoStack.length > MAX_UNDO_ENTRIES) undoStack.splice(0, undoStack.length - MAX_UNDO_ENTRIES);
+    updateUndoButton();
+}
+
+function addCombatLog(text) {
+    const msg = sanitizeString(text, '', 240).trim();
+    if (!msg) return;
+    if (!Array.isArray(gmData.combatLog)) gmData.combatLog = [];
+    gmData.combatLog.push({
+        ts: Date.now(),
+        round: gmData.round,
+        text: msg
+    });
+    if (gmData.combatLog.length > MAX_COMBAT_LOG_ENTRIES) {
+        gmData.combatLog.splice(0, gmData.combatLog.length - MAX_COMBAT_LOG_ENTRIES);
+    }
+}
+
+function renderCombatLog() {
+    const list = document.getElementById('combatLogList');
+    if (!list) return;
+    const entries = Array.isArray(gmData.combatLog) ? gmData.combatLog.slice(-60).reverse() : [];
+    if (!entries.length) {
+        list.innerHTML = '<div class="gm-combat-log-empty">No log entries yet.</div>';
+        return;
+    }
+
+    list.innerHTML = entries.map((entry) => {
+        const stamp = new Date(entry.ts || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const roundLabel = Number.isFinite(Number(entry.round)) ? `R${Number(entry.round)}` : 'R?';
+        return `
+            <div class="gm-combat-log-item">
+                <span class="gm-combat-log-meta">${escapeHtml(roundLabel)} · ${escapeHtml(stamp)}</span>
+                <span class="gm-combat-log-text">${escapeHtml(entry.text || '')}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function getCombatantNameByIndex(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant || typeof combatant !== 'object') return 'Combatant';
+    return sanitizeString(combatant.name || 'Combatant', 'Combatant', 160) || 'Combatant';
 }
 
 function clearLaunchParamsFromUrl() {
@@ -187,6 +301,7 @@ function applyEncounterLaunchPayload() {
     if (Array.isArray(gmData.combatants) && gmData.combatants.length) {
         const ok = confirm('Load launched encounter into Tracker? This will replace current initiative order.');
         if (!ok) return;
+        pushUndoSnapshot('Load launched encounter');
     }
 
     gmData.combatants = payload.combatants.map((entry, idx) => ({
@@ -196,7 +311,12 @@ function applyEncounterLaunchPayload() {
         tie: sanitizeNumber(entry && entry.tie, 10, 1, 30),
         hp: (entry && entry.hp !== null && entry.hp !== undefined && entry.hp !== '') ? sanitizeNumber(entry.hp, 0, 0, 999999) : null,
         maxHp: (entry && entry.maxHp !== null && entry.maxHp !== undefined && entry.maxHp !== '') ? sanitizeNumber(entry.maxHp, entry.hp, 0, 999999) : null,
-        tags: Array.isArray(entry && entry.tags) ? entry.tags.slice(0, 20).map((tag) => sanitizeString(tag, '', 120)).filter(Boolean) : []
+        tags: Array.isArray(entry && entry.tags) ? entry.tags.slice(0, 20).map((tag) => sanitizeString(tag, '', 120)).filter(Boolean) : [],
+        conditions: [],
+        reactionUsed: false,
+        concentrating: false,
+        legendaryMax: 0,
+        legendaryUsed: 0
     }));
 
     sortCombat();
@@ -210,9 +330,11 @@ function applyEncounterLaunchPayload() {
         const scratchpadEl = document.getElementById('scratchpad');
         if (scratchpadEl) scratchpadEl.value = gmData.scratchpad;
     }
+    addCombatLog(`Loaded encounter: ${payload.title || 'Encounter'}`);
 
     saveGM();
     renderCombat();
+    renderCombatLog();
     const trackerTab = document.querySelector('.nav-item[data-tab="tracker"]');
     switchTab('tracker', trackerTab ? { currentTarget: trackerTab } : null);
     alert(`Tracker loaded: ${payload.title || 'Encounter'}`);
@@ -274,19 +396,178 @@ function renderBestiary() {
             `).join('');
 }
 
-// --- CONDITION TAGS ---
-function addTag(idx) {
-    const tag = prompt("Tag (e.g. Prone, Stunned):");
-    if (tag) {
-        if (!gmData.combatants[idx].tags) gmData.combatants[idx].tags = [];
-        gmData.combatants[idx].tags.push(tag);
-        saveGM(); renderCombat();
-    }
+function commitTrackerState() {
+    saveGM();
+    renderCombat();
+    renderCombatLog();
 }
 
-function removeTag(cIdx, tIdx) {
-    gmData.combatants[cIdx].tags.splice(tIdx, 1);
-    saveGM(); renderCombat();
+function parseConditionInput(raw = '') {
+    const text = sanitizeString(raw, '', 120).trim();
+    if (!text) return null;
+    const match = text.match(/^(.*?)(?:\s*\((\d{1,2})\)|\s+(\d{1,2}))?$/);
+    if (!match) return null;
+    const name = sanitizeString(match[1] || '', '', 80).trim();
+    if (!name) return null;
+    const durationRaw = match[2] || match[3] || '';
+    const duration = durationRaw ? Math.max(1, Math.min(99, parseInt(durationRaw, 10) || 1)) : null;
+    return { name, duration };
+}
+
+function addCondition(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+    const raw = prompt("Condition (examples: Prone, Stunned 2, Restrained (3)):");
+    const parsed = parseConditionInput(raw);
+    if (!parsed) return;
+
+    pushUndoSnapshot('Add condition');
+    if (!Array.isArray(combatant.conditions)) combatant.conditions = [];
+    combatant.conditions.push(parsed);
+    addCombatLog(`${getCombatantNameByIndex(idx)} gains ${parsed.name}${parsed.duration ? ` (${parsed.duration})` : ''}`);
+    commitTrackerState();
+}
+
+function removeCondition(cIdx, condIdx) {
+    const combatant = gmData.combatants[cIdx];
+    if (!combatant || !Array.isArray(combatant.conditions) || !combatant.conditions[condIdx]) return;
+    const removed = combatant.conditions[condIdx];
+    pushUndoSnapshot('Remove condition');
+    combatant.conditions.splice(condIdx, 1);
+    addCombatLog(`${getCombatantNameByIndex(cIdx)} loses ${removed.name}`);
+    commitTrackerState();
+}
+
+function setConditionDuration(cIdx, condIdx) {
+    const combatant = gmData.combatants[cIdx];
+    if (!combatant || !Array.isArray(combatant.conditions) || !combatant.conditions[condIdx]) return;
+    const current = combatant.conditions[condIdx];
+    const val = prompt(`Set ${current.name} duration (blank = ongoing):`, current.duration === null ? '' : String(current.duration));
+    if (val === null) return;
+
+    pushUndoSnapshot('Update condition duration');
+    const trimmed = String(val).trim();
+    if (!trimmed) current.duration = null;
+    else current.duration = Math.max(1, Math.min(99, parseInt(trimmed, 10) || 1));
+    addCombatLog(`${getCombatantNameByIndex(cIdx)} ${current.name} duration set to ${current.duration === null ? 'ongoing' : current.duration}`);
+    commitTrackerState();
+}
+
+function toggleReaction(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+    pushUndoSnapshot('Toggle reaction');
+    combatant.reactionUsed = !combatant.reactionUsed;
+    addCombatLog(`${getCombatantNameByIndex(idx)} reaction ${combatant.reactionUsed ? 'used' : 'ready'}`);
+    commitTrackerState();
+}
+
+function toggleConcentration(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+    pushUndoSnapshot('Toggle concentration');
+    combatant.concentrating = !combatant.concentrating;
+    addCombatLog(`${getCombatantNameByIndex(idx)} concentration ${combatant.concentrating ? 'on' : 'off'}`);
+    commitTrackerState();
+}
+
+function setLegendaryMax(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+    const current = Number.isFinite(Number(combatant.legendaryMax)) ? Number(combatant.legendaryMax) : 0;
+    const val = prompt("Legendary Actions per round (0-9):", String(current));
+    if (val === null) return;
+    const parsed = Math.max(0, Math.min(9, parseInt(String(val).trim(), 10) || 0));
+    pushUndoSnapshot('Set legendary actions');
+    combatant.legendaryMax = parsed;
+    combatant.legendaryUsed = Math.min(combatant.legendaryUsed || 0, parsed);
+    addCombatLog(`${getCombatantNameByIndex(idx)} legendary actions set to ${parsed}`);
+    commitTrackerState();
+}
+
+function useLegendary(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+    const max = Math.max(0, Math.min(9, parseInt(combatant.legendaryMax, 10) || 0));
+    if (max <= 0) {
+        setLegendaryMax(idx);
+        return;
+    }
+    const used = Math.max(0, Math.min(max, parseInt(combatant.legendaryUsed, 10) || 0));
+    if (used >= max) return;
+    pushUndoSnapshot('Use legendary action');
+    combatant.legendaryUsed = used + 1;
+    addCombatLog(`${getCombatantNameByIndex(idx)} uses a legendary action (${combatant.legendaryUsed}/${max})`);
+    commitTrackerState();
+}
+
+function restoreLegendary(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+    const max = Math.max(0, Math.min(9, parseInt(combatant.legendaryMax, 10) || 0));
+    if (max <= 0) return;
+    const used = Math.max(0, Math.min(max, parseInt(combatant.legendaryUsed, 10) || 0));
+    if (used <= 0) return;
+    pushUndoSnapshot('Restore legendary action');
+    combatant.legendaryUsed = used - 1;
+    addCombatLog(`${getCombatantNameByIndex(idx)} restores a legendary action (${combatant.legendaryUsed}/${max})`);
+    commitTrackerState();
+}
+
+function refreshTurnState(idx) {
+    const combatant = gmData.combatants[idx];
+    if (!combatant) return;
+
+    const name = getCombatantNameByIndex(idx);
+    if (combatant.reactionUsed) {
+        combatant.reactionUsed = false;
+        addCombatLog(`${name} reaction refreshed`);
+    }
+
+    const max = Math.max(0, Math.min(9, parseInt(combatant.legendaryMax, 10) || 0));
+    if (max > 0 && (parseInt(combatant.legendaryUsed, 10) || 0) > 0) {
+        combatant.legendaryUsed = 0;
+        addCombatLog(`${name} legendary actions refreshed (${max})`);
+    }
+
+    if (!Array.isArray(combatant.conditions) || combatant.conditions.length === 0) return;
+    const kept = [];
+    combatant.conditions.forEach((condition) => {
+        const cond = condition && typeof condition === 'object' ? condition : null;
+        if (!cond || !cond.name) return;
+        if (cond.duration === null || cond.duration === undefined || cond.duration === '') {
+            kept.push({ name: sanitizeString(cond.name, '', 80), duration: null });
+            return;
+        }
+        const nextDuration = Math.max(0, (parseInt(cond.duration, 10) || 0) - 1);
+        if (nextDuration <= 0) {
+            addCombatLog(`${name} ${cond.name} ended`);
+            return;
+        }
+        kept.push({ name: sanitizeString(cond.name, '', 80), duration: nextDuration });
+    });
+    combatant.conditions = kept;
+}
+
+function clearCombatLog() {
+    if (!Array.isArray(gmData.combatLog) || gmData.combatLog.length === 0) return;
+    if (!confirm('Clear combat log?')) return;
+    pushUndoSnapshot('Clear combat log');
+    gmData.combatLog = [];
+    commitTrackerState();
+}
+
+function undoLast() {
+    if (!undoStack.length) return;
+    const previous = undoStack.pop();
+    gmData = sanitizeGMData(previous.snapshot);
+    syncGMInputsFromData();
+    persistGMData();
+    updateBonuses();
+    renderCombat();
+    renderCombatLog();
+    renderBestiary();
+    updateUndoButton();
 }
 
 let rollMode = 'norm'; // norm, adv, dis
@@ -338,13 +619,12 @@ function init() {
     } else {
         gmData = sanitizeGMData(gmData);
     }
-    document.getElementById('webhookUrl').value = gmData.webhook || '';
-    document.getElementById('discordActive').checked = gmData.discordActive || false;
-    document.getElementById('scratchpad').value = gmData.scratchpad || '';
-    document.getElementById('rollLevel').value = gmData.rollLevel || 1;
+    syncGMInputsFromData();
+    updateUndoButton();
 
     updateBonuses();
     renderCombat();
+    renderCombatLog();
     renderConditions();
     if (!gmData.bestiary) gmData.bestiary = [];
     renderBestiary();
@@ -394,12 +674,19 @@ function importGM() {
 }
 
 function saveGM() {
-    gmData.webhook = document.getElementById('webhookUrl').value;
-    gmData.discordActive = document.getElementById('discordActive').checked;
-    gmData.scratchpad = document.getElementById('scratchpad').value;
-    gmData.rollLevel = parseInt(document.getElementById('rollLevel').value) || 1;
-    gmData = sanitizeGMData(gmData);
-    localStorage.setItem('gmDashboardData', JSON.stringify(gmData));
+    const webhookEl = document.getElementById('webhookUrl');
+    gmData.webhook = webhookEl ? webhookEl.value : gmData.webhook;
+    const discordActiveEl = document.getElementById('discordActive');
+    gmData.discordActive = !!(discordActiveEl && discordActiveEl.checked);
+    const turnPingToggle = document.getElementById('discordTurnPing');
+    gmData.turnPingActive = !!(turnPingToggle && turnPingToggle.checked);
+    const turnPingMention = document.getElementById('discordTurnMention');
+    gmData.turnPingMention = turnPingMention ? turnPingMention.value : '';
+    const scratchpadEl = document.getElementById('scratchpad');
+    gmData.scratchpad = scratchpadEl ? scratchpadEl.value : gmData.scratchpad;
+    const rollLevelEl = document.getElementById('rollLevel');
+    gmData.rollLevel = parseInt(rollLevelEl ? rollLevelEl.value : gmData.rollLevel, 10) || 1;
+    persistGMData();
 }
 
 // --- ROLLER LOGIC ---
@@ -535,7 +822,59 @@ function sendDiscord(name, title, desc, color) {
             color: color
         }]
     };
-    fetch(gmData.webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(console.error);
+    postDiscordWebhook(payload).catch(console.error);
+}
+
+function postDiscordWebhook(payload) {
+    const webhook = String(gmData.webhook || '').trim();
+    if (!webhook) return Promise.reject(new Error('Discord webhook URL is missing.'));
+    return fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).then((response) => {
+        if (!response.ok) {
+            throw new Error(`Discord webhook failed (${response.status})`);
+        }
+        return response;
+    });
+}
+
+function getCurrentCombatant() {
+    if (!Array.isArray(gmData.combatants) || gmData.combatants.length === 0) return null;
+    const idx = Math.max(0, Math.min(gmData.activeIdx, gmData.combatants.length - 1));
+    return gmData.combatants[idx] || null;
+}
+
+function sendTurnPing(isTest = false) {
+    if (!gmData.discordActive) {
+        if (isTest) alert('Enable Discord integration first.');
+        return;
+    }
+    if (!isTest && !gmData.turnPingActive) return;
+    if (!String(gmData.webhook || '').trim()) {
+        if (isTest) alert('Paste a Discord webhook URL first.');
+        return;
+    }
+
+    const combatant = getCurrentCombatant();
+    if (!combatant && !isTest) return;
+
+    const safeName = combatant ? sanitizeString(combatant.name || 'Combatant', 'Combatant', 160) : 'Combatant';
+    const mention = sanitizeString(gmData.turnPingMention || '', '', 160).trim();
+    const turnText = isTest ? 'Initiative Ping Test' : `${safeName}'s Turn!`;
+    const payload = {
+        content: mention ? `${mention} ${turnText}` : turnText
+    };
+
+    postDiscordWebhook(payload)
+        .then(() => {
+            if (isTest) alert('Turn ping sent.');
+        })
+        .catch((err) => {
+            console.error(err);
+            if (isTest) alert('Could not send ping. Check the webhook URL and browser console.');
+        });
 }
 
 function updateDC(val) {
@@ -557,22 +896,30 @@ function addSingle() {
     const initVal = parseFloat(document.getElementById('addInit').value) || 0;
     const dexScore = parseInt(document.getElementById('addDex').value) || 10;
     const hp = document.getElementById('addHP').value;
+    const safeName = sanitizeString(name, 'Enemy', 160).trim() || 'Enemy';
+    const hpVal = hp ? Math.max(0, parseInt(hp, 10) || 0) : null;
 
+    pushUndoSnapshot('Add combatant');
     gmData.combatants.push({
         id: Date.now(),
-        name: name,
+        name: safeName,
         total: initVal,
         tie: dexScore,
-        hp: hp ? parseInt(hp) : null,
-        maxHp: hp ? parseInt(hp) : null
+        hp: hpVal,
+        maxHp: hpVal,
+        conditions: [],
+        reactionUsed: false,
+        concentrating: false,
+        legendaryMax: 0,
+        legendaryUsed: 0
     });
+    addCombatLog(`${safeName} added to initiative`);
 
     document.getElementById('addName').value = "";
     document.getElementById('addInit').value = "";
 
     sortCombat();
-    saveGM();
-    renderCombat();
+    commitTrackerState();
 }
 
 function genMobs() {
@@ -582,6 +929,7 @@ function genMobs() {
     const score = parseInt(document.getElementById('mobDexScore').value) || 10;
     const hp = parseInt(document.getElementById('mobHP').value) || 0;
 
+    pushUndoSnapshot('Generate mob group');
     for (let i = 0; i < count; i++) {
         const roll = Math.floor(Math.random() * 20) + 1;
         const total = roll + mod;
@@ -593,13 +941,18 @@ function genMobs() {
             total: total,
             tie: score,
             hp: hp > 0 ? hp : null,
-            maxHp: hp > 0 ? hp : null
+            maxHp: hp > 0 ? hp : null,
+            conditions: [],
+            reactionUsed: false,
+            concentrating: false,
+            legendaryMax: 0,
+            legendaryUsed: 0
         });
     }
+    addCombatLog(`Generated ${count} ${baseName}${count === 1 ? '' : 's'}`);
 
     sortCombat();
-    saveGM();
-    renderCombat();
+    commitTrackerState();
     const mobBody = document.getElementById('mobBody');
     if (mobBody) mobBody.classList.remove('open');
 }
@@ -612,13 +965,34 @@ function toggleMobBody() {
 
 function renderCombat() {
     const list = document.getElementById('combatList');
+    if (!list) return;
     document.getElementById('roundVal').innerText = gmData.round;
+    updateUndoButton();
 
     list.innerHTML = gmData.combatants.map((c, i) => {
         const activeClass = (i === gmData.activeIdx) ? 'active' : '';
         const safeTotal = Number.isFinite(Number(c.total)) ? Number(c.total) : 0;
         const safeTie = Number.isFinite(Number(c.tie)) ? Number(c.tie) : 0;
         const safeName = escapeHtml(c.name || 'Combatant');
+        const conditions = Array.isArray(c.conditions) ? c.conditions : [];
+        const conditionHtml = conditions.map((condition, condIdx) => {
+            const condName = escapeHtml(condition && condition.name ? condition.name : 'Condition');
+            const condDuration = condition && condition.duration !== null && condition.duration !== undefined
+                ? ` (${escapeHtml(String(condition.duration))})`
+                : '';
+            return `
+                <span class="combat-cond-chip">
+                    <button class="combat-cond-main" data-onclick="setConditionDuration(${i}, ${condIdx})">${condName}${condDuration}</button>
+                    <button class="combat-cond-del" data-onclick="removeCondition(${i}, ${condIdx})">&times;</button>
+                </span>
+            `;
+        }).join('');
+
+        const reactionUsed = !!c.reactionUsed;
+        const concentrating = !!c.concentrating;
+        const legendaryMax = Math.max(0, Math.min(9, parseInt(c.legendaryMax, 10) || 0));
+        const legendaryUsed = Math.max(0, Math.min(legendaryMax, parseInt(c.legendaryUsed, 10) || 0));
+        const legendaryLeft = Math.max(0, legendaryMax - legendaryUsed);
         let hpHtml = '';
         if (c.hp !== null) {
             const safeHp = Number.isFinite(Number(c.hp)) ? Number(c.hp) : 0;
@@ -626,6 +1000,8 @@ function renderCombat() {
             const bloodiedClass = (safeMaxHp > 0 && safeHp <= safeMaxHp / 2) ? 'hp-bloodied' : 'hp-healthy';
             hpHtml = `
                     <div class="hp-controls">
+                        <button class="btn-dmg-qs" data-onclick="modHP(${i}, +1)">+1</button>
+                        <button class="btn-dmg-qs" data-onclick="modHP(${i}, +5)">+5</button>
                         <button class="btn-dmg-qs" data-onclick="modHP(${i}, -1)">-1</button>
                         <button class="btn-dmg-qs" data-onclick="modHP(${i}, -5)">-5</button>
                         <div class="hp-display ${bloodiedClass}" data-onclick="setHP(${i})">${safeHp}</div>
@@ -642,6 +1018,17 @@ function renderCombat() {
                 <div class="name-box">
                     <div class="name-main">${safeName}</div>
                     ${activeClass ? '<div class="name-meta name-meta-active">Taking Turn...</div>' : ''}
+                    <div class="combat-state-row">
+                        <button class="combat-state-chip ${reactionUsed ? 'is-off' : 'is-on'}" data-onclick="toggleReaction(${i})">Reaction ${reactionUsed ? 'Used' : 'Ready'}</button>
+                        <button class="combat-state-chip ${concentrating ? 'is-on' : 'is-off'}" data-onclick="toggleConcentration(${i})">Concentration ${concentrating ? 'On' : 'Off'}</button>
+                        <button class="combat-state-chip ${legendaryMax > 0 ? 'is-on' : 'is-off'}" data-onclick="setLegendaryMax(${i})">LA ${legendaryLeft}/${legendaryMax}</button>
+                        ${legendaryMax > 0 ? `<button class="combat-state-chip combat-state-chip-sm" data-onclick="useLegendary(${i})">Use LA</button>` : ''}
+                        ${legendaryMax > 0 ? `<button class="combat-state-chip combat-state-chip-sm" data-onclick="restoreLegendary(${i})">Restore LA</button>` : ''}
+                    </div>
+                    <div class="combat-cond-row">
+                        ${conditionHtml || '<span class="combat-cond-empty">No conditions</span>'}
+                        <button class="combat-cond-add" data-onclick="addCondition(${i})">+ Cond</button>
+                    </div>
                 </div>
                 <div class="combat-actions">
                     ${hpHtml}
@@ -654,13 +1041,21 @@ function renderCombat() {
 
 function nextTurn() {
     if (gmData.combatants.length === 0) return;
+    pushUndoSnapshot('Next turn');
     gmData.activeIdx++;
+    let wrapped = false;
     if (gmData.activeIdx >= gmData.combatants.length) {
         gmData.activeIdx = 0;
         gmData.round++;
+        wrapped = true;
     }
-    saveGM();
-    renderCombat();
+    if (wrapped) {
+        addCombatLog(`Round ${gmData.round} begins`);
+    }
+    refreshTurnState(gmData.activeIdx);
+    addCombatLog(`${getCombatantNameByIndex(gmData.activeIdx)}'s turn`);
+    commitTrackerState();
+    sendTurnPing();
     setTimeout(() => {
         const activeEl = document.querySelector('.combat-item.active');
         if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -669,44 +1064,62 @@ function nextTurn() {
 
 function prevTurn() {
     if (gmData.combatants.length === 0) return;
+    pushUndoSnapshot('Previous turn');
     gmData.activeIdx--;
     if (gmData.activeIdx < 0) {
         gmData.activeIdx = gmData.combatants.length - 1;
         gmData.round = Math.max(1, gmData.round - 1);
     }
-    saveGM();
-    renderCombat();
+    addCombatLog(`Rewound to ${getCombatantNameByIndex(gmData.activeIdx)}'s turn`);
+    commitTrackerState();
 }
 
 function clearCombat() {
     if (confirm("Clear Tracker?")) {
+        pushUndoSnapshot('Clear encounter');
         gmData.combatants = [];
         gmData.round = 1;
         gmData.activeIdx = 0;
-        saveGM();
-        renderCombat();
+        addCombatLog('Encounter cleared');
+        commitTrackerState();
     }
 }
 
 function delCombatant(i) {
-    gmData.combatants.splice(i, 1);
-    if (gmData.activeIdx >= gmData.combatants.length) gmData.activeIdx = 0;
-    saveGM();
-    renderCombat();
+    if (!gmData.combatants[i]) return;
+    pushUndoSnapshot('Remove combatant');
+    const removed = gmData.combatants.splice(i, 1)[0];
+    if (gmData.combatants.length === 0) {
+        gmData.activeIdx = 0;
+        gmData.round = 1;
+    } else if (i < gmData.activeIdx) {
+        gmData.activeIdx -= 1;
+    } else if (gmData.activeIdx >= gmData.combatants.length) {
+        gmData.activeIdx = 0;
+    }
+    addCombatLog(`${sanitizeString(removed && removed.name || 'Combatant', 'Combatant', 160)} removed from initiative`);
+    commitTrackerState();
 }
 
 function modHP(i, delta) {
-    if (gmData.combatants[i].hp !== null) {
-        gmData.combatants[i].hp += delta;
-        saveGM(); renderCombat();
-    }
+    const combatant = gmData.combatants[i];
+    if (!combatant || combatant.hp === null) return;
+    pushUndoSnapshot('Modify HP');
+    const oldHp = parseInt(combatant.hp, 10) || 0;
+    combatant.hp = Math.max(0, oldHp + delta);
+    addCombatLog(`${getCombatantNameByIndex(i)} HP ${oldHp} -> ${combatant.hp}`);
+    commitTrackerState();
 }
 
 function setHP(i) {
+    if (!gmData.combatants[i]) return;
     const val = prompt("Set HP:", gmData.combatants[i].hp);
     if (val !== null) {
-        gmData.combatants[i].hp = parseInt(val);
-        saveGM(); renderCombat();
+        const parsed = Math.max(0, parseInt(val, 10) || 0);
+        pushUndoSnapshot('Set HP');
+        gmData.combatants[i].hp = parsed;
+        addCombatLog(`${getCombatantNameByIndex(i)} HP set to ${parsed}`);
+        commitTrackerState();
     }
 }
 

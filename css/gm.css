@@ -397,6 +397,7 @@
         .name-box {
             display: flex;
             flex-direction: column;
+            gap: 6px;
         }
 
         .name-main {
@@ -409,6 +410,92 @@
             font-size: 0.75rem;
             color: #888;
             margin-top: 2px;
+        }
+
+        .combat-state-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .combat-state-chip {
+            border: 1px solid #3f3f3f;
+            background: rgba(255, 255, 255, 0.05);
+            color: #bbb;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            height: auto;
+            line-height: 1.2;
+        }
+
+        .combat-state-chip.is-on {
+            color: #d8fdd8;
+            border-color: rgba(46, 204, 113, 0.6);
+            background: rgba(46, 204, 113, 0.16);
+        }
+
+        .combat-state-chip.is-off {
+            color: #f5c8c8;
+            border-color: rgba(231, 76, 60, 0.6);
+            background: rgba(231, 76, 60, 0.15);
+        }
+
+        .combat-state-chip-sm {
+            font-size: 0.66rem;
+            padding: 4px 7px;
+        }
+
+        .combat-cond-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .combat-cond-chip {
+            display: inline-flex;
+            align-items: center;
+            border: 1px solid color-mix(in srgb, var(--accent-quaternary) 40%, #444 60%);
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.35);
+        }
+
+        .combat-cond-main {
+            border: none;
+            background: transparent;
+            color: #f0d8b0;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            height: auto;
+        }
+
+        .combat-cond-del {
+            border: none;
+            border-left: 1px solid #444;
+            background: transparent;
+            color: #999;
+            font-size: 0.75rem;
+            width: 22px;
+            height: 22px;
+            padding: 0;
+        }
+
+        .combat-cond-add {
+            border: 1px dashed #555;
+            background: transparent;
+            color: #9bb6ff;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            height: auto;
+        }
+
+        .combat-cond-empty {
+            color: #666;
+            font-size: 0.72rem;
         }
 
         .hp-controls {
@@ -590,9 +677,17 @@
         }
 
         .gm-clear-wrap {
-            text-align: center;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
             margin-top: 20px;
             padding-bottom: 20px;
+        }
+
+        #undoBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         .gm-btn-w50 {
@@ -733,6 +828,54 @@
             overflow: hidden;
         }
 
+        .gm-combat-log-card {
+            margin-top: 12px;
+        }
+
+        .gm-combat-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 10px 0;
+        }
+
+        .gm-combat-log {
+            max-height: 220px;
+            overflow-y: auto;
+            display: grid;
+            gap: 6px;
+            padding: 10px;
+        }
+
+        .gm-combat-log-item {
+            display: grid;
+            gap: 2px;
+            border: 1px solid #303030;
+            border-radius: 8px;
+            padding: 6px 8px;
+            background: rgba(0, 0, 0, 0.28);
+        }
+
+        .gm-combat-log-meta {
+            color: #7e8aa4;
+            font-size: 0.68rem;
+            font-family: 'Consolas', monospace;
+        }
+
+        .gm-combat-log-text {
+            color: #d6d6d6;
+            font-size: 0.78rem;
+            line-height: 1.3;
+        }
+
+        .gm-combat-log-empty {
+            color: #666;
+            font-size: 0.8rem;
+            font-style: italic;
+            padding: 6px;
+        }
+
         .gm-section-conditions {
             margin: 10px 10px 0;
             border: none;
@@ -864,5 +1007,14 @@
     .gm-bestiary-item {
         flex-wrap: wrap;
         gap: 8px;
+    }
+
+    .combat-state-row,
+    .combat-cond-row {
+        gap: 5px;
+    }
+
+    .gm-combat-log {
+        max-height: 180px;
     }
 }
