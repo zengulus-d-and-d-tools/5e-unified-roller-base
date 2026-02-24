@@ -125,9 +125,19 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.mini-log-stack {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: clamp(230px, 24vw, 320px);
+    flex-shrink: 0;
+}
+
 .mini-log-display {
     text-align: right;
-    min-width: 80px;
+    min-width: 0;
+    width: 100%;
 }
 
 .mini-log-display .log-formula {
@@ -218,7 +228,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    min-width: min(360px, 42vw);
+    width: 100%;
+    min-width: 0;
 }
 
 .quick-actions-toggle {
@@ -267,9 +278,9 @@ body {
 .quick-actions-panel {
     position: absolute;
     top: calc(100% + 8px);
-    right: 0;
+    left: 0;
     z-index: 950;
-    width: min(440px, calc(100vw - 20px));
+    width: 100%;
     padding: 12px;
     border-radius: 14px;
     border: 1px solid color-mix(in srgb, var(--hq-border) 82%, rgba(255, 255, 255, 0.16));
@@ -3141,6 +3152,10 @@ button {
         padding: 8px 10px;
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .mini-log-stack {
+        width: 100%;
     }
 
     .mini-log-display {

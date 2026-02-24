@@ -10,7 +10,7 @@
 
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/player-nav.css?v=20260223a">
-    <link rel="stylesheet" href="css/index.css?v=20260224i">
+    <link rel="stylesheet" href="css/index.css?v=20260224j">
 
 </head>
 
@@ -23,9 +23,21 @@
         </div>
 
         <div class="header-roller">
-            <div class="mini-log-display">
-                <div class="log-formula">Ready...</div>
-                <div class="log-result">-</div>
+            <div class="mini-log-stack">
+                <div class="mini-log-display">
+                    <div class="log-formula">Ready...</div>
+                    <div class="log-result">-</div>
+                </div>
+                <div class="quick-actions-header" id="quickActionsHeader">
+                    <button type="button" class="hero-btn quick-actions-toggle" id="btnQuickActionsToggle"
+                        data-onclick="toggleQuickActionsPanel()" aria-controls="quickActionsPanel" aria-expanded="false">
+                        <span class="quick-actions-toggle-title">OPEN QUICK ACTIONS</span>
+                        <span class="quick-actions-toggle-subtitle">Right-click or long-press a die roll to add a quick action</span>
+                    </button>
+                    <div class="quick-actions-panel" id="quickActionsPanel" hidden>
+                        <div class="quick-actions-list" id="quickActionsList"></div>
+                    </div>
+                </div>
             </div>
             <div class="mini-controls">
                 <div class="adv-group">
@@ -53,16 +65,6 @@
                     data-face="spells" role="tab" aria-selected="false" aria-pressed="false">Spells</button>
                 <button class="hero-btn ghost sheet-nav-btn" id="btnSheetStory" data-onclick="setSheetFace('my-story')"
                     data-face="my-story" role="tab" aria-selected="false" aria-pressed="false">My Story</button>
-            </div>
-            <div class="quick-actions-header" id="quickActionsHeader">
-                <button type="button" class="hero-btn quick-actions-toggle" id="btnQuickActionsToggle"
-                    data-onclick="toggleQuickActionsPanel()" aria-controls="quickActionsPanel" aria-expanded="false">
-                    <span class="quick-actions-toggle-title">OPEN QUICK ACTIONS</span>
-                    <span class="quick-actions-toggle-subtitle">Right-click or long-press a die roll to add a quick action</span>
-                </button>
-                <div class="quick-actions-panel" id="quickActionsPanel" hidden>
-                    <div class="quick-actions-list" id="quickActionsList"></div>
-                </div>
             </div>
             <a href="tools.html" class="hero-btn ghost">Portal</a>
             <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨</button>
