@@ -58,7 +58,16 @@ const srdSpellLookupState = {
 };
 let spellbookHideEmptyFieldsOnLoad = true;
 let myStoryBoardInitialized = false;
-let myStoryBoardSyncLock = false;
+let myStoryFrameMessageBound = false;
+let myStoryFrameLoadedCharId = '';
+const MY_STORY_FRAME_ID = 'myStoryBoardFrame';
+const MY_STORY_MSG = Object.freeze({
+    REQUEST_INIT: 'rtf-my-story:request-init',
+    INIT: 'rtf-my-story:init',
+    UPDATE: 'rtf-my-story:update',
+    SAVE: 'rtf-my-story:save',
+    READY: 'rtf-my-story:ready'
+});
 
 function updateRollerStickyOffset() {
     const hero = document.getElementById('rollerBar');
@@ -224,10 +233,12 @@ function applySheetFaceState(face) {
 
 function setSheetFace(face) {
     applySheetFaceState(face);
-    if (normalizeSheetFace(face) === 'my-story'
-        && window.MyStoryBoard
-        && typeof window.MyStoryBoard.refreshLayout === 'function') {
-        window.MyStoryBoard.refreshLayout();
+    if (normalizeSheetFace(face) === 'my-story') {
+        renderMyStoryBoard();
+        const frameWin = getMyStoryFrameWindow();
+        if (frameWin && frameWin.RTF_BOARD_EMBED_API && typeof frameWin.RTF_BOARD_EMBED_API.refresh === 'function') {
+            frameWin.RTF_BOARD_EMBED_API.refresh();
+        }
     }
     save();
 }
@@ -386,7 +397,6 @@ function getDefaultInventory() {
 function getDefaultMyStory() {
     return {
         name: 'My Story',
-        view: { x: 0, y: 0, scale: 1 },
         nodes: [],
         connections: []
     };
@@ -522,68 +532,96 @@ function ensureInventoryStructure(charData) {
 function persistMyStorySnapshot(snapshot) {
     data.myStory = sanitizeMyStoryData(snapshot);
     allData.characters[allData.activeId] = data;
+    myStoryFrameLoadedCharId = allData.activeId;
     saveGlobal();
 }
 
-function ensureMyStoryBoardReady() {
-    if (!window.MyStoryBoard || typeof window.MyStoryBoard.init !== 'function') return false;
-    if (myStoryBoardInitialized) return true;
+function getMyStoryFrameElement() {
+    return document.getElementById(MY_STORY_FRAME_ID);
+}
 
-    myStoryBoardInitialized = !!window.MyStoryBoard.init({
-        onChange: (snapshot) => {
-            if (myStoryBoardSyncLock) return;
-            persistMyStorySnapshot(snapshot);
-        }
+function getMyStoryFrameWindow() {
+    const frameEl = getMyStoryFrameElement();
+    return frameEl && frameEl.contentWindow ? frameEl.contentWindow : null;
+}
+
+function postMyStoryFrameMessage(type, payload = null) {
+    const frameWin = getMyStoryFrameWindow();
+    if (!frameWin) return false;
+    frameWin.postMessage({ type, payload }, window.location.origin);
+    return true;
+}
+
+function handleMyStoryFrameMessage(event) {
+    if (!event || event.origin !== window.location.origin) return;
+    const frameWin = getMyStoryFrameWindow();
+    if (!frameWin || event.source !== frameWin) return;
+    const packet = isPlainObject(event.data) ? event.data : null;
+    if (!packet || typeof packet.type !== 'string') return;
+
+    if (packet.type === MY_STORY_MSG.REQUEST_INIT) {
+        postMyStoryFrameMessage(MY_STORY_MSG.INIT, sanitizeMyStoryData(data.myStory));
+        myStoryBoardInitialized = true;
+        myStoryFrameLoadedCharId = allData.activeId;
+        return;
+    }
+
+    if (packet.type === MY_STORY_MSG.SAVE) {
+        persistMyStorySnapshot(packet.payload);
+        myStoryBoardInitialized = true;
+        myStoryFrameLoadedCharId = allData.activeId;
+        return;
+    }
+
+    if (packet.type === MY_STORY_MSG.READY) {
+        myStoryBoardInitialized = true;
+    }
+}
+
+function bindMyStoryFrameMessaging() {
+    if (myStoryFrameMessageBound) return;
+    window.addEventListener('message', handleMyStoryFrameMessage);
+    myStoryFrameMessageBound = true;
+}
+
+function bindMyStoryFrameLoadListener() {
+    const frameEl = getMyStoryFrameElement();
+    if (!frameEl || frameEl.dataset.boundMyStoryFrameLoad === '1') return;
+    frameEl.dataset.boundMyStoryFrameLoad = '1';
+    frameEl.addEventListener('load', () => {
+        myStoryBoardInitialized = true;
+        postMyStoryFrameMessage(MY_STORY_MSG.INIT, sanitizeMyStoryData(data.myStory));
+        myStoryFrameLoadedCharId = allData.activeId;
     });
-    return myStoryBoardInitialized;
+}
+
+function ensureMyStoryBoardReady() {
+    bindMyStoryFrameMessaging();
+    bindMyStoryFrameLoadListener();
+    const frameWin = getMyStoryFrameWindow();
+    if (!frameWin) return false;
+    myStoryBoardInitialized = true;
+    return true;
 }
 
 function renderMyStoryBoard() {
     if (!ensureMyStoryBoardReady()) return;
-    myStoryBoardSyncLock = true;
-    try {
-        window.MyStoryBoard.load(sanitizeMyStoryData(data.myStory));
-    } finally {
-        myStoryBoardSyncLock = false;
+    if (!myStoryBoardInitialized || myStoryFrameLoadedCharId !== allData.activeId) {
+        postMyStoryFrameMessage(MY_STORY_MSG.UPDATE, sanitizeMyStoryData(data.myStory));
+        myStoryFrameLoadedCharId = allData.activeId;
     }
 }
 
 function syncMyStoryBoardToData() {
-    if (!myStoryBoardInitialized || !window.MyStoryBoard || typeof window.MyStoryBoard.getSnapshot !== 'function') return;
-    data.myStory = sanitizeMyStoryData(window.MyStoryBoard.getSnapshot());
-    allData.characters[allData.activeId] = data;
-}
-
-function addMyStoryNode(type) {
-    if (!ensureMyStoryBoardReady()) return;
-    window.MyStoryBoard.addNode(type);
-}
-
-function toggleMyStoryPanMode() {
-    if (!ensureMyStoryBoardReady() || typeof window.MyStoryBoard.togglePanMode !== 'function') return;
-    window.MyStoryBoard.togglePanMode();
-}
-
-function resetMyStoryView() {
-    if (!ensureMyStoryBoardReady() || typeof window.MyStoryBoard.resetView !== 'function') return;
-    window.MyStoryBoard.resetView();
-}
-
-function clearMyStoryBoard() {
-    if (!ensureMyStoryBoardReady()) return;
-    if (!confirm('Clear all My Story nodes and links?')) return;
-    window.MyStoryBoard.clear();
-}
-
-function cancelMyStoryLink() {
-    if (!ensureMyStoryBoardReady()) return;
-    window.MyStoryBoard.cancelLink();
-}
-
-function saveMyStoryNow() {
-    syncMyStoryBoardToData();
-    saveGlobal();
-    showLog('My Story', 'Saved');
+    const frameWin = getMyStoryFrameWindow();
+    if (!frameWin || !frameWin.RTF_MY_STORY_BRIDGE || typeof frameWin.RTF_MY_STORY_BRIDGE.getSnapshot !== 'function') return;
+    try {
+        data.myStory = sanitizeMyStoryData(frameWin.RTF_MY_STORY_BRIDGE.getSnapshot());
+        allData.characters[allData.activeId] = data;
+        myStoryFrameLoadedCharId = allData.activeId;
+    } catch (err) {
+        console.warn('Failed syncing My Story frame snapshot', err);
+    }
 }
 
 // --- CHARACTER SWITCHING LOGIC ---
@@ -714,53 +752,86 @@ function sanitizeBoolean(value, fallback = false) {
     return fallback;
 }
 
+function sanitizeMyStoryToken(value, fallback = 'entry') {
+    const raw = String(value || fallback || '').trim();
+    const clean = raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
+    if (!clean || clean === '__proto__' || clean === 'prototype' || clean === 'constructor') {
+        return String(fallback || 'entry').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80) || 'entry';
+    }
+    return clean;
+}
+
+function sanitizeMyStoryNodeMeta(meta) {
+    if (!isPlainObject(meta)) return null;
+    const clean = {};
+    Object.keys(meta).forEach((key) => {
+        const token = sanitizeString(key, '', 80).replace(/[^A-Za-z0-9_-]/g, '');
+        if (!token || token === '__proto__' || token === 'prototype' || token === 'constructor') return;
+        const value = meta[key];
+        if (typeof value === 'string') clean[token] = sanitizeString(value, '', 4000);
+        else if (typeof value === 'number') clean[token] = sanitizeNumber(value, 0, -1000000, 1000000);
+        else if (typeof value === 'boolean') clean[token] = value;
+    });
+    return Object.keys(clean).length ? clean : null;
+}
+
+function normalizeMyStoryPort(value) {
+    const token = sanitizeString(value, 'auto', 12).toLowerCase();
+    return ['top', 'bottom', 'left', 'right'].includes(token) ? token : 'auto';
+}
+
 function sanitizeMyStoryData(rawStory) {
     const source = isPlainObject(rawStory) ? rawStory : {};
     const out = getDefaultMyStory();
-
     out.name = sanitizeString(source.name, out.name, 120) || out.name;
-    out.view = {
-        x: sanitizeNumber(source.view && source.view.x, 0, -10000, 10000),
-        y: sanitizeNumber(source.view && source.view.y, 0, -10000, 10000),
-        scale: sanitizeNumber(source.view && source.view.scale, 1, 0.45, 2.5)
-    };
 
     const nodes = Array.isArray(source.nodes) ? source.nodes : [];
     const nodeIds = new Set();
-    out.nodes = nodes.slice(0, 260).map((entry, idx) => {
+    const knownNodeTypes = new Set([
+        'person', 'location', 'clue', 'theory', 'note', 'group', 'event', 'requisition',
+        'azorius', 'boros', 'dimir', 'golgari', 'gruul', 'izzet', 'orzhov', 'rakdos', 'selesnya', 'simic'
+    ]);
+    out.nodes = [];
+    nodes.slice(0, 900).forEach((entry, idx) => {
         const row = isPlainObject(entry) ? entry : {};
-        let id = sanitizeString(String(row.id || `story_node_${idx}`), `story_node_${idx}`, 80).replace(/[^A-Za-z0-9_-]/g, '');
-        if (!id || id === '__proto__' || id === 'prototype' || id === 'constructor') {
-            id = `story_node_${Date.now().toString(36)}_${idx}`;
+        let id = sanitizeMyStoryToken(row.id || `story_node_${idx}`, `story_node_${idx}`);
+        let suffix = 1;
+        while (nodeIds.has(id)) {
+            id = sanitizeMyStoryToken(`${row.id || `story_node_${idx}`}_${suffix}`, `story_node_${idx}_${suffix}`);
+            suffix += 1;
         }
-        while (nodeIds.has(id)) id = `${id}_${idx}`;
         nodeIds.add(id);
 
-        const typeRaw = sanitizeString(row.type, 'note', 30).toLowerCase();
-        const type = ['person', 'event', 'clue', 'theory', 'note', 'group'].includes(typeRaw) ? typeRaw : 'note';
+        const rawType = sanitizeString(row.type, 'note', 40).toLowerCase();
+        const type = knownNodeTypes.has(rawType) || /^[a-z][a-z0-9_-]{0,40}$/.test(rawType) ? rawType : 'note';
         const nodeOut = {
             id,
             type,
-            x: Math.round(sanitizeNumber(row.x, 30 + (idx % 6) * 18, -5000, 5000)),
-            y: Math.round(sanitizeNumber(row.y, 30 + (idx % 6) * 18, -5000, 5000)),
-            title: sanitizeString(row.title, '', 200),
-            body: sanitizeString(row.body, '', 12000)
+            x: Math.round(sanitizeNumber(row.x, 40 + (idx % 6) * 16, -24000, 24000)),
+            y: Math.round(sanitizeNumber(row.y, 40 + (idx % 6) * 16, -24000, 24000)),
+            title: sanitizeString(row.title, '', 260),
+            body: sanitizeString(row.body, '', 20000)
         };
+
+        let meta = sanitizeMyStoryNodeMeta(row.meta);
         if (type === 'group') {
-            const widthSource = row.w !== undefined ? row.w : row.width;
-            const heightSource = row.h !== undefined ? row.h : row.height;
-            nodeOut.w = Math.round(sanitizeNumber(widthSource, 460, 220, 2200));
-            nodeOut.h = Math.round(sanitizeNumber(heightSource, 300, 140, 1600));
+            const widthSource = row.w !== undefined ? row.w : (row.width !== undefined ? row.width : (meta && meta.groupW));
+            const heightSource = row.h !== undefined ? row.h : (row.height !== undefined ? row.height : (meta && meta.groupH));
+            const groupW = Math.round(sanitizeNumber(widthSource, 460, 220, 2200));
+            const groupH = Math.round(sanitizeNumber(heightSource, 300, 150, 1600));
+            meta = { ...(meta || {}), groupW, groupH };
             if (!nodeOut.title) nodeOut.title = 'Group Box';
         }
-        return nodeOut;
+        if (meta) nodeOut.meta = meta;
+
+        out.nodes.push(nodeOut);
     });
 
     const validNodeIds = new Set(out.nodes.map((node) => node.id));
     const pairSet = new Set();
     const linkIds = new Set();
     const links = Array.isArray(source.connections) ? source.connections : [];
-    out.connections = links.slice(0, 1200).map((entry, idx) => {
+    out.connections = links.slice(0, 3200).map((entry, idx) => {
         const row = isPlainObject(entry) ? entry : {};
         const from = sanitizeString(row.from, '', 80);
         const to = sanitizeString(row.to, '', 80);
@@ -770,20 +841,35 @@ function sanitizeMyStoryData(rawStory) {
         if (pairSet.has(pair)) return null;
         pairSet.add(pair);
 
-        let id = sanitizeString(String(row.id || `story_link_${idx}`), `story_link_${idx}`, 80).replace(/[^A-Za-z0-9_-]/g, '');
-        if (!id || id === '__proto__' || id === 'prototype' || id === 'constructor') {
-            id = `story_link_${Date.now().toString(36)}_${idx}`;
+        let id = sanitizeMyStoryToken(row.id || `story_link_${idx}`, `story_link_${idx}`);
+        let suffix = 1;
+        while (linkIds.has(id)) {
+            id = sanitizeMyStoryToken(`${row.id || `story_link_${idx}`}_${suffix}`, `story_link_${idx}_${suffix}`);
+            suffix += 1;
         }
-        while (linkIds.has(id)) id = `${id}_${idx}`;
         linkIds.add(id);
+
+        const legacyArrowLeft = sanitizeBoolean(row.arrowStart, false) ? 1 : 0;
+        const legacyArrowRight = sanitizeBoolean(row.arrowEnd, false) ? 1 : 0;
+        const arrowLeft = Math.round(sanitizeNumber(row.arrowLeft, legacyArrowLeft, 0, 2));
+        const arrowRight = Math.round(sanitizeNumber(row.arrowRight, legacyArrowRight, 0, 2));
+        const fromPort = normalizeMyStoryPort(row.fromPort);
+        const toPort = normalizeMyStoryPort(row.toPort);
+        const theoryRelationRaw = sanitizeString(row.theoryRelation, '', 40).toLowerCase();
 
         return {
             id,
             from,
             to,
-            label: sanitizeString(row.label, '', 120),
-            arrowStart: sanitizeBoolean(row.arrowStart, false),
-            arrowEnd: sanitizeBoolean(row.arrowEnd, false)
+            fromPort,
+            toPort,
+            portPinned: sanitizeBoolean(row.portPinned, fromPort !== 'auto' || toPort !== 'auto'),
+            label: sanitizeString(row.label, '', 180),
+            arrowLeft,
+            arrowRight,
+            relationshipLogged: sanitizeBoolean(row.relationshipLogged, false),
+            colorIndex: Math.round(sanitizeNumber(row.colorIndex, 0, 0, 99)),
+            theoryRelation: ['supports', 'contradicts', 'related'].includes(theoryRelationRaw) ? theoryRelationRaw : ''
         };
     }).filter(Boolean);
 
@@ -1370,6 +1456,7 @@ function deleteCharacter() {
 }
 
 function loadActiveChar() {
+    myStoryFrameLoadedCharId = '';
     data = sanitizeCharacterData(allData.characters[allData.activeId]);
     if (Array.isArray(data.spellbook) && data.spellbook.length) {
         data.spellbook = data.spellbook.map((entry) => {
@@ -5251,12 +5338,6 @@ window.populateUI = populateUI;
 window.init = init;
 window.setSheetFace = setSheetFace;
 window.toggleSheetFlip = toggleSheetFlip;
-window.addMyStoryNode = addMyStoryNode;
-window.toggleMyStoryPanMode = toggleMyStoryPanMode;
-window.resetMyStoryView = resetMyStoryView;
-window.clearMyStoryBoard = clearMyStoryBoard;
-window.cancelMyStoryLink = cancelMyStoryLink;
-window.saveMyStoryNow = saveMyStoryNow;
 window.setSpellbookShowHiddenFields = setSpellbookShowHiddenFields;
 window.ensureSrdSpellLookup = ensureSrdSpellLookup;
 window.findSpellReferenceByName = findSpellReferenceByName;

@@ -10,7 +10,7 @@
 
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/player-nav.css?v=20260223a">
-    <link rel="stylesheet" href="css/index.css?v=20260224b">
+    <link rel="stylesheet" href="css/index.css?v=20260224d">
 
 </head>
 
@@ -448,43 +448,11 @@
                 </div>
             </div>
             <div class="face my-story">
-                <div class="my-story-sheet" id="myStoryBoardRoot">
-                    <div class="my-story-header">
-                        <div>
-                            <p class="inventory-eyebrow">Back of Sheet</p>
-                            <h2>My Story Board</h2>
-                        </div>
-                        <div class="my-story-toolbar">
-                            <button class="inventory-create-btn my-story-btn" type="button"
-                                data-onclick="addMyStoryNode('person')">+ Person</button>
-                            <button class="inventory-create-btn my-story-btn" type="button"
-                                data-onclick="addMyStoryNode('event')">+ Event</button>
-                            <button class="inventory-create-btn my-story-btn" type="button"
-                                data-onclick="addMyStoryNode('clue')">+ Clue</button>
-                            <button class="inventory-create-btn my-story-btn" type="button"
-                                data-onclick="addMyStoryNode('theory')">+ Theory</button>
-                            <button class="inventory-create-btn my-story-btn" type="button"
-                                data-onclick="addMyStoryNode('note')">+ Note</button>
-                            <button class="inventory-create-btn my-story-btn" type="button"
-                                data-onclick="addMyStoryNode('group')">+ Group Box</button>
-                            <button class="inventory-create-btn my-story-btn secondary" type="button"
-                                id="myStoryPanBtn" data-onclick="toggleMyStoryPanMode()">Pan: OFF</button>
-                            <button class="inventory-create-btn my-story-btn secondary" type="button"
-                                data-onclick="resetMyStoryView()">Reset View</button>
-                            <button class="inventory-create-btn my-story-btn secondary" type="button"
-                                data-onclick="cancelMyStoryLink()">Cancel Link</button>
-                            <button class="inventory-create-btn my-story-btn secondary" type="button"
-                                data-onclick="saveMyStoryNow()">Save</button>
-                            <button class="inventory-create-btn my-story-btn danger" type="button"
-                                data-onclick="clearMyStoryBoard()">Clear</button>
-                        </div>
-                    </div>
-                    <p class="my-story-status" id="myStoryStatus">Add nodes, drag them into place, then use Link to connect
-                        story threads.</p>
-                    <div class="my-story-stage" id="myStoryBoardStage" aria-label="My Story board area">
-                        <svg class="my-story-connections" id="myStoryConnections"></svg>
-                        <div class="my-story-labels" id="myStoryLabels"></div>
-                        <div class="my-story-nodes" id="myStoryNodes"></div>
+                <div class="my-story-sheet my-story-embed-sheet">
+                    <div class="my-story-frame-shell">
+                        <iframe id="myStoryBoardFrame" class="my-story-frame"
+                            src="board.html?embedded=my-story&v=20260224d" title="My Story Board" loading="lazy"
+                            referrerpolicy="same-origin"></iframe>
                     </div>
                 </div>
             </div>
@@ -620,8 +588,7 @@
     <script src="js/sw-register.js"></script>
     <script src="js/pdf.min.js"></script>
     <script src="js/importer.js?v=20260222e"></script>
-    <script src="js/my-story-board.js?v=20260224b"></script>
-    <script src="js/index.js?v=20260224b"></script>
+    <script src="js/index.js?v=20260224d"></script>
     <script src="js/player-nav.js?v=20260222d"></script>
     <script src="js/vector-field.js"></script>
 </body>

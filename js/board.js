@@ -16,6 +16,7 @@ const CONFIG = {
 
 // --- GLOBAL STATE ---
 const container = document.getElementById('board-container');
+const groupContainer = document.getElementById('group-container');
 const labelContainer = document.getElementById('string-label-container');
 const canvas = document.getElementById('connection-layer');
 const ctx = canvas.getContext('2d'); // Transparent background
@@ -589,6 +590,7 @@ function getHeatDeltaFromNode(summary) {
 }
 
 function logBoardTimeline(entry, options = {}) {
+    if (isExternalBoardMode()) return;
     const logger = window.RTF_SESSION_LOG;
     if (!logger || typeof logger.logMajorEvent !== 'function') return;
     const details = entry && typeof entry === 'object' ? entry : {};
@@ -716,7 +718,53 @@ function sanitizeBoardPayload(payload) {
     };
 }
 
+function getBoardHostAdapter() {
+    const host = window.RTF_BOARD_HOST;
+    if (!host || typeof host !== 'object') return null;
+    return host;
+}
+
+function isExternalBoardMode() {
+    return !!getBoardHostAdapter();
+}
+
+async function waitForExternalBoardReady() {
+    const host = getBoardHostAdapter();
+    if (!host || typeof host.whenReady !== 'function') return;
+    try {
+        await host.whenReady();
+    } catch (err) {
+        console.warn('External board host readiness failed', err);
+    }
+}
+
+function readHostBoardPayload() {
+    const host = getBoardHostAdapter();
+    if (!host || typeof host.readBoard !== 'function') return null;
+    try {
+        return sanitizeBoardPayload(host.readBoard());
+    } catch (err) {
+        console.warn('External board host read failed', err);
+        return null;
+    }
+}
+
+function writeHostBoardPayload(payload) {
+    const host = getBoardHostAdapter();
+    if (!host || typeof host.writeBoard !== 'function') return false;
+    const clean = sanitizeBoardPayload(payload);
+    try {
+        const result = host.writeBoard(clean);
+        return result !== false;
+    } catch (err) {
+        console.warn('External board host write failed', err);
+        return false;
+    }
+}
+
 function readStoreBoardPayload() {
+    const hostPayload = readHostBoardPayload();
+    if (hostPayload) return hostPayload;
     if (!window.RTF_STORE) return null;
     if (typeof window.RTF_STORE.getBoard === 'function') {
         return sanitizeBoardPayload(window.RTF_STORE.getBoard());
@@ -728,6 +776,7 @@ function readStoreBoardPayload() {
 }
 
 function writeStoreBoardPayload(payload) {
+    if (writeHostBoardPayload(payload)) return true;
     if (!window.RTF_STORE) return false;
     const clean = sanitizeBoardPayload(payload);
     if (typeof window.RTF_STORE.updateBoard === 'function') {
@@ -748,6 +797,7 @@ function writeStoreBoardPayload(payload) {
 }
 
 function readLegacyBoardPayload() {
+    if (isExternalBoardMode()) return null;
     const raw = localStorage.getItem(LEGACY_BOARD_KEY);
     if (!raw) return null;
     try {
@@ -779,6 +829,7 @@ function getPreferredBoardPayload() {
 }
 
 function pruneBoardTimelineNoise() {
+    if (isExternalBoardMode()) return;
     const store = window.RTF_STORE;
     if (!store || typeof store.getEvents !== 'function') return;
 
@@ -1229,7 +1280,8 @@ function draftEncounterFromTargetNode() {
     openEncounterDraftFromBoard(draft);
 }
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+    await waitForExternalBoardReady();
     bindDelegatedDataHandlers();
     applyMobileModeClass();
     bindMobileHandlers();
@@ -1252,6 +1304,7 @@ function resizeCanvas() {
 }
 
 function handleRemoteStoreUpdate(event) {
+    if (isExternalBoardMode()) return;
     if (!event || !event.detail || event.detail.source !== 'remote') return;
     loadBoard();
     updateViewCSS();
@@ -2838,7 +2891,8 @@ function createNode(type, x, y, id = null, content = {}) {
     };
     nodeEl.oncontextmenu = (e) => showContextMenu(e, nodeEl);
 
-    container.appendChild(nodeEl);
+    const targetLayer = (isGroupNodeType(type) && groupContainer) ? groupContainer : container;
+    targetLayer.appendChild(nodeEl);
     setNodeMeta(nodeEl, safeMeta);
     if (type === 'theory') {
         ensureTheoryNodeMeta(nodeEl);
@@ -3025,6 +3079,7 @@ function screenToWorld(x, y) {
 
 function updateViewCSS() {
     const t = `translate(${view.x}px, ${view.y}px) scale(${view.scale})`;
+    if (groupContainer) groupContainer.style.transform = t;
     container.style.transform = t;
     labelContainer.style.transform = t;
 }
@@ -3139,14 +3194,15 @@ function saveBoard() {
     }
 }
 
-function loadBoard(options = {}) {
+function loadBoard(options = {}, payloadOverride = null) {
     const opts = options && typeof options === 'object' ? options : {};
-    const data = getPreferredBoardPayload();
+    const data = payloadOverride ? sanitizeBoardPayload(payloadOverride) : getPreferredBoardPayload();
     if (!data) return;
     const caseName = normalizeCaseName(data.name || 'UNNAMED CASE');
     document.getElementById('caseName').innerText = caseName;
     lastSavedCaseName = caseName;
 
+    if (groupContainer) groupContainer.innerHTML = '';
     container.innerHTML = '';
     labelContainer.innerHTML = '';
     nodeCache.clear();
@@ -3199,6 +3255,12 @@ function clearBoard() {
     if (confirm("Clear board?")) {
         lastOptimizeSnapshot = null;
         updateUndoOptimizeMenuState();
+        if (isExternalBoardMode()) {
+            writeStoreBoardPayload({ name: "My Story", nodes: [], connections: [] });
+            loadBoard();
+            updateViewCSS();
+            return;
+        }
         if (window.RTF_STORE && typeof window.RTF_STORE.clearBoard === 'function') {
             window.RTF_STORE.clearBoard();
         } else if (!writeStoreBoardPayload({ name: "UNNAMED CASE", nodes: [], connections: [] })) {
@@ -4212,6 +4274,34 @@ document.addEventListener('dblclick', (e) => {
         clearBoardFocusMode();
     }
 });
+
+function spawnBoardNodeAtViewport(type = 'note', nodeData = {}) {
+    const wp = screenToWorld(window.innerWidth * 0.5, window.innerHeight * 0.5);
+    const payload = nodeData && typeof nodeData === 'object' ? nodeData : {};
+    const node = createNode(String(type || 'note'), wp.x, wp.y, null, payload);
+    if (!node) return null;
+    logNodeAddedToBoard(getNodeSummary(node.id));
+    saveBoard();
+    return node.id;
+}
+
+window.RTF_BOARD_EMBED_API = {
+    loadExternal(payload) {
+        loadBoard({}, sanitizeBoardPayload(payload));
+        updateViewCSS();
+    },
+    getSnapshot() {
+        saveBoard();
+        const snapshot = readStoreBoardPayload();
+        return sanitizeBoardPayload(snapshot || { name: getCaseName(), nodes: [], connections: [] });
+    },
+    spawnNode(type, nodeData = {}) {
+        return spawnBoardNodeAtViewport(type, nodeData);
+    },
+    refresh() {
+        handleBoardResize();
+    }
+};
 
 // Expose filter functions to window for HTML event handlers
 window.renderNPCs = renderNPCs;
