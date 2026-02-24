@@ -1,4 +1,146 @@
 (() => {
+    const FALLBACK_GROUP = 'General';
+
+    const getStoreGroupNames = () => {
+        const rep = window.RTF_STORE
+            && window.RTF_STORE.state
+            && window.RTF_STORE.state.campaign
+            && window.RTF_STORE.state.campaign.rep
+            && typeof window.RTF_STORE.state.campaign.rep === 'object'
+            ? window.RTF_STORE.state.campaign.rep
+            : null;
+        const names = rep ? Object.keys(rep).filter(Boolean) : [];
+        return names.length ? names : [FALLBACK_GROUP];
+    };
+
+    const slugify = (value) => String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'group';
+
+    const iconForName = (name) => {
+        const clean = String(name || '').trim();
+        if (!clean) return 'G';
+        const letter = clean[0].toUpperCase();
+        return /[A-Z]/.test(letter) ? letter : 'G';
+    };
+
+    const toTrimmedString = (value, maxLen = 240) => String(value || '').trim().slice(0, maxLen);
+
+    const asObject = (value) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+        return value;
+    };
+
+    const asStringList = (value, fallback = []) => {
+        const list = Array.isArray(value) ? value : [];
+        const out = list
+            .map((entry) => toTrimmedString(entry, 240))
+            .filter(Boolean);
+        if (out.length) return out;
+        return Array.isArray(fallback) ? fallback.slice() : [];
+    };
+
+    const asClueEntryList = (value, fallbackEntry) => {
+        const list = Array.isArray(value) ? value : [];
+        const out = list
+            .filter((entry) => entry && typeof entry === 'object')
+            .map((entry) => {
+                const core = toTrimmedString(entry.core, 240);
+                const surf = toTrimmedString(entry.surf, 240);
+                if (!core && !surf) return null;
+                return { core, surf };
+            })
+            .filter(Boolean);
+        if (out.length) return out;
+        return [{ ...fallbackEntry }];
+    };
+
+    const mergeFlavorMaps = (...maps) => {
+        const out = Object.create(null);
+        maps.forEach((map) => {
+            const source = asObject(map);
+            Object.keys(source).forEach((key) => {
+                const name = toTrimmedString(key, 120);
+                if (!name) return;
+                out[name] = source[key];
+            });
+        });
+        return out;
+    };
+
+    const getFlavorForGroup = (flavorMap, groupName) => {
+        const source = asObject(flavorMap);
+        if (!groupName) return null;
+        if (source[groupName] && typeof source[groupName] === 'object') return source[groupName];
+        const key = String(groupName).toLowerCase();
+        const match = Object.keys(source).find((name) => String(name).toLowerCase() === key);
+        if (!match) return null;
+        const row = source[match];
+        return row && typeof row === 'object' ? row : null;
+    };
+
+    const GROUP_ENTRY_TEMPLATES = {
+        phys: [
+            { core: 'a weathered trail charter', surf: 'creased from repeated map-folding' },
+            { core: 'a hunters tally totem', surf: 'carved with fresh notch marks' },
+            { core: 'a votive ash pattern', surf: 'disturbed by muddy bootprints' },
+            { core: 'a black-feather fletching', surf: 'from arrows used beyond the old palisade' }
+        ],
+        soc: [
+            { core: 'a patrol leaders account', surf: 'echoing the same rehearsed phrasing' },
+            { core: 'a caravan masters rumor', surf: 'mapping who moved goods after dusk' },
+            { core: 'an acolytes confession', surf: 'careful about naming a patron' },
+            { core: 'a trappers warning', surf: 'about strangers near old standing stones' }
+        ],
+        arc: [
+            { core: 'a waystone ward sigil', surf: 'still humming around the threshold' },
+            { core: 'a runesmiths etching', surf: 'fading from a recently activated charm' },
+            { core: 'a consecration ripple', surf: 'warped by a profane interruption' },
+            { core: 'a feral ley scar', surf: 'flaring briefly at moonrise' }
+        ]
+    };
+
+    const buildDynamicGroups = (groupNames, flavorMap = {}) => {
+        const names = Array.isArray(groupNames) && groupNames.length ? groupNames : [FALLBACK_GROUP];
+        return names.map((name, idx) => {
+            const flavor = getFlavorForGroup(flavorMap, name);
+            const clueFlavor = asObject(flavor && flavor.clues);
+            const fallbackPhys = GROUP_ENTRY_TEMPLATES.phys[idx % GROUP_ENTRY_TEMPLATES.phys.length];
+            const fallbackSoc = GROUP_ENTRY_TEMPLATES.soc[idx % GROUP_ENTRY_TEMPLATES.soc.length];
+            const fallbackArc = GROUP_ENTRY_TEMPLATES.arc[idx % GROUP_ENTRY_TEMPLATES.arc.length];
+            const iconOverride = toTrimmedString(flavor && flavor.icon, 8);
+            return {
+                id: `group-${slugify(name)}-${idx}`,
+                name,
+                icon: iconOverride || iconForName(name),
+                phys: asClueEntryList(clueFlavor.phys, fallbackPhys),
+                soc: asClueEntryList(clueFlavor.soc, fallbackSoc),
+                arc: asClueEntryList(clueFlavor.arc, fallbackArc)
+            };
+        });
+    };
+
+    const DEFAULT_CLUE_DATA = {
+        guilds: buildDynamicGroups([FALLBACK_GROUP]),
+        frictions: [
+            'Barred',
+            'Tainted',
+            'Mislaid',
+            'Shadowed',
+            'Partially Burned',
+            'Hidden in a Shrine'
+        ],
+        costs: [
+            'Lose Time',
+            'Spend Coin',
+            'Draw Attention',
+            'Take a Setback',
+            'Suffer Temporary Disadvantage'
+        ]
+    };
+
     const state = {
         data: null,
         guildStatus: [],

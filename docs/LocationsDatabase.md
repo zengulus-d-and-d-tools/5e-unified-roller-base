@@ -9,12 +9,7 @@ Lightweight CRM for districts, safehouses, and notable fronts. Uses the same car
 - **Location Cards** – Each entry shows name, district, description, notes, image URL, and quick actions (open on board, copy deep link, delete). Image URL is editable in place; other fields are currently view-only after creation.
 
 ## Tips
-- Mirror district names from the Mission Timeline tags so cross-referencing is painless.
-- Store downtime hooks in the notes field ("Spend 1 DP here to reduce Heat") to remind players why a location matters.
-- Export from the Tools Hub before big arcs so you can maintain a historical log of neighborhoods the party has touched.
 
-## Cross-Links
-- [Case Board](CaseBoard.md) (`board.html`) – Drag key locations into the case graph so districts and fronts stay linked to the clues, NPCs, and events happening there.
-
-## Related Project
-For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).
+- Use consistent area labels so timeline and requisition focus filters line up.
+- Put tactical details (entry points, patrol routes, hazards) in notes.
+- Add image URLs for handout-ready context during play.
