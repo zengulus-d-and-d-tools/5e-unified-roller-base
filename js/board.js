@@ -41,6 +41,7 @@ let allocatedCount = 0;
 let view = { x: 0, y: 0, scale: 1 };
 let nodeCache = new Map();
 let draggedNode = null;
+let draggedNodeFollowers = [];
 let dragStart = { x: 0, y: 0, nodeX: 0, nodeY: 0 };
 let isConnecting = false;
 let connectStart = { id: null, port: null, x: 0, y: 0 };
@@ -84,6 +85,7 @@ const NODE_TYPE_LABELS = {
     clue: 'Clue',
     theory: 'Theory',
     note: 'Note',
+    group: 'Group Box',
     event: 'Event',
     requisition: 'Requisition'
 };
@@ -93,6 +95,7 @@ const NODE_TYPE_ICONS = {
     clue: '🔍',
     theory: '🧠',
     note: '📝',
+    group: '🗂️',
     event: '🕰️',
     requisition: '📦',
     azorius: '⚖️',
@@ -124,6 +127,12 @@ const THEORY_RELATIONS = ['supports', 'contradicts', 'related'];
 const THEORY_STATUSES = new Set(['unproven', 'confirmed', 'disproven']);
 const TRUST_LEVEL_LABELS = ['Hostile', 'Wary', 'Neutral', 'Trusted', 'Loyal'];
 const STIGMA_LEVEL_LABELS = ['Clean', 'Rumored', 'Noticed', 'Marked', 'Burned'];
+const GROUP_NODE_DEFAULT_WIDTH = 460;
+const GROUP_NODE_DEFAULT_HEIGHT = 300;
+const GROUP_NODE_MIN_WIDTH = 220;
+const GROUP_NODE_MIN_HEIGHT = 150;
+const GROUP_NODE_MAX_WIDTH = 2200;
+const GROUP_NODE_MAX_HEIGHT = 1600;
 
 function getDelegatedHandlerFn(code) {
     if (!delegatedHandlerCache.has(code)) {
@@ -296,6 +305,76 @@ function getNodeTypeFromEl(el) {
     return cls.replace('type-', '');
 }
 
+function isGroupNodeType(type) {
+    return String(type || '').toLowerCase() === 'group';
+}
+
+function isGroupNodeEl(el) {
+    return isGroupNodeType(getNodeTypeFromEl(el));
+}
+
+function clampGroupNodeDimension(value, fallback, min, max) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, Math.round(parsed)));
+}
+
+function getGroupNodeSizeFromMeta(meta) {
+    const source = meta && typeof meta === 'object' ? meta : {};
+    const widthValue = Object.prototype.hasOwnProperty.call(source, 'groupW')
+        ? source.groupW
+        : source.groupWidth;
+    const heightValue = Object.prototype.hasOwnProperty.call(source, 'groupH')
+        ? source.groupH
+        : source.groupHeight;
+    return {
+        width: clampGroupNodeDimension(widthValue, GROUP_NODE_DEFAULT_WIDTH, GROUP_NODE_MIN_WIDTH, GROUP_NODE_MAX_WIDTH),
+        height: clampGroupNodeDimension(heightValue, GROUP_NODE_DEFAULT_HEIGHT, GROUP_NODE_MIN_HEIGHT, GROUP_NODE_MAX_HEIGHT)
+    };
+}
+
+function syncGroupNodeMeta(nodeEl) {
+    if (!isGroupNodeEl(nodeEl)) return;
+    const baseMeta = getNodeMeta(nodeEl) || {};
+    const nextMeta = {
+        ...baseMeta,
+        groupW: clampGroupNodeDimension(nodeEl.offsetWidth, GROUP_NODE_DEFAULT_WIDTH, GROUP_NODE_MIN_WIDTH, GROUP_NODE_MAX_WIDTH),
+        groupH: clampGroupNodeDimension(nodeEl.offsetHeight, GROUP_NODE_DEFAULT_HEIGHT, GROUP_NODE_MIN_HEIGHT, GROUP_NODE_MAX_HEIGHT)
+    };
+    setNodeMeta(nodeEl, nextMeta);
+}
+
+function collectGroupedFollowerNodes(groupNodeEl) {
+    if (!groupNodeEl) return [];
+    const groupLeft = groupNodeEl.offsetLeft;
+    const groupTop = groupNodeEl.offsetTop;
+    const groupRight = groupLeft + groupNodeEl.offsetWidth;
+    const groupBottom = groupTop + groupNodeEl.offsetHeight;
+    const followers = [];
+
+    document.querySelectorAll('.node').forEach((nodeEl) => {
+        if (!nodeEl || nodeEl === groupNodeEl) return;
+        const width = nodeEl.offsetWidth || 0;
+        const height = nodeEl.offsetHeight || 0;
+        const cx = nodeEl.offsetLeft + (width * 0.5);
+        const cy = nodeEl.offsetTop + (height * 0.5);
+        if (cx >= groupLeft && cx <= groupRight && cy >= groupTop && cy <= groupBottom) {
+            followers.push({
+                id: nodeEl.id,
+                el: nodeEl,
+                startX: nodeEl.offsetLeft,
+                startY: nodeEl.offsetTop
+            });
+        }
+    });
+
+    return followers;
+}
+
+function canNodeTypesConnect(fromType, toType) {
+    return !isGroupNodeType(fromType) && !isGroupNodeType(toType);
+}
+
 function getNodeSummary(nodeId) {
     const el = document.getElementById(nodeId);
     if (!el) return null;
@@ -441,6 +520,9 @@ function findConnectionBetween(nodeAId, nodeBId) {
 function createConnectionBetweenNodes(fromNodeId, toNodeId, fromPort = null, toPort = null) {
     if (!fromNodeId || !toNodeId) return false;
     if (fromNodeId === toNodeId) return false;
+    const fromNodeEl = document.getElementById(fromNodeId);
+    const toNodeEl = document.getElementById(toNodeId);
+    if (!canNodeTypesConnect(getNodeTypeFromEl(fromNodeEl), getNodeTypeFromEl(toNodeEl))) return false;
     const normalizedFromPort = normalizeConnectionPort(fromPort);
     const normalizedToPort = normalizeConnectionPort(toPort);
 
@@ -2225,6 +2307,7 @@ function updateNodeCache(id) {
 function startDragNode(e, el) {
     if (el.classList.contains('editing') || (e.button !== undefined && e.button !== 0)) return;
     draggedNode = el;
+    draggedNodeFollowers = isGroupNodeEl(el) ? collectGroupedFollowerNodes(el) : [];
 
     const worldPos = screenToWorld(e.clientX, e.clientY);
     dragStart.x = worldPos.x;
@@ -2243,6 +2326,20 @@ function updateDraggedNodeFromClient(clientX, clientY) {
     const dx = worldPos.x - dragStart.x;
     const dy = worldPos.y - dragStart.y;
     draggedNode.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    if (draggedNodeFollowers.length) {
+        for (let i = 0; i < draggedNodeFollowers.length; i += 1) {
+            const follower = draggedNodeFollowers[i];
+            if (!follower || !follower.el) continue;
+            follower.el.style.transform = `translate(${dx}px, ${dy}px)`;
+            const followerCache = nodeCache.get(follower.id);
+            if (followerCache) {
+                followerCache.x = follower.startX + dx + (followerCache.relX || 0);
+                followerCache.y = follower.startY + dy + (followerCache.relY || 0);
+            }
+            wakeConnected(follower.id);
+        }
+    }
 
     const newX = dragStart.nodeX + dx;
     const newY = dragStart.nodeY + dy;
@@ -2268,6 +2365,7 @@ function finalizeDraggedNode(clientX, clientY, options = {}) {
 
     const sourceNode = draggedNode;
     const sourceNodeId = sourceNode.id;
+    const sourceNodeType = getNodeTypeFromEl(sourceNode);
     sourceNode.style.pointerEvents = '';
 
     let dropNode = null;
@@ -2282,10 +2380,12 @@ function finalizeDraggedNode(clientX, clientY, options = {}) {
     }
 
     const draggedDistance = Math.hypot(dx, dy);
+    const dropNodeType = dropNode ? getNodeTypeFromEl(dropNode) : '';
     const canCreateConnection = allowConnection &&
         draggedDistance > 8 &&
         dropNode &&
-        dropNode.id !== sourceNodeId;
+        dropNode.id !== sourceNodeId &&
+        canNodeTypesConnect(sourceNodeType, dropNodeType);
 
     if (canCreateConnection) {
         sourceNode.style.left = dragStart.nodeX + 'px';
@@ -2293,6 +2393,16 @@ function finalizeDraggedNode(clientX, clientY, options = {}) {
         sourceNode.style.transform = 'none';
         sourceNode.style.willChange = 'auto';
         updateNodeCache(sourceNodeId);
+        if (draggedNodeFollowers.length) {
+            for (let i = 0; i < draggedNodeFollowers.length; i += 1) {
+                const follower = draggedNodeFollowers[i];
+                if (!follower || !follower.el) continue;
+                follower.el.style.left = follower.startX + 'px';
+                follower.el.style.top = follower.startY + 'px';
+                follower.el.style.transform = 'none';
+                updateNodeCache(follower.id);
+            }
+        }
         createConnectionBetweenNodes(sourceNodeId, dropNode.id);
     } else {
         sourceNode.style.left = finalX + 'px';
@@ -2300,10 +2410,22 @@ function finalizeDraggedNode(clientX, clientY, options = {}) {
         sourceNode.style.transform = 'none';
         sourceNode.style.willChange = 'auto';
         updateNodeCache(sourceNodeId);
+        if (draggedNodeFollowers.length) {
+            for (let i = 0; i < draggedNodeFollowers.length; i += 1) {
+                const follower = draggedNodeFollowers[i];
+                if (!follower || !follower.el) continue;
+                follower.el.style.left = (follower.startX + dx) + 'px';
+                follower.el.style.top = (follower.startY + dy) + 'px';
+                follower.el.style.transform = 'none';
+                updateNodeCache(follower.id);
+            }
+        }
+        if (isGroupNodeType(sourceNodeType)) syncGroupNodeMeta(sourceNode);
         saveBoard();
     }
 
     draggedNode = null;
+    draggedNodeFollowers = [];
 }
 
 function handleTouchStart(event) {
@@ -2450,6 +2572,14 @@ document.addEventListener('mouseup', (e) => {
             allowConnection: !e.altKey,
             dropTarget: e.target
         });
+    } else {
+        const targetEl = e.target && typeof e.target.closest === 'function'
+            ? e.target.closest('.node.type-group')
+            : null;
+        if (targetEl) {
+            syncGroupNodeMeta(targetEl);
+            saveBoard();
+        }
     }
     if (isConnecting) {
         if (e.target && typeof e.target.closest === 'function') {
@@ -2529,6 +2659,16 @@ function createNodeMarkup(type, content = {}) {
                 ${withTitle}
                 <div class="node-body">${bodyHtml}</div>
             </div>
+        `;
+    }
+
+    if (type === 'group') {
+        return `
+            <div class="group-tag">
+                ${withTitle}
+            </div>
+            <div class="group-hint">Drag this box to move enclosed nodes together.</div>
+            <div class="group-body node-body">${bodyHtml}</div>
         `;
     }
 
@@ -2628,6 +2768,15 @@ function updateNodeImageMeta(nodeEl, imageUrl = '') {
 function createNode(type, x, y, id = null, content = {}) {
     const nodeId = id || 'node_' + Date.now();
     let safeMeta = sanitizeNodeMeta(content.meta);
+    let groupSize = null;
+    if (isGroupNodeType(type)) {
+        groupSize = getGroupNodeSizeFromMeta(safeMeta);
+        safeMeta = {
+            ...(safeMeta || {}),
+            groupW: groupSize.width,
+            groupH: groupSize.height
+        };
+    }
     const requestedImageUrl = sanitizeImageUrl(content.imageUrl || (safeMeta && safeMeta.imageUrl) || '');
     if (requestedImageUrl) {
         safeMeta = { ...(safeMeta || {}), imageUrl: requestedImageUrl };
@@ -2641,6 +2790,10 @@ function createNode(type, x, y, id = null, content = {}) {
     nodeEl.id = nodeId;
     nodeEl.style.left = (x - 75) + 'px';
     nodeEl.style.top = (y - 40) + 'px';
+    if (groupSize) {
+        nodeEl.style.width = `${groupSize.width}px`;
+        nodeEl.style.height = `${groupSize.height}px`;
+    }
 
     nodeEl.innerHTML = `
         <div class="port top" data-port="top"></div><div class="port bottom" data-port="bottom"></div>
@@ -2664,6 +2817,10 @@ function createNode(type, x, y, id = null, content = {}) {
         }
 
         if (panMode || e.button !== 0) return;
+        if (isGroupNodeEl(nodeEl)) {
+            startDragNode(e, nodeEl);
+            return;
+        }
 
         const sourcePort = e.altKey ? getPortFromEventTarget(e.target) : 'auto';
         if (sourcePort !== 'auto') {
@@ -2949,6 +3106,11 @@ function saveBoard() {
 
     const nodeData = Array.from(document.querySelectorAll('.node')).map(el => {
         const nodeType = getNodeTypeFromEl(el);
+        let nodeMeta = getNodeMeta(el);
+        if (isGroupNodeType(nodeType)) {
+            syncGroupNodeMeta(el);
+            nodeMeta = getNodeMeta(el);
+        }
         return {
             id: el.id,
             type: nodeType,
@@ -2956,7 +3118,7 @@ function saveBoard() {
             y: parseInt(el.style.top, 10),
             title: el.querySelector('.node-title').innerText,
             body: el.querySelector('.node-body').innerHTML,
-            meta: getNodeMeta(el)
+            meta: nodeMeta
         };
     });
 

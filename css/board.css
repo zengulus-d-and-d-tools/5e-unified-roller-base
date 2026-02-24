@@ -544,6 +544,65 @@ body.mobile-board .popup-menu * {
     line-height: 1.4;
 }
 
+/* Group Box: Background Organizer */
+.type-group {
+    width: 460px;
+    min-height: 300px;
+    padding: 34px 14px 12px;
+    border: 2px dashed color-mix(in srgb, var(--accent-secondary) 55%, rgba(255, 255, 255, 0.2));
+    border-radius: 14px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.01) 38%),
+        color-mix(in srgb, #101521 88%, rgba(255, 255, 255, 0.04));
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    z-index: 12;
+    resize: both;
+    overflow: auto;
+}
+
+.type-group .group-tag {
+    position: absolute;
+    top: -11px;
+    left: 12px;
+    max-width: calc(100% - 28px);
+    padding: 5px 11px 6px;
+    border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--accent-secondary) 55%, rgba(255, 255, 255, 0.28));
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08)),
+        color-mix(in srgb, #fff9d8 88%, #ebdf8e 12%);
+    box-shadow: 0 8px 14px rgba(0, 0, 0, 0.26);
+}
+
+.type-group .group-tag .node-title {
+    color: #2f2a1c;
+    font-size: 0.83rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.type-group .group-hint {
+    margin: 0 0 7px;
+    font-size: 0.72rem;
+    color: var(--accent-muted);
+    letter-spacing: 0.03em;
+}
+
+.type-group .group-body {
+    color: #d7e2ff;
+    font-size: 0.78rem;
+    line-height: 1.42;
+    min-height: 62px;
+}
+
+.type-group .port {
+    display: none !important;
+}
+
 /* Event: The Timestamp */
 .type-event {
     width: 210px;
@@ -789,6 +848,15 @@ body.show-ports .node .port {
 
 .type-note.editing .sticky-sheet {
     box-shadow: 0 0 18px rgba(241, 196, 15, 0.45), 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.type-group.editing {
+    border-color: var(--gold);
+    box-shadow: 0 0 18px rgba(241, 196, 15, 0.38), 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.type-group.editing .group-tag {
+    border-color: color-mix(in srgb, var(--gold) 70%, rgba(255, 255, 255, 0.35));
 }
 
 .type-requisition.editing {
@@ -1417,6 +1485,12 @@ body.focus-active .header-overlay {
 
     .type-note .sticky-sheet {
         min-height: 146px;
+    }
+
+    .type-group {
+        width: 320px;
+        min-height: 220px;
+        padding-top: 30px;
     }
 
     .type-event {

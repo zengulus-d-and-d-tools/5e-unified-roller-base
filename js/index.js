@@ -6,7 +6,7 @@ const stats = ['str',
     'wis',
     'cha'];
 const attackStats = ['none', ...stats];
-const sheetFaces = ['front', 'inventory', 'spells'];
+const sheetFaces = ['front', 'inventory', 'spells', 'my-story'];
 const spellcastingAttrOptions = ['auto', ...stats];
 
 const skillsMap = {
@@ -57,6 +57,8 @@ const srdSpellLookupState = {
     byName: new Map()
 };
 let spellbookHideEmptyFieldsOnLoad = true;
+let myStoryBoardInitialized = false;
+let myStoryBoardSyncLock = false;
 
 function updateRollerStickyOffset() {
     const hero = document.getElementById('rollerBar');
@@ -154,7 +156,8 @@ function normalizeSheetFace(face, fallbackFlipped = false) {
 const sheetFaceClassMap = {
     front: 'front',
     inventory: 'back',
-    spells: 'spellbook'
+    spells: 'spellbook',
+    'my-story': 'my-story'
 };
 
 function resolveRenderableSheetFace(flipper, requestedFace) {
@@ -203,7 +206,7 @@ function applySheetFaceState(face) {
     const nextFace = resolveRenderableSheetFace(flipper, requestedFace);
     if (flipper) {
         flipper.classList.remove('flipped');
-        flipper.classList.remove('view-front', 'view-inventory', 'view-spells');
+        flipper.classList.remove('view-front', 'view-inventory', 'view-spells', 'view-my-story');
         flipper.classList.add(`view-${nextFace}`);
         flipper.style.transform = 'none';
         renderSheetFaceFallback(flipper, nextFace);
@@ -221,6 +224,11 @@ function applySheetFaceState(face) {
 
 function setSheetFace(face) {
     applySheetFaceState(face);
+    if (normalizeSheetFace(face) === 'my-story'
+        && window.MyStoryBoard
+        && typeof window.MyStoryBoard.refreshLayout === 'function') {
+        window.MyStoryBoard.refreshLayout();
+    }
     save();
 }
 
@@ -375,6 +383,15 @@ function getDefaultInventory() {
         ;
 }
 
+function getDefaultMyStory() {
+    return {
+        name: 'My Story',
+        view: { x: 0, y: 0, scale: 1 },
+        nodes: [],
+        connections: []
+    };
+}
+
 function sanitizeInventoryToken(value, prefix = 'id') {
     const raw = String(value || '').trim();
     const cleaned = raw.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 80);
@@ -502,6 +519,73 @@ function ensureInventoryStructure(charData) {
     });
 }
 
+function persistMyStorySnapshot(snapshot) {
+    data.myStory = sanitizeMyStoryData(snapshot);
+    allData.characters[allData.activeId] = data;
+    saveGlobal();
+}
+
+function ensureMyStoryBoardReady() {
+    if (!window.MyStoryBoard || typeof window.MyStoryBoard.init !== 'function') return false;
+    if (myStoryBoardInitialized) return true;
+
+    myStoryBoardInitialized = !!window.MyStoryBoard.init({
+        onChange: (snapshot) => {
+            if (myStoryBoardSyncLock) return;
+            persistMyStorySnapshot(snapshot);
+        }
+    });
+    return myStoryBoardInitialized;
+}
+
+function renderMyStoryBoard() {
+    if (!ensureMyStoryBoardReady()) return;
+    myStoryBoardSyncLock = true;
+    try {
+        window.MyStoryBoard.load(sanitizeMyStoryData(data.myStory));
+    } finally {
+        myStoryBoardSyncLock = false;
+    }
+}
+
+function syncMyStoryBoardToData() {
+    if (!myStoryBoardInitialized || !window.MyStoryBoard || typeof window.MyStoryBoard.getSnapshot !== 'function') return;
+    data.myStory = sanitizeMyStoryData(window.MyStoryBoard.getSnapshot());
+    allData.characters[allData.activeId] = data;
+}
+
+function addMyStoryNode(type) {
+    if (!ensureMyStoryBoardReady()) return;
+    window.MyStoryBoard.addNode(type);
+}
+
+function toggleMyStoryPanMode() {
+    if (!ensureMyStoryBoardReady() || typeof window.MyStoryBoard.togglePanMode !== 'function') return;
+    window.MyStoryBoard.togglePanMode();
+}
+
+function resetMyStoryView() {
+    if (!ensureMyStoryBoardReady() || typeof window.MyStoryBoard.resetView !== 'function') return;
+    window.MyStoryBoard.resetView();
+}
+
+function clearMyStoryBoard() {
+    if (!ensureMyStoryBoardReady()) return;
+    if (!confirm('Clear all My Story nodes and links?')) return;
+    window.MyStoryBoard.clear();
+}
+
+function cancelMyStoryLink() {
+    if (!ensureMyStoryBoardReady()) return;
+    window.MyStoryBoard.cancelLink();
+}
+
+function saveMyStoryNow() {
+    syncMyStoryBoardToData();
+    saveGlobal();
+    showLog('My Story', 'Saved');
+}
+
 // --- CHARACTER SWITCHING LOGIC ---
 function getDefaultChar() {
     let char = {
@@ -583,7 +667,8 @@ function getDefaultChar() {
             sheetFace: 'front',
             spellbookShowHiddenFields: false
         },
-        inventory: getDefaultInventory()
+        inventory: getDefaultInventory(),
+        myStory: getDefaultMyStory()
     }
 
         ;
@@ -627,6 +712,82 @@ function sanitizeNumber(value, fallback = 0, min = -Infinity, max = Infinity) {
 function sanitizeBoolean(value, fallback = false) {
     if (typeof value === 'boolean') return value;
     return fallback;
+}
+
+function sanitizeMyStoryData(rawStory) {
+    const source = isPlainObject(rawStory) ? rawStory : {};
+    const out = getDefaultMyStory();
+
+    out.name = sanitizeString(source.name, out.name, 120) || out.name;
+    out.view = {
+        x: sanitizeNumber(source.view && source.view.x, 0, -10000, 10000),
+        y: sanitizeNumber(source.view && source.view.y, 0, -10000, 10000),
+        scale: sanitizeNumber(source.view && source.view.scale, 1, 0.45, 2.5)
+    };
+
+    const nodes = Array.isArray(source.nodes) ? source.nodes : [];
+    const nodeIds = new Set();
+    out.nodes = nodes.slice(0, 260).map((entry, idx) => {
+        const row = isPlainObject(entry) ? entry : {};
+        let id = sanitizeString(String(row.id || `story_node_${idx}`), `story_node_${idx}`, 80).replace(/[^A-Za-z0-9_-]/g, '');
+        if (!id || id === '__proto__' || id === 'prototype' || id === 'constructor') {
+            id = `story_node_${Date.now().toString(36)}_${idx}`;
+        }
+        while (nodeIds.has(id)) id = `${id}_${idx}`;
+        nodeIds.add(id);
+
+        const typeRaw = sanitizeString(row.type, 'note', 30).toLowerCase();
+        const type = ['person', 'event', 'clue', 'theory', 'note', 'group'].includes(typeRaw) ? typeRaw : 'note';
+        const nodeOut = {
+            id,
+            type,
+            x: Math.round(sanitizeNumber(row.x, 30 + (idx % 6) * 18, -5000, 5000)),
+            y: Math.round(sanitizeNumber(row.y, 30 + (idx % 6) * 18, -5000, 5000)),
+            title: sanitizeString(row.title, '', 200),
+            body: sanitizeString(row.body, '', 12000)
+        };
+        if (type === 'group') {
+            const widthSource = row.w !== undefined ? row.w : row.width;
+            const heightSource = row.h !== undefined ? row.h : row.height;
+            nodeOut.w = Math.round(sanitizeNumber(widthSource, 460, 220, 2200));
+            nodeOut.h = Math.round(sanitizeNumber(heightSource, 300, 140, 1600));
+            if (!nodeOut.title) nodeOut.title = 'Group Box';
+        }
+        return nodeOut;
+    });
+
+    const validNodeIds = new Set(out.nodes.map((node) => node.id));
+    const pairSet = new Set();
+    const linkIds = new Set();
+    const links = Array.isArray(source.connections) ? source.connections : [];
+    out.connections = links.slice(0, 1200).map((entry, idx) => {
+        const row = isPlainObject(entry) ? entry : {};
+        const from = sanitizeString(row.from, '', 80);
+        const to = sanitizeString(row.to, '', 80);
+        if (!validNodeIds.has(from) || !validNodeIds.has(to) || from === to) return null;
+
+        const pair = from < to ? `${from}::${to}` : `${to}::${from}`;
+        if (pairSet.has(pair)) return null;
+        pairSet.add(pair);
+
+        let id = sanitizeString(String(row.id || `story_link_${idx}`), `story_link_${idx}`, 80).replace(/[^A-Za-z0-9_-]/g, '');
+        if (!id || id === '__proto__' || id === 'prototype' || id === 'constructor') {
+            id = `story_link_${Date.now().toString(36)}_${idx}`;
+        }
+        while (linkIds.has(id)) id = `${id}_${idx}`;
+        linkIds.add(id);
+
+        return {
+            id,
+            from,
+            to,
+            label: sanitizeString(row.label, '', 120),
+            arrowStart: sanitizeBoolean(row.arrowStart, false),
+            arrowEnd: sanitizeBoolean(row.arrowEnd, false)
+        };
+    }).filter(Boolean);
+
+    return out;
 }
 
 function toTitleCaseWords(value) {
@@ -1063,6 +1224,14 @@ function sanitizeCharacterData(rawChar) {
     }
     ensureInventoryStructure(out);
 
+    if (isPlainObject(source.myStory)) {
+        out.myStory = source.myStory;
+    } else if (isPlainObject(source.backstory)) {
+        // Legacy bridge for an earlier field name.
+        out.myStory = source.backstory;
+    }
+    out.myStory = sanitizeMyStoryData(out.myStory);
+
     return out;
 }
 
@@ -1167,6 +1336,7 @@ function refreshCharSelect() {
 }
 
 function switchCharacter(id) {
+    syncMyStoryBoardToData();
     allData.characters[allData.activeId] = data;
     saveGlobal();
     allData.activeId = id;
@@ -1174,6 +1344,7 @@ function switchCharacter(id) {
 }
 
 function createNewCharacter() {
+    syncMyStoryBoardToData();
     allData.characters[allData.activeId] = data;
     const newId = 'char_' + Date.now();
     allData.characters[newId] = getDefaultChar();
@@ -1191,6 +1362,7 @@ function deleteCharacter() {
     }
 
     if (!confirm("Delete this character permanently?")) return;
+    syncMyStoryBoardToData();
     delete allData.characters[allData.activeId];
     allData.activeId = Object.keys(allData.characters)[0];
     saveGlobal();
@@ -1387,6 +1559,7 @@ function populateUI() {
     renderResources();
     refreshBuffsUI();
     renderInventory();
+    renderMyStoryBoard();
     updateAll();
     setMode(data.rollMode || 'norm');
     isPopulating = false;
@@ -4403,6 +4576,7 @@ function showIoMsg(txt) {
 }
 
 async function exportData() {
+    syncMyStoryBoardToData();
     save();
 
     try {
@@ -5077,6 +5251,12 @@ window.populateUI = populateUI;
 window.init = init;
 window.setSheetFace = setSheetFace;
 window.toggleSheetFlip = toggleSheetFlip;
+window.addMyStoryNode = addMyStoryNode;
+window.toggleMyStoryPanMode = toggleMyStoryPanMode;
+window.resetMyStoryView = resetMyStoryView;
+window.clearMyStoryBoard = clearMyStoryBoard;
+window.cancelMyStoryLink = cancelMyStoryLink;
+window.saveMyStoryNow = saveMyStoryNow;
 window.setSpellbookShowHiddenFields = setSpellbookShowHiddenFields;
 window.ensureSrdSpellLookup = ensureSrdSpellLookup;
 window.findSpellReferenceByName = findSpellReferenceByName;
