@@ -1,4 +1,4 @@
-# Ravnica Task Force Tools
+# Campaign Task Force Tools
 
 A suite of lightweight, offline-first HTML tools for 5th Edition tabletop roleplaying games. Zero dependencies—just open the files in your browser.
 
@@ -46,7 +46,6 @@ The Unlicense (Public Domain).
 This project is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.
 
 **Specific IP Used:**
-* Setting: Ravnica, Guild names, and associated flavor are property of Wizards of the Coast.
 * Spell rules content in `js/srd-5.2-spells.json` is derived from the *System Reference Document 5.2 (SRD 5.2)* by Wizards of the Coast LLC.
 
 **SRD 5.2 License + Attribution (for included spell data):**

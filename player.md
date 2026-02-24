@@ -1,6 +1,6 @@
-# Player Guide: Ravnica Task Force Tools
+# Player Guide: Campaign Task Force Tools
 
-Welcome to the **Ravnica Task Force** suite. These offline-first tools are designed to help you manage your character, track investigations, and visualize the campaign state.
+Welcome to the **Campaign Task Force** suite. These offline-first tools are designed to help you manage your character, track investigations, and visualize the campaign state.
 
 ## Getting Started
 
@@ -75,7 +75,7 @@ A high-level view of the entire party's vital statistics.
 ## 🏛️ HQ Layout Foundry (`hq.html`)
 **Blueprint your Task Force headquarters.**
 
-*   **Drag-and-Drop Rooms:** Place custom chambers on a glowing grid. Snap-to-grid keeps Azorius inspectors happy.
+*   **Drag-and-Drop Rooms:** Place custom chambers on a glowing grid. Snap-to-grid keeps inspectors happy.
 *   **Multi-Floor Support:** Add, rename, or delete floors to reflect subterranean labs, sky docks, or street-level muster yards.
 *   **Downtime Slots:** Each room can define named downtime assignments; the assignee field pulls directly from the Hub's player list so downtime projects stay synced.
 *   **Resource Bays:** Stage requisitioned assets in bays so everyone knows what deploys faster from where. Suggestions pull from the shared Requisition Vault list.

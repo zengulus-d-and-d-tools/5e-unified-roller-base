@@ -70,7 +70,7 @@ Open `tools.html` and fill the Cloud Sync panel:
 
 - `Project URL`: `https://<project-ref>.supabase.co`
 - `Anon Key`: Supabase anon/public key
-- `Campaign ID`: shared slug like `ravnica-main`
+- `Campaign ID`: shared slug like `campaign-main`
 - `Profile Name`: optional display label
 
 ### Where To Find These
@@ -81,7 +81,7 @@ Open `tools.html` and fill the Cloud Sync panel:
   - Supabase dashboard -> `Settings` -> `API` -> `Project API keys` -> `anon` / `public`
 - `Campaign ID` (shared slug):
   - You choose this value. Everyone joining the same campaign must use the exact same string.
-  - Recommended format: lowercase with dashes, e.g. `ravnica-main`, `table-alpha-2026`.
+  - Recommended format: lowercase with dashes, e.g. `campaign-main`, `table-alpha-2026`.
   - Avoid spaces/special characters to prevent typo mismatches.
 - `Profile Name`:
   - Any label you want shown in sync metadata, e.g. `DM-Laptop`, `Player-Tablet-1`.
@@ -121,7 +121,7 @@ If you place a `connect.json` file at the site root (same level as `tools.html`)
 {
   "supabaseUrl": "https://your-project-ref.supabase.co",
   "anonKey": "your-anon-public-key",
-  "campaignId": "ravnica-main",
+  "campaignId": "campaign-main",
   "profileName": ""
 }
 ```

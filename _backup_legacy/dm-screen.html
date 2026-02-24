@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ravnica Task Force: GM Screen v3</title>
+    <title>Campaign Task Force: GM Screen v3</title>
     <meta name="theme-color" content="#1e1e1e">
 
     <style>
@@ -399,7 +399,7 @@
                 Portal</a>
             <div>
                 <div class="header-title">Task Force Command</div>
-                <div class="header-sub">Ravnica Procedural Engine v3</div>
+                <div class="header-sub">Campaign Procedural Engine v3</div>
             </div>
         </div>
         <div style="font-size: 1.5rem; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);">⚖️</div>
@@ -504,21 +504,21 @@
     <script>
         // --- DATASETS ---
 
-        const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
+        const guilds = ["Warden", "Sun", "Umbral", "Rotbound", "Stoneclaw", "Arcforge", "Gilded", "Crimson", "Verdant", "Tidemind"];
 
         const actions = {
-            "Azorius": ["Serving a subpoena", "Chanting a decree", "Erecting a barrier", "Drafting a report", "Managing a queue", "Debating a legalism"],
-            "Boros": ["Detaining a suspect", "Marching in formation", "Inspecting a weapon", "Recruiting civilians", "Setting an ambush", "Cleaning armor"],
-            "Dimir": ["Watching from a balcony", "Exchanging a dead-drop", "Erasing a memory", "Tailing the party", "Disguised as a beggar", "Melting into the crowd"],
-            "Golgari": ["Hauling rot-compost", "Farming wall-fungus", "Scouting sewer exits", "Trading 'undercity' secrets", "Laying a spore-trap", "Reanimating a pack-beast"],
-            "Gruul": ["Smashing a signpost", "Scavenging scrap", "Painting graffiti", "Challenging a passerby", "Reclaiming a ruin", "Building a bonfire"],
-            "Izzet": ["Testing a gauntlet", "Repairing a pipe", "Chasing an elemental", "Arguing over math", "Overloading a coil", "Measuring mana-leak"],
-            "Orzhov": ["Collecting a tithe", "Ghost-writing a contract", "Blessing a coin", "Extorting a merchant", "Escorting a spirit", "Repossessing furniture"],
-            "Rakdos": ["Performance busking", "Taunting the law", "Juggling flaming daggers", "Staging a riot-skit", "Setting off pyrotechnics", "Vandalizing a statue"],
-            "Selesnya": ["Preaching harmony", "Pruning a graft-tree", "Singing a choral hymn", "Offering free healing", "Distributing food", "Tending a garden-wall"],
-            "Simic": ["Cataloging a mutation", "Releasing a specimen", "Collecting fluid samples", "Adjusting a tank’s pH", "Grafting a limb", "Escaping a containment"],
+            "Warden": ["Serving a subpoena", "Chanting a decree", "Erecting a barrier", "Drafting a report", "Managing a queue", "Debating a legalism"],
+            "Sun": ["Detaining a suspect", "Marching in formation", "Inspecting a weapon", "Recruiting civilians", "Setting an ambush", "Cleaning armor"],
+            "Umbral": ["Watching from a balcony", "Exchanging a dead-drop", "Erasing a memory", "Tailing the party", "Disguised as a beggar", "Melting into the crowd"],
+            "Rotbound": ["Hauling rot-compost", "Farming wall-fungus", "Scouting sewer exits", "Trading 'undercity' secrets", "Laying a spore-trap", "Reanimating a pack-beast"],
+            "Stoneclaw": ["Smashing a signpost", "Scavenging scrap", "Painting graffiti", "Challenging a passerby", "Reclaiming a ruin", "Building a bonfire"],
+            "Arcforge": ["Testing a gauntlet", "Repairing a pipe", "Chasing an elemental", "Arguing over math", "Overloading a coil", "Measuring mana-leak"],
+            "Gilded": ["Collecting a tithe", "Ghost-writing a contract", "Blessing a coin", "Extorting a merchant", "Escorting a spirit", "Repossessing furniture"],
+            "Crimson": ["Performance busking", "Taunting the law", "Juggling flaming daggers", "Staging a riot-skit", "Setting off pyrotechnics", "Vandalizing a statue"],
+            "Verdant": ["Preaching harmony", "Pruning a graft-tree", "Singing a choral hymn", "Offering free healing", "Distributing food", "Tending a garden-wall"],
+            "Tidemind": ["Cataloging a mutation", "Releasing a specimen", "Collecting fluid samples", "Adjusting a tank’s pH", "Grafting a limb", "Escaping a containment"],
             "Env": ["Steam-vent rupture", "Falling masonry", "Heavy acid-rain", "Crowded transit-jam", "Unstable bridge", "Sudden magical fog"],
-            "Guildless": ["Pickpocketing a mark", "Begging for protection", "Loading a transit-cart", "Haggling over bread", "Moving a black-market crate", "Protesting guild-taxes"]
+            "Freefolk": ["Pickpocketing a mark", "Begging for protection", "Loading a transit-cart", "Haggling over bread", "Moving a black-market crate", "Protesting guild-taxes"]
         };
 
         const whatsHappening = [
@@ -533,7 +533,7 @@
         // TEXTURE DATA ARRAYS
         const txtStruct = {
             a: ["A load-bearing pillar", "A decorative cornice", "A ventilation grate", "A window frame", "A floor tile", "A support beam", "A doorway arch", "A drainage gutter", "A service hatch", "A handrail", "A alcove/niche", "A ceiling vault", "A lighting fixture", "A baseboard", "A cable-run", "A stair tread", "A wall sconce", "A partition wall", "A water basin", "A facade relief"],
-            b: ["chipped limestone blocks", "oxidized copper sheeting", "heavy cast iron", "warped stained wood", "polished marble mosaic", "riveted Izzet-steel", "rough-hewn granite", "ceramic piping", "brittle rusted tin", "smooth cold brass", "plaster over brickwork", "reinforced concrete", "frosted glass globe", "rot-resistant fungal-wood", "exposed mana-coils", "slate worn smooth by use", "blackened wrought iron", "cheap plywood", "carved soapstone", "eroded stone"],
+            b: ["chipped limestone blocks", "oxidized copper sheeting", "heavy cast iron", "warped stained wood", "polished marble mosaic", "riveted Arcforge-steel", "rough-hewn granite", "ceramic piping", "brittle rusted tin", "smooth cold brass", "plaster over brickwork", "reinforced concrete", "frosted glass globe", "rot-resistant fungal-wood", "exposed mana-coils", "slate worn smooth by use", "blackened wrought iron", "cheap plywood", "carved soapstone", "eroded stone"],
             c: ["wrapped in makeshift grip-tape", "stained with dark soot patterns", "vibrating with a low hum", "painted over multiple times", "cracked down the center", "dripping condensation constantly", "covered in layers of old posters", "clogged with grey sludge", "welded shut long ago", "greasy to the touch", "smelling faintly of urine/bleach", "webbed with fine stress fractures", "flickering rhythmically (dying)", "scratched by claws or heavy boots", "buzzing with static discharge", "uneven and loose", "empty and filled with trash", "covered in hasty graffiti tags", "covered in a thick layer of dust", "missing large chunks"]
         };
 
@@ -556,22 +556,22 @@
         };
 
         const clueSigs = [
-            { g: "Azorius", p: "Stamped wax seals, blue ink", s: "Precise, condescending", a: "Geometric, rigid ley-lines" },
-            { g: "Boros", p: "Scorch marks, heavy boots", s: "Aggressive, duty-bound", a: "Radiant, flickering heat" },
-            { g: "Dimir", p: "Paper-shreds, damp soot", s: "Vague, shifting details", a: "Chilled air, memory-gaps" },
-            { g: "Golgari", p: "Moss, pungent rot, slime", s: "Laconic, fatalistic", a: "Necrotic residue, spores" },
-            { g: "Gruul", p: "Shattered stone, claw-marks", s: "Primal, blunt, guttural", a: "Wild, chaotic static" },
-            { g: "Izzet", p: "Melted glass, copper wire", s: "Rapid-fire, distracted", a: "Static electricity, ozone" },
-            { g: "Orzhov", p: "Gold leaf, incense ash", s: "Formal, transactional", a: "Ethereal, chain-like wisps" },
-            { g: "Rakdos", p: "Spilled wine, jagged metal", s: "Mocking, nihilistic", a: "Sulfur, crimson sparks" },
-            { g: "Selesnya", p: "Pollen, woven vines", s: "Calming, plural ('We')", a: "Harmonious, green hum" },
-            { g: "Simic", p: "Translucent fluid, scales", s: "Clinical, detached", a: "Fluorescent, biomorphic" }
+            { g: "Warden", p: "Stamped wax seals, blue ink", s: "Precise, condescending", a: "Geometric, rigid ley-lines" },
+            { g: "Sun", p: "Scorch marks, heavy boots", s: "Aggressive, duty-bound", a: "Radiant, flickering heat" },
+            { g: "Umbral", p: "Paper-shreds, damp soot", s: "Vague, shifting details", a: "Chilled air, memory-gaps" },
+            { g: "Rotbound", p: "Moss, pungent rot, slime", s: "Laconic, fatalistic", a: "Necrotic residue, spores" },
+            { g: "Stoneclaw", p: "Shattered stone, claw-marks", s: "Primal, blunt, guttural", a: "Wild, chaotic static" },
+            { g: "Arcforge", p: "Melted glass, copper wire", s: "Rapid-fire, distracted", a: "Static electricity, ozone" },
+            { g: "Gilded", p: "Gold leaf, incense ash", s: "Formal, transactional", a: "Ethereal, chain-like wisps" },
+            { g: "Crimson", p: "Spilled wine, jagged metal", s: "Mocking, nihilistic", a: "Sulfur, crimson sparks" },
+            { g: "Verdant", p: "Pollen, woven vines", s: "Calming, plural ('We')", a: "Harmonious, green hum" },
+            { g: "Tidemind", p: "Translucent fluid, scales", s: "Clinical, detached", a: "Fluorescent, biomorphic" }
         ];
 
         const npcs = [
             { w: "Promotion (Climb hierarchy)", l: "Incriminating Logs (Graft proof)" },
             { w: "Anonymity (Hide past)", l: "Safehouse Key (Neutral ground)" },
-            { w: "Debt Forgiveness (Orzhov contract)", l: "Encrypted Cipher (Unread msg)" },
+            { w: "Debt Forgiveness (Gilded contract)", l: "Encrypted Cipher (Unread msg)" },
             { w: "Guild Transfer (Way out)", l: "Smuggled Goods (Contraband)" },
             { w: "Protection (From rival)", l: "Eyewitness Account (Saw Incident)" },
             { w: "Information (Rival plans)", l: "Guild Seal (Stolen signet)" },
@@ -583,17 +583,17 @@
         ];
 
         const hazards = [
-            { roll: 2, name: "Izzet Arclight Grounding", eff: "1d6 Lightning dmg (DC 13 Dex). Metal armor = Disadv." },
-            { roll: 3, name: "Simic Overgrowth", eff: "Difficult terrain. Move > half speed = DC 12 Dex or Prone." },
-            { roll: 4, name: "Orzhov Tithe-Barrier", eff: "Pass: Pay 1 HD or 10gp. Else: Total Cover." },
-            { roll: 5, name: "Rakdos Crowd Surge", eff: "Start of round: Push 10ft (DC 13 Str negates)." },
-            { roll: 6, name: "Dimir Fog-Shroud", eff: "Heavily Obscured > 10ft. Disadv on Sight checks." },
+            { roll: 2, name: "Arcforge Arclight Grounding", eff: "1d6 Lightning dmg (DC 13 Dex). Metal armor = Disadv." },
+            { roll: 3, name: "Tidemind Overgrowth", eff: "Difficult terrain. Move > half speed = DC 12 Dex or Prone." },
+            { roll: 4, name: "Gilded Tithe-Barrier", eff: "Pass: Pay 1 HD or 10gp. Else: Total Cover." },
+            { roll: 5, name: "Crimson Crowd Surge", eff: "Start of round: Push 10ft (DC 13 Str negates)." },
+            { roll: 6, name: "Umbral Fog-Shroud", eff: "Heavily Obscured > 10ft. Disadv on Sight checks." },
             { roll: 7, name: "Verticality: Crumbling Masonry", eff: "Take >10 dmg? Floor breaks. DC 12 Dex or fall 20ft." },
-            { roll: 8, name: "Golgari Spore Cloud", eff: "DC 12 Con or Poisoned 1 rnd. Stench attracts vermin." },
-            { roll: 9, name: "Azorius Suppression Field", eff: "Cast Lvl 1+ spell? DC 13 Conc check or fail." },
-            { roll: 10, name: "Gruul Rubble-Pile", eff: "High ground (+2 Ranged Atk), but primary target for Heat." },
-            { roll: 11, name: "Selesnya Pollen Burst", eff: "No Multiattack/Aggressive unless DC 12 Wis save." },
-            { roll: 12, name: "Boros Alarm-Beacon", eff: "Clock +1. Deafened w/in 30ft." }
+            { roll: 8, name: "Rotbound Spore Cloud", eff: "DC 12 Con or Poisoned 1 rnd. Stench attracts vermin." },
+            { roll: 9, name: "Warden Suppression Field", eff: "Cast Lvl 1+ spell? DC 13 Conc check or fail." },
+            { roll: 10, name: "Stoneclaw Rubble-Pile", eff: "High ground (+2 Ranged Atk), but primary target for Heat." },
+            { roll: 11, name: "Verdant Pollen Burst", eff: "No Multiattack/Aggressive unless DC 12 Wis save." },
+            { roll: 12, name: "Sun Alarm-Beacon", eff: "Clock +1. Deafened w/in 30ft." }
         ];
 
         const snags = {
@@ -601,14 +601,14 @@
             3: { n: "Planar Bleed", e: "Intangible. DC 15 Arcana or tool to phase in. (Clock +1)" },
             4: { n: "Hostile Takeover", e: "Rival guild seized building. Stealth or Rep -1 to enter." },
             5: { n: "Biological Quarantine", e: "sealed by bio-mages. DC 14 Con or protective gear." },
-            6: { n: "Witness is a Spirit", e: "Contractual Silence. Pay 100gp or Orzhov Favor." },
-            7: { n: "Active Riot", e: "Rakdos/Gruul outside. DC 14 Group Athletics to enter." },
+            6: { n: "Witness is a Spirit", e: "Contractual Silence. Pay 100gp or Gilded Favor." },
+            7: { n: "Active Riot", e: "Crimson/Stoneclaw outside. DC 14 Group Athletics to enter." },
             8: { n: "Infrastructure Collapse", e: "Bridge/Transit down. (Clock +1) to find route." },
             9: { n: "Conflicting Warrants", e: "Rival Task Force here. Social check or 'lose' their papers." },
             10: { n: "The Tithe-Gate", e: "Entrance fee: 10gp or 1 Downtime Point per person." },
             11: { n: "Arcane Static", e: "Magic unstable. Spells trigger Wild Magic Surge." },
-            12: { n: "Privacy Screen", e: "Dimir veil. Disadv on Social/Arcane inside." },
-            13: { n: "Mandatory Escort", e: "Boros Peacekeeper watches. Heat +1. Witness intimidated." },
+            12: { n: "Privacy Screen", e: "Umbral veil. Disadv on Social/Arcane inside." },
+            13: { n: "Mandatory Escort", e: "Sun Peacekeeper watches. Heat +1. Witness intimidated." },
             14: { n: "Scheduled Demolition", e: "Set Piece: Building crumbles after 3 rounds." },
             15: { n: "The Wrong Ink", e: "Warrant color wrong. DC 12 Social or (Clock +1)." },
             16: { n: "Internal Audit", e: "Liaison watching. No Gold spending or Call-ins." },
@@ -620,44 +620,44 @@
             22: { n: "Restricted Archive", e: "Building open, cabinet locked. DC 13 Thieves Tools." },
             23: { n: "Shift Change", e: "Friendly guards left. New ones are Neutral (Rep 0)." },
             24: { n: "Vocal-Only Policy", e: "Truth-Stone recording. Cannot lie (DC 14 Deception)." },
-            25: { n: "Cleaning Crew", e: "Golgari recycling scene. DC 13 Athletics to save clues." },
+            25: { n: "Cleaning Crew", e: "Rotbound recycling scene. DC 13 Athletics to save clues." },
             26: { n: "Press Ambush", e: "Reporter at exit. Social challenge or Heat +1." },
             27: { n: "Guild Solidarity", e: "Staff refuse to talk to non-guild members. Disguise Kit." },
             28: { n: "Equipment Check", e: "Weapons checked at door. Enter unarmed or sneak in." },
             29: { n: "Mana-Drought", e: "No spell slots 2nd+ regained during rest here." },
-            30: { n: "Zonot Drainage", e: "Flooded. Difficult Terrain (Swimming)." },
+            30: { n: "Cistern Drainage", e: "Flooded. Difficult Terrain (Swimming)." },
             31: { n: "Spore-Clog", e: "Fungus in locks. Str checks Disadvantage." },
             32: { n: "Petty Grievance", e: "Clerk hates a PC. Rep -1 (Temp)." },
-            33: { n: "Selesnya Conclave", e: "Meditation circle blocks hall. Join (1hr) or Push (DC 14)." },
+            33: { n: "Verdant Conclave", e: "Meditation circle blocks hall. Join (1hr) or Push (DC 14)." },
             34: { n: "The Tail", e: "You were followed. 'Complication Scene' triggers on exit." },
-            35: { n: "Subpoenaed Evidence", e: "Item moved to Azorius Vault. Redirect Lead." },
-            36: { n: "Explosive Gas Leak", e: "Izzet chem. Fire = 3d6 explosion (DC 13 Dex)." },
-            37: { n: "Orzhov Foreclosure", e: "Building being disassembled by spirits. Gone in 2 hrs." },
-            38: { n: "High-Level Escort", e: "Bumped for Guildmaster. Wait (Clock +1) or Heat +1." },
+            35: { n: "Subpoenaed Evidence", e: "Item moved to Warden Vault. Redirect Lead." },
+            36: { n: "Explosive Gas Leak", e: "Arcforge chem. Fire = 3d6 explosion (DC 13 Dex)." },
+            37: { n: "Gilded Foreclosure", e: "Building being disassembled by spirits. Gone in 2 hrs." },
+            38: { n: "High-Level Escort", e: "Bumped for High Marshal. Wait (Clock +1) or Heat +1." },
             39: { n: "Magical Interference", e: "Forget-Me-Not ward. DC 12 Wis every 10 min or forget goal." },
             40: { n: "Divine Intervention", e: "Holy Ground. No violence/lying possible." }
         };
 
         const papers = [
             { n: "The Tenth District Chronicle", t: "Sensationalist", e: "Heat +1 (Alarm)" },
-            { n: "The Azorius Gazette", t: "Legalistic", e: "Heat +1 (Internal Affairs)" },
-            { n: "The Gruul Rubble-Rant", t: "Anarchic", e: "No Change (Ignored)" },
-            { n: "The Izzet Inquiry", t: "Technical", e: "Heat -1 (If fast)" },
-            { n: "The Boros Banner", t: "Heroic", e: "Heat -1 (Public Trust)" },
-            { n: "The Orzhov Ledger", t: "Financial", e: "Heat -1 (If cheap)" }
+            { n: "The Warden Gazette", t: "Legalistic", e: "Heat +1 (Internal Affairs)" },
+            { n: "The Stoneclaw Rubble-Rant", t: "Anarchic", e: "No Change (Ignored)" },
+            { n: "The Arcforge Inquiry", t: "Technical", e: "Heat -1 (If fast)" },
+            { n: "The Sun Banner", t: "Heroic", e: "Heat -1 (Public Trust)" },
+            { n: "The Gilded Ledger", t: "Financial", e: "Heat -1 (If cheap)" }
         ];
 
         const guildRefs = [
-            { n: "Azorius", j: "Public/Warrant", b: "Legal Shield (Negate Heat)" },
-            { n: "Boros", j: "Military Escort", b: "Fireteam (2 Veterans)" },
-            { n: "Dimir", j: "Hidden/Archives", b: "Surveillance (Auto-Physical)" },
-            { n: "Golgari", j: "Sewer/Rot", b: "Forensics (Corpse Speak)" },
-            { n: "Gruul", j: "Ruins/None", b: "Local Guide (Ignore Terrain)" },
-            { n: "Izzet", j: "Labs/Safety", b: "Tech-Scan (Magic ID)" },
-            { n: "Orzhov", j: "Vaults/Tithe", b: "Bribe Fund (Auto-Social)" },
-            { n: "Rakdos", j: "Clubs/Perform", b: "Distraction (Remove NPC)" },
-            { n: "Selesnya", j: "Enclaves", b: "Healer (Short Rest)" },
-            { n: "Simic", j: "Bio-Vats", b: "Mutation Scan (Weakness)" }
+            { n: "Warden", j: "Public/Warrant", b: "Legal Shield (Negate Heat)" },
+            { n: "Sun", j: "Military Escort", b: "Fireteam (2 Veterans)" },
+            { n: "Umbral", j: "Hidden/Archives", b: "Surveillance (Auto-Physical)" },
+            { n: "Rotbound", j: "Sewer/Rot", b: "Forensics (Corpse Speak)" },
+            { n: "Stoneclaw", j: "Ruins/None", b: "Local Guide (Ignore Terrain)" },
+            { n: "Arcforge", j: "Labs/Safety", b: "Tech-Scan (Magic ID)" },
+            { n: "Gilded", j: "Vaults/Tithe", b: "Bribe Fund (Auto-Social)" },
+            { n: "Crimson", j: "Clubs/Perform", b: "Distraction (Remove NPC)" },
+            { n: "Verdant", j: "Enclaves", b: "Healer (Short Rest)" },
+            { n: "Tidemind", j: "Bio-Vats", b: "Mutation Scan (Weakness)" }
         ];
 
         // --- LOGIC ---
@@ -684,8 +684,8 @@
                 actorName = "Environment";
                 actionList = actions["Env"];
             } else {
-                actorName = "Guildless";
-                actionList = actions["Guildless"];
+                actorName = "Freefolk";
+                actionList = actions["Freefolk"];
             }
 
             const action = rand(actionList);

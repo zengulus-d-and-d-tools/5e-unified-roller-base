@@ -1,20 +1,12 @@
 (function (global) {
     const DEFAULT_GUILDS = [
-        "Azorius",
-        "Boros",
-        "Dimir",
-        "Golgari",
-        "Gruul",
-        "Izzet",
-        "Orzhov",
-        "Rakdos",
-        "Selesnya",
-        "Simic",
-        "Guildless"
+        "Sentinel Order",
+        "Wildborne Clans",
+        "Aether Collegium"
     ];
 
     const ACTIVE_GUILDS = (typeof global.getRTFGuilds === 'function')
-        ? global.getRTFGuilds({ includeGuildless: true })
+        ? global.getRTFGuilds({ includeIndependent: true })
         : ((Array.isArray(global.PRELOADED_GUILDS) && global.PRELOADED_GUILDS.length)
             ? global.PRELOADED_GUILDS.slice()
             : DEFAULT_GUILDS.slice());
@@ -37,15 +29,12 @@
 
     function buildFallbackSettingProfile(guilds) {
         const activeGuilds = Array.isArray(guilds) && guilds.length ? guilds.slice() : DEFAULT_GUILDS.slice();
-        const factionGuilds = activeGuilds.filter((name) => String(name || '').toLowerCase() !== 'guildless');
+        const factionGuilds = activeGuilds.slice();
 
         const actions = {};
         activeGuilds.forEach((name) => {
             actions[name] = [`${name} operatives maintaining routine operations`];
         });
-        if (!actions.Guildless) {
-            actions.Guildless = ['Independent locals navigating guild pressure'];
-        }
         actions.Env = ['A sudden environmental disruption reshapes the scene'];
 
         const clueSigs = factionGuilds.map((name) => ({
@@ -192,7 +181,6 @@
             }
         });
         out.actions.Env = toArray(out.actions.Env, fallbackDm.actions.Env);
-        out.actions.Guildless = toArray(out.actions.Guildless, fallbackDm.actions.Guildless);
 
         out.whatsHappening = toArray(dm.whatsHappening, fallbackDm.whatsHappening);
 

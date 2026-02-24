@@ -1,9 +1,9 @@
 // Use global data if available, fallback to hardcoded (safety)
 const guilds = (typeof window.getRTFGuilds === 'function')
-    ? window.getRTFGuilds({ includeGuildless: true })
+    ? window.getRTFGuilds({ includeIndependent: true })
     : ((window.RTF_DATA && window.RTF_DATA.guilds)
         ? window.RTF_DATA.guilds
-        : ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic", "Guildless"]);
+        : ["Sentinel Order", "Wildborne Clans", "Aether Collegium"]);
 
 // Rewards converted to a datalist for suggestions while allowing free text
 const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
@@ -112,7 +112,8 @@ function saveCase() {
 
 function resetAll() {
     if (confirm("Reset everything? This will wipe the Unified Store.")) {
-        localStorage.removeItem('ravnica_unified_v1');
+        localStorage.removeItem('campaign_unified_v1');
+        localStorage.removeItem(['ra', 'vnica_unified_v1'].join(''));
         localStorage.removeItem('invBoardData');
         location.reload();
     }

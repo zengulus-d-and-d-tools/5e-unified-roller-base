@@ -337,18 +337,16 @@
     }
 
     function genStreetScene() {
-        const fallbackGuilds = Object.keys(actions || {}).filter((key) => key !== 'Env' && key !== 'Guildless');
+        const fallbackGuilds = Object.keys(actions || {}).filter((key) => key !== 'Env');
         const activeGuilds = guilds.length ? guilds : fallbackGuilds;
-        const actorPool = [...activeGuilds, 'Environment', 'Guildless'];
+        const actorPool = [...activeGuilds, 'Environment'];
         const actorName = rand(actorPool);
 
         let actionList = [];
         if (actorName === 'Environment') {
             actionList = actions.Env || [];
-        } else if (actorName === 'Guildless') {
-            actionList = actions.Guildless || [];
         } else {
-            actionList = actions[actorName] || actions.Env || actions.Guildless || [];
+            actionList = actions[actorName] || actions.Env || [];
         }
         if (!actionList.length) actionList = ['Holding position'];
 

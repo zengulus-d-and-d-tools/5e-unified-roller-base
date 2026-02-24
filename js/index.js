@@ -1123,7 +1123,7 @@ function sanitizeMyStoryData(rawStory) {
     const nodeIds = new Set();
     const knownNodeTypes = new Set([
         'person', 'location', 'clue', 'theory', 'note', 'group', 'event', 'requisition',
-        'azorius', 'boros', 'dimir', 'golgari', 'gruul', 'izzet', 'orzhov', 'rakdos', 'selesnya', 'simic'
+        'sentinel-order', 'wildborne-clans', 'aether-collegium'
     ]);
     out.nodes = [];
     nodes.slice(0, 900).forEach((entry, idx) => {

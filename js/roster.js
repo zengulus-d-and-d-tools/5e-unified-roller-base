@@ -1,9 +1,9 @@
 // Use global data if available
 const guilds = (typeof window.getRTFGuilds === 'function')
-    ? window.getRTFGuilds({ includeGuildless: true })
+    ? window.getRTFGuilds({ includeIndependent: true })
     : ((window.RTF_DATA && window.RTF_DATA.guilds)
         ? window.RTF_DATA.guilds
-        : ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic", "Guildless"]);
+        : ["Sentinel Order", "Wildborne Clans", "Aether Collegium"]);
 
 const escapeHtml = (str = '') => String(str)
     .replace(/&/g, '&amp;')
@@ -101,16 +101,12 @@ function clampTrackLevel(value, fallback) {
 
 const normalizeNPCField = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 const GUILD_FILTER_ALIASES = Object.freeze({
-    'azorius senate': 'azorius',
-    'boros legion': 'boros',
-    'house dimir': 'dimir',
-    'golgari swarm': 'golgari',
-    'gruul clans': 'gruul',
-    'izzet league': 'izzet',
-    'orzhov syndicate': 'orzhov',
-    'cult of rakdos': 'rakdos',
-    'selesnya conclave': 'selesnya',
-    'simic combine': 'simic'
+    'sentinel': 'sentinel order',
+    'sentinel order': 'sentinel order',
+    'wildborne': 'wildborne clans',
+    'wildborne clans': 'wildborne clans',
+    'aether': 'aether collegium',
+    'aether collegium': 'aether collegium'
 });
 const normalizeGuildFilterKey = (value) => {
     const raw = String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');

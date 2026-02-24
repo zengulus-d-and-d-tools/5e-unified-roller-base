@@ -653,7 +653,7 @@ function writeCustomizeForm(guilds, npcs, locations) {
 function loadCustomizeDefaults() {
     try {
         const guilds = (typeof window.getRTFGuilds === 'function')
-            ? window.getRTFGuilds({ includeGuildless: true }).map(coerceGuildSeedEntry).filter(Boolean)
+            ? window.getRTFGuilds({ includeIndependent: true }).map(coerceGuildSeedEntry).filter(Boolean)
             : (Array.isArray(window.PRELOADED_GUILDS) ? window.PRELOADED_GUILDS.map(coerceGuildSeedEntry).filter(Boolean) : []);
         const npcs = Array.isArray(window.PRELOADED_NPCS) ? window.PRELOADED_NPCS.map(coerceNpcSeedRow) : [];
         const locations = Array.isArray(window.PRELOADED_LOCATIONS) ? window.PRELOADED_LOCATIONS.map(coerceLocationSeedRow) : [];

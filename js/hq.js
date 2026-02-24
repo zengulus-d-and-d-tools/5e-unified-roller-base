@@ -1258,7 +1258,7 @@
         ctx.shadowBlur = 4;
         ctx.fillStyle = textMain;
         ctx.font = '18px "Segoe UI", sans-serif';
-        ctx.fillText(`${floor ? floor.name : 'HQ'} • Ravnica Task Force HQ`, 20, height - 40);
+        ctx.fillText(`${floor ? floor.name : 'HQ'} • Campaign Task Force HQ`, 20, height - 40);
 
         ctx.font = '13px "Segoe UI", sans-serif';
         ctx.fillStyle = textMuted;

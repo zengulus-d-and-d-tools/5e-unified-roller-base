@@ -99,16 +99,9 @@ const NODE_TYPE_ICONS = {
     group: '🗂️',
     event: '🕰️',
     requisition: '📦',
-    azorius: '⚖️',
-    boros: '⚔️',
-    dimir: '👁️',
-    golgari: '🍄',
-    gruul: '🔥',
-    izzet: '⚡',
-    orzhov: '💰',
-    rakdos: '🎪',
-    selesnya: '🌳',
-    simic: '🧬'
+    'sentinel-order': '🛡️',
+    'wildborne-clans': '🌲',
+    'aether-collegium': '🔮'
 };
 const CONNECTION_COLOR_PALETTE = [
     { name: 'Neutral', hex: '#f5f7fb' },
@@ -1347,7 +1340,7 @@ function initFormattingToolbar() {
 
 function getBoardGuildNames() {
     if (typeof window.getRTFGuilds === 'function') {
-        const list = window.getRTFGuilds({ includeGuildless: true });
+        const list = window.getRTFGuilds({ includeIndependent: true });
         if (Array.isArray(list) && list.length) return list;
     }
     if (window.RTF_DATA && Array.isArray(window.RTF_DATA.guilds) && window.RTF_DATA.guilds.length) {

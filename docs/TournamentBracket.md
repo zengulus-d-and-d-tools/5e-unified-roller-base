@@ -1,6 +1,6 @@
 # Tournament Bracket (`tourney.html`)
 
-Double-elimination bracket manager with SVG wiring. Ideal for Ravnica pit fights, sport broadcasts, or guild trials.
+Double-elimination bracket manager with SVG wiring. Ideal for pit fights, sport broadcasts, or faction trials.
 
 ## Setup & Structure
 - **Modal Intake** – Paste at least 3 names (one per line), optionally shuffle seeding, then click Generate. The modal can be reopened anytime by hitting `New Bracket` in the hero actions.
@@ -15,7 +15,7 @@ Double-elimination bracket manager with SVG wiring. Ideal for Ravnica pit fights
 ## Tips
 - Use the input list order for seeded play or toggle Randomize to let fate decide.
 - Keep the bracket open on a second monitor; as soon as you save a score the SVG lines light up the new path.
-- For narrative play, rename contestants to team codenames or guild squads before generating to cut down on editing mid-stream.
+- For narrative play, rename contestants to team codenames or faction squads before generating to cut down on editing mid-stream.
 
 ## Related Project
 For a less setting-specific version of this toolset, see [5e-unified-roller-base](https://github.com/zengulus-d-and-d-tools/5e-unified-roller-base).

@@ -335,12 +335,12 @@
     </div>
 
     <script>
-        const guilds = ["Azorius", "Boros", "Dimir", "Golgari", "Gruul", "Izzet", "Orzhov", "Rakdos", "Selesnya", "Simic"];
+        const guilds = ["Warden", "Sun", "Umbral", "Rotbound", "Stoneclaw", "Arcforge", "Gilded", "Crimson", "Verdant", "Tidemind"];
         // Rewards converted to a datalist for suggestions while allowing free text
         const projectRewards = ["+1 Reputation", "Reduce Heat by 1", "Gain a Contact", "Professional Dev (New Tool/Lang)", "Nonmagical Perk"];
 
         let state = {
-            rep: { Azorius: 0, Boros: 0, Dimir: 0, Golgari: 0, Gruul: 0, Izzet: 0, Orzhov: 0, Rakdos: 0, Selesnya: 0, Simic: 0 },
+            rep: { Warden: 0, Sun: 0, Umbral: 0, Rotbound: 0, Stoneclaw: 0, Arcforge: 0, Gilded: 0, Crimson: 0, Verdant: 0, Tidemind: 0 },
             heat: 0,
             players: [],
             case: { title: "", guilds: "", goal: "", clock: "", obstacles: "", setPiece: "" }
@@ -348,7 +348,7 @@
 
         function loadState() {
             try {
-                const saved = localStorage.getItem('ravnicaHubV3_2');
+                const saved = localStorage.getItem('campaignHubV3_2');
                 if (saved) state = JSON.parse(saved);
             } catch (e) { console.error("Corrupted Save", e); }
         }
@@ -357,7 +357,7 @@
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "ravnica_hub_backup_" + new Date().toISOString().slice(0, 10) + ".json");
+            downloadAnchorNode.setAttribute("download", "campaign_hub_backup_" + new Date().toISOString().slice(0, 10) + ".json");
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();
@@ -388,7 +388,7 @@
         }
 
         function save() {
-            localStorage.setItem('ravnicaHubV3_2', JSON.stringify(state));
+            localStorage.setItem('campaignHubV3_2', JSON.stringify(state));
             render();
         }
 
@@ -402,7 +402,7 @@
             save();
         }
 
-        function resetAll() { if (confirm("Reset everything?")) { localStorage.removeItem('ravnicaHubV3_2'); location.reload(); } }
+        function resetAll() { if (confirm("Reset everything?")) { localStorage.removeItem('campaignHubV3_2'); location.reload(); } }
         function modRep(g, amt) { state.rep[g] = Math.max(-2, Math.min(2, state.rep[g] + amt)); save(); }
         function modHeat(amt) { state.heat = Math.max(0, Math.min(6, state.heat + amt)); save(); }
 

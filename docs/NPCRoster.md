@@ -9,7 +9,7 @@ Keeps allies, rivals, and informants organized with guild tags and leverage note
 - **Roster Cards** – Card view of each NPC with Wants/Leverage/Notes plus action buttons (edit, board jump, deep link, delete). Some preloaded NPCs are marked with a lock and are read-only.
 
 ## Tips
-- Fill in "Wants" with actionable statements ("Needs Golgari reagents weekly") so leverage is obvious mid-session.
+- Fill in "Wants" with actionable statements ("Needs Collegium reagents weekly") so leverage is obvious mid-session.
 - Pair leverage entries with Requisition tags—if an NPC wants a thing, make sure it exists in the Vault queue.
 - Track rival progression by appending short timeline markers ("Week 3: promoted to Precinct Captain") inside the notes box.
 - If an entry shows a lock icon, duplicate it into a custom NPC record when you need editable variants.

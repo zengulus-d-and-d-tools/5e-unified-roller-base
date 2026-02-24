@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="manifest" href="manifest.json">
-    <title>Ravnica DM Portal</title>
+    <title>Campaign DM Portal</title>
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/player-nav.css?v=20260223a">
     <link rel="stylesheet" href="css/tools.css">
@@ -18,7 +18,7 @@
     <div class="tools-container">
         <header class="hero-header">
             <div>
-                <p class="hero-eyebrow">Ravnica Task Force</p>
+                <p class="hero-eyebrow">Campaign Task Force</p>
                 <h1 class="header-title" id="pageTitle" data-onclick="trySecretToggle(event)">Tools Hub</h1>
                 <p class="hero-subtitle">Central dispatch for character sheets, command dashboards, and scenario generators.</p>
             </div>
@@ -72,7 +72,7 @@
                 </div>
                 <div class="sync-field">
                     <label for="sync-campaign">Campaign ID</label>
-                    <input id="sync-campaign" type="text" placeholder="ravnica-main">
+                    <input id="sync-campaign" type="text" placeholder="campaign-main">
                 </div>
                 <div class="sync-field">
                     <label for="sync-profile">Profile Name (Optional)</label>
@@ -133,12 +133,12 @@
                 <div class="sync-field">
                     <label for="customize-npcs-json">NPC Seed JSON</label>
                     <textarea id="customize-npcs-json" spellcheck="false"
-                        placeholder='[{"name":"Captain Mira Kord","guild":"Boros Legion","wants":"Results","leverage":"Acts first","notes":"Precinct Commander"}]'></textarea>
+                        placeholder='[{"name":"Marshal Elira Stone","guild":"Sentinel Order","wants":"Stability","leverage":"Can lock down streets","notes":"District marshal"}]'></textarea>
                 </div>
                 <div class="sync-field">
                     <label for="customize-locations-json">Location Seed JSON</label>
                     <textarea id="customize-locations-json" spellcheck="false"
-                        placeholder='[{"name":"Sunhome","district":"Boros Legion","desc":"Fortress and barracks","notes":"Heavy security"}]'></textarea>
+                        placeholder='[{"name":"Citadel Archive Hall","district":"Sentinel Order","desc":"Fortified records complex","notes":"Heavy security"}]'></textarea>
                 </div>
             </div>
             <p class="customize-hint"><code>name</code> is required for NPC/location records. Guild entries can be plain strings or objects with <code>name</code>.</p>

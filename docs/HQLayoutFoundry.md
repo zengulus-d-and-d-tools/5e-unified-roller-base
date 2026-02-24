@@ -1,6 +1,6 @@
 # HQ Layout Foundry (`hq.html`)
 
-Design Ravnica-ready headquarters layouts with multi-floor blueprints, downtime assignments, and resource staging.
+Design modular fantasy headquarters with multi-floor blueprints, downtime assignments, and resource staging.
 
 ## Blueprint Canvas
 - **Drag-and-Drop Rooms** – Add custom chambers and drag them into place. Rooms snap to a glowing grid that represents 2‑meter squares.
@@ -19,7 +19,7 @@ Design Ravnica-ready headquarters layouts with multi-floor blueprints, downtime 
 - **Theme Controls** – Use the 🎨 Accent picker and 🌌 background cycler to match the layout palette to your table's aesthetic.
 
 ## Tips
-- Keep hallways at least 2 cells wide for griffon ingress or emergency golems.
+- Keep hallways at least 2 cells wide for mount traffic or emergency constructs.
 - Duplicate rooms for mirrored wings, then tweak names/notes for narrative flavor.
 - Use floors to represent different operational modes (Street Ops, Sky Patrol, Underbelly Safehouse) rather than literal levels if it helps storytelling.
 

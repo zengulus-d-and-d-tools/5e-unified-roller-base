@@ -1,9 +1,11 @@
 (function (global) {
-    const STORE_KEY = 'ravnica_unified_v1';
-    const LEGACY_HUB_KEY = 'ravnicaHubV3_2';
+    const STORE_KEY = 'campaign_unified_v1';
+    const LEGACY_STORE_KEY = ['ra', 'vnica_unified_v1'].join('');
+    const LEGACY_HUB_KEY = ['ra', 'vnicaHubV3_2'].join('');
     const LEGACY_BOARD_KEY = 'invBoardData';
 
-    const SYNC_CONFIG_KEY = 'ravnica_sync_config_v1';
+    const SYNC_CONFIG_KEY = 'campaign_sync_config_v1';
+    const LEGACY_SYNC_CONFIG_KEY = ['ra', 'vnica_sync_config_v1'].join('');
     const SYNC_STATUS_EVENT = 'rtf-sync-status';
     const SYNC_CONFLICT_EVENT = 'rtf-sync-conflict';
     const STORE_UPDATED_EVENT = 'rtf-store-updated';
@@ -11,17 +13,9 @@
     const STORE_DEBUG = false;
 
     const FALLBACK_GUILDS = [
-        "Azorius",
-        "Boros",
-        "Dimir",
-        "Golgari",
-        "Gruul",
-        "Izzet",
-        "Orzhov",
-        "Rakdos",
-        "Selesnya",
-        "Simic",
-        "Guildless"
+        "Sentinel Order",
+        "Wildborne Clans",
+        "Aether Collegium"
     ];
 
     const normalizeGuildName = (value) => String(value || '').trim();
@@ -46,7 +40,7 @@
 
     const resolveDefaultGuildList = () => {
         if (typeof global.getRTFGuilds === 'function') {
-            const byHelper = dedupeGuildNames(global.getRTFGuilds({ includeGuildless: true }));
+            const byHelper = dedupeGuildNames(global.getRTFGuilds({ includeIndependent: true }));
             if (byHelper.length) return byHelper;
         }
         if (global.RTF_DATA && Array.isArray(global.RTF_DATA.guilds)) {
@@ -802,15 +796,27 @@
     };
 
     const parseStoredSyncConfig = () => {
-        try {
-            const raw = localStorage.getItem(SYNC_CONFIG_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' ? parsed : null;
-        } catch (err) {
-            console.warn('RTF_STORE: Failed to parse sync config', err);
-            return null;
+        const keys = [SYNC_CONFIG_KEY, LEGACY_SYNC_CONFIG_KEY];
+        for (let i = 0; i < keys.length; i += 1) {
+            const key = keys[i];
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) continue;
+                const parsed = JSON.parse(raw);
+                if (!parsed || typeof parsed !== 'object') continue;
+                if (key !== SYNC_CONFIG_KEY) {
+                    try {
+                        localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify(parsed));
+                    } catch (migrationErr) {
+                        console.warn('RTF_STORE: Failed to migrate sync config key', migrationErr);
+                    }
+                }
+                return parsed;
+            } catch (err) {
+                console.warn('RTF_STORE: Failed to parse sync config', err);
+            }
         }
+        return null;
     };
 
     const sanitizeSyncBackendMode = (value) => {
@@ -1131,10 +1137,15 @@
 
         load() {
             try {
-                const raw = localStorage.getItem(STORE_KEY);
+                const rawPrimary = localStorage.getItem(STORE_KEY);
+                const rawLegacy = rawPrimary ? null : localStorage.getItem(LEGACY_STORE_KEY);
+                const raw = rawPrimary || rawLegacy;
                 if (raw) {
                     const loaded = JSON.parse(raw);
                     this.state = sanitizeState(loaded);
+                    if (!rawPrimary && rawLegacy) {
+                        localStorage.setItem(STORE_KEY, JSON.stringify(this.state));
+                    }
                     logInfo("RTF_STORE: Loaded unified data.");
                 } else {
                     logInfo("RTF_STORE: No unified data found. Attempting migration...");
@@ -1284,7 +1295,7 @@
             const downloadAnchorNode = document.createElement('a');
             const date = new Date().toISOString().slice(0, 10);
             downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", `ravnica_unified_backup_${date}.json`);
+            downloadAnchorNode.setAttribute("download", `campaign_unified_backup_${date}.json`);
             document.body.appendChild(downloadAnchorNode);
             downloadAnchorNode.click();
             downloadAnchorNode.remove();

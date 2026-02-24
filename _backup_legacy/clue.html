@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ravnica Intersection Gen</title>
+    <title>Campaign Intersection Gen</title>
     <style>
         :root {
             --bg: #0f0f13;
@@ -482,7 +482,7 @@
 
         const GUILDS = [
             {
-                id: 'azorius', name: 'Azorius', icon: '⚖️',
+                id: 'warden', name: 'Warden', icon: '⚖️',
                 phys: [
                     { core: "a rigid legal writ", surf: "stamped with blue wax seals" },
                     { core: "a pair of rusted manacles", surf: "etched with a precinct number" },
@@ -492,7 +492,7 @@
                     { core: "a smashed precog-crystal", surf: "housed in geometric steel" },
                     { core: "a patrolling sphinx's feather", surf: "stiff and metallic to the touch" },
                     { core: "an arrest report", surf: "signed by a Justiciar" },
-                    { core: "a stone column fragment", surf: "carved with the Guildpact seal" },
+                    { core: "a stone column fragment", surf: "carved with the City Accord seal" },
                     { core: "a confiscation lock-box", surf: "sealed with magic-dampening lead" }
                 ],
                 soc: [
@@ -500,7 +500,7 @@
                     { core: "a bored desk clerk", surf: "demanding Form 12-B" },
                     { core: "a stern arrester", surf: "looking for a reason to detain you" },
                     { core: "a precognitive mage", surf: "claiming they saw this yesterday" },
-                    { core: "a vedalken administrator", surf: "obsessed with the timeline" },
+                    { core: "a civil registrar", surf: "obsessed with the timeline" },
                     { core: "a judge's scribe", surf: "taking shorthand notes furiously" },
                     { core: "a gargoyle patroller", surf: "perched silently above" },
                     { core: "an imperious knight", surf: "refusing to speak to civilians" },
@@ -521,7 +521,7 @@
                 ]
             },
             {
-                id: 'boros', name: 'Boros', icon: '⚔️',
+                id: 'sun', name: 'Sun', icon: '⚔️',
                 phys: [
                     { core: "a dented gauntlet", surf: "scorched by radiant heat" },
                     { core: "a shattered sun-blade", surf: "still warm to the touch" },
@@ -560,7 +560,7 @@
                 ]
             },
             {
-                id: 'dimir', name: 'Dimir', icon: '👁️',
+                id: 'umbral', name: 'Umbral', icon: '👁️',
                 phys: [
                     { core: "a strip of cipher-paper", surf: "dissolving into smoke" },
                     { core: "a black glass dagger", surf: "coated in sleeping poison" },
@@ -599,7 +599,7 @@
                 ]
             },
             {
-                id: 'golgari', name: 'Golgari', icon: '🍄',
+                id: 'rotbound', name: 'Rotbound', icon: '🍄',
                 phys: [
                     { core: "a petrified insect husk", surf: "covered in vibrant moss" },
                     { core: "a compost-encrusted boot", surf: "smelling of the undercity" },
@@ -638,7 +638,7 @@
                 ]
             },
             {
-                id: 'gruul', name: 'Gruul', icon: '🔥',
+                id: 'stoneclaw', name: 'Stoneclaw', icon: '🔥',
                 phys: [
                     { core: "a smashed stone totem", surf: "smeared with war-paint" },
                     { core: "a crude stone axe", surf: "bound with leather" },
@@ -677,7 +677,7 @@
                 ]
             },
             {
-                id: 'izzet', name: 'Izzet', icon: '⚡',
+                id: 'arcforge', name: 'Arcforge', icon: '⚡',
                 phys: [
                     { core: "a twisted copper coil", surf: "smelling of sharp ozone" },
                     { core: "a shattered glass capacitor", surf: "leaking blue fluid" },
@@ -686,7 +686,7 @@
                     { core: "a blueprint schematic", surf: "covered in coffee stains" },
                     { core: "a weird-containment unit", surf: "hissing steam" },
                     { core: "a lightning-rod tip", surf: "melted by a strike" },
-                    { core: "a mizzium strut", surf: "bent by force" },
+                    { core: "a reinforced alloy strut", surf: "bent by force" },
                     { core: "a laboratory notebook", surf: "filled with frantic math" },
                     { core: "a gravity-inverter", surf: "floating inches off the ground" }
                 ],
@@ -698,7 +698,7 @@
                     { core: "a ley-line surveyor", surf: "ignoring safety protocols" },
                     { core: "an elementalist", surf: "followed by a spark" },
                     { core: "a laboratory assistant", surf: "putting out a fire" },
-                    { core: "a vedalken engineer", surf: "judging your equipment" },
+                    { core: "a arc engineer", surf: "judging your equipment" },
                     { core: "a steam-vent worker", surf: "shouting over the noise" },
                     { core: "a guild-mage", surf: "overloading a spell" }
                 ],
@@ -712,11 +712,11 @@
                     { core: "an elemental residue", surf: "puddling on the floor" },
                     { core: "a sonic boom echo", surf: "ringing in your ears" },
                     { core: "a spell-copy trace", surf: "repeating itself" },
-                    { core: "a mizzium-burn", surf: "glowing purple" }
+                    { core: "a alloy burn", surf: "glowing purple" }
                 ]
             },
             {
-                id: 'orzhov', name: 'Orzhov', icon: '🪙',
+                id: 'gilded', name: 'Gilded', icon: '🪙',
                 phys: [
                     { core: "a gilded debt-contract", surf: "dusted with funeral ash" },
                     { core: "a gold coin", surf: "stamped with a ghost's face" },
@@ -755,7 +755,7 @@
                 ]
             },
             {
-                id: 'rakdos', name: 'Rakdos', icon: '🎭',
+                id: 'crimson', name: 'Crimson', icon: '🎭',
                 phys: [
                     { core: "a jagged spiked chain", surf: "splattered with dried blood" },
                     { core: "a harlequin mask", surf: "grinning maniacally" },
@@ -794,7 +794,7 @@
                 ]
             },
             {
-                id: 'selesnya', name: 'Selesnya', icon: '🌳',
+                id: 'verdant', name: 'Verdant', icon: '🌳',
                 phys: [
                     { core: "a woven living-wood token", surf: "dusted with golden pollen" },
                     { core: "a crystal seed", surf: "glowing with inner light" },
@@ -811,13 +811,13 @@
                     { core: "a serene evangelist", surf: "speaking in the plural 'We'" },
                     { core: "a dryad guardian", surf: "merging with a tree" },
                     { core: "a wolf-riding knight", surf: "watching the perimeter" },
-                    { core: "a loxodon hierarch", surf: "offering wisdom" },
+                    { core: "a temple hierarch", surf: "offering wisdom" },
                     { core: "a centaur archer", surf: "stringing a bow" },
                     { core: "a conclave recruiter", surf: "smiling too widely" },
                     { core: "a vernacular healer", surf: "offering a potion" },
                     { core: "a garden-tender", surf: "ignoring the city" },
                     { core: "a song-weaver", surf: "humming a tune" },
-                    { core: "a trostani-priest", surf: "judging your aura" }
+                    { core: "a grove-priest", surf: "judging your aura" }
                 ],
                 arc: [
                     { core: "a harmonious light-beam", surf: "connecting to nearby life" },
@@ -833,7 +833,7 @@
                 ]
             },
             {
-                id: 'simic', name: 'Simic', icon: '🧬',
+                id: 'tidemind', name: 'Tidemind', icon: '🧬',
                 phys: [
                     { core: "a glass vial of bio-fluid", surf: "coated in translucent slime" },
                     { core: "a shed reptile skin", surf: "shimmering with colors" },
@@ -850,7 +850,7 @@
                     { core: "a clinical biomancer", surf: "examining you like a specimen" },
                     { core: "a shark-hybrid warrior", surf: "flexing new gills" },
                     { core: "a merfolk terraformer", surf: "adjusting water levels" },
-                    { core: "a zonot guide", surf: "covered in algae" },
+                    { core: "a canal guide", surf: "covered in algae" },
                     { core: "a rapid-evolutionist", surf: "twitching with mutations" },
                     { core: "a medical researcher", surf: "holding a scalpel" },
                     { core: "a frog-lizard chimera", surf: "croaking inquisitively" },

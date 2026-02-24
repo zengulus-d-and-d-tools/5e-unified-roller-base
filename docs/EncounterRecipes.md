@@ -14,7 +14,7 @@ One-page prep cards for modular encounters. Everything saves to the shared data 
 
 ## Tips
 - Keep hazards and beats in short phrases so they read at a glance next to your initiative tracker.
-- Use consistent naming in title/location/objective (for example `Boros - Precinct One`) so searches still hit fast during pivots.
+- Use consistent naming in title/location/objective (for example `Sentinel Order - Precinct One`) so searches still hit fast during pivots.
 - Export the store from the Tools Hub before a new chapter so you always have a library of proven encounters.
 
 ## Related Project

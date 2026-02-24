@@ -1,16 +1,8 @@
 (function (global) {
     const DEFAULT_GUILDS = [
-        "Azorius",
-        "Boros",
-        "Dimir",
-        "Golgari",
-        "Gruul",
-        "Izzet",
-        "Orzhov",
-        "Rakdos",
-        "Selesnya",
-        "Simic",
-        "Guildless"
+        "Sentinel Order",
+        "Wildborne Clans",
+        "Aether Collegium"
     ];
 
     function normalizeGuildName(raw) {
@@ -42,10 +34,10 @@
 
     global.getRTFGuilds = function getRTFGuilds(options = {}) {
         const opts = options && typeof options === 'object' ? options : {};
-        const includeGuildless = opts.includeGuildless !== false;
+        const includeIndependent = opts.includeIndependent !== false;
         const active = buildActiveGuilds();
-        if (includeGuildless) return active;
-        return active.filter((name) => name.toLowerCase() !== 'guildless');
+        if (includeIndependent) return active;
+        return active.filter((name) => name.toLowerCase() !== 'independent');
     };
 
     global.PRELOADED_GUILDS = buildActiveGuilds();
