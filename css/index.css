@@ -115,6 +115,14 @@ body {
     flex-shrink: 0;
 }
 
+.header-roller-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    min-width: 0;
+}
+
 .header-roller {
     display: flex;
     align-items: center;
@@ -228,7 +236,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    width: 100%;
+    width: clamp(230px, 24vw, 320px);
     min-width: 0;
 }
 
@@ -3135,6 +3143,7 @@ button {
     }
 
     .header-brand,
+    .header-roller-stack,
     .header-roller,
     .roller-actions {
         width: 100%;
