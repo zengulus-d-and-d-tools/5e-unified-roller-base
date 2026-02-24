@@ -70,6 +70,15 @@ body.board-embedded-my-story .board-hero {
     display: none;
 }
 
+html.board-embedded-my-story,
+body.board-embedded-my-story {
+    background: transparent !important;
+}
+
+body.board-embedded-my-story canvas#vector-cloud {
+    display: none !important;
+}
+
 .board-hero .hero-actions,
 .board-hero .hero-action-bar,
 .board-hero .hero-btn,
