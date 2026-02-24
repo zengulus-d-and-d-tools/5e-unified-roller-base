@@ -58,6 +58,16 @@ const srdSpellLookupState = {
     byName: new Map()
 };
 let spellbookHideEmptyFieldsOnLoad = true;
+const QUICK_ACTION_MAX_COUNT = 60;
+const QUICK_ACTION_LONG_PRESS_MS = 550;
+const QUICK_ACTION_LONG_PRESS_MOVE_PX = 12;
+let quickActionEventsBound = false;
+let quickActionLongPressTimer = null;
+let quickActionLongPressTarget = null;
+let quickActionLongPressPointerId = null;
+let quickActionLongPressStart = null;
+let quickActionSuppressClickUntil = 0;
+let quickActionSuppressTarget = null;
 let myStoryBoardInitialized = false;
 let myStoryFrameMessageBound = false;
 let myStoryFrameLoadedCharId = '';
@@ -663,6 +673,222 @@ function syncMyStoryBoardToData() {
     }
 }
 
+function generateQuickActionId() {
+    return `qa_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizeQuickActionCode(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function isSupportedQuickActionCode(code) {
+    const normalized = normalizeQuickActionCode(code);
+    return /^(rollInitiative|rollDie|rollCheck|rollSave|rollSkill|rollAttack|rollDamage|rollHitDie|rollDeathSave|rollResRecharge|rollCustom|castSpell)\s*\(/.test(normalized);
+}
+
+function getQuickActionMetaForCode(code, fallbackLabel = '') {
+    const normalized = normalizeQuickActionCode(code);
+    let match = null;
+    const fallback = String(fallbackLabel || '').trim();
+
+    if (normalized === 'rollInitiative()') {
+        return {
+            label: 'Initiative',
+            summary: 'd20 + Dex + Initiative + Misc'
+        };
+    }
+
+    match = normalized.match(/^rollDie\(\s*(\d+)\s*,\s*([^,]+)\s*,\s*'([^']*)'\s*,\s*(true|false)\s*,\s*'([^']*)'(?:\s*,\s*'([^']*)')?\s*\)$/);
+    if (match) {
+        const sides = parseInt(match[1], 10) || 20;
+        const bonus = parseInt(match[2], 10) || 0;
+        const labelFromCode = String(match[3] || '').trim();
+        const label = labelFromCode || fallback || `d${sides}`;
+        const bonusText = bonus ? ` ${bonus >= 0 ? '+' : ''}${bonus}` : '';
+        return {
+            label,
+            summary: `d${sides}${bonusText} roll`
+        };
+    }
+
+    match = normalized.match(/^rollCheck\(\s*'([a-z]{3})'\s*\)$/i);
+    if (match) {
+        const stat = String(match[1]).toUpperCase();
+        return {
+            label: `${stat} Check`,
+            summary: `d20 + ${stat} modifier`
+        };
+    }
+
+    match = normalized.match(/^rollSave\(\s*'([a-z]{3})'\s*\)$/i);
+    if (match) {
+        const stat = String(match[1]).toUpperCase();
+        return {
+            label: `${stat} Save`,
+            summary: `d20 + ${stat} save bonus`
+        };
+    }
+
+    match = normalized.match(/^rollSkill\(\s*'([^']+)'\s*\)$/i);
+    if (match) {
+        const skillName = toTitleCaseWords(match[1]);
+        return {
+            label: skillName || 'Skill Check',
+            summary: 'd20 skill check'
+        };
+    }
+
+    match = normalized.match(/^rollAttack\(\s*(\d+)\s*\)$/);
+    if (match) {
+        const idx = parseInt(match[1], 10);
+        const attackName = data && Array.isArray(data.attacks) && data.attacks[idx]
+            ? String(data.attacks[idx].name || '').trim()
+            : '';
+        return {
+            label: attackName ? `Atk: ${attackName}` : `Attack ${idx + 1}`,
+            summary: 'd20 attack roll'
+        };
+    }
+
+    match = normalized.match(/^rollDamage\(\s*(\d+)\s*\)$/);
+    if (match) {
+        const idx = parseInt(match[1], 10);
+        const attackName = data && Array.isArray(data.attacks) && data.attacks[idx]
+            ? String(data.attacks[idx].name || '').trim()
+            : '';
+        return {
+            label: attackName ? `Dmg: ${attackName}` : `Damage ${idx + 1}`,
+            summary: 'Roll damage'
+        };
+    }
+
+    match = normalized.match(/^rollResRecharge\(\s*(\d+)\s*\)$/);
+    if (match) {
+        const idx = parseInt(match[1], 10);
+        const resName = data && Array.isArray(data.resources) && data.resources[idx]
+            ? String(data.resources[idx].name || '').trim()
+            : '';
+        return {
+            label: resName ? `Recharge: ${resName}` : `Recharge ${idx + 1}`,
+            summary: 'Roll recharge formula'
+        };
+    }
+
+    if (normalized === 'rollHitDie()') {
+        return {
+            label: 'Hit Die',
+            summary: 'Roll and heal from hit die'
+        };
+    }
+
+    if (normalized === 'rollDeathSave()') {
+        return {
+            label: 'Death Save',
+            summary: 'd20 death save'
+        };
+    }
+
+    if (normalized === 'rollCustom()') {
+        return {
+            label: 'Custom Roll',
+            summary: 'Roll custom formula'
+        };
+    }
+
+    if (/^castSpell\(\s*\d+\s*\)$/.test(normalized)) {
+        return {
+            label: fallback || 'Cast Spell',
+            summary: 'Cast from spellbook'
+        };
+    }
+
+    return {
+        label: fallback || 'Quick Action',
+        summary: 'Pinned roll action'
+    };
+}
+
+function buildInitiativeQuickAction() {
+    return {
+        id: generateQuickActionId(),
+        kind: 'code',
+        signature: 'code:rollInitiative()',
+        code: 'rollInitiative()',
+        label: 'Initiative',
+        summary: 'd20 + Dex + Initiative + Misc'
+    };
+}
+
+function getDefaultQuickActions() {
+    return [buildInitiativeQuickAction()];
+}
+
+function sanitizeQuickActionEntry(entry, idx = 0) {
+    const row = isPlainObject(entry) ? entry : {};
+    const token = sanitizeString(row.id || `qa_${idx}`, `qa_${idx}`, 80).replace(/[^A-Za-z0-9_-]/g, '');
+    const id = token || `qa_${idx}`;
+    const kind = row.kind === 'spell' ? 'spell' : 'code';
+
+    if (kind === 'spell') {
+        const spellName = sanitizeString(row.spellName || row.label || '', '', 180).trim();
+        const spellIndex = Math.round(sanitizeNumber(row.spellIndex, -1, -1, 999));
+        const defaultLabel = spellName ? `Cast: ${spellName}` : `Spell ${Math.max(1, spellIndex + 1)}`;
+        const label = sanitizeString(row.label || defaultLabel, defaultLabel, 120).trim() || defaultLabel;
+        const summary = sanitizeString(row.summary || 'Cast spell from spellbook', 'Cast spell from spellbook', 220).trim()
+            || 'Cast spell from spellbook';
+        const signatureKey = normalizeSpellLookupName(spellName || label) || `idx${spellIndex}`;
+        return {
+            id,
+            kind: 'spell',
+            signature: `spell:${signatureKey}`,
+            spellName,
+            spellIndex,
+            label,
+            summary
+        };
+    }
+
+    const code = normalizeQuickActionCode(row.code || row.action || row.onclick || '');
+    if (!isSupportedQuickActionCode(code)) return null;
+    const meta = getQuickActionMetaForCode(code, row.label || '');
+    const label = sanitizeString(row.label || meta.label, meta.label, 120).trim() || meta.label;
+    const summary = sanitizeString(row.summary || meta.summary, meta.summary, 220).trim() || meta.summary;
+    return {
+        id,
+        kind: 'code',
+        signature: `code:${code}`,
+        code,
+        label,
+        summary
+    };
+}
+
+function sanitizeQuickActions(actions, options = {}) {
+    const allowEmpty = !!(options && options.allowEmpty);
+    const source = Array.isArray(actions) ? actions : [];
+    const out = [];
+    const seen = new Set();
+
+    source.slice(0, QUICK_ACTION_MAX_COUNT).forEach((entry, idx) => {
+        const sanitized = sanitizeQuickActionEntry(entry, idx);
+        if (!sanitized) return;
+        if (seen.has(sanitized.signature)) return;
+        seen.add(sanitized.signature);
+        out.push(sanitized);
+    });
+
+    if (!out.length && !allowEmpty) return getDefaultQuickActions();
+    return out;
+}
+
+function ensureQuickActionsState() {
+    if (!Array.isArray(data.quickActions)) {
+        data.quickActions = getDefaultQuickActions();
+        return;
+    }
+    data.quickActions = sanitizeQuickActions(data.quickActions, { allowEmpty: true });
+}
+
 // --- CHARACTER SWITCHING LOGIC ---
 function getDefaultChar() {
     let char = {
@@ -738,6 +964,7 @@ function getDefaultChar() {
         spells: [],
         spellbook: [],
         resources: [],
+        quickActions: getDefaultQuickActions(),
         rollMode: 'norm',
         uiState: {
             cardOrder: [],
@@ -1334,6 +1561,12 @@ function sanitizeCharacterData(rawChar) {
         };
     }) : [];
 
+    if (Array.isArray(source.quickActions)) {
+        out.quickActions = sanitizeQuickActions(source.quickActions, { allowEmpty: true });
+    } else {
+        out.quickActions = getDefaultQuickActions();
+    }
+
     out.rollMode = ['dis', 'norm', 'adv'].includes(source.rollMode) ? source.rollMode : 'norm';
     if (isPlainObject(source.uiState)) {
         out.uiState = { ...out.uiState, ...source.uiState };
@@ -1558,6 +1791,7 @@ function init() {
 
     loadActiveChar();
     setupDragAndDrop();
+    bindQuickActionCaptureEvents();
 }
 
 function populateUI() {
@@ -1583,6 +1817,8 @@ function populateUI() {
 
         ;
     if (!Array.isArray(data.spellbook)) data.spellbook = [];
+    if (!Array.isArray(data.quickActions)) data.quickActions = getDefaultQuickActions();
+    ensureQuickActionsState();
 
     ensureInventoryStructure(data);
     applySheetFaceState(normalizeSheetFace(data.uiState && data.uiState.sheetFace, data.uiState && data.uiState.isFlipped));
@@ -1654,6 +1890,8 @@ function populateUI() {
     }
 
     const accKeys = ['combat',
+        'quick',
+        'resources',
         'attr',
         'fav',
         'atk',
@@ -1683,6 +1921,7 @@ function populateUI() {
     renderFeatures();
     renderSpells();
     renderResources();
+    renderQuickActions();
     refreshBuffsUI();
     renderInventory();
     renderMyStoryBoard();
@@ -3938,6 +4177,260 @@ function renderResources() {
     });
 }
 
+function findQuickActionSpellIndex(action) {
+    if (!action || !Array.isArray(data.spellbook) || !data.spellbook.length) return -1;
+    const normalizedName = normalizeSpellLookupName(action.spellName || '');
+    if (normalizedName) {
+        const byName = data.spellbook.findIndex((entry) => {
+            const spell = sanitizeSpellbookEntry(entry);
+            return normalizeSpellLookupName(spell.name) === normalizedName;
+        });
+        if (byName >= 0) return byName;
+    }
+    const fallbackIndex = parseInt(action.spellIndex, 10);
+    if (Number.isFinite(fallbackIndex) && fallbackIndex >= 0 && fallbackIndex < data.spellbook.length) {
+        return fallbackIndex;
+    }
+    return -1;
+}
+
+function getQuickActionPresentation(action) {
+    if (action && action.kind === 'spell') {
+        const spellIdx = findQuickActionSpellIndex(action);
+        const found = spellIdx >= 0;
+        const liveSpell = found ? sanitizeSpellbookEntry(data.spellbook[spellIdx]) : null;
+        const liveName = liveSpell && liveSpell.name ? liveSpell.name.trim() : '';
+        const fallbackName = String(action.spellName || action.label || '').trim();
+        const displayName = liveName || fallbackName || 'Spell';
+        return {
+            available: found,
+            label: `Cast: ${displayName}`,
+            summary: found ? 'Cast spell from spellbook' : 'Spell missing (remove or re-add)',
+            spellIdx
+        };
+    }
+
+    const meta = getQuickActionMetaForCode(action && action.code ? action.code : '', action && action.label ? action.label : '');
+    return {
+        available: true,
+        label: String(action && action.label ? action.label : meta.label || 'Quick Action'),
+        summary: String(action && action.summary ? action.summary : meta.summary || 'Pinned roll action'),
+        spellIdx: -1
+    };
+}
+
+function renderQuickActions() {
+    const list = document.getElementById('quickActionsList');
+    if (!list) return;
+    ensureQuickActionsState();
+
+    if (!data.quickActions.length) {
+        list.innerHTML = '<div class="quick-action-empty">No quick actions yet. Right-click or long-press a roll button to pin one.</div>';
+        return;
+    }
+
+    list.innerHTML = data.quickActions.map((action) => {
+        const info = getQuickActionPresentation(action);
+        const safeId = escapeJsString(action.id);
+        const rowClass = info.available ? 'quick-action-row' : 'quick-action-row quick-action-row-missing';
+        const disabledAttr = info.available ? '' : ' disabled';
+        return `<div class="${rowClass}">
+            <button type="button" class="quick-action-trigger" data-onclick="runQuickAction('${safeId}')"${disabledAttr}>
+                <span class="quick-action-label">${escapeHtml(info.label)}</span>
+                <span class="quick-action-summary">${escapeHtml(info.summary)}</span>
+            </button>
+            <button type="button" class="quick-action-remove" data-onclick="removeQuickAction('${safeId}')" title="Remove quick action">&times;</button>
+        </div>`;
+    }).join('');
+}
+
+function executeQuickActionCode(code) {
+    const normalized = normalizeQuickActionCode(code);
+    if (!isSupportedQuickActionCode(normalized)) {
+        showLog('Quick Action', 'Unsupported');
+        return false;
+    }
+
+    try {
+        const fn = getDelegatedHandlerFn(normalized);
+        const fakeEvent = {
+            type: 'quickaction',
+            target: null,
+            currentTarget: null,
+            cancelBubble: false,
+            preventDefault() { },
+            stopPropagation() {
+                this.cancelBubble = true;
+            }
+        };
+        fn.call(window, fakeEvent);
+        return true;
+    } catch (err) {
+        console.error('Quick action execution failed:', normalized, err);
+        showLog('Quick Action', 'Failed');
+        return false;
+    }
+}
+
+async function runQuickAction(id) {
+    ensureQuickActionsState();
+    const action = data.quickActions.find((entry) => entry && entry.id === id);
+    if (!action) return;
+
+    if (action.kind === 'spell') {
+        const spellIdx = findQuickActionSpellIndex(action);
+        if (spellIdx < 0) {
+            showLog('Quick Action', 'Spell Missing');
+            return;
+        }
+        await castSpell(spellIdx);
+        return;
+    }
+
+    executeQuickActionCode(action.code);
+}
+
+function removeQuickAction(id) {
+    ensureQuickActionsState();
+    const before = data.quickActions.length;
+    data.quickActions = data.quickActions.filter((entry) => entry && entry.id !== id);
+    if (data.quickActions.length === before) return;
+    save();
+    renderQuickActions();
+}
+
+function buildQuickActionFromControl(control) {
+    if (!(control instanceof Element)) return null;
+    const codeRaw = control.getAttribute('data-onclick');
+    const code = normalizeQuickActionCode(codeRaw);
+    if (!isSupportedQuickActionCode(code)) return null;
+
+    const controlLabel = String(control.getAttribute('data-quick-label') || control.textContent || '').replace(/\s+/g, ' ').trim();
+    const spellMatch = code.match(/^castSpell\(\s*(\d+)\s*\)$/);
+    if (spellMatch) {
+        const idx = parseInt(spellMatch[1], 10);
+        const spell = Array.isArray(data.spellbook) && data.spellbook[idx] ? sanitizeSpellbookEntry(data.spellbook[idx]) : null;
+        const spellName = (spell && spell.name ? spell.name : controlLabel || `Spell ${idx + 1}`).trim();
+        const signatureKey = normalizeSpellLookupName(spellName) || `idx${idx}`;
+        return sanitizeQuickActionEntry({
+            id: generateQuickActionId(),
+            kind: 'spell',
+            signature: `spell:${signatureKey}`,
+            spellName,
+            spellIndex: idx,
+            label: `Cast: ${spellName}`,
+            summary: 'Cast spell from spellbook'
+        });
+    }
+
+    const meta = getQuickActionMetaForCode(code, controlLabel);
+    return sanitizeQuickActionEntry({
+        id: generateQuickActionId(),
+        kind: 'code',
+        signature: `code:${code}`,
+        code,
+        label: meta.label,
+        summary: meta.summary
+    });
+}
+
+function addQuickActionFromControl(control) {
+    ensureQuickActionsState();
+    const action = buildQuickActionFromControl(control);
+    if (!action) return false;
+
+    if (data.quickActions.some((entry) => entry && entry.signature === action.signature)) {
+        showLog('Quick Action', 'Already Saved');
+        return false;
+    }
+
+    if (data.quickActions.length >= QUICK_ACTION_MAX_COUNT) {
+        showLog('Quick Action', 'List Full');
+        return false;
+    }
+
+    data.quickActions.push(action);
+    save();
+    renderQuickActions();
+    showLog('Quick Action', `Saved: ${action.label}`);
+    return true;
+}
+
+function getQuickActionControlTarget(target) {
+    if (!(target instanceof Element)) return null;
+    const control = target.closest('button[data-onclick]');
+    if (!control || control.disabled) return null;
+    const code = normalizeQuickActionCode(control.getAttribute('data-onclick'));
+    if (!isSupportedQuickActionCode(code)) return null;
+    return control;
+}
+
+function clearQuickActionLongPress() {
+    if (quickActionLongPressTimer) {
+        clearTimeout(quickActionLongPressTimer);
+        quickActionLongPressTimer = null;
+    }
+    quickActionLongPressTarget = null;
+    quickActionLongPressPointerId = null;
+    quickActionLongPressStart = null;
+}
+
+function bindQuickActionCaptureEvents() {
+    if (quickActionEventsBound) return;
+    quickActionEventsBound = true;
+
+    document.addEventListener('contextmenu', (event) => {
+        const control = getQuickActionControlTarget(event.target);
+        if (!control) return;
+        event.preventDefault();
+        event.stopPropagation();
+        addQuickActionFromControl(control);
+    }, true);
+
+    document.addEventListener('pointerdown', (event) => {
+        if (event.pointerType === 'mouse') return;
+        if (event.button !== 0) return;
+        const control = getQuickActionControlTarget(event.target);
+        if (!control) return;
+        clearQuickActionLongPress();
+        quickActionLongPressTarget = control;
+        quickActionLongPressPointerId = event.pointerId;
+        quickActionLongPressStart = { x: event.clientX, y: event.clientY };
+        quickActionLongPressTimer = setTimeout(() => {
+            const activeTarget = quickActionLongPressTarget;
+            clearQuickActionLongPress();
+            if (!activeTarget) return;
+            if (addQuickActionFromControl(activeTarget)) {
+                quickActionSuppressClickUntil = Date.now() + 900;
+                quickActionSuppressTarget = activeTarget;
+            }
+        }, QUICK_ACTION_LONG_PRESS_MS);
+    }, true);
+
+    document.addEventListener('pointermove', (event) => {
+        if (!quickActionLongPressTimer || quickActionLongPressPointerId !== event.pointerId || !quickActionLongPressStart) return;
+        const dx = Math.abs(event.clientX - quickActionLongPressStart.x);
+        const dy = Math.abs(event.clientY - quickActionLongPressStart.y);
+        if (dx > QUICK_ACTION_LONG_PRESS_MOVE_PX || dy > QUICK_ACTION_LONG_PRESS_MOVE_PX) {
+            clearQuickActionLongPress();
+        }
+    }, true);
+
+    document.addEventListener('pointerup', clearQuickActionLongPress, true);
+    document.addEventListener('pointercancel', clearQuickActionLongPress, true);
+    document.addEventListener('scroll', clearQuickActionLongPress, true);
+
+    document.addEventListener('click', (event) => {
+        if (Date.now() > quickActionSuppressClickUntil) return;
+        const control = getQuickActionControlTarget(event.target);
+        if (!control || control !== quickActionSuppressTarget) return;
+        event.preventDefault();
+        event.stopPropagation();
+        quickActionSuppressClickUntil = 0;
+        quickActionSuppressTarget = null;
+    }, true);
+}
+
 // --- INVENTORY MANAGEMENT ---
 function renderInventory() {
     if (!data || !data.inventory) return;
@@ -5435,3 +5928,5 @@ window.applySpellReferenceToSpellEntry = applySpellReferenceToSpellEntry;
 window.matchSpellbookEntriesByName = matchSpellbookEntriesByName;
 window.sanitizeSpellbookEntry = sanitizeSpellbookEntry;
 window.syncSpellbookWithSrd = syncSpellbookWithSrd;
+window.runQuickAction = runQuickAction;
+window.removeQuickAction = removeQuickAction;

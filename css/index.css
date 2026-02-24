@@ -564,6 +564,8 @@ input:checked+.slider:before {
     align-items: center;
     position: relative;
     min-height: 20px;
+    padding-left: 30px;
+    padding-right: 30px;
 }
 
 .prof-toggle-abs {
@@ -574,7 +576,13 @@ input:checked+.slider:before {
     font-size: 1.2rem;
     cursor: pointer;
     z-index: 5;
-    padding: 5px;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 6px;
+    line-height: 1;
     opacity: 0.6;
     transition: opacity 0.2s;
 }
@@ -589,7 +597,13 @@ input:checked+.slider:before {
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
-    padding: 5px;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 6px;
+    line-height: 1;
     z-index: 5;
 }
 
@@ -1055,33 +1069,6 @@ textarea:focus {
     border: 1px solid var(--btn-border);
     box-shadow: var(--btn-glow);
     transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
-}
-
-.vitals-action-row {
-    margin-bottom: 10px;
-}
-
-.btn-init-roll-main {
-    width: 100%;
-    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
-    color: var(--accent-contrast);
-    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 50%, var(--btn-border) 50%);
-    border-radius: 8px;
-    font-weight: 800;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    box-shadow: 0 10px 22px color-mix(in srgb, var(--accent-glow) 55%, rgba(0, 0, 0, 0.35) 45%);
-    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
-}
-
-.btn-init-roll-main:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.06);
-    box-shadow: 0 12px 28px color-mix(in srgb, var(--accent-glow) 62%, rgba(0, 0, 0, 0.28) 38%);
-}
-
-.btn-init-roll-main:active {
-    transform: translateY(0);
 }
 
 .ac-wrapper {
@@ -1570,7 +1557,6 @@ textarea:focus {
 }
 
 button {
-    min-height: 44px;
     border: none;
     border-radius: 6px;
     font-weight: bold;
@@ -1579,6 +1565,21 @@ button {
     box-shadow:
         inset 0 1px 0 var(--ink-backdrop-light),
         inset 0 -1px 0 var(--ink-backdrop-dark);
+}
+
+/* Keep tap-target sizing on high-emphasis actions without forcing compact utility controls taller. */
+:is(
+    .hero-btn,
+    .add-btn,
+    .inventory-create-btn,
+    .btn-roll-custom,
+    .btn-heal,
+    .btn-dmg,
+    .btn-rest,
+    .btn-roll-hd,
+    .spellbook-cast-btn
+) {
+    min-height: 44px;
 }
 
 .add-btn {
@@ -1610,6 +1611,90 @@ button {
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.quick-actions-hint {
+    font-size: 0.78rem;
+    color: var(--accent-muted);
+    margin-bottom: 10px;
+}
+
+.quick-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quick-action-empty {
+    padding: 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #888;
+    font-size: 0.82rem;
+}
+
+.quick-action-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: stretch;
+    background: #252525;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 8px;
+}
+
+.quick-action-row.quick-action-row-missing {
+    border-style: dashed;
+    opacity: 0.7;
+}
+
+.quick-action-trigger {
+    min-width: 0;
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 45%, #343434 55%);
+    background: color-mix(in srgb, var(--surface-soft) 85%, rgba(0, 0, 0, 0.25));
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 10px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    box-shadow: none;
+}
+
+.quick-action-trigger:hover {
+    border-color: color-mix(in srgb, var(--accent-secondary) 62%, rgba(255, 255, 255, 0.24));
+    background: color-mix(in srgb, var(--surface-strong) 82%, rgba(0, 0, 0, 0.2));
+}
+
+.quick-action-label {
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.quick-action-summary {
+    font-size: 0.72rem;
+    color: #9ca3b5;
+    line-height: 1.2;
+}
+
+.quick-action-remove {
+    width: 36px;
+    min-height: 36px;
+    border: 1px solid #444;
+    border-radius: 8px;
+    background: transparent;
+    color: #888;
+    box-shadow: none;
+    font-size: 1rem;
+}
+
+.quick-action-remove:hover {
+    border-color: var(--danger);
+    color: var(--danger);
 }
 
 .resource-row {

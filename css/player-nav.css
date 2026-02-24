@@ -4,11 +4,8 @@
 
 .hero-actions.has-hero-menu {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
     gap: 8px;
-    width: auto;
+    min-width: 0;
 }
 
 .hero-actions.has-hero-menu .sheet-nav-group {
@@ -154,5 +151,36 @@
 
     .hero-add-row {
         margin-top: 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-actions.has-hero-menu {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        align-items: stretch;
+    }
+
+    .hero-actions.has-hero-menu .sheet-nav-group {
+        grid-column: 1 / -1;
+        width: 100%;
+        justify-content: stretch;
+        margin-right: 0;
+    }
+
+    .hero-actions.has-hero-menu .hero-menu-controls {
+        grid-column: 1 / -1;
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .hero-actions.has-hero-menu .hero-menu-btn {
+        width: 100%;
+        min-width: 0;
+        min-height: 40px;
     }
 }
