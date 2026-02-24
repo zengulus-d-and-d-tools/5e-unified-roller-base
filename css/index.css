@@ -250,7 +250,7 @@ body {
 
 .quick-actions-toggle {
     width: 100%;
-    min-height: 46px;
+    min-height: 42px;
     border-radius: 12px;
     border: 1px solid color-mix(in srgb, var(--accent) 72%, rgba(255, 255, 255, 0.2));
     background:
@@ -258,10 +258,9 @@ body {
             color-mix(in srgb, var(--accent) 64%, #0a1a2a 36%),
             color-mix(in srgb, var(--accent-secondary) 70%, #08111f 30%));
     color: #f8fbff;
-    display: grid;
-    align-content: center;
-    justify-items: start;
-    gap: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
     padding: 10px 14px;
     box-shadow:
         0 14px 28px rgba(0, 0, 0, 0.36),
@@ -289,6 +288,19 @@ body {
     letter-spacing: 0.01em;
     color: color-mix(in srgb, #f5fbff 72%, var(--accent-secondary) 28%);
     line-height: 1.2;
+}
+
+.quick-actions-panel-hint {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 0.72rem;
+    color: var(--accent-muted);
+    line-height: 1.3;
+}
+
+.quick-actions-panel-hint[hidden] {
+    display: none;
 }
 
 .quick-actions-panel {

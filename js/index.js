@@ -4288,10 +4288,28 @@ function getQuickActionPresentation(action) {
     };
 }
 
+function updateQuickActionsInstructionState(hasCustomActions) {
+    const hintText = 'Right-click or long-press a die roll to add a quick action.';
+    const toggle = document.getElementById('btnQuickActionsToggle');
+    const panelHint = document.getElementById('quickActionsPanelHint');
+
+    if (toggle) {
+        if (hasCustomActions) toggle.setAttribute('title', hintText);
+        else toggle.removeAttribute('title');
+    }
+
+    if (panelHint) {
+        panelHint.hidden = !!hasCustomActions;
+        panelHint.textContent = hasCustomActions ? '' : hintText;
+    }
+}
+
 function renderQuickActions() {
     const list = document.getElementById('quickActionsList');
     if (!list) return;
     ensureQuickActionsState();
+    const hasCustomActions = data.quickActions.some((entry) => entry && !isInitiativeQuickAction(entry));
+    updateQuickActionsInstructionState(hasCustomActions);
 
     if (!data.quickActions.length) {
         list.innerHTML = '<div class="quick-action-empty">No quick actions yet. Right-click or long-press a roll button to pin one.</div>';
