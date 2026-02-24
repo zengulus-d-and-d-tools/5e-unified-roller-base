@@ -10,7 +10,7 @@
 
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/player-nav.css?v=20260223a">
-    <link rel="stylesheet" href="css/index.css?v=20260224g">
+    <link rel="stylesheet" href="css/index.css?v=20260224i">
 
 </head>
 
@@ -54,6 +54,16 @@
                 <button class="hero-btn ghost sheet-nav-btn" id="btnSheetStory" data-onclick="setSheetFace('my-story')"
                     data-face="my-story" role="tab" aria-selected="false" aria-pressed="false">My Story</button>
             </div>
+            <div class="quick-actions-header" id="quickActionsHeader">
+                <button type="button" class="hero-btn quick-actions-toggle" id="btnQuickActionsToggle"
+                    data-onclick="toggleQuickActionsPanel()" aria-controls="quickActionsPanel" aria-expanded="false">
+                    <span class="quick-actions-toggle-title">OPEN QUICK ACTIONS</span>
+                    <span class="quick-actions-toggle-subtitle">Right click / long press to add a quick action</span>
+                </button>
+                <div class="quick-actions-panel" id="quickActionsPanel" hidden>
+                    <div class="quick-actions-list" id="quickActionsList"></div>
+                </div>
+            </div>
             <a href="tools.html" class="hero-btn ghost">Portal</a>
             <button class="hero-btn ghost" data-onclick="triggerAccentPicker()">🎨</button>
             <button class="hero-btn ghost" id="btn-bg-style" data-onclick="cycleBgStyle()">🌌</button>
@@ -72,23 +82,11 @@
                         Import from PDF</button>
                     <div class="card" id="card-vitals">
                         <div class="drag-grip"></div>
-                        <div class="char-switcher-row"><select id="charSelect"
-                                data-onchange="switchCharacter(this.value)"></select><button
-                                class="btn-char-control btn-char-add" data-onclick="createNewCharacter()">+</button><button
-                                class="btn-char-control btn-char-del" data-onclick="deleteCharacter()">🗑️</button></div>
-                        <div class="header-grid">
+                        <div class="header-grid vitals-header-grid">
                             <div class="field-group"><label>Character Name</label><input type="text" id="charName"
                                     placeholder="Name" data-oninput="save()"></div>
                             <div class="field-group"><label>Level</label><input type="number" id="charLevel" value="1"
                                     data-oninput="updateLevel(this.value)"></div>
-                            <div class="field-group"><label>Caster Type</label><select id="casterType"
-                                    data-onchange="save()">
-                                    <option value="none">None</option>
-                                    <option value="full">Full Caster</option>
-                                    <option value="half">Half (Pal/Rgr)</option>
-                                    <option value="third">1/3 (AT/EK)</option>
-                                    <option value="pact">Warlock</option>
-                                </select></div>
                         </div>
                         <div class="section-title mt-2">Vitals & Health</div>
                         <div class="hp-visual-bar">
@@ -183,18 +181,6 @@
                         <div class="rest-row"><button class="btn-rest" data-onclick="shortRest()">Short Rest</button><button
                                 class="btn-rest" data-onclick="longRest()">Long Rest</button></div>
                     </div>
-                    <div class="card" id="card-quick">
-                        <div class="drag-grip"></div>
-                        <div class="section-title" id="head-quick">
-                            <span>Quick Actions</span>
-                            <span class="accordion-trigger-abs" data-onclick="toggleSection('quick')"></span>
-                        </div>
-                        <div class="accordion-content" id="body-quick">
-                            <div class="quick-actions-hint">Right-click a roll button (or long-press on mobile) to pin it
-                                here.</div>
-                            <div class="quick-actions-list" id="quickActionsList"></div>
-                        </div>
-                    </div>
                     <div class="card" id="card-combat">
                         <div class="drag-grip"></div>
                         <div class="section-title" id="head-combat">
@@ -270,7 +256,15 @@
                         <div class="drag-grip"></div>
                         <div class="section-title"><span>Sheet Settings</span><span
                                 class="accordion-trigger-abs collapsed" data-onclick="toggleAccordion(this)"></span></div>
-                        <div class="accordion-content collapsed"><label class="ix-inl-034">
+                        <div class="accordion-content collapsed">
+                            <div class="settings-character-switcher">
+                                <label>Character Roster</label>
+                                <div class="char-switcher-row"><select id="charSelect"
+                                        data-onchange="switchCharacter(this.value)"></select><button
+                                        class="btn-char-control btn-char-add" data-onclick="createNewCharacter()">+</button><button
+                                        class="btn-char-control btn-char-del" data-onclick="deleteCharacter()">🗑️</button></div>
+                            </div>
+                            <label class="ix-inl-034">
                                 <div class="toggle-switch"><input type="checkbox" id="showHiddenCards"
                                         data-onchange="toggleShowHidden(this.checked)"><span class="slider"></span></div>
                                 <span class="ix-inl-035">Show Hidden Cards</span>
@@ -414,17 +408,29 @@
                     </div>
                     <div class="spell-sheet-grid">
                         <div class="spell-sheet-casting">
-                            <div class="field-group">
-                                <label>Spellcasting Attribute</label>
-                                <select id="spellCastingAttr" data-onchange="updateSpellcastingAttr(this.value)">
-                                    <option value="auto">Auto (Best Mental)</option>
-                                    <option value="str">Strength</option>
-                                    <option value="dex">Dexterity</option>
-                                    <option value="con">Constitution</option>
-                                    <option value="int">Intelligence</option>
-                                    <option value="wis">Wisdom</option>
-                                    <option value="cha">Charisma</option>
-                                </select>
+                            <div class="spell-sheet-casting-selectors">
+                                <div class="field-group">
+                                    <label>Spellcasting Attribute</label>
+                                    <select id="spellCastingAttr" data-onchange="updateSpellcastingAttr(this.value)">
+                                        <option value="auto">Auto (Best Mental)</option>
+                                        <option value="str">Strength</option>
+                                        <option value="dex">Dexterity</option>
+                                        <option value="con">Constitution</option>
+                                        <option value="int">Intelligence</option>
+                                        <option value="wis">Wisdom</option>
+                                        <option value="cha">Charisma</option>
+                                    </select>
+                                </div>
+                                <div class="field-group">
+                                    <label>Caster Type</label>
+                                    <select id="casterType" data-onchange="save()">
+                                        <option value="none">None</option>
+                                        <option value="full">Full Caster</option>
+                                        <option value="half">Half (Pal/Rgr)</option>
+                                        <option value="third">1/3 (AT/EK)</option>
+                                        <option value="pact">Warlock</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="spell-sheet-metrics">
                                 <div class="spell-metric">
@@ -468,7 +474,7 @@
                 <div class="my-story-sheet my-story-embed-sheet">
                     <div class="my-story-frame-shell">
                         <iframe id="myStoryBoardFrame" class="my-story-frame"
-                            src="board.html?embedded=my-story&v=20260224g" title="My Story Board" loading="lazy"
+                            src="board.html?embedded=my-story&v=20260224h" title="My Story Board" loading="lazy"
                             referrerpolicy="same-origin"></iframe>
                     </div>
                 </div>
@@ -605,9 +611,9 @@
     <script src="js/sw-register.js"></script>
     <script src="js/pdf.min.js"></script>
     <script src="js/importer.js?v=20260222e"></script>
-    <script src="js/index.js?v=20260224g"></script>
+    <script src="js/index.js?v=20260224i"></script>
     <script src="js/player-nav.js?v=20260222d"></script>
-    <script src="js/vector-field.js?v=20260224g"></script>
+    <script src="js/vector-field.js?v=20260224h"></script>
 </body>
 
 </html>

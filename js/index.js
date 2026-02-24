@@ -61,7 +61,11 @@ let spellbookHideEmptyFieldsOnLoad = true;
 const QUICK_ACTION_MAX_COUNT = 60;
 const QUICK_ACTION_LONG_PRESS_MS = 550;
 const QUICK_ACTION_LONG_PRESS_MOVE_PX = 12;
+const QUICK_ACTION_INITIATIVE_CODE = 'rollInitiative()';
+const QUICK_ACTION_INITIATIVE_SIGNATURE = `code:${QUICK_ACTION_INITIATIVE_CODE}`;
 let quickActionEventsBound = false;
+let quickActionsPanelOpen = false;
+let quickActionsPanelEventsBound = false;
 let quickActionLongPressTimer = null;
 let quickActionLongPressTarget = null;
 let quickActionLongPressPointerId = null;
@@ -812,8 +816,8 @@ function buildInitiativeQuickAction() {
     return {
         id: generateQuickActionId(),
         kind: 'code',
-        signature: 'code:rollInitiative()',
-        code: 'rollInitiative()',
+        signature: QUICK_ACTION_INITIATIVE_SIGNATURE,
+        code: QUICK_ACTION_INITIATIVE_CODE,
         label: 'Initiative',
         summary: 'd20 + Dex + Initiative + Misc'
     };
@@ -821,6 +825,69 @@ function buildInitiativeQuickAction() {
 
 function getDefaultQuickActions() {
     return [buildInitiativeQuickAction()];
+}
+
+function isInitiativeQuickAction(entry) {
+    if (!entry) return false;
+    if (entry.signature === QUICK_ACTION_INITIATIVE_SIGNATURE) return true;
+    const code = normalizeQuickActionCode(entry.code || entry.action || entry.onclick || '');
+    return code === QUICK_ACTION_INITIATIVE_CODE;
+}
+
+function normalizeInitiativeQuickActionEntry(entry) {
+    const seed = buildInitiativeQuickAction();
+    const row = isPlainObject(entry) ? entry : {};
+    const idToken = sanitizeString(row.id || seed.id, seed.id, 80).replace(/[^A-Za-z0-9_-]/g, '');
+    return {
+        ...seed,
+        id: idToken || seed.id,
+        summary: sanitizeString(row.summary || seed.summary, seed.summary, 220).trim() || seed.summary
+    };
+}
+
+function enforceInitiativeQuickAction(actions) {
+    const source = Array.isArray(actions) ? actions : [];
+    const existing = source.find((entry) => isInitiativeQuickAction(entry));
+    const initiative = normalizeInitiativeQuickActionEntry(existing);
+    const rest = source.filter((entry) => !isInitiativeQuickAction(entry));
+    return [initiative, ...rest].slice(0, QUICK_ACTION_MAX_COUNT);
+}
+
+function setQuickActionsPanelOpen(open) {
+    quickActionsPanelOpen = !!open;
+    const panel = document.getElementById('quickActionsPanel');
+    const toggle = document.getElementById('btnQuickActionsToggle');
+    if (!panel || !toggle) return;
+
+    panel.hidden = !quickActionsPanelOpen;
+    toggle.classList.toggle('active', quickActionsPanelOpen);
+    toggle.setAttribute('aria-expanded', quickActionsPanelOpen ? 'true' : 'false');
+
+    if (quickActionsPanelOpen) renderQuickActions();
+}
+
+function toggleQuickActionsPanel(forceOpen) {
+    const nextState = typeof forceOpen === 'boolean' ? forceOpen : !quickActionsPanelOpen;
+    setQuickActionsPanelOpen(nextState);
+}
+
+function bindQuickActionsPanelEvents() {
+    if (quickActionsPanelEventsBound) return;
+    quickActionsPanelEventsBound = true;
+
+    document.addEventListener('click', (event) => {
+        if (!quickActionsPanelOpen) return;
+        const shell = document.getElementById('quickActionsHeader');
+        const target = event.target instanceof Node ? event.target : null;
+        if (shell && target && shell.contains(target)) return;
+        setQuickActionsPanelOpen(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (!quickActionsPanelOpen) return;
+        if (event.key !== 'Escape') return;
+        setQuickActionsPanelOpen(false);
+    });
 }
 
 function sanitizeQuickActionEntry(entry, idx = 0) {
@@ -877,8 +944,9 @@ function sanitizeQuickActions(actions, options = {}) {
         out.push(sanitized);
     });
 
-    if (!out.length && !allowEmpty) return getDefaultQuickActions();
-    return out;
+    const normalized = enforceInitiativeQuickAction(out);
+    if (!normalized.length && !allowEmpty) return getDefaultQuickActions();
+    return normalized;
 }
 
 function ensureQuickActionsState() {
@@ -1792,6 +1860,8 @@ function init() {
     loadActiveChar();
     setupDragAndDrop();
     bindQuickActionCaptureEvents();
+    bindQuickActionsPanelEvents();
+    setQuickActionsPanelOpen(false);
 }
 
 function populateUI() {
@@ -1890,7 +1960,6 @@ function populateUI() {
     }
 
     const accKeys = ['combat',
-        'quick',
         'resources',
         'attr',
         'fav',
@@ -4232,14 +4301,22 @@ function renderQuickActions() {
     list.innerHTML = data.quickActions.map((action) => {
         const info = getQuickActionPresentation(action);
         const safeId = escapeJsString(action.id);
-        const rowClass = info.available ? 'quick-action-row' : 'quick-action-row quick-action-row-missing';
+        const locked = isInitiativeQuickAction(action);
+        const rowClass = [
+            'quick-action-row',
+            info.available ? '' : 'quick-action-row-missing',
+            locked ? 'quick-action-row-locked' : ''
+        ].filter(Boolean).join(' ');
         const disabledAttr = info.available ? '' : ' disabled';
+        const removeBtn = locked
+            ? '<button type="button" class="quick-action-remove quick-action-remove-locked" title="Initiative is pinned and cannot be removed." disabled>&times;</button>'
+            : `<button type="button" class="quick-action-remove" data-onclick="removeQuickAction('${safeId}')" title="Remove quick action">&times;</button>`;
         return `<div class="${rowClass}">
             <button type="button" class="quick-action-trigger" data-onclick="runQuickAction('${safeId}')"${disabledAttr}>
                 <span class="quick-action-label">${escapeHtml(info.label)}</span>
                 <span class="quick-action-summary">${escapeHtml(info.summary)}</span>
             </button>
-            <button type="button" class="quick-action-remove" data-onclick="removeQuickAction('${safeId}')" title="Remove quick action">&times;</button>
+            ${removeBtn}
         </div>`;
     }).join('');
 }
@@ -4292,9 +4369,15 @@ async function runQuickAction(id) {
 
 function removeQuickAction(id) {
     ensureQuickActionsState();
-    const before = data.quickActions.length;
-    data.quickActions = data.quickActions.filter((entry) => entry && entry.id !== id);
-    if (data.quickActions.length === before) return;
+    const index = data.quickActions.findIndex((entry) => entry && entry.id === id);
+    if (index < 0) return;
+    if (isInitiativeQuickAction(data.quickActions[index])) {
+        showLog('Quick Action', 'Initiative Locked');
+        return;
+    }
+
+    data.quickActions.splice(index, 1);
+    data.quickActions = sanitizeQuickActions(data.quickActions, { allowEmpty: true });
     save();
     renderQuickActions();
 }
@@ -5928,5 +6011,6 @@ window.applySpellReferenceToSpellEntry = applySpellReferenceToSpellEntry;
 window.matchSpellbookEntriesByName = matchSpellbookEntriesByName;
 window.sanitizeSpellbookEntry = sanitizeSpellbookEntry;
 window.syncSpellbookWithSrd = syncSpellbookWithSrd;
+window.toggleQuickActionsPanel = toggleQuickActionsPanel;
 window.runQuickAction = runQuickAction;
 window.removeQuickAction = removeQuickAction;
