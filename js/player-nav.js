@@ -84,6 +84,8 @@
             const fallbackItems = Array.from(actions.children).filter((child) => {
                 if (!(child instanceof HTMLElement)) return false;
                 if (child.classList.contains('sheet-nav-group')) return false;
+                if (child.classList.contains('quick-actions-header')) return false;
+                if (child.id === 'quickActionsHeader') return false;
                 if (child.classList.contains('hero-menu-controls')) return false;
                 if (child.classList.contains('hero-menu-panel')) return false;
                 return true;
@@ -129,6 +131,7 @@
         settingsPanel.appendChild(panelHeader);
 
         bars.forEach((bar) => {
+            if (bar.querySelector('.quick-actions-header, #quickActionsHeader')) return;
             const hasControls = !!bar.querySelector('a, button, input, select, textarea');
             if (!hasControls) return;
             settingsPanel.appendChild(bar);
