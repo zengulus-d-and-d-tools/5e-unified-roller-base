@@ -10,7 +10,8 @@
         INIT: 'rtf-my-story:init',
         UPDATE: 'rtf-my-story:update',
         SAVE: 'rtf-my-story:save',
-        READY: 'rtf-my-story:ready'
+        READY: 'rtf-my-story:ready',
+        POINTER: 'rtf-my-story:pointer'
     });
 
     const DEFAULT_BOARD = Object.freeze({
@@ -105,6 +106,66 @@
 
     window.addEventListener('message', handleMessage);
 
+    let queuedPointerPayload = null;
+    let pointerRaf = null;
+
+    function flushQueuedPointer() {
+        pointerRaf = null;
+        if (!queuedPointerPayload) return;
+        const payload = queuedPointerPayload;
+        queuedPointerPayload = null;
+        postToParent(MSG.POINTER, payload);
+    }
+
+    function postPointer(kind, x, y, immediate = false) {
+        const cx = Number(x);
+        const cy = Number(y);
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
+        const payload = { kind: String(kind || ''), x: cx, y: cy };
+        if (immediate) {
+            postToParent(MSG.POINTER, payload);
+            return;
+        }
+        queuedPointerPayload = payload;
+        if (pointerRaf !== null) return;
+        pointerRaf = window.requestAnimationFrame(flushQueuedPointer);
+    }
+
+    function bindPointerBridge() {
+        if (document.documentElement.dataset.myStoryPointerBridgeBound === '1') return;
+        document.documentElement.dataset.myStoryPointerBridgeBound = '1';
+
+        window.addEventListener('mousemove', (event) => {
+            postPointer('move', event.clientX, event.clientY, false);
+        }, { passive: true });
+
+        window.addEventListener('mousedown', (event) => {
+            postPointer('down', event.clientX, event.clientY, true);
+        });
+
+        window.addEventListener('mouseup', (event) => {
+            postPointer('up', event.clientX, event.clientY, true);
+        });
+
+        window.addEventListener('touchstart', (event) => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            postPointer('down', touch.clientX, touch.clientY, true);
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (event) => {
+            const touch = event.touches && event.touches[0];
+            if (!touch) return;
+            postPointer('move', touch.clientX, touch.clientY, false);
+        }, { passive: true });
+
+        window.addEventListener('touchend', (event) => {
+            const touch = event.changedTouches && event.changedTouches[0];
+            if (!touch) return;
+            postPointer('up', touch.clientX, touch.clientY, true);
+        }, { passive: true });
+    }
+
     window.RTF_BOARD_HOST = {
         mode: 'my-story',
         whenReady() {
@@ -138,6 +199,7 @@
     };
 
     applyMyStoryChrome();
+    bindPointerBridge();
     const requested = postToParent(MSG.REQUEST_INIT, null);
     if (!requested) markReady();
     setTimeout(() => {

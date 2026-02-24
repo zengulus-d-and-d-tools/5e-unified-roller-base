@@ -66,7 +66,8 @@ const MY_STORY_MSG = Object.freeze({
     INIT: 'rtf-my-story:init',
     UPDATE: 'rtf-my-story:update',
     SAVE: 'rtf-my-story:save',
-    READY: 'rtf-my-story:ready'
+    READY: 'rtf-my-story:ready',
+    POINTER: 'rtf-my-story:pointer'
 });
 
 function updateRollerStickyOffset() {
@@ -552,6 +553,38 @@ function postMyStoryFrameMessage(type, payload = null) {
     return true;
 }
 
+function handleMyStoryPointerPacket(payload) {
+    const packet = isPlainObject(payload) ? payload : null;
+    if (!packet) return;
+    const kind = String(packet.kind || '').toLowerCase();
+    if (!kind) return;
+
+    const localX = Number(packet.x);
+    const localY = Number(packet.y);
+    if (!Number.isFinite(localX) || !Number.isFinite(localY)) return;
+
+    const frameEl = getMyStoryFrameElement();
+    if (!frameEl) return;
+    const rect = frameEl.getBoundingClientRect();
+    const clientX = rect.left + localX;
+    const clientY = rect.top + localY;
+
+    const vectorInput = window.RTF_VECTOR_FIELD_INPUT;
+    if (!vectorInput || typeof vectorInput !== 'object') return;
+
+    if (kind === 'move' && typeof vectorInput.move === 'function') {
+        vectorInput.move(clientX, clientY);
+        return;
+    }
+    if (kind === 'down' && typeof vectorInput.down === 'function') {
+        vectorInput.down(clientX, clientY);
+        return;
+    }
+    if (kind === 'up' && typeof vectorInput.up === 'function') {
+        vectorInput.up(clientX, clientY);
+    }
+}
+
 function handleMyStoryFrameMessage(event) {
     if (!event || event.origin !== window.location.origin) return;
     const frameWin = getMyStoryFrameWindow();
@@ -575,6 +608,11 @@ function handleMyStoryFrameMessage(event) {
 
     if (packet.type === MY_STORY_MSG.READY) {
         myStoryBoardInitialized = true;
+        return;
+    }
+
+    if (packet.type === MY_STORY_MSG.POINTER) {
+        handleMyStoryPointerPacket(packet.payload);
     }
 }
 

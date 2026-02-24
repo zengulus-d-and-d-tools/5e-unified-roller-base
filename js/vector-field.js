@@ -931,13 +931,8 @@
     // Moved to top of file
 
 
-    // =========================================
-    //            EVENT LISTENERS
-    // =========================================
-    window.addEventListener('resize', resize);
-    window.addEventListener('mousemove', e => {
-        const currentX = e.clientX;
-        const currentY = e.clientY;
+    function applyPointerMove(currentX, currentY) {
+        if (!Number.isFinite(currentX) || !Number.isFinite(currentY)) return;
 
         if (mouse.prevX === -999) {
             mouseTrack.push({ x: currentX, y: currentY, life: 12 });
@@ -979,46 +974,100 @@
 
         mouse.prevX = mouse.x = currentX;
         mouse.prevY = mouse.y = currentY;
+    }
+
+    function applyPointerDown(currentX, currentY, options = {}) {
+        if (Number.isFinite(currentX) && Number.isFinite(currentY)) {
+            mouse.prevX = mouse.x = currentX;
+            mouse.prevY = mouse.y = currentY;
+        }
+
+        const allowStyleEffects = options.allowStyleEffects !== false;
+        if (allowStyleEffects && Number.isFinite(currentX) && Number.isFinite(currentY)) {
+            if (STYLES[currentStyleIdx].id === 'NEBULA') {
+                spawnNebulaPulse(currentX, currentY);
+            }
+            if (STYLES[currentStyleIdx].id === 'MATRIX') {
+                const col = Math.floor(currentX / 20) * 20;
+                const newDrop = {
+                    x: col,
+                    y: currentY,
+                    vy: 2 + Math.random() * 4,
+                    len: 10 + Math.floor(Math.random() * 20),
+                    vals: [],
+                    highlights: [],
+                    isHighlight: Math.random() < 0.05,
+                    first: true
+                };
+                for (let j = 0; j < newDrop.len; j++) {
+                    newDrop.vals.push(getRandomMatrixChar());
+                    newDrop.highlights.push(false);
+                }
+                matrixDrops.push(newDrop);
+            }
+        }
+
+        mouse.down = true;
+        activity = 1;
+    }
+
+    function applyPointerUp(currentX, currentY, options = {}) {
+        if (Number.isFinite(currentX) && Number.isFinite(currentY)) {
+            mouse.prevX = mouse.x = currentX;
+            mouse.prevY = mouse.y = currentY;
+        }
+        if (options.shock !== false) {
+            spawnShockwave(mouse.x, mouse.y);
+        }
+        mouse.down = false;
+    }
+
+    window.RTF_VECTOR_FIELD_INPUT = {
+        move(x, y) {
+            applyPointerMove(Number(x), Number(y));
+        },
+        down(x, y) {
+            applyPointerDown(Number(x), Number(y), { allowStyleEffects: true });
+        },
+        up(x, y) {
+            applyPointerUp(Number(x), Number(y), { shock: true });
+        },
+        shock(x, y) {
+            const sx = Number(x);
+            const sy = Number(y);
+            if (!Number.isFinite(sx) || !Number.isFinite(sy)) return;
+            spawnShockwave(sx, sy);
+        }
+    };
+
+    // =========================================
+    //            EVENT LISTENERS
+    // =========================================
+    window.addEventListener('resize', resize);
+    window.addEventListener('mousemove', e => {
+        applyPointerMove(e.clientX, e.clientY);
     });
     window.addEventListener('mousedown', e => {
-        // Continuous force handles interaction now, shockwave on release
-        if (STYLES[currentStyleIdx].id === 'NEBULA') {
-            spawnNebulaPulse(e.clientX, e.clientY);
-        }
-        if (STYLES[currentStyleIdx].id === 'MATRIX') {
-            const col = Math.floor(e.clientX / 20) * 20;
-            const newDrop = {
-                x: col,
-                y: e.clientY,
-                vy: 2 + Math.random() * 4, // Slower (2-6)
-                len: 10 + Math.floor(Math.random() * 20),
-                vals: [],
-                highlights: [],
-                isHighlight: Math.random() < 0.05,
-                first: true
-            };
-            for (let j = 0; j < newDrop.len; j++) {
-                newDrop.vals.push(getRandomMatrixChar());
-                newDrop.highlights.push(false);
-            }
-            matrixDrops.push(newDrop);
-        }
-        mouse.down = true;
+        applyPointerDown(e.clientX, e.clientY, { allowStyleEffects: true });
     });
     window.addEventListener('mouseup', e => {
-        spawnShockwave(mouse.x, mouse.y); // Ripple on release
-        mouse.down = false;
+        applyPointerUp(e.clientX, e.clientY, { shock: true });
     });
     window.addEventListener('touchstart', e => {
-        const touch = e.touches[0];
-        // spawnShockwave(touch.clientX, touch.clientY); // Removed
-        mouse.prevX = mouse.x = touch.clientX;
-        mouse.prevY = mouse.y = touch.clientY;
-        mouse.down = true;
+        const touch = e.touches && e.touches[0];
+        if (!touch) return;
+        applyPointerDown(touch.clientX, touch.clientY, { allowStyleEffects: false });
     });
-    window.addEventListener('touchend', () => {
-        spawnShockwave(mouse.x, mouse.y); // Ripple on release
-        mouse.down = false;
+    window.addEventListener('touchmove', e => {
+        const touch = e.touches && e.touches[0];
+        if (!touch) return;
+        applyPointerMove(touch.clientX, touch.clientY);
+    }, { passive: true });
+    window.addEventListener('touchend', e => {
+        const touch = (e.changedTouches && e.changedTouches[0]) || null;
+        const endX = touch ? touch.clientX : mouse.x;
+        const endY = touch ? touch.clientY : mouse.y;
+        applyPointerUp(endX, endY, { shock: true });
     });
 
     // =========================================
