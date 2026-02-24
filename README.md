@@ -1,6 +1,6 @@
 # Campaign Task Force Tools
 
-A suite of lightweight, offline-first HTML tools for 5th Edition tabletop roleplaying games. Zero dependencies—just open the files in your browser.
+A suite of lightweight, offline-first HTML tools for 5th Edition tabletop roleplaying games. Online enhancements are available.
 
 Campaign management apps (Tools Hub, Campaign Hub, Case Board, Player Dashboard, NPC Roster, Locations DB, Requisition Vault, Mission Timeline, Encounter Recipes, HQ Foundry) share a unified Local Storage object (`RTF_STORE`). Import/export once from the Tools Hub and those pages stay in lockstep. Lead Queue and both clock pages use dedicated local-storage keys; Lead Queue and Prep/Procedure still integrate with case context and timeline/board links.
 
@@ -55,6 +55,7 @@ This project is unofficial Fan Content permitted under the Fan Content Policy. N
 
 **Third-Party Libraries:**
 * [pdf.js](https://github.com/mozilla/pdf.js) - [Apache-2.0 License](https://www.apache.org/licenses/LICENSE-2.0)
+
 
 
 
