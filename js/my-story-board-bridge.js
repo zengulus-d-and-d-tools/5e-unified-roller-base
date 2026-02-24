@@ -64,6 +64,10 @@
 
     function applyMyStoryChrome() {
         document.title = 'My Story Board';
+        document.documentElement.classList.add('board-embedded', 'board-embedded-my-story');
+        if (document.body) {
+            document.body.classList.add('board-embedded', 'board-embedded-my-story');
+        }
         const heroEyebrow = document.querySelector('.board-hero .hero-eyebrow');
         const heroTitle = document.querySelector('.board-hero h1');
         const heroSubtitle = document.querySelector('.board-hero .hero-subtitle');

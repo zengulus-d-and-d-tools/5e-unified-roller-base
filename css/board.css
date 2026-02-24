@@ -66,6 +66,10 @@ body:active {
     margin-bottom: 0;
 }
 
+body.board-embedded-my-story .board-hero {
+    display: none;
+}
+
 .board-hero .hero-actions,
 .board-hero .hero-action-bar,
 .board-hero .hero-btn,
