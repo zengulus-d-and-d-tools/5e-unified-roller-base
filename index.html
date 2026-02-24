@@ -10,7 +10,7 @@
 
     <link rel="stylesheet" href="css/theme.css?v=20260222e">
     <link rel="stylesheet" href="css/player-nav.css?v=20260223a">
-    <link rel="stylesheet" href="css/index.css?v=20260224f">
+    <link rel="stylesheet" href="css/index.css?v=20260224g">
 
 </head>
 
@@ -91,6 +91,9 @@
                                 </select></div>
                         </div>
                         <div class="section-title mt-2">Vitals & Health</div>
+                        <div class="vitals-action-row">
+                            <button class="btn-init-roll-main" data-onclick="rollInitiative()">Roll Initiative</button>
+                        </div>
                         <div class="hp-visual-bar">
                             <div class="hp-fill-curr" id="barCurr"></div>
                             <div class="hp-fill-temp" id="barTemp"></div>
@@ -191,10 +194,8 @@
                         </div>
                         <div class="accordion-content" id="body-combat">
                             <div class="combat-row">
-                                <div class="field-group"><label>Initiative</label>
-                                    <div class="ix-inl-025"><input type="text" id="initBonus"
-                                            placeholder="+0" data-oninput="save()"><button class="btn-sm-roll ix-inl-026" data-onclick="rollInitiative()">🎲</button></div>
-                                </div>
+                                <div class="field-group"><label>Initiative Bonus</label><input type="text" id="initBonus"
+                                        placeholder="+0" data-oninput="save()"></div>
                                 <div class="field-group"><label>Speed (ft)</label><input type="text" id="speedVal"
                                         placeholder="30" data-oninput="save()"></div>
                                 <div class="field-group"><label>Spell DC</label>

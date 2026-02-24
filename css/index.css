@@ -1057,6 +1057,33 @@ textarea:focus {
     transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
+.vitals-action-row {
+    margin-bottom: 10px;
+}
+
+.btn-init-roll-main {
+    width: 100%;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-secondary) 100%);
+    color: var(--accent-contrast);
+    border: 1px solid color-mix(in srgb, var(--accent-tertiary) 50%, var(--btn-border) 50%);
+    border-radius: 8px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 22px color-mix(in srgb, var(--accent-glow) 55%, rgba(0, 0, 0, 0.35) 45%);
+    transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-init-roll-main:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--accent-glow) 62%, rgba(0, 0, 0, 0.28) 38%);
+}
+
+.btn-init-roll-main:active {
+    transform: translateY(0);
+}
+
 .ac-wrapper {
     background: #252525;
     padding: 10px;

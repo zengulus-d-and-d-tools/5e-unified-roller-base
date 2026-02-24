@@ -48,10 +48,9 @@
                         <input type="text" id="addName" placeholder="Name">
                         <input type="number" id="addInit" placeholder="Total Init" class="gm-input-bold">
                     </div>
-                    <div class="row">
-                        <input type="number" id="addDex" placeholder="Dex Score" class="gm-input-w80"
-                            title="Dex Score (Tie Breaker)">
-                        <input type="number" id="addHP" placeholder="HP" class="gm-input-w80">
+                    <div class="gm-grid-add-single">
+                        <input type="number" id="addDex" placeholder="Dex Score" title="Dex Score (Tie Breaker)">
+                        <input type="number" id="addHP" placeholder="HP">
                         <button class="btn-success gm-grow" data-onclick="addSingle()">Add</button>
                     </div>
                     <div class="gm-helper-note">*Init is final roll. Dex is score (10-20) for
@@ -67,7 +66,7 @@
                             <input type="text" id="mobName" placeholder="Base Name (e.g. Goblin)">
                             <input type="number" id="mobCount" placeholder="Count" value="1">
                         </div>
-                        <div class="row">
+                        <div class="gm-grid-3">
                             <input type="number" id="mobInitMod" placeholder="Init Mod (+2)">
                             <input type="number" id="mobDexScore" placeholder="Dex Score (14)">
                             <input type="number" id="mobHP" placeholder="HP (7)">
