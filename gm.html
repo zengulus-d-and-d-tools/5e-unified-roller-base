@@ -40,63 +40,68 @@
     </div>
 
     <div id="tab-tracker" class="container active">
-
-        <div class="card gm-card-top-green">
-            <div class="section-header">Add Single Combatant</div>
-            <div class="grid-2">
-                <input type="text" id="addName" placeholder="Name">
-                <input type="number" id="addInit" placeholder="Total Init" class="gm-input-bold">
-            </div>
-            <div class="row">
-                <input type="number" id="addDex" placeholder="Dex Score" class="gm-input-w80"
-                    title="Dex Score (Tie Breaker)">
-                <input type="number" id="addHP" placeholder="HP" class="gm-input-w80">
-                <button class="btn-success gm-grow" data-onclick="addSingle()">Add</button>
-            </div>
-            <div class="gm-helper-note">*Init is final roll. Dex is score (10-20) for
-                tie-break.</div>
-        </div>
-
-        <div class="card gm-card-top-accent">
-            <div class="section-header gm-clickable" data-onclick="toggleMobBody()">
-                <span>Mob Generator</span> <span>▼</span>
-            </div>
-            <div id="mobBody" class="gm-mob-body">
-                <div class="grid-2">
-                    <input type="text" id="mobName" placeholder="Base Name (e.g. Goblin)">
-                    <input type="number" id="mobCount" placeholder="Count" value="1">
+        <div class="tracker-layout">
+            <div class="tracker-controls-pane">
+                <div class="card gm-card-top-green">
+                    <div class="section-header">Add Single Combatant</div>
+                    <div class="grid-2">
+                        <input type="text" id="addName" placeholder="Name">
+                        <input type="number" id="addInit" placeholder="Total Init" class="gm-input-bold">
+                    </div>
+                    <div class="row">
+                        <input type="number" id="addDex" placeholder="Dex Score" class="gm-input-w80"
+                            title="Dex Score (Tie Breaker)">
+                        <input type="number" id="addHP" placeholder="HP" class="gm-input-w80">
+                        <button class="btn-success gm-grow" data-onclick="addSingle()">Add</button>
+                    </div>
+                    <div class="gm-helper-note">*Init is final roll. Dex is score (10-20) for
+                        tie-break.</div>
                 </div>
-                <div class="row">
-                    <input type="number" id="mobInitMod" placeholder="Init Mod (+2)">
-                    <input type="number" id="mobDexScore" placeholder="Dex Score (14)">
-                    <input type="number" id="mobHP" placeholder="HP (7)">
+
+                <div class="card gm-card-top-accent">
+                    <div class="section-header gm-clickable" data-onclick="toggleMobBody()">
+                        <span>Mob Generator</span> <span>▼</span>
+                    </div>
+                    <div id="mobBody" class="gm-mob-body">
+                        <div class="grid-2">
+                            <input type="text" id="mobName" placeholder="Base Name (e.g. Goblin)">
+                            <input type="number" id="mobCount" placeholder="Count" value="1">
+                        </div>
+                        <div class="row">
+                            <input type="number" id="mobInitMod" placeholder="Init Mod (+2)">
+                            <input type="number" id="mobDexScore" placeholder="Dex Score (14)">
+                            <input type="number" id="mobHP" placeholder="HP (7)">
+                        </div>
+                        <button class="btn-main" data-onclick="genMobs()">Roll & Generate</button>
+                    </div>
                 </div>
-                <button class="btn-main" data-onclick="genMobs()">Roll & Generate</button>
+
+                <div class="gm-clear-wrap">
+                    <button class="btn-danger btn-sm" data-onclick="clearCombat()">⚠ Clear Encounter</button>
+                    <button class="btn-sec btn-sm" id="undoBtn" data-onclick="undoLast()" disabled>↶ Undo</button>
+                </div>
+
+                <div class="card gm-card-flush gm-combat-log-card">
+                    <div class="gm-combat-log-header">
+                        <div class="section-header gm-section-conditions">Combat Log</div>
+                        <button class="btn-sec btn-sm" data-onclick="clearCombatLog()">Clear Log</button>
+                    </div>
+                    <div id="combatLogList" class="gm-combat-log"></div>
+                </div>
             </div>
-        </div>
 
-        <div class="gm-clear-wrap">
-            <button class="btn-danger btn-sm" data-onclick="clearCombat()">⚠ Clear Encounter</button>
-            <button class="btn-sec btn-sm" id="undoBtn" data-onclick="undoLast()" disabled>↶ Undo</button>
-        </div>
+            <div class="tracker-board-pane">
+                <div id="combatList" class="combat-list"></div>
 
-        <div id="combatList" class="combat-list"></div>
-
-        <div class="card gm-card-flush gm-combat-log-card">
-            <div class="gm-combat-log-header">
-                <div class="section-header gm-section-conditions">Combat Log</div>
-                <button class="btn-sec btn-sm" data-onclick="clearCombatLog()">Clear Log</button>
+                <div class="tracker-footer">
+                    <div class="round-counter">
+                        <span>Round</span>
+                        <span class="round-val" id="roundVal">1</span>
+                    </div>
+                    <button class="btn-sec gm-btn-w50" data-onclick="prevTurn()">◀</button>
+                    <button class="btn-main gm-grow" data-onclick="nextTurn()">Next Turn ▶</button>
+                </div>
             </div>
-            <div id="combatLogList" class="gm-combat-log"></div>
-        </div>
-
-        <div class="tracker-footer">
-            <div class="round-counter">
-                <span>Round</span>
-                <span class="round-val" id="roundVal">1</span>
-            </div>
-            <button class="btn-sec gm-btn-w50" data-onclick="prevTurn()">◀</button>
-            <button class="btn-main gm-grow" data-onclick="nextTurn()">Next Turn ▶</button>
         </div>
     </div>
 

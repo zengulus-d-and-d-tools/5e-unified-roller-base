@@ -50,6 +50,7 @@ const STORAGE_KEYS = {
 }
 
     ;
+const TRACKER_INITIATIVE_QUEUE_KEY = 'rtf_tracker_initiative_queue';
 
 const SRD_SPELLS_JSON_PATH = 'js/srd-5.2-spells.json';
 const srdSpellLookupState = {
@@ -2761,6 +2762,27 @@ function rollDamage(idx) {
     sendToDiscord(`${atk.name || 'Weapon'} Damage`, `Dice: ${formulaText}`, `**${total}**`, 'dmg', atk.desc);
 }
 
+function queueInitiativeForTracker(payload) {
+    const packet = payload && typeof payload === 'object' ? payload : null;
+    if (!packet) return;
+    let queue = [];
+    try {
+        const raw = localStorage.getItem(TRACKER_INITIATIVE_QUEUE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) queue = parsed;
+    } catch (err) {
+        queue = [];
+    }
+
+    queue.push(packet);
+    if (queue.length > 200) queue = queue.slice(queue.length - 200);
+    try {
+        localStorage.setItem(TRACKER_INITIATIVE_QUEUE_KEY, JSON.stringify(queue));
+    } catch (err) {
+        console.error('Could not queue initiative packet for tracker sync.', err);
+    }
+}
+
 function rollInitiative() {
     const initStr = document.getElementById('initBonus').value.trim();
     const miscStr = document.getElementById('globalMisc').value.trim();
@@ -2795,6 +2817,36 @@ function rollInitiative() {
     showLog(`Init`, finalScore);
 
     sendToDiscord("Initiative", `Dice: ${formulaText}`, `**${finalScore}**`, 'check');
+    const safeName = sanitizeString(data && data.meta ? data.meta.name : '', '', 160).trim()
+        || sanitizeString(data && data.meta ? data.meta.player : '', '', 160).trim()
+        || 'Unnamed PC';
+    const sourceId = sanitizeString(`sheet_${allData && allData.activeId ? allData.activeId : 'unknown'}`, 'sheet_unknown', 80).replace(/[^A-Za-z0-9_-]/g, '') || 'sheet_unknown';
+    const hpCurrent = Number.isFinite(Number(data && data.vitals ? data.vitals.curr : null))
+        ? Math.max(0, Math.round(Number(data.vitals.curr)))
+        : null;
+    const hpMax = Number.isFinite(Number(data && data.vitals ? data.vitals.max : null))
+        ? Math.max(0, Math.round(Number(data.vitals.max)))
+        : hpCurrent;
+    const dexScore = Number.isFinite(Number(data && data.stats && data.stats.dex ? data.stats.dex.val : null))
+        ? Math.max(1, Math.min(30, Math.round(Number(data.stats.dex.val))))
+        : 10;
+    const acDisplayEl = document.getElementById('acTotalDisplay');
+    const acParsed = parseInt(acDisplayEl ? String(acDisplayEl.textContent || '').trim() : '', 10);
+    const acValue = Number.isFinite(acParsed) ? Math.max(0, Math.min(99, acParsed)) : null;
+    queueInitiativeForTracker({
+        rollId: `init_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        source: 'sheet',
+        sourceId,
+        name: safeName,
+        total: Math.round(sanitizeNumber(total, 0, -999, 999)),
+        tie: dexScore,
+        ac: acValue,
+        hp: hpCurrent,
+        maxHp: hpMax,
+        detail: sanitizeString(formulaText, '', 240),
+        finalScore: sanitizeString(finalScore, '', 24),
+        ts: Date.now()
+    });
     if (consumedInsp) consumeInspiration();
 }
 

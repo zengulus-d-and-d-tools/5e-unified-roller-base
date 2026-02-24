@@ -1,6 +1,7 @@
 # Session Tracker (`gm.html`)
 
 GM control deck for combat, ad-hoc rolling, and loot/reference pulls. Data lives in its own Local Storage key (`gmDashboardData`), so exports/imports here only affect the GM deck (it doesn’t hook into `RTF_STORE`).
+The Tracker tab is intentionally optimized for widescreen/tabletop displays rather than mobile layouts.
 
 ## Tabs & Panels
 - **Tracker Tab** – Add single combatants with init/dex/HP, roll whole mobs with auto-numbering, and maintain an ordered list of actors. Track per-entity conditions (with round durations), reaction/concentration/legendary state, and use Undo + Combat Log to recover from mistakes.
@@ -9,6 +10,8 @@ GM control deck for combat, ad-hoc rolling, and loot/reference pulls. Data lives
 
 ## Utilities
 - **Discord Integration** – Provide a webhook URL, enable Active, and optionally toggle **Tracker Turn Pings** so `Next Turn` posts a simple `{EntityName}'s Turn!` message to Discord. Keep spoiler mode on for hidden roller output.
+- **Condition Expiry Ping** – When a timed condition drops to 0 on turn advance, the tracker logs and pings Discord with `{EntityName}'s {ConditionName} condition has expired!` (uses the same Tracker Turn Ping webhook/toggle path).
+- **Sheet Initiative Sync** – Initiative rolled from the Character Sheet is queued into the Tracker automatically (same browser/profile); matching sheet-linked combatants update in place (including AC) and each roll is written to Combat Log.
 - **Data Portability** – Use the built-in export/import to move the GM deck; the Tools Hub export handles the rest of the `RTF_STORE` campaign data.
 - **Accent & BG Controls** – The hero header exposes the 🎨 picker and 🌌 cycler so even the DM console matches the current vibe.
 
